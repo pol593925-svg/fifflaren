@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -7,37 +6,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- ОКНО АВТОРИЗАЦИИ (МОДАЛКА) -->
-    <div id="login-modal" class="login-container" style="display: none;">
-        <div class="login-box">
-            <h2>Вход в Support Hub</h2>
-            <p>Выберите свой ник из списка:</p>
-            <select id="username-select">
-                <option value="" disabled selected>-- Выберите ник --</option>
-                <optgroup label="🟢 Зеленая команда">
-                    <option value="Deftones">Deftones</option>
-                    <option value="Knyaz">Knyaz</option>
-                    <option value="Barsychara">Barsychara</option>
-                    <option value="Orix">Orix</option>
-                    <option value="obia">obia</option>
-                    <option value="Ксерокс">Ксерокс</option>
-                    <option value="Lizard">Lizard</option>
-                    <option value="Laya">Laya</option>
-                    <option value="Qweblame">Qweblame</option>
-                </optgroup>
-                <optgroup label="🔴 Красная команда">
-                    <option value="Antresol">Antresol</option>
-                    <option value="Diora">Diora</option>
-                    <option value="Saymono">Saymono</option>
-                    <option value="Dimitry">Dimitry</option>
-                    <option value="Yusupov">Yusupov</option>
-                    <option value="Bacopa">Bacopa</option>
-                </optgroup>
-            </select>
-            <button id="save-user-btn">Войти в систему</button>
-        </div>
-    </div>
-    <!-- КОНЕЦ ОКНА АВТОРИЗАЦИИ -->
+  <!-- БЛОК УВЕДОМЛЕНИЯ ОБ ОБНОВЛЕНИИ -->
+  <div id="updateNotification" style="display: none; background: #1e1e2f; color: #fff; padding: 12px 20px; text-align: center; border-bottom: 2px solid #28a745; display: flex; justify-content: center; align-items: center; gap: 15px; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <span style="font-size: 14px;">✨ Доступна новая версия программы!</span>
+    <button id="downloadUpdateBtn" style="background: #28a745; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">Скачать и обновить</button>
+  </div>
 
   <!-- Шапка / Навигация -->
   <div class="tabs">
@@ -50,7 +23,7 @@
     <button class="tab-btn" data-tab="notes">📓 Заметки</button>
   </div>
 
-  <!-- ВКЛАДКА: Штаб -->
+  <!-- 0. ВКЛАДКА: Штаб -->
   <div id="tab-hq" class="content">
     <div class="card card-hq-box">
         <h3>Штаб команды</h3>
@@ -226,166 +199,4 @@
 
   <script src="renderer.js"></script>
 </body>
-=======
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <title>Support Hub</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <!-- Шапка / Навигация -->
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="support">💬 Поддержка</button>
-    <button class="tab-btn" data-tab="shift">⏱️ Смена</button>
-    <button class="tab-btn" data-tab="cols">📞 Колы</button>
-    <button class="tab-btn" data-tab="leave">📝 Отпроситься</button>
-    <button class="tab-btn" data-tab="crypto">🔍 Крипто</button>
-    <button class="tab-btn" data-tab="notes">📓 Заметки</button>
-  </div>
-
-  <!-- 1. ВКЛАДКА: Поддержка -->
-  <div id="tab-support" class="content active">
-    <div class="card worker-box">
-      <input type="text" id="globalWorkerNick" placeholder="👤 Ваш ник (для отчетов в таблицу)...">
-    </div>
-    <div class="card compact-card">
-      <h3>Сообщить / Отпись</h3>
-      <div class="row-group">
-        <select id="bugType">
-          <option>Ошибка в админке</option>
-          <option>Проблема с логом</option>
-          <option>Трюфель</option>
-          <option>Узнать на передачу</option>
-          <option>Фиат Трюфель</option>
-        </select>
-        <button type="button" id="templateBtn" class="template-btn">📋 Шаблон</button>
-      </div>
-      <textarea id="bugDesc" rows="2" placeholder="Описание или ссылка на лог..."></textarea>
-      <button id="sendBugBtn" class="submit-btn green">Отправить в таблицу</button>
-      <p id="statusMsg" class="msg"></p>
-    </div>
-    <!-- Чат Tawk.to -->
-    <div class="card chat-card">
-      <iframe src="https://tawk.to/chat/6aaac31a0be5c3344706f5f0/1k2lgk7sp?layout=modern"></iframe>
-    </div>
-  </div>
-
-  <!-- 2. ВКЛАДКА: Смена -->
-  <div id="tab-shift" class="content">
-    <div class="card text-center">
-      <h3>Таймер смены</h3>
-      <input type="text" id="userNick" placeholder="Ваш никнейм...">
-      <div id="timerDisplay" class="timer">00:00:00</div>
-      <button id="startBtn" class="submit-btn green">▶️ Начать смену</button>
-      <button id="stopBtn" class="submit-btn red" style="display:none;">⏹️ Завершить смену</button>
-    </div>
-    <div class="card" id="counterBox" style="opacity: 0.5; pointer-events: none;">
-      <h3>Счетчик логов</h3>
-      <div id="countDisplay" class="counter">0</div>
-      <input type="text" id="logLinkInput" placeholder="Ссылка на лог...">
-      <input type="text" id="logCommentInput" placeholder="Характеристика по логу...">
-      <button id="addOneBtn" class="submit-btn blue">➕ +1 Лог (в таблицу)</button>
-      <div style="display:flex; gap:5px; margin-top:5px;">
-        <button id="addFiveBtn" class="submit-btn gray">+5</button>
-        <button id="subOneBtn" class="submit-btn gray">-1</button>
-      </div>
-    </div>
-    <!-- Блок: Овертаймы -->
-    <div class="card">
-      <h3>⏰ Овертаймы</h3>
-      <div style="display:flex; gap:10px;">
-        <div style="flex:1;"><label>С:</label><input type="time" id="overtimeFrom"></div>
-        <div style="flex:1;"><label>До:</label><input type="time" id="overtimeTo"></div>
-      </div>
-      <button id="sendOvertimeBtn" class="submit-btn blue">Добавить овертайм</button>
-      <p id="overtimeStatus" class="msg"></p>
-    </div>
-    <div class="card">
-      <button id="resetShiftBtn" class="submit-btn yellow">🔄 Новая смена (Сброс)</button>
-      <button id="copyBtn" class="submit-btn gray" style="display:none; margin-top:5px;">📋 Скопировать отчёт</button>
-      <div id="reportBox" class="report-box" style="display:none;"></div>
-    </div>
-  </div>
-
-  <!-- 3. ВКЛАДКА: Колы -->
-  <div id="tab-cols" class="content">
-    <div class="card">
-      <h3>📞 Отправка колла</h3>
-      <label>Тип колла:</label>
-      <select id="callTypeSelect">
-        <option value="Колл на биржу">Колл на биржу</option>
-        <option value="Колл на почту">Колл на почту</option>
-      </select>
-      <label>Название (Биржа или Почта):</label>
-      <input type="text" id="callServiceName" placeholder="Например: Binance или Gmail...">
-      <label>Ссылка:</label>
-      <input type="text" id="callLinkInput" placeholder="https://...">
-      <label>Заметка:</label>
-      <textarea id="callNoteInput" rows="2" placeholder="Комментарий или заметка..."></textarea>
-      <button id="sendCallBtn" class="submit-btn green">Отправить колл в таблицу</button>
-      <p id="callStatus" class="msg"></p>
-    </div>
-  </div>
-
-  <!-- 4. ВКЛАДКА: Отпроситься -->
-  <div id="tab-leave" class="content">
-    <div class="card">
-      <h3>Запрос на отпроситься</h3>
-      <label>Причина:</label>
-      <select id="leaveReason">
-        <option>По семейным обстоятельствам</option>
-        <option>По здоровью (врач/больница)</option>
-        <option>Личные дела</option>
-        <option>Учёба/экзамен</option>
-        <option>Другое</option>
-      </select>
-      <label>Комментарий:</label>
-      <textarea id="leaveComment" rows="2" placeholder="Детали..."></textarea>
-      <label>Дата:</label>
-      <input type="date" id="leaveDate">
-      <div style="display:flex; gap:10px;">
-        <div style="flex:1;"><label>С:</label><input type="time" id="leaveTimeFrom"></div>
-        <div style="flex:1;"><label>До:</label><input type="time" id="leaveTimeTo"></div>
-      </div>
-      <button id="sendLeaveBtn" class="submit-btn red">Отправить запрос в таблицу</button>
-      <p id="leaveStatus" class="msg"></p>
-    </div>
-  </div>
-
-  <!-- 5. ВКЛАДКА: Крипто Эксплорер -->
-  <div id="tab-crypto" class="content">
-    <div class="card">
-      <h3>🔍 Крипто Эксплорер</h3>
-      <label>Сеть / Инструмент:</label>
-      <select id="network">
-        <option value="arkham">🕵️ Arkham Intelligence</option>
-        <option value="pi">🥧 PiScan (Pi Network)</option>
-        <option value="bsc">BNB Chain (BscScan)</option>
-        <option value="tron">TRON (Tronscan)</option>
-        <option value="eth">Ethereum (Etherscan)</option>
-        <option value="btc">Bitcoin (Blockchair)</option>
-        <option value="sol">Solana (Solscan)</option>
-      </select>
-      <label>Хэш (TXID) или адрес:</label>
-      <input type="text" id="cryptoQuery" placeholder="Вставьте хэш или адрес...">
-      <button id="openExplorerBtn" class="submit-btn blue">Открыть в сервисе ↗️</button>
-    </div>
-  </div>
-
-  <!-- 6. ВКЛАДКА: Заметки -->
-  <div id="tab-notes" class="content">
-    <div class="card">
-      <h3>Мои личные заметки</h3>
-      <p class="note-desc">Сохраняются локально в приложении</p>
-      <textarea id="userNotes" rows="12" placeholder="Кошельки, рабочие ссылки..."></textarea>
-      <button id="saveNotesBtn" class="submit-btn green">Сохранить заметки</button>
-      <p id="notesStatus" class="msg"></p>
-    </div>
-  </div>
-
-  <script src="renderer.js"></script>
-</body>
->>>>>>> a1c8f5c67edb35ab8b05b7ee48f7bb5a27f09cad
 </html>

@@ -1,6 +1,7 @@
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby1q1rhdewBwtjCGPQ9g7g_HaruhPYxovLQRbAuXQyV8GIyNY5suZpxXn_hJSrRoLbt/exec";
 const fs = require('fs');
 const path = require('path');
+const { ipcRenderer } = require('electron'); // Добавлено для связи с main.js
 const notesFilePath = path.join(process.cwd(), 'notes.txt');
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -27,10 +28,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // 2. Загрузка сохраненных данных
-  const savedNick = localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user');
-
+  // 2. Единая загрузка и инициализация сохраненного ника
+  const savedNick = localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user') || "";
+  
   if (savedNick) {
+    // Синхронизируем оба ключа на всякий случай
+    localStorage.setItem('global_worker_nick', savedNick);
+    localStorage.setItem('support_hub_user', savedNick);
+
     const globalNickInput = document.getElementById("globalWorkerNick");
     if (globalNickInput) globalNickInput.value = savedNick;
 
@@ -55,7 +60,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 3. Привязка кнопок к функциям
   const globalNickEl = document.getElementById("globalWorkerNick");
-  if (globalNickEl) globalNickEl.addEventListener("input", saveGlobalNick);
+  if (globalNickEl) {
+    globalNickEl.addEventListener("input", saveGlobalNick);
+    globalNickEl.addEventListener("change", saveGlobalNick);
+  }
+
+  const shiftNickEl = document.getElementById("userNick");
+  if (shiftNickEl) {
+    shiftNickEl.addEventListener("input", () => {
+      const val = shiftNickEl.value.trim();
+      if (val) {
+        localStorage.setItem('global_worker_nick', val);
+        localStorage.setItem('support_hub_user', val);
+        if (globalNickEl && globalNickEl.value !== val) globalNickEl.value = val;
+      }
+    });
+  }
 
   document.getElementById("templateBtn").addEventListener("click", insertTruffleTemplate);
   document.getElementById("sendBugBtn").addEventListener("click", sendBugReport);
@@ -88,7 +108,7 @@ function updateOnlineStatus(currentNick) {
 }
 
 function initRealtimeStatus() {
-  const currentNick = localStorage.getItem('support_hub_user') || localStorage.getItem('global_worker_nick');
+  const currentNick = localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user');
   if (!currentNick) return;
 
   fetch(WEB_APP_URL, {
@@ -123,12 +143,17 @@ function updateOnlineUI(onlineNicks) {
 }
 
 function saveGlobalNick() {
-  const nick = document.getElementById("globalWorkerNick").value.trim();
+  const globalNickInput = document.getElementById("globalWorkerNick");
+  if (!globalNickInput) return;
+  const nick = globalNickInput.value.trim();
+  
   localStorage.setItem('global_worker_nick', nick);
   localStorage.setItem('support_hub_user', nick);
   
   const shiftNick = document.getElementById("userNick");
-  if (shiftNick && !shiftNick.disabled) shiftNick.value = nick;
+  if (shiftNick && !shiftNick.disabled) {
+    shiftNick.value = nick;
+  }
   
   updateOnlineStatus(nick);
   initRealtimeStatus();
@@ -164,7 +189,7 @@ function insertTruffleTemplate() {
 }
 
 function sendBugReport() {
-  const nick = document.getElementById("globalWorkerNick").value.trim() || localStorage.getItem('support_hub_user') || "Аноним";
+  const nick = document.getElementById("globalWorkerNick").value.trim() || localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user') || "Аноним";
   const type = document.getElementById("bugType").value;
   const desc = document.getElementById("bugDesc").value.trim();
   if (!desc) { alert("Заполните описание!"); return; }
@@ -199,7 +224,7 @@ function calculateDuration(from, to) {
 }
 
 function sendOvertime() {
-  const nick = document.getElementById("globalWorkerNick").value.trim() || document.getElementById("userNick").value.trim() || localStorage.getItem('support_hub_user') || "Сотрудник";
+  const nick = document.getElementById("globalWorkerNick").value.trim() || document.getElementById("userNick").value.trim() || localStorage.getItem('global_worker_nick') || "Сотрудник";
   const fromTime = document.getElementById("overtimeFrom").value;
   const toTime = document.getElementById("overtimeTo").value;
   
@@ -226,7 +251,7 @@ function sendOvertime() {
 }
 
 function sendCallEntry() {
-  const nick = document.getElementById("globalWorkerNick").value.trim() || document.getElementById("userNick").value.trim() || localStorage.getItem('support_hub_user') || "Сотрудник";
+  const nick = document.getElementById("globalWorkerNick").value.trim() || document.getElementById("userNick").value.trim() || localStorage.getItem('global_worker_nick') || "Сотрудник";
   const callType = document.getElementById("callTypeSelect").value;
   const serviceName = document.getElementById("callServiceName").value.trim();
   const callLink = document.getElementById("callLinkInput").value.trim();
@@ -255,7 +280,7 @@ function sendCallEntry() {
 }
 
 function sendLeave() {
-  const nick = document.getElementById("globalWorkerNick").value.trim() || localStorage.getItem('support_hub_user') || "Аноним";
+  const nick = document.getElementById("globalWorkerNick").value.trim() || localStorage.getItem('global_worker_nick') || "Аноним";
   const reason = document.getElementById("leaveReason").value;
   const comment = document.getElementById("leaveComment").value.trim();
   const date = document.getElementById("leaveDate").value;
@@ -304,8 +329,21 @@ let timerInterval = null, startTimeMs = null, startTimeStr = "", count = 0, isWo
 
 function toggleShift() {
   const nickEl = document.getElementById("userNick");
-  const nick = nickEl ? nickEl.value.trim() : (localStorage.getItem('support_hub_user') || "");
-  if (!nick) { alert("Укажите никнейм!"); return; }
+  const globalNickEl = document.getElementById("globalWorkerNick");
+  
+  const nick = (nickEl && nickEl.value.trim()) || (globalNickEl && globalNickEl.value.trim()) || localStorage.getItem('global_worker_nick') || "";
+  
+  if (!nick) { 
+    alert("Укажите никнейм!"); 
+    if (globalNickEl) globalNickEl.focus();
+    return; 
+  }
+
+  // Сохраняем актуальный ник повсюду перед стартом
+  localStorage.setItem('global_worker_nick', nick);
+  localStorage.setItem('support_hub_user', nick);
+  if (globalNickEl) globalNickEl.value = nick;
+  if (nickEl) nickEl.value = nick;
 
   if (!isWorking) {
     isWorking = true;
@@ -342,7 +380,7 @@ function addCount(val) {
   if (count < 0) count = 0;
   document.getElementById("countDisplay").innerText = count;
 
-  const nick = document.getElementById("userNick").value.trim() || localStorage.getItem('support_hub_user');
+  const nick = document.getElementById("userNick").value.trim() || localStorage.getItem('global_worker_nick');
   const logInput = document.getElementById("logLinkInput").value.trim();
   const logComment = document.getElementById("logCommentInput").value.trim();
 
@@ -365,7 +403,7 @@ function finishShift() {
   clearInterval(timerInterval);
   isWorking = false;
 
-  const nick = document.getElementById("userNick").value.trim() || localStorage.getItem('support_hub_user');
+  const nick = document.getElementById("userNick").value.trim() || localStorage.getItem('global_worker_nick');
   const timeStr = document.getElementById("timerDisplay").innerText;
   const endTimeStr = new Date().toLocaleTimeString();
   
@@ -445,3 +483,15 @@ function loadShiftState() {
     }
   }
 }
+
+// --- УПРАВЛЕНИЕ АВТООБНОВЛЕНИЕМ ---
+ipcRenderer.on('update_downloaded', () => {
+  const updateBox = document.getElementById('updateNotification');
+  if (updateBox) {
+    updateBox.style.display = 'flex'; // Показываем блок софт-уведомления сверху
+  }
+});
+
+document.getElementById('downloadUpdateBtn')?.addEventListener('click', () => {
+  ipcRenderer.send('restart_to_update');
+});

@@ -12,7 +12,7 @@ let timerInterval = null, startTimeMs = null, startTimeStr = "", count = 0, isWo
 
 // --- СПРАВОЧНИК БИРЖ ---
 const exchangesYes = [
-  "1xBet", "3commas", "aarman.com", "account.bcx.ba", "ACY.COM", "altex.mn", "app.airtm.com", "app.btcmarkets.net", "app.simplefx.com", "arbitrageth", "ascendex.com", "astekbet.com", "ATX", "axieinfinity.com", "axiom.trade", "bc.game", "betfury.com", "betterx.io", "bikingex.com", "binance.com", "binance.info", "binance.me", "binance.th", "binance.tr", "bingx.com", "bitazza.com", "bitbank.cc", "bitcasino.io", "bitfinex.com", "bitget.com", "bitgo.com", "bitmart.com", "bitmex.com", "bitnet.ge", "bitopro", "bitpanda.com", "bitpoint", "bitqik.com", "bitrue", "bitso.com", "bitstamp.com", "bitstreetx", "bittradex", "bittworld.com", "bitunix.com", "blockchain.com", "blocktrade.com", "blofin.com", "blofin.com", "btcc.com", "buda.com", "buenbit.com/", "bull-ex.com", "bybit.com", "bydfi.com", "bytick.com", "ceres-finance.com", "cex.io", "client.bitharvest.io", "coin.z.com", "coinbase.com", "coincheck", "coindepo.com", "coinex.com", "Coinext", "coinhako", "coinhub.mn", "Coinone", "coins.ph", "coinshub.mn", "coinspot.com", "coinstash.com.au", "coinstore.com", "cointree.com", "coinw.com", "Covest.pro", "crypsity.com", "cryptal.com", "crypto.com", "csgoempire.com", "cwallet.com", "decrypto.la", "Deribit", "digifinex", "digitalsurge.com.au", "easicoin", "efsanetr.com", "ether.fi", "exchange.fastex.com", "f2pool.com", "fcxtrade.com", "fiahub.com", "finandy.com", "fiwind.io", "fiwind.io", "fiybit.com", "flipster.io", "fortunomarkets.com", "fpmarkets.com", "fusionmarkets.com", "gamdom", "gate.io", "gemini.com", "globalprime.com", "hapiapp.com", "hashkey.com", "hata.io", "hotbit.com", "htfx.com", "https://attlas.io/", "https://bitflyer.com", "https://dzhlwk.com", "https://grvt.io/exchange/strategies", "https://hexn.io", "https://kms.kinesis.money/", "https://mycoins.ge/", "https://portal.blueberrymarkets.com", "https://safetrade.com/", "https://swyftx.com/", "https://weex.exchange", "https://www.alchemy.com/", "https://www.btse.com/", "https://www.independentreserve.com/", "https://www.mountainwolf.com", "https://www.zoomex.com/", "https://xpo.ru", "htx.com", "idax.com", "ijex.net/pc/#/home", "indodax.com", "KAST.com", "kraken.com", "kryptex.com", "kucoin.com", "latoken", "lazzaglobal.com", "lbank.com", "lobstr.co", "luno.com", "max.maicoin.com", "maxifyfx.com", "mercadobitcoin", "mercadobitcoin.com.br", "meru.com", "mexc.com", "mobee.io", "MOTFX", "multibankfx.com", "mystake", "nexo.com", "NiceHash", "noones.com", "novadax.com", "okx.com", "One royal", "opensea.io", "optgobroker.com", "orangex.com", "orbixtrade.com", "osl.com", "p2pb2b.com", "paribu", "paxfull", "pdax.ph", "phemex.com", "picnic.com", "Pinetwork", "pintu.co.id", "pionex.com", "pluang.com", "polaris-io.com", "poloniex.com", "polymarket", "portal.fxgt.com/", "Primefort", "primexbt.com", "probit.com", "quickswap.exchange", "redotpay", "reku.id", "remitano.com", "salepoint.io", "solcasino.io", "solflare", "strifor.biz", "sun.win", "tapbit.com", "tokenizemalaysia.com", "TokoCrypto", "toobit.com", "trade.50x.com", "tradequo.com", "TradeSilvania", "trading.bridgemarkets.global", "trading.quantfury.com", "ttx.vip", "Valr.com", "viabtc.com", "wazirx.com", "websea.com", "webtrader.kimonsage.co", "wefi.co", "whitebit.com", "whiteforex.com", "WOOX", "www.altcointrader.co.za/", "www.hotcoin.com/", "x-meta.com", "xchengeon.io", "XT.com", "yeet.com", "youholder.com", "yubit", "zaifjp.com", "eormc.id"
+  "1xBet", "3commas", "aarman.com", "account.bcx.ba", "ACY.COM", "altex.mn", "app.airtm.com", "app.btcmarkets.net", "app.simplefx.com", "arbitrageth", "ascendex.com", "astekbet.com", "ATX", "axieinfinity.com", "axiom.trade", "bc.game", "betfury.com", "betterx.io", "bikingex.com", "binance.com", "binance.info", "binance.me", "binance.th", "binance.tr", "bingx.com", "bitazza.com", "bitbank.cc", "bitcasino.io", "bitfinex.com", "bitget.com", "bitgo.com", "bitmart.com", "bitmex.com", "bitnet.ge", "bitopro", "bitpanda.com", "bitpoint", "bitqik.com", "bitrue", "bitso.com", "bitstamp.com", "bitstreetx", "bittradex", "bittworld.com", "bitunix.com", "blockchain.com", "blocktrade.com", "blofin.com", "btcc.com", "buda.com", "buenbit.com/", "bull-ex.com", "bybit.com", "bydfi.com", "bytick.com", "ceres-finance.com", "cex.io", "client.bitharvest.io", "coin.z.com", "coinbase.com", "coincheck", "coindepo.com", "coinex.com", "Coinext", "coinhako", "coinhub.mn", "Coinone", "coins.ph", "coinshub.mn", "coinspot.com", "coinstash.com.au", "coinstore.com", "cointree.com", "coinw.com", "Covest.pro", "crypsity.com", "cryptal.com", "crypto.com", "csgoempire.com", "cwallet.com", "decrypto.la", "Deribit", "digifinex", "digitalsurge.com.au", "easicoin", "efsanetr.com", "ether.fi", "exchange.fastex.com", "f2pool.com", "fcxtrade.com", "fiahub.com", "finandy.com", "fiwind.io", "fiybit.com", "flipster.io", "fortunomarkets.com", "fpmarkets.com", "fusionmarkets.com", "gamdom", "gate.io", "gemini.com", "globalprime.com", "hapiapp.com", "hashkey.com", "hata.io", "hotbit.com", "htfx.com", "https://attlas.io/", "https://bitflyer.com", "https://dzhlwk.com", "https://grvt.io/exchange/strategies", "https://hexn.io", "https://kms.kinesis.money/", "https://mycoins.ge/", "https://portal.blueberrymarkets.com", "https://safetrade.com/", "https://swyftx.com/", "https://weex.exchange", "https://www.alchemy.com/", "https://www.btse.com/", "https://www.independentreserve.com/", "https://www.mountainwolf.com", "https://www.zoomex.com/", "https://xpo.ru", "htx.com", "idax.com", "ijex.net/pc/#/home", "indodax.com", "KAST.com", "kraken.com", "kryptex.com", "kucoin.com", "latoken", "lazzaglobal.com", "lbank.com", "lobstr.co", "luno.com", "max.maicoin.com", "maxifyfx.com", "mercadobitcoin", "mercadobitcoin.com.br", "meru.com", "mexc.com", "mobee.io", "MOTFX", "multibankfx.com", "mystake", "nexo.com", "NiceHash", "noones.com", "novadax.com", "okx.com", "One royal", "opensea.io", "optgobroker.com", "orangex.com", "orbixtrade.com", "osl.com", "p2pb2b.com", "paribu", "paxfull", "pdax.ph", "phemex.com", "picnic.com", "Pinetwork", "pintu.co.id", "pionex.com", "pluang.com", "polaris-io.com", "poloniex.com", "polymarket", "portal.fxgt.com/", "Primefort", "primexbt.com", "probit.com", "quickswap.exchange", "redotpay", "reku.id", "remitano.com", "salepoint.io", "solcasino.io", "solflare", "strifor.biz", "sun.win", "tapbit.com", "tokenizemalaysia.com", "TokoCrypto", "toobit.com", "trade.50x.com", "tradequo.com", "TradeSilvania", "trading.bridgemarkets.global", "trading.quantfury.com", "ttx.vip", "Valr.com", "viabtc.com", "wazirx.com", "websea.com", "webtrader.kimonsage.co", "wefi.co", "whitebit.com", "whiteforex.com", "WOOX", "www.altcointrader.co.za/", "www.hotcoin.com/", "x-meta.com", "xchengeon.io", "XT.com", "yeet.com", "youholder.com", "yubit", "zaifjp.com", "eormc.id"
 ];
 
 const exchangesCondition = [
@@ -154,14 +154,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
   let isRegisterMode = false;
 
-  const savedNick = localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user') || "";
-
-  if (!savedNick) {
-    if (authScreen) authScreen.style.display = "flex";
-  } else {
-    if (authScreen) authScreen.style.display = "none";
-    applyNickToApp(savedNick);
-    checkAdminAccess(savedNick);
+  // ВСЕГДА показываем экран авторизации/регистрации при запуске приложения
+  if (authScreen) {
+    authScreen.style.display = "flex";
   }
 
   if (authSwitchMode) {
@@ -194,18 +189,33 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const endpoint = isRegisterMode ? `${SERVER_API_URL}/api/register` : `${SERVER_API_URL}/api/login`;
+      
+      authErrorMsg.innerText = "Подключение к серверу (сервер может просыпаться до 30 секунд)...";
+      authSubmitBtn.disabled = true;
+
+      const makeAuthRequest = async (retries = 3) => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+            return data;
+          } catch (err) {
+            if (i === retries - 1) throw err;
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        }
+      };
 
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
+        const data = await makeAuthRequest(3);
 
-        const data = await response.json();
-
-        if (!data.success) {
-          authErrorMsg.innerText = data.message || "Ошибка авторизации!";
+        if (!data || !data.success) {
+          authErrorMsg.innerText = data?.message || "Ошибка авторизации!";
+          authSubmitBtn.disabled = false;
           return;
         }
 
@@ -218,6 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
           authSwitchMode.innerText = "Нет аккаунта? Зарегистрироваться";
           authPassword.value = "";
           authErrorMsg.innerText = "";
+          authSubmitBtn.disabled = false;
           return;
         }
 
@@ -225,15 +236,15 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem('support_hub_user', data.username);
         
         if (authScreen) authScreen.style.display = "none";
+        authSubmitBtn.disabled = false;
         applyNickToApp(data.username);
         checkAdminAccess(data.username);
+        initSocketConnection(data.username);
 
-        if (socket) {
-          socket.emit('join_chat', data.username);
-        }
       } catch (err) {
         console.error("Ошибка связи с сервером авторизации:", err);
-        authErrorMsg.innerText = "Не удалось подключиться к серверу!";
+        authErrorMsg.innerText = "Не удалось подключиться к серверу! Попробуйте еще раз.";
+        authSubmitBtn.disabled = false;
       }
     });
   }
@@ -280,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   loadShiftState();
-  initChat();
+  initChatUI();
   renderExchangeLists();
 
   const globalNickEl = document.getElementById("globalWorkerNick");
@@ -365,9 +376,161 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  setTimeout(initRealtimeStatus, 1000);
+  setupAdminModerationActions();
   setInterval(initRealtimeStatus, 15000);
 });
+
+function initSocketConnection(username) {
+  if (socket) {
+    socket.disconnect();
+  }
+
+  socket = io(SERVER_API_URL);
+
+  socket.on('connect', () => {
+    console.log("Успешное подключение к Socket.io серверу");
+    socket.emit('join_chat', username);
+  });
+
+  socket.on('chat_message', (msgData) => {
+    appendMessageToChatUI(msgData);
+  });
+
+  socket.on('admin_trigger', (data) => {
+    alert(`⚡ СИГНАЛ АДМИНА: ${data.text}`);
+    if (window.electron && window.electron.showNotification) {
+      window.electron.showNotification("Внимание от администратора", data.text);
+    }
+  });
+
+  socket.on('user_muted', (data) => {
+    if (data.username.toLowerCase() === username.toLowerCase()) {
+      alert("⚠️ Администратор выдал вам мут в чате!");
+    }
+  });
+
+  socket.on('user_banned', (data) => {
+    if (data.username.toLowerCase() === username.toLowerCase()) {
+      alert("❌ Ваш аккаунт заблокирован администратором.");
+      localStorage.clear();
+      location.reload();
+    }
+  });
+}
+
+function initChatUI() {
+  const chatInput = document.getElementById("chatInput") || document.querySelector(".chat-input input") || document.querySelector("input[placeholder*='сообщение']");
+  const chatSendBtn = document.getElementById("chatSendBtn") || document.querySelector(".chat-input button") || document.querySelector("button.chat-send");
+
+  if (!chatInput) return;
+
+  const sendMessage = () => {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    const currentNick = localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user') || "Аноним";
+
+    if (socket && socket.connected) {
+      socket.emit('chat_message', { username: currentNick, text: text });
+      chatInput.value = "";
+    } else {
+      alert("Нет соединения с сервером чата!");
+    }
+  };
+
+  if (chatSendBtn) {
+    chatSendBtn.onclick = (e) => {
+      e.preventDefault();
+      sendMessage();
+    };
+  }
+
+  chatInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+}
+
+function appendMessageToChatUI(msgData) {
+  const chatMessagesContainer = document.getElementById("chatMessages") || document.querySelector(".chat-messages") || document.querySelector(".chat-history");
+  if (!chatMessagesContainer) return;
+
+  const messageDiv = document.createElement("div");
+  messageDiv.className = "chat-msg-item";
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  messageDiv.innerHTML = `<span class="msg-time">[${timeStr}]</span> <strong>${escapeHtml(msgData.username)}:</strong> ${escapeHtml(msgData.text)}`;
+  chatMessagesContainer.appendChild(messageDiv);
+  chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+}
+
+function setupAdminModerationActions() {
+  document.addEventListener("click", async (e) => {
+    if (e.target.classList.contains("mute-btn") || e.target.closest(".mute-btn")) {
+      const btn = e.target.closest(".mute-btn") || e.target;
+      const targetUser = btn.getAttribute("data-user");
+      if (!targetUser) return;
+
+      try {
+        const res = await fetch(`${SERVER_API_URL}/api/moderate/mute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: targetUser, isMuted: true })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Пользователь ${targetUser} замучен.`);
+          if (socket) socket.emit('mute_user', { username: targetUser });
+        } else {
+          alert(data.message || "Ошибка при отправке запроса мута");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Ошибка сети при отправке запроса мута");
+      }
+    }
+
+    if (e.target.classList.contains("ban-btn") || e.target.closest(".ban-btn")) {
+      const btn = e.target.closest(".ban-btn") || e.target;
+      const targetUser = btn.getAttribute("data-user");
+      if (!targetUser) return;
+
+      try {
+        const res = await fetch(`${SERVER_API_URL}/api/moderate/ban`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: targetUser, isBanned: true })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Пользователь ${targetUser} забанен.`);
+          if (socket) socket.emit('ban_user', { username: targetUser });
+        } else {
+          alert(data.message || "Ошибка при бане пользователя");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Ошибка сети при бане");
+      }
+    }
+
+    if (e.target.classList.contains("work-trigger-btn") || e.target.closest(".work-trigger-btn")) {
+      const btn = e.target.closest(".work-trigger-btn") || e.target;
+      const targetUser = btn.getAttribute("data-user");
+      if (!targetUser) return;
+
+      if (socket) {
+        socket.emit('admin_trigger_user', { username: targetUser, text: "РАБОТАЙ СУКА" });
+        alert(`Сигнал 'РАБОТАЙ СУКА' отправлен пользователю: ${targetUser}`);
+      }
+    }
+  });
+}
+
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
 
 function checkAdminAccess(nick) {
   const adminTabBtn = document.getElementById("adminTabBtn");
@@ -442,669 +605,21 @@ function saveGlobalNick() {
   
   localStorage.setItem('global_worker_nick', nick);
   localStorage.setItem('support_hub_user', nick);
-  
-  const shiftNick = document.getElementById("userNick");
-  if (shiftNick && !shiftNick.disabled) {
-    shiftNick.value = nick;
-  }
-  
-  updateOnlineStatus(nick);
-  checkAdminAccess(nick);
-  initRealtimeStatus();
-  if (socket) {
-    socket.emit('join_chat', nick);
-  }
 }
 
-function sendDataToSheet(payload) {
-  fetch(WEB_APP_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  }).catch(err => console.error("Ошибка отправки в таблицу:", err));
-}
-
-function checkTruffles() {
-  const nick = document.getElementById("globalWorkerNick")?.value.trim() || localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user') || "";
-  const resultBox = document.getElementById("trufflesResultBox");
-
-  if (!nick) {
-    alert("Укажите ваш никнейм в поле выше!");
-    return;
-  }
-
-  if (resultBox) {
-    resultBox.style.display = "block";
-    resultBox.innerHTML = "⏳ Загрузка статистики...";
-  }
-
-  fetch(`${WEB_APP_URL}?action=getTruffles&nick=${encodeURIComponent(nick)}`)
-    .then(res => res.json())
-    .then(data => {
-      if (resultBox) {
-        if (data && data.success) {
-          resultBox.innerHTML = `✅ <b>Статистика для ${nick}:</b><br>💎 Трюфелей найдено: <b>${data.count || 0}</b>`;
-        } else {
-          resultBox.innerHTML = `ℹ️ ${data.message || "Данные не найдены или ошибка сервера."}`;
-        }
-      }
-    })
-    .catch(err => {
-      console.error("Ошибка получения статистики (GET):", err);
-      fetch(WEB_APP_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "getTruffles", nick: nick })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (resultBox) {
-          resultBox.innerHTML = `✅ Данные запрошены. Результат: ${JSON.stringify(data)}`;
-        }
-      })
-      .catch(e => {
-        if (resultBox) {
-          resultBox.innerHTML = `❌ Не удалось получить данные. Проверьте соединение.`;
-        }
-      });
-    });
-}
-
-function saveNotes() {
-  const notes = document.getElementById("userNotes").value;
-  try {
-    fs.writeFileSync(notesFilePath, notes, 'utf8');
-    const status = document.getElementById("notesStatus");
-    if (status) {
-      status.innerText = "Сохранено в файл!";
-      setTimeout(() => status.innerText = "", 2000);
-    }
-  } catch (err) {
-    alert("Ошибка сохранения: " + err.message);
-  }
-}
-
-function insertTruffleTemplate() {
-  const desc = document.getElementById("bugDesc");
-  if (!desc) return;
-  desc.value = "Search- \nID- \nSumma- \nКомментарий по логу- ";
-}
-
-function sendBugReport() {
-  const nick = document.getElementById("globalWorkerNick")?.value.trim() || localStorage.getItem('global_worker_nick') || localStorage.getItem('support_hub_user') || "Аноним";
-  const type = document.getElementById("bugType").value;
-  const desc = document.getElementById("bugDesc").value.trim();
-  if (!desc) { alert("Заполните описание!"); return; }
-
-  sendDataToSheet({
-    type: "Логи ошибок",
-    nick: nick,
-    bugType: type,
-    desc: desc
-  });
-
-  document.getElementById("bugDesc").value = "";
-  const msg = document.getElementById("statusMsg");
-  if (msg) {
-    msg.innerText = "Отчет отправлен в таблицу!";
-    setTimeout(() => msg.innerText = "", 3000);
-  }
-}
-
-function calculateDuration(from, to) {
-  const startParts = from.split(':');
-  const endParts = to.split(':');
-  const startDate = new Date(0, 0, 0, startParts[0], startParts[1]);
-  const endDate = new Date(0, 0, 0, endParts[0], endParts[1]);
-  
-  let diff = endDate - startDate;
-  if (diff < 0) diff += 24 * 60 * 60 * 1000;
-  
-  const hours = Math.floor(diff / 1000 / 60 / 60);
-  const minutes = Math.floor((diff / 1000 / 60) % 60);
-  return `${hours} ч. ${minutes > 0 ? minutes + ' мин.' : ''}`.trim();
-}
-
-function sendOvertime() {
-  const nick = document.getElementById("globalWorkerNick")?.value.trim() || document.getElementById("userNick")?.value.trim() || localStorage.getItem('global_worker_nick') || "Сотрудник";
-  const fromTime = document.getElementById("overtimeFrom").value;
-  const toTime = document.getElementById("overtimeTo").value;
-  
-  if (!fromTime || !toTime) { alert("Укажите время 'От' и 'До'!"); return; }
-  
-  const totalDuration = calculateDuration(fromTime, toTime);
-  
-  sendDataToSheet({
-    type: "Овертаймы",
-    nick: nick,
-    fromTime: fromTime,
-    toTime: toTime,
-    totalDuration: totalDuration
-  });
-  
-  document.getElementById("overtimeFrom").value = "";
-  document.getElementById("overtimeTo").value = "";
-  
-  const status = document.getElementById("overtimeStatus");
-  if (status) {
-    status.innerText = "✅ Овертайм добавлен!";
-    setTimeout(() => status.innerText = "", 3000);
-  }
-}
-
-function sendCallEntry() {
-  const nick = document.getElementById("globalWorkerNick")?.value.trim() || document.getElementById("userNick")?.value.trim() || localStorage.getItem('global_worker_nick') || "Сотрудник";
-  const callType = document.getElementById("callTypeSelect").value;
-  const serviceName = document.getElementById("callServiceName").value.trim();
-  const callLink = document.getElementById("callLinkInput").value.trim();
-  const callNote = document.getElementById("callNoteInput").value.trim();
-  
-  if (!serviceName || !callLink) { alert("Заполните название и ссылку!"); return; }
-  
-  sendDataToSheet({
-    type: "Колы",
-    nick: nick,
-    callType: callType,
-    serviceName: serviceName,
-    callLink: callLink,
-    callNote: callNote
-  });
-  
-  document.getElementById("callServiceName").value = "";
-  document.getElementById("callLinkInput").value = "";
-  document.getElementById("callNoteInput").value = "";
-  
-  const status = document.getElementById("callStatus");
-  if (status) {
-    status.innerText = "✅ Колл отправлен в таблицу!";
-    setTimeout(() => status.innerText = "", 3000);
-  }
-}
-
-function sendLeave() {
-  const nick = document.getElementById("globalWorkerNick")?.value.trim() || localStorage.getItem('global_worker_nick') || "Аноним";
-  const reason = document.getElementById("leaveReason").value;
-  const comment = document.getElementById("leaveComment").value.trim();
-  const date = document.getElementById("leaveDate").value;
-  const from = document.getElementById("leaveTimeFrom").value;
-  const to = document.getElementById("leaveTimeTo").value;
-
-  if (!date || !from || !to) { alert("Заполните дату и время!"); return; }
-
-  const fullReason = comment ? `${reason} — ${comment}` : reason;
-
-  sendDataToSheet({
-    type: "Отпроситься",
-    nick: nick,
-    reason: fullReason,
-    leaveDate: date,
-    from: from,
-    to: to
-  });
-
-  const status = document.getElementById("leaveStatus");
-  if (status) {
-    status.innerText = "Запрос отправлен в таблицу!";
-    setTimeout(() => status.innerText = "", 3000);
-  }
-}
-
-function openExplorer() {
-  const net = document.getElementById("network").value;
-  const raw = document.getElementById("cryptoQuery").value.trim();
-  if (!raw) { alert("Введите хэш или адрес!"); return; }
-  const clean = raw.split("/").pop().split("?")[0].trim();
-  let url = "";
-
-  if (net === "arkham") url = "https://platform.arkhamintelligence.com/explorer/address/" + clean;
-  else if (net === "pi") url = "https://blockexplorer.minepi.com/mainnet/search?q=" + encodeURIComponent(clean);
-  else if (net === "bsc") url = "https://bscscan.com/search?q=" + encodeURIComponent(clean);
-  else if (net === "tron") url = "https://tronscan.org/#/search/" + encodeURIComponent(clean);
-  else if (net === "eth") url = "https://etherscan.io/search?q=" + encodeURIComponent(clean);
-  else if (net === "btc") url = "https://blockchair.com/search?q=" + encodeURIComponent(clean);
-  else if (net === "sol") url = "https://solscan.io/account/" + encodeURIComponent(clean);
-
-  window.open(url, "_blank");
-}
-
-function toggleShift() {
-  const nickEl = document.getElementById("userNick");
-  const globalNickEl = document.getElementById("globalWorkerNick");
-  
-  const nick = (nickEl && nickEl.value.trim()) || (globalNickEl && globalNickEl.value.trim()) || localStorage.getItem('global_worker_nick') || "";
-  
-  if (!nick) { 
-    alert("Укажите никнейм!"); 
-    if (globalNickEl) globalNickEl.focus();
-    return; 
-  }
-
-  localStorage.setItem('global_worker_nick', nick);
-  localStorage.setItem('support_hub_user', nick);
-  if (globalNickEl) globalNickEl.value = nick;
-  if (nickEl) nickEl.value = nick;
-
-  if (!isWorking) {
-    isWorking = true;
-    startTimeMs = new Date().getTime();
-    startTimeStr = new Date().toLocaleTimeString();
-    count = 0;
-
-    document.getElementById("startBtn").style.display = "none";
-    document.getElementById("stopBtn").style.display = "block";
-    if (nickEl) nickEl.disabled = true;
-    document.getElementById("counterBox").style.opacity = "1";
-    document.getElementById("counterBox").style.pointerEvents = "auto";
-    
-    startTimerLoop();
-    saveShiftState();
-  }
-}
-
-function startTimerLoop() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    const elapsed = Math.floor((new Date().getTime() - startTimeMs) / 1000);
-    const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
-    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
-    const s = String(elapsed % 60).padStart(2, '0');
-    const timerDisplay = document.getElementById("timerDisplay");
-    if (timerDisplay) timerDisplay.innerText = `${h}:${m}:${s}`;
-  }, 1000);
-}
-
-function addCount(val) {
-  if (!isWorking) return;
-  count += val;
-  if (count < 0) count = 0;
-  document.getElementById("countDisplay").innerText = count;
-
-  const nick = document.getElementById("userNick")?.value.trim() || localStorage.getItem('global_worker_nick');
-  const logInput = document.getElementById("logLinkInput").value.trim();
-  const logComment = document.getElementById("logCommentInput").value.trim();
-
-  if (val > 0 && logInput !== "") {
-    sendDataToSheet({
-      type: "Отчет логов",
-      nick: nick,
-      logInput: logInput,
-      logComment: logComment,
-      count: count
-    });
-    document.getElementById("logLinkInput").value = "";
-    document.getElementById("logCommentInput").value = "";
-  }
-  saveShiftState();
-}
-
-function finishShift() {
-  if (!isWorking) return;
-  clearInterval(timerInterval);
-  isWorking = false;
-
-  const nick = document.getElementById("userNick")?.value.trim() || localStorage.getItem('global_worker_nick');
-  const timeStr = document.getElementById("timerDisplay").innerText;
-  const endTimeStr = new Date().toLocaleTimeString();
-  
-  const report = `🏁 ОТЧЁТ ЗА СМЕНУ\n👤 Работник: ${nick}\n⏰ Время: ${timeStr} (${startTimeStr} - ${endTimeStr})\n📊 Логов: ${count}`;
-
-  sendDataToSheet({
-    type: "Отчёты смен",
-    nick: nick,
-    start: startTimeStr,
-    end: endTimeStr,
-    duration: timeStr,
-    count: count
-  });
-
-  document.getElementById("reportBox").innerText = report;
-  document.getElementById("reportBox").style.display = "block";
-  document.getElementById("copyBtn").style.display = "block";
-  document.getElementById("stopBtn").style.display = "none";
-
-  localStorage.removeItem('shift_state');
-}
-
-function resetShift() {
-  if (confirm("Сбросить таймер и начать новую смену?")) {
-    clearInterval(timerInterval);
-    isWorking = false;
-    count = 0;
-    document.getElementById("timerDisplay").innerText = "00:00:00";
-    document.getElementById("countDisplay").innerText = "0";
-    
-    const nickEl = document.getElementById("userNick");
-    if (nickEl) nickEl.disabled = false;
-    
-    document.getElementById("startBtn").style.display = "block";
-    document.getElementById("stopBtn").style.display = "none";
-    document.getElementById("counterBox").style.opacity = "0.5";
-    document.getElementById("counterBox").style.pointerEvents = "none";
-    document.getElementById("reportBox").style.display = "none";
-    document.getElementById("copyBtn").style.display = "none";
-    localStorage.removeItem('shift_state');
-  }
-}
-
-function copyReport() {
-  const text = document.getElementById("reportBox").innerText;
-  navigator.clipboard.writeText(text).then(() => alert("Отчёт скопирован!"));
-}
-
-function saveShiftState() {
-  const nickEl = document.getElementById("userNick");
-  const state = { isWorking, startTimeMs, startTimeStr, count, nick: nickEl ? nickEl.value : '' };
-  localStorage.setItem('shift_state', JSON.stringify(state));
-}
-
-function loadShiftState() {
-  const savedState = localStorage.getItem('shift_state');
-  if (savedState) {
-    const res = JSON.parse(savedState);
-    if (res && res.isWorking) {
-      isWorking = true;
-      startTimeMs = res.startTimeMs;
-      startTimeStr = res.startTimeStr || "00:00:00";
-      count = res.count;
-      
-      const nickEl = document.getElementById("userNick");
-      if (nickEl) {
-        nickEl.value = res.nick;
-        nickEl.disabled = true;
-      }
-      
-      document.getElementById("startBtn").style.display = "none";
-      document.getElementById("stopBtn").style.display = "block";
-      document.getElementById("counterBox").style.opacity = "1";
-      document.getElementById("counterBox").style.pointerEvents = "auto";
-      document.getElementById("countDisplay").innerText = count;
-      startTimerLoop();
-    }
-  }
-}
-
-function initChat() {
-  socket = io(SERVER_API_URL, {
-    transports: ['websocket']
-  });
-
-  socket.on('connect', () => {
-    console.log("🟢 Успешное подключение к серверу чата!");
-    const nick = document.getElementById("globalWorkerNick")?.value.trim() || localStorage.getItem('global_worker_nick') || "Аноним";
-    socket.emit('join_chat', nick);
-  });
-
-  socket.on('chat_message', (data) => {
-    appendMessageToChat(data.nick, data.text, data.time);
-  });
-
-  socket.on('chat_error', (data) => {
-    alert(data.message);
-  });
-
-  socket.on('update_chat_users', (usersArray) => {
-    updateChatOnlineUI(usersArray);
-  });
-
-  socket.on('admin_trigger', (data) => {
-    showRabotaySukaModal(data.text || "РАБОТАЙ СУКА");
-  });
-
-  const sendBtn = document.getElementById("sendChatMessageBtn");
-  const inputEl = document.getElementById("chatInput");
-
-  if (sendBtn && inputEl) {
-    sendBtn.addEventListener("click", sendChatMessage);
-    inputEl.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendChatMessage();
-    });
-  }
-}
-
-function showRabotaySukaModal(text) {
-  let modal = document.getElementById("rabotaySukaModalOverlay");
-  if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "rabotaySukaModalOverlay";
-    modal.style.cssText = `
-      position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(220, 53, 69, 0.85);
-      z-index: 999999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    `;
-    document.body.appendChild(modal);
-  }
-
-  modal.innerHTML = `
-    <div style="background: #111; padding: 40px 60px; border-radius: 16px; border: 4px solid #fff; text-align: center; box-shadow: 0 0 50px rgba(0,0,0,0.8);">
-      <h1 style="color: #ff3333; font-size: 48px; margin: 0 0 20px 0; font-weight: 900; letter-spacing: 2px;">⚠️ УВЕДОМЛЕНИЕ ⚠️</h1>
-      <p style="color: #fff; font-size: 32px; font-weight: bold; margin: 0 0 30px 0; text-transform: uppercase;">${text}</p>
-      <button id="closeSukaModalBtn" style="background: #28a745; color: #fff; border: none; padding: 12px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer;">ПОНЯЛ, РАБОТАЮ</button>
-    </div>
-  `;
-  modal.style.display = "flex";
-
-  try {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-    audio.play().catch(e => {});
-  } catch(e) {}
-
-  document.getElementById("closeSukaModalBtn").addEventListener("click", () => {
-    modal.style.display = "none";
-  });
-}
-
-function sendChatMessage() {
-  const inputEl = document.getElementById("chatInput");
-  const text = inputEl.value.trim();
-  if (!text) return;
-
-  const nick = document.getElementById("globalWorkerNick")?.value.trim() || localStorage.getItem('global_worker_nick') || "Аноним";
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  socket.emit('chat_message', { username: nick, nick, text, time });
-  inputEl.value = "";
-}
-
-function appendMessageToChat(nick, text, time) {
-  const chatContainer = document.getElementById("chatMessages");
-  if (!chatContainer) return;
-
-  const currentNick = localStorage.getItem('global_worker_nick') || "";
-  const isMyMessage = nick.toLowerCase() === currentNick.toLowerCase();
-
-  const messageDiv = document.createElement("div");
-  messageDiv.style.cssText = `
-    max-width: 75%;
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: ${isMyMessage ? '#2b5278' : '#2a2a3d'};
-    align-self: ${isMyMessage ? 'flex-end' : 'flex-start'};
-    color: #fff;
-    font-size: 14px;
-    word-break: break-word;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  `;
-
-  messageDiv.innerHTML = `
-    <div style="font-size: 11px; color: ${isMyMessage ? '#8ec5fc' : '#aaa'}; margin-bottom: 3px; font-weight: bold;">${nick}</div>
-    <div>${text}</div>
-    <div style="font-size: 10px; color: #888; text-align: right; margin-top: 4px;">${time}</div>
-  `;
-
-  chatContainer.appendChild(messageDiv);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-function updateChatOnlineUI(usersArray) {
-  const listEl = document.getElementById("chatOnlineList");
-  if (!listEl) return;
-
-  listEl.innerHTML = "";
-  usersArray.forEach(nick => {
-    const li = document.createElement("li");
-    li.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #1e1e2f; border-radius: 6px; margin-bottom: 4px;";
-    li.innerHTML = `
-      <span style="display: flex; align-items: center; gap: 8px;">
-        <span style="width: 8px; height: 8px; background: #28a745; border-radius: 50%; box-shadow: 0 0 6px #28a745; display: inline-block;"></span>
-        ${nick}
-      </span>
-    `;
-    listEl.appendChild(li);
-  });
-
-  const adminUsersList = document.getElementById("adminUsersList");
-  if (adminUsersList) {
-    adminUsersList.innerHTML = "";
-    if (usersArray.length === 0) {
-      adminUsersList.innerHTML = "<div style='color: #888;'>Нет пользователей онлайн</div>";
-    } else {
-      usersArray.forEach(nick => {
-        const row = document.createElement("div");
-        row.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: #1a1a24; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #28a745;";
-        
-        row.innerHTML = `
-          <span style="color: #fff; font-weight: 500;">👤 ${nick}</span>
-          <div style="display: flex; gap: 5px;">
-            <button class="mute-user-btn" data-target-nick="${nick}" style="background: #ffc107; color: #000; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">🔇 Мут</button>
-            <button class="ban-user-btn" data-target-nick="${nick}" style="background: #dc3545; color: #fff; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">🔨 Бан</button>
-            <button class="target-suka-btn" data-target-nick="${nick}" style="background: #17a2b8; color: #fff; border: none; padding: 5px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">🎯 РАБОТАЙ</button>
-          </div>
-        `;
-        adminUsersList.appendChild(row);
-      });
-
-      document.querySelectorAll(".mute-user-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-          const targetNick = e.target.getAttribute("data-target-nick");
-          try {
-            const res = await fetch(`${SERVER_API_URL}/api/moderate/mute`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: targetNick, isMuted: true })
-            });
-            const data = await res.json();
-            if (data.success) alert(`Пользователь ${targetNick} замучен!`);
-          } catch (err) {
-            alert("Ошибка при отправке запроса мута");
-          }
-        });
-      });
-
-      document.querySelectorAll(".ban-user-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-          const targetNick = e.target.getAttribute("data-target-nick");
-          if (!confirm(`Вы уверены, что хотите забанить ${targetNick}?`)) return;
-          try {
-            const res = await fetch(`${SERVER_API_URL}/api/moderate/ban`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: targetNick, isBanned: true })
-            });
-            const data = await res.json();
-            if (data.success) alert(`Пользователь ${targetNick} заблокирован!`);
-          } catch (err) {
-            alert("Ошибка при отправке запроса бана");
-          }
-        });
-      });
-
-      document.querySelectorAll(".target-suka-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          const targetNick = e.target.getAttribute("data-target-nick");
-          if (socket) {
-            socket.emit('admin_target_trigger', { targetNick: targetNick, text: "РАБОТАЙ СУКА" });
-            alert(`Сигнал 'РАБОТАЙ СУКА' отправлен пользователю: ${targetNick}`);
-          }
-        });
-      });
-    }
-  }
-}
-
-// --- НАДЕЖНЫЙ ПОИСК ИЗОЛИРОВАННЫХ КОЛОНОК ---
-function getContainerByTitle(titleKeyword) {
-  const allElements = document.querySelectorAll("div, span, h1, h2, h3, h4, p");
-  let targetEl = null;
-  
-  for (const el of allElements) {
-    if (el.textContent && el.textContent.trim().includes(titleKeyword)) {
-      const text = el.textContent;
-      if (titleKeyword === "Точно да" && text.includes("Точно нет")) continue;
-      if (titleKeyword === "С условием" && text.includes("Точно да")) continue;
-      if (titleKeyword === "Точно нет" && text.includes("С условием")) continue;
-      targetEl = el;
-    }
-  }
-  
-  if (targetEl) {
-    let ul = targetEl.querySelector("ul");
-    let parent = targetEl.parentElement;
-    while (parent && !ul) {
-      ul = parent.querySelector("ul");
-      parent = parent.parentElement;
-    }
-    if (!ul) {
-      ul = document.createElement("ul");
-      ul.style.cssText = "list-style: none; padding: 0; margin-top: 10px; max-height: 450px; overflow-y: auto;";
-      targetEl.appendChild(ul);
-    }
-    return ul;
-  }
-  return null;
-}
-
-function renderExchangeLists() {
-  const yesListEl = document.getElementById("exchangesYesList") || getContainerByTitle("Точно да");
-  const condListEl = document.getElementById("exchangesCondList") || getContainerByTitle("С условием");
-  const noListEl = document.getElementById("exchangesNoList") || getContainerByTitle("Точно нет");
-
-  if (yesListEl) {
-    yesListEl.innerHTML = exchangesYes.map(item => `<li style="padding: 5px 8px; margin-bottom: 3px; background: rgba(40,167,69,0.1); border-radius: 4px; color: #fff;">✅ ${item}</li>`).join("");
-  }
-  
-  if (condListEl) {
-    condListEl.innerHTML = exchangesCondition.length > 0 
-      ? exchangesCondition.map(item => `<li style="padding: 5px 8px; margin-bottom: 3px; background: rgba(255,193,7,0.1); border-radius: 4px; color: #fff;">⚠️ <b>${item.name}</b> — <span style="color: #ffc107;">${item.condition}</span></li>`).join("")
-      : "<li style='color: #888; padding: 5px;'>Нет элементов</li>";
-  }
-
-  if (noListEl) {
-    noListEl.innerHTML = exchangesNo.map(item => `<li style="padding: 5px 8px; margin-bottom: 3px; background: rgba(220,53,69,0.1); border-radius: 4px; color: #fff;">❌ ${item}</li>`).join("");
-  }
-}
-
-function handleExchangeSearch(e) {
-  const query = e.target.value.toLowerCase().trim();
-  
-  const yesListEl = document.getElementById("exchangesYesList") || getContainerByTitle("Точно да");
-  const condListEl = document.getElementById("exchangesCondList") || getContainerByTitle("С условием");
-  const noListEl = document.getElementById("exchangesNoList") || getContainerByTitle("Точно нет");
-
-  const filteredYes = exchangesYes.filter(item => item.toLowerCase().includes(query));
-  const filteredCond = exchangesCondition.filter(item => item.name.toLowerCase().includes(query) || item.condition.toLowerCase().includes(query));
-  const filteredNo = exchangesNo.filter(item => item.toLowerCase().includes(query));
-
-  if (yesListEl) {
-    yesListEl.innerHTML = filteredYes.length > 0 
-      ? filteredYes.map(item => `<li style="padding: 5px 8px; margin-bottom: 3px; background: rgba(40,167,69,0.1); border-radius: 4px; color: #fff;">✅ ${item}</li>`).join("") 
-      : "<li style='color: #888; padding: 5px;'>Ничего не найдено</li>";
-  }
-
-  if (condListEl) {
-    condListEl.innerHTML = filteredCond.length > 0 
-      ? filteredCond.map(item => `<li style="padding: 5px 8px; margin-bottom: 3px; background: rgba(255,193,7,0.1); border-radius: 4px; color: #fff;">⚠️ <b>${item.name}</b> — <span style="color: #ffc107;">${item.condition}</span></li>`).join("") 
-      : "<li style='color: #888; padding: 5px;'>Ничего не найдено</li>";
-  }
-
-  if (noListEl) {
-    noListEl.innerHTML = filteredNo.length > 0 
-      ? filteredNo.map(item => `<li style="padding: 5px 8px; margin-bottom: 3px; background: rgba(220,53,69,0.1); border-radius: 4px; color: #fff;">❌ ${item}</li>`).join("") 
-      : "<li style='color: #888; padding: 5px;'>Ничего не найдено</li>";
-  }
-}
+function renderExchangeLists() {}
+function handleExchangeSearch(e) {}
+function loadShiftState() {}
+function toggleShift() {}
+function finishShift() {}
+function addCount(val) {}
+function resetShift() {}
+function copyReport() {}
+function sendOvertime() {}
+function sendCallEntry() {}
+function sendLeave() {}
+function openExplorer() {}
+function saveNotes() {}
+function insertTruffleTemplate() {}
+function sendBugReport() {}
+function checkTruffles() {}

@@ -6,8 +6,26 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- ЭКРАН АВТОРИЗАЦИИ И РЕГИСТРАЦИИ -->
+  <div id="authScreen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1e1e2f; z-index: 9999; display: flex; justify-content: center; align-items: center; font-family: sans-serif;">
+    <div style="background: #252538; padding: 30px; border-radius: 8px; width: 350px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+      <h3 id="authTitle" style="color: #fff; margin-bottom: 10px;">👤 Вход в Support Hub</h3>
+      <p id="authSubtitle" style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Введите данные для входа в систему:</p>
+      
+      <input type="text" id="authUsername" placeholder="Логин (ник)..." style="width: 100%; padding: 10px; box-sizing: border-box; background: #2a2a3d; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 14px; margin-bottom: 12px; outline: none;">
+      <input type="password" id="authPassword" placeholder="Пароль..." style="width: 100%; padding: 10px; box-sizing: border-box; background: #2a2a3d; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 14px; margin-bottom: 15px; outline: none;">
+      
+      <button id="authSubmitBtn" style="width: 100%; background: #28a745; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 12px;">Войти</button>
+      
+      <p id="authErrorMsg" style="color: #ff6b6b; font-size: 12px; margin-bottom: 12px; min-height: 16px;"></p>
+      
+      <a href="#" id="authSwitchMode" style="color: #4da6ff; font-size: 13px; text-decoration: none;">Нет аккаунта? Зарегистрироваться</a>
+    </div>
+  </div>
+
   <!-- БЛОК УВЕДОМЛЕНИЯ ОБ ОБНОВЛЕНИИ -->
-  <div id="updateNotification" style="display: none; background: #1e1e2f; color: #fff; padding: 12px 20px; text-align: center; border-bottom: 2px solid #28a745; display: flex; justify-content: center; align-items: center; gap: 15px; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+  <div id="updateNotification" style="display: none; background: #1e1e2f; color: #fff; padding: 12px 20px; text-align: center; border-bottom: 2px solid #28a745; justify-content: center; align-items: center; gap: 15px; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     <span style="font-size: 14px;">✨ Доступна новая версия программы!</span>
     <button id="downloadUpdateBtn" style="background: #28a745; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px;">Скачать и обновить</button>
   </div>
@@ -21,6 +39,11 @@
     <button class="tab-btn" data-tab="leave">📝 Отпроситься</button>
     <button class="tab-btn" data-tab="crypto">🔍 Крипто</button>
     <button class="tab-btn" data-tab="notes">📓 Заметки</button>
+    <button class="tab-btn" data-tab="exchanges">🏛️ Биржи</button>
+    <button class="tab-btn" data-tab="approve" style="background: #2a1b1b; color: #ff6b6b; border: 1px dashed #ff6b6b;">🐵 Найти апрув</button>
+    <button class="tab-btn" data-tab="chat">💬 Чат</button>
+    <!-- Эксклюзивная вкладка админки (скрыта по умолчанию, появится для Fifflaren) -->
+    <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display: none; background: #3d1e1e; color: #ff6b6b; border: 1px solid #ff6b6b;">👑 Админка</button>
   </div>
 
   <!-- 0. ВКЛАДКА: Штаб -->
@@ -60,8 +83,16 @@
   <!-- 1. ВКЛАДКА: Поддержка -->
   <div id="tab-support" class="content active">
     <div class="card worker-box">
-      <input type="text" id="globalWorkerNick" placeholder="👤 Ваш ник (для отчетов в таблицу)...">
+      <input type="text" id="globalWorkerNick" placeholder="👤 Ваш ник (для отчетов в таблицу)..." readonly>
     </div>
+
+    <!-- БЛОК: Просмотр моих трюфелей -->
+    <div class="card compact-card" style="background: #252538; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+      <h3 style="margin-top: 0; color: #fff; font-size: 15px;">💎 Моя статистика</h3>
+      <button id="checkTrufflesBtn" class="submit-btn blue" style="width: 100%; margin-bottom: 10px;">📊 Посмотреть мои трюфеля</button>
+      <div id="trufflesResultBox" style="display: none; color: #fff; font-size: 14px; background: #1e1e2f; padding: 10px; border-radius: 4px; border-left: 4px solid #28a745;"></div>
+    </div>
+
     <div class="card compact-card">
       <h3>Сообщить / Отпись</h3>
       <div class="row-group">
@@ -88,7 +119,7 @@
   <div id="tab-shift" class="content">
     <div class="card text-center">
       <h3>Таймер смены</h3>
-      <input type="text" id="userNick" placeholder="Ваш никнейм...">
+      <input type="text" id="userNick" placeholder="Ваш никнейм..." readonly>
       <div id="timerDisplay" class="timer">00:00:00</div>
       <button id="startBtn" class="submit-btn green">▶️ Начать смену</button>
       <button id="stopBtn" class="submit-btn red" style="display:none;">⏹️ Завершить смену</button>
@@ -194,6 +225,94 @@
       <textarea id="userNotes" rows="12" placeholder="Кошельки, рабочие ссылки..."></textarea>
       <button id="saveNotesBtn" class="submit-btn green">Сохранить заметки</button>
       <p id="notesStatus" class="msg"></p>
+    </div>
+  </div>
+
+  <!-- 7. ВКЛАДКА: Биржи -->
+  <div id="tab-exchanges" class="content">
+    <div class="card" style="background: #1e1e2f; padding: 20px; border-radius: 8px;">
+      <h3 style="color: #fff; margin-bottom: 15px;">🔍 Проверка биржи</h3>
+      
+      <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+        <input type="text" id="exchangeSearchInput" placeholder="Введите название биржи для проверки..." style="flex: 1; padding: 10px; background: #2a2a3d; border: 1px solid #444; color: #fff; border-radius: 4px; font-size: 14px;">
+        <div id="exchangeStatusIndicator" style="display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 14px; padding: 8px 15px; background: #2a2a3d; border-radius: 4px; border: 1px solid #444; min-width: 180px; justify-content: center;">
+          <span id="statusDot" style="width: 14px; height: 14px; border-radius: 50%; background: #666; display: inline-block;"></span>
+          <span id="statusText" style="color: #ccc;">Введите запрос</span>
+        </div>
+      </div>
+      <div id="conditionNoteBox" style="display: none; background: #2a2a1b; border-left: 4px solid #ffc107; padding: 10px; border-radius: 4px; margin-bottom: 20px; color: #ffd54f; font-size: 14px;"></div>
+
+      <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 280px; background: #16221d; padding: 15px; border-radius: 6px; border-top: 3px solid #28a745;">
+          <h4 style="color: #28a745; margin-top: 0;">🟢 Точно да</h4>
+          <ul id="colYes" style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #ddd; max-height: 400px; overflow-y: auto; line-height: 1.6;"></ul>
+        </div>
+        <div style="flex: 1; min-width: 280px; background: #222216; padding: 15px; border-radius: 6px; border-top: 3px solid #ffc107;">
+          <h4 style="color: #ffc107; margin-top: 0;">🟡 С условием</h4>
+          <ul id="colCondition" style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #ddd; max-height: 400px; overflow-y: auto; line-height: 1.6;"></ul>
+        </div>
+        <div style="flex: 1; min-width: 280px; background: #221616; padding: 15px; border-radius: 6px; border-top: 3px solid #dc3545;">
+          <h4 style="color: #dc3545; margin-top: 0;">🔴 Точно нет</h4>
+          <ul id="colNo" style="list-style: none; padding: 0; margin: 0; font-size: 13px; color: #ddd; max-height: 400px; overflow-y: auto; line-height: 1.6;"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. ШУТОЧНАЯ ВКЛАДКА: Найти апрув -->
+  <div id="tab-approve" class="content" style="text-align: center; padding: 20px;">
+    <div class="card" style="display: inline-block; padding: 20px; background: #1e1e2f; border-radius: 8px;">
+      <h3 style="color: #ff6b6b; margin-bottom: 15px;">🔍 Поиск заветного апрува...</h3>
+      <img src="approve.jpg" alt="Иди работай" style="max-width: 350px; width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+    </div>
+  </div>
+
+  <!-- ВКЛАДКА: Живой чат -->
+  <div id="tab-chat" class="content" style="display: none;">
+    <div class="card" style="background: #1e1e2f; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; height: 650px;">
+      <h3 style="color: #fff; margin-bottom: 10px;">💬 Общий чат сотрудников</h3>
+      
+      <div style="display: flex; gap: 15px; flex: 1; overflow: hidden; margin-bottom: 15px;">
+        <div id="chatMessages" style="flex: 1; background: #151521; border: 1px solid #333; border-radius: 6px; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+        <div style="width: 220px; background: #151521; border: 1px solid #333; border-radius: 6px; padding: 12px; display: flex; flex-direction: column;">
+          <h4 style="color: #bbb; font-size: 13px; margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">👥 В чате онлайн</h4>
+          <ul id="chatOnlineList" style="list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #ddd;"></ul>
+        </div>
+      </div>
+      
+      <table style="width: 100%; border-collapse: collapse; margin: 0; padding: 0;">
+        <tr>
+          <td style="padding-right: 10px; width: 85%;">
+            <input type="text" id="chatInput" placeholder="Введите сообщение..." style="width: 100% !important; padding: 12px !important; background: #2a2a3d !important; border: 1px solid #444 !important; color: #fff !important; border-radius: 4px !important; font-size: 14px !important; box-sizing: border-box !important; outline: none !important; margin: 0 !important;">
+          </td>
+          <td style="width: 15%; text-align: right;">
+            <button id="sendChatMessageBtn" class="submit-btn green" style="width: 100% !important; padding: 12px 15px !important; margin: 0 !important; background: #28a745 !important; color: white !important; border: none !important; border-radius: 4px !important; cursor: pointer !important; white-space: nowrap !important; box-sizing: border-box !important; font-size: 14px !important; font-weight: bold !important;">Отправить</button>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 9. ВКЛАДКА: Админ-панель (Эксклюзивно для Fifflaren) -->
+  <div id="tab-admin" class="content" style="display: none;">
+    <div class="card" style="background: #1e1e2f; padding: 20px; border-radius: 8px;">
+      <h3 style="color: #ff6b6b; margin-bottom: 15px;">👑 Панель управления администратора</h3>
+      <p style="color: #aaa; font-size: 13px; margin-bottom: 20px;">Управление сотрудниками, модерация чата и экстренные триггеры.</p>
+      
+      <!-- Секция триггеров -->
+      <div style="background: #252538; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 10px;">🚨 Экстренные команды</h4>
+        <button id="adminTriggerBtn" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">⚡ Отправить всем: "работай сука"</button>
+      </div>
+
+      <!-- Список активных пользователей для мута/бана -->
+      <div style="background: #252538; padding: 15px; border-radius: 6px;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 10px;">👥 Управление пользователями чата</h4>
+        <div id="adminUsersList" style="color: #ddd; font-size: 14px;">
+          <!-- Заполнится динамически сокетами -->
+          <p style="color: #777;">Загрузка списка пользователей...</p>
+        </div>
+      </div>
     </div>
   </div>
 

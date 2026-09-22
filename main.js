@@ -6,8 +6,8 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 1200,
+    height: 800,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -15,6 +15,9 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
+  
+  // Разворачиваем окно на весь экран при запуске
+  mainWindow.maximize();
 }
 
 app.whenReady().then(() => {

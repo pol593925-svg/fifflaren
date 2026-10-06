@@ -449,7 +449,7 @@ function sendBugReport() {
   if (msg) { msg.innerText = "✅ Отчёт отправлен!"; setTimeout(() => msg.innerText = "", 3000); }
 }
 
-function checkTruffles() {
+async function checkTruffles() {
   const nick = currentUser || localStorage.getItem('global_worker_nick') || "";
   const resultBox = document.getElementById("trufflesResultBox");
   if (!nick) { alert("Сначала войдите в систему!"); return; }
@@ -459,19 +459,45 @@ function checkTruffles() {
     resultBox.innerHTML = "⏳ Загрузка статистики...";
   }
 
-  fetch(`${WEB_APP_URL}?action=getTruffles&nick=${encodeURIComponent(nick)}`)
-    .then(res => res.json())
-    .then(data => {
-      if (!resultBox) return;
-      if (data && data.success) {
-        resultBox.innerHTML = `✅ <b>Статистика для ${nick}:</b><br>💎 Трюфелей найдено: <b>${data.count || 0}</b>`;
-      } else {
-        resultBox.innerHTML = `ℹ️ ${(data && data.message) || "Данные не найдены или ошибка сервера."}`;
-      }
-    })
-    .catch(() => {
-      if (resultBox) resultBox.innerHTML = "❌ Не удалось получить данные. Проверьте соединение.";
-    });
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/stats/mine?username=${encodeURIComponent(nick)}`);
+    const data = await res.json();
+    if (!resultBox) return;
+    if (!data.success) {
+      resultBox.innerHTML = `ℹ️ ${data.message || "Данные не найдены."}`;
+      return;
+    }
+
+    const monthName = d => new Date(d + 'T00:00:00').toLocaleDateString('ru-RU', { month: 'long' });
+    resultBox.innerHTML = `
+      <b>📊 Моя статистика — ${escapeHtml(data.username)}</b>
+      <table class="admin-stats-table" style="margin-top:6px;">
+        <thead>
+          <tr>
+            <th></th>
+            <th>💎 Трюф.</th>
+            <th>✅ Апр.</th>
+            <th>⏰ Овертайм</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Неделя</strong><br><span style="font-size:10px;color:#888;">${data.week.from} — ${data.week.to}</span></td>
+            <td class="num">${data.week.truffles}</td>
+            <td class="num">${data.week.approves}</td>
+            <td class="num">${formatOvertime(data.week.overtimeMin)}</td>
+          </tr>
+          <tr>
+            <td><strong>Месяц</strong><br><span style="font-size:10px;color:#888;">с 1 по ${Number(data.month.to.slice(8))} ${monthName(data.month.from)}</span></td>
+            <td class="num">${data.month.truffles}</td>
+            <td class="num">${data.month.approves}</td>
+            <td class="num">${formatOvertime(data.month.overtimeMin)}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  } catch (err) {
+    if (resultBox) resultBox.innerHTML = "❌ Не удалось получить данные. Проверьте соединение.";
+  }
 }
 
 // ==================== СМЕНА: ТАЙМЕР, ЛОГИ, ОВЕРТАЙМЫ ====================

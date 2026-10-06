@@ -87,6 +87,63 @@ function showNotification(payload) {
   notifyWindow.focus();
 }
 
+// --- ОКНО С ФОТО (отдельное, поверх всех окон) ---
+let imageWindow = null;
+let pendingImage = null;
+
+function createImageWindow() {
+  imageWindow = new BrowserWindow({
+    width: 520,
+    height: 640,
+    frame: false,
+    resizable: true,
+    movable: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+
+  imageWindow.setAlwaysOnTop(true, 'screen-saver');
+  imageWindow.setVisibleOnAllWorkspaces(true);
+
+  imageWindow.loadFile('image.html');
+  imageWindow.once('ready-to-show', () => {
+    if (pendingImage) {
+      sendImageToWindow(pendingImage);
+      pendingImage = null;
+    }
+  });
+}
+
+function positionImageWindow() {
+  if (!imageWindow) return;
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workAreaSize;
+  const [winWidth, winHeight] = imageWindow.getSize();
+  imageWindow.setPosition(width - winWidth - 16, height - winHeight - 16);
+}
+
+// Фото передаём через IPC, а не query — base64 слишком длинный для URL
+function sendImageToWindow(payload) {
+  positionImageWindow();
+  imageWindow.webContents.send('image-data', payload);
+  imageWindow.show();
+  imageWindow.focus();
+}
+
+function showImage(payload) {
+  if (!imageWindow || imageWindow.isDestroyed()) {
+    pendingImage = payload;
+    createImageWindow();
+    return;
+  }
+  sendImageToWindow(payload);
+}
+
 // --- ТРЕЙ ---
 function createTray() {
   const iconPath = path.join(__dirname, 'tray.png');
@@ -137,6 +194,14 @@ ipcMain.on('close-notification', () => {
   if (notifyWindow) notifyWindow.hide();
 });
 
+ipcMain.on('show-image', (event, payload) => {
+  showImage(payload);
+});
+
+ipcMain.on('close-image', () => {
+  if (imageWindow) imageWindow.hide();
+});
+
 ipcMain.on('restart_to_update', () => {
   autoUpdater.quitAndInstall();
 });
@@ -145,6 +210,7 @@ ipcMain.on('restart_to_update', () => {
 app.whenReady().then(() => {
   createWindow();
   createNotifyWindow();
+  createImageWindow();
   createTray();
 
   // Автозапуск с Windows включён по умолчанию

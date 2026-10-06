@@ -211,6 +211,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("openExplorerBtn", openExplorer);
   bindClick("saveNotesBtn", saveNotes);
   bindClick("adminNotifySendBtn", () => sendAdminNotification());
+  bindClick("adminImageSendBtn", sendAdminImage);
+  bindAdminImagePicker();
   bindClick("tlEventsLoadBtn", () => loadTlHistory());
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
   bindClick("adminEventsLoadBtn", loadAdminEvents);
@@ -344,6 +346,11 @@ function initSocketConnection(username) {
   // Событие от сотрудника команды — для ТЛ-панели (лента + звук)
   socket.on('tl_event', (payload) => {
     handleTlEvent(payload);
+  });
+
+  // Фото от админа — открываем в отдельном окне поверх остальных
+  socket.on('show_image', (payload) => {
+    ipcRenderer.send('show-image', payload);
   });
 
   // Старый формат триггера — тоже показываем поверх окон
@@ -1067,6 +1074,50 @@ async function loadAdminUsers() {
   }
 }
 
+// --- Отправка фото в отдельное окно сотруднику ---
+let adminImageDataUrl = null;
+
+function bindAdminImagePicker() {
+  const fileInput = document.getElementById("adminImageFile");
+  if (!fileInput) return;
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { alert("Фото слишком большое (максимум 20 МБ)"); fileInput.value = ""; return; }
+    const r = new FileReader();
+    r.onload = () => {
+      adminImageDataUrl = r.result;
+      const prev = document.getElementById("adminImagePreview");
+      if (prev) { prev.src = adminImageDataUrl; prev.style.display = "block"; }
+    };
+    r.readAsDataURL(f);
+  });
+}
+
+function sendAdminImage() {
+  if (!adminImageDataUrl) { alert("Сначала выбери фото!"); return; }
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+
+  const target = document.getElementById("adminNotifyTarget")?.value || "all";
+  const text = document.getElementById("adminImageText")?.value.trim() || "";
+
+  socket.emit('admin_image', { target, text, from: currentUser, dataUrl: adminImageDataUrl });
+
+  const status = document.getElementById("adminNotifyStatus");
+  if (status) {
+    status.innerText = `📷 Фото отправлено (${target === 'all' ? 'всем' : target})`;
+    setTimeout(() => status.innerText = "", 4000);
+  }
+
+  adminImageDataUrl = null;
+  const fileInput = document.getElementById("adminImageFile");
+  if (fileInput) fileInput.value = "";
+  const prev = document.getElementById("adminImagePreview");
+  if (prev) prev.style.display = "none";
+  const txt = document.getElementById("adminImageText");
+  if (txt) txt.value = "";
+}
+
 // --- Уведомления поверх окон ---
 function sendAdminNotification(forcedText, forcedTarget, isQuick) {
   const text = forcedText || document.getElementById("adminNotifyText")?.value.trim() || "";
@@ -1099,7 +1150,8 @@ const EVENT_TYPE_META = {
   call:     { icon: '📞', label: 'Колл',       cls: 'ev-call' },
   overtime: { icon: '⏰', label: 'Овертайм',   cls: 'ev-overtime' },
   shift:    { icon: '⏱️', label: 'Смена',      cls: 'ev-call' },
-  notify:   { icon: '🚀', label: 'Уведомление',cls: 'ev-notify' }
+  notify:   { icon: '🚀', label: 'Уведомление',cls: 'ev-notify' },
+  image:    { icon: '📷', label: 'Фото',      cls: 'ev-notify' }
 };
 
 async function loadAdminEvents() {
@@ -1141,6 +1193,8 @@ async function loadAdminEvents() {
         details = `начало ${escapeHtml(d.start || '')} → конец ${escapeHtml(d.end || '')} · длительность <b>${escapeHtml(d.duration || '')}</b> · логов: <b>${escapeHtml(String(d.logs ?? 0))}</b>`;
       } else if (ev.type === 'notify') {
         details = `кому: ${escapeHtml(d.target || 'all')} | «${escapeHtml(d.text || '')}»`;
+      } else if (ev.type === 'image') {
+        details = `кому: ${escapeHtml(d.target || 'all')}${d.text ? ' | «' + escapeHtml(d.text) + '»' : ''} | (фото открывается только в момент отправки)`;
       } else {
         details = escapeHtml(JSON.stringify(d));
       }

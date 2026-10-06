@@ -300,6 +300,17 @@
         <p id="adminNotifyStatus" class="msg"></p>
       </div>
 
+      <!-- Отправка фото в отдельное окно сотруднику -->
+      <div class="admin-section">
+        <h4>📷 Фото в отдельное окно</h4>
+        <div class="row-group">
+          <input type="file" id="adminImageFile" accept="image/*" style="flex:2; font-size:11px;">
+          <button id="adminImageSendBtn" class="template-btn" style="background:#9b59b6; font-weight:bold;">📷 Отправить</button>
+        </div>
+        <input type="text" id="adminImageText" placeholder="Подпись к фото (необязательно)..." style="width:100%; margin-top:6px;">
+        <img id="adminImagePreview" alt="" style="display:none; max-height:120px; margin-top:6px; border-radius:6px; border:1px solid #333;">
+      </div>
+
       <!-- Быстрый триггер -->
       <div class="admin-section">
         <h4>🚨 Экстренные команды</h4>

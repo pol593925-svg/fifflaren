@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Фото</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #14181d;
+      color: #e6e6e6;
+      font-family: "Segoe UI", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #1c2229;
+      border-bottom: 1px solid #2a323c;
+      -webkit-app-region: drag;
+    }
+    header .title { font-size: 13px; color: #4da6ff; }
+    header .meta { font-size: 11px; color: #888; margin-left: 8px; }
+    #closeBtn {
+      background: #dc3545;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      -webkit-app-region: no-drag;
+    }
+    #closeBtn:hover { background: #b02a37; }
+    #photoWrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      padding: 8px;
+    }
+    #photo { max-width: 100%; max-height: 100%; object-fit: contain; }
+    #caption {
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #1c2229;
+      border-top: 1px solid #2a323c;
+      display: none;
+      white-space: pre-wrap;
+      user-select: text;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><span class="title">📷 Фото от <b id="from">—</b></span><span class="meta" id="time"></span></div>
+    <button id="closeBtn">✖ Закрыть</button>
+  </header>
+  <div id="photoWrap"><img id="photo" alt="Фото"></div>
+  <div id="caption"></div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const snd = new Audio('alert.wav');
+
+    ipcRenderer.on('image-data', (e, p) => {
+      document.getElementById('from').textContent = p.from || 'admin';
+      document.getElementById('time').textContent = ' · ' + (p.time || '');
+      document.getElementById('photo').src = p.dataUrl;
+      const cap = document.getElementById('caption');
+      if (p.text) {
+        cap.textContent = p.text;
+        cap.style.display = 'block';
+      } else {
+        cap.style.display = 'none';
+      }
+      snd.currentTime = 0;
+      snd.play().catch(() => {});
+    });
+
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      ipcRenderer.send('close-image');
+    });
+  </script>
+</body>
+</html>

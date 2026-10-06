@@ -1,6 +1,6 @@
 {
   "name": "support-hub-desktop",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Support Hub Tool",
   "main": "main.js",
   "scripts": {

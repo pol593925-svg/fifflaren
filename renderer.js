@@ -1039,7 +1039,7 @@ function sendAdminNotification(forcedText, forcedTarget, isQuick) {
     return;
   }
 
-  socket.emit('admin_notify', { target, text, from: 'Fifflaren' });
+  socket.emit('admin_notify', { target, text, from: currentUser });
 
   if (status) {
     const whom = target === 'all' ? 'всем' : target;

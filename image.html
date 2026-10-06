@@ -82,7 +82,7 @@
         cap.style.display = 'none';
       }
       snd.currentTime = 0;
-      snd.play().catch(() => {});
+      if (!p.muted) snd.play().catch(() => {});
     });
 
     document.getElementById('closeBtn').addEventListener('click', () => {

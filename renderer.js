@@ -1286,11 +1286,18 @@ function applyTheme(light) {
 }
 
 // --- Чек-лист дня ---
+// Рабочая дата: до 6:00 утра считаем всё ещё вчерашним днём (ночная смена)
+function workDateStr() {
+  const d = new Date();
+  if (d.getHours() < 6) d.setDate(d.getDate() - 1);
+  return localDateStr(d);
+}
+
 async function loadTasks() {
   const box = document.getElementById("tasksList");
   if (!box) return;
   try {
-    const res = await fetch(`${SERVER_API_URL}/api/tasks?date=${localDateStr()}`);
+    const res = await fetch(`${SERVER_API_URL}/api/tasks?date=${workDateStr()}`);
     const data = await res.json();
     renderTasks(box, data.tasks || [], false);
   } catch (e) {
@@ -1341,7 +1348,7 @@ async function loadAdminTasks() {
   const box = document.getElementById("adminTasksList");
   if (!box) return;
   try {
-    const data = await fetchAdmin(`${SERVER_API_URL}/api/tasks?date=${localDateStr()}`);
+    const data = await fetchAdmin(`${SERVER_API_URL}/api/tasks?date=${workDateStr()}`);
     renderTasks(box, data.tasks || [], true);
   } catch (e) {
     box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
@@ -1356,7 +1363,7 @@ async function addAdminTask() {
     await fetch(`${SERVER_API_URL}/api/admin/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminUsername: currentUser, text })
+      body: JSON.stringify({ adminUsername: currentUser, text, date: workDateStr() })
     });
     input.value = "";
     loadAdminTasks();
@@ -1559,6 +1566,7 @@ function applySoundBtn() {
   const b = document.getElementById("soundToggleBtn");
   if (b) b.textContent = soundOn ? '🔊' : '🔇';
   localStorage.setItem('sh_sound', soundOn ? 'on' : 'off');
+  ipcRenderer.send('set-muted', !soundOn);
 }
 
 // --- Личные сообщения ---
@@ -1825,6 +1833,7 @@ function buildTlEventItem(ev, timeStr) {
 }
 
 function playTlSound() {
+  if (!soundOn) return;
   try { tlSound.currentTime = 0; tlSound.play().catch(() => {}); } catch (e) {}
 }
 

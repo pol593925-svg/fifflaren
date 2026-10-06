@@ -6,6 +6,7 @@ let mainWindow = null;
 let notifyWindow = null;
 let tray = null;
 let pendingNotification = null; // уведомление, пришедшее до готовности окна
+let muted = false; // глобальное отключение звука (🔊/🔇 в приложении)
 
 // --- ГЛАВНОЕ ОКНО ---
 function createWindow() {
@@ -80,7 +81,8 @@ function showNotification(payload) {
   const q = new URLSearchParams({
     text: payload.text || '',
     from: payload.from || 'Fifflaren',
-    time: payload.time || ''
+    time: payload.time || '',
+    muted: muted ? '1' : '0'
   });
   notifyWindow.webContents.loadFile('notification.html', { query: Object.fromEntries(q) });
   notifyWindow.show();
@@ -129,6 +131,7 @@ function positionImageWindow() {
 
 // Фото передаём через IPC, а не query — base64 слишком длинный для URL
 function sendImageToWindow(payload) {
+  payload.muted = muted;
   positionImageWindow();
   imageWindow.webContents.send('image-data', payload);
   imageWindow.show();
@@ -188,6 +191,10 @@ function createTray() {
 // --- IPC ---
 ipcMain.on('show-notification', (event, payload) => {
   showNotification(payload);
+});
+
+ipcMain.on('set-muted', (event, m) => {
+  muted = !!m;
 });
 
 ipcMain.on('close-notification', () => {

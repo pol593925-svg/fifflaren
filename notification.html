@@ -59,14 +59,15 @@
   <div class="text" id="textLabel"></div>
   <button onclick="closeMe()">Понятно 👍</button>
 
-  <!-- Звук уведомления -->
-  <audio id="snd" src="alert.wav" autoplay></audio>
+  <!-- Звук уведомления (воспроизводим из скрипта, с учётом режима 🔇) -->
+  <audio id="snd" src="alert.wav"></audio>
 
   <script>
     const params = new URLSearchParams(location.search);
     const text = params.get('text') || 'Внимание!';
     const from = params.get('from') || 'Fifflaren';
     const time = params.get('time') || '';
+    const muted = params.get('muted') === '1';
 
     document.getElementById('textLabel').textContent = text;
     document.getElementById('fromLabel').textContent = `⚡ Сообщение от ${from}`;
@@ -75,7 +76,7 @@
     // Если автоплей не сработал (политики), пробуем ещё раз по клику
     const snd = document.getElementById('snd');
     snd.volume = 1.0;
-    const tryPlay = () => { snd.play().catch(() => {}); };
+    const tryPlay = () => { if (!muted) snd.play().catch(() => {}); };
     tryPlay();
     setTimeout(tryPlay, 100);
     document.body.addEventListener('click', tryPlay, { once: true });

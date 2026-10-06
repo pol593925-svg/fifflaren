@@ -167,6 +167,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'feed') loadFeed();
+      if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
+      if (tabName === 'swipe') loadSwipeQueue();
     });
   });
 
@@ -228,6 +230,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeBtn = document.getElementById("themeToggleBtn");
   if (themeBtn) themeBtn.addEventListener("click", () => applyTheme(!document.body.classList.contains('light')));
   applyTheme(localStorage.getItem('sh_theme') === 'light');
+  // 3.2.0
+  bindClick("pmSendBtn", sendPm);
+  const pmInput = document.getElementById("pmInput");
+  if (pmInput) pmInput.addEventListener("keypress", (e) => { if (e.key === 'Enter') sendPm(); });
+  bindClick("soundToggleBtn", () => { soundOn = !soundOn; applySoundBtn(); });
+  applySoundBtn();
+  bindClick("swipeLikeBtn", () => swipeVote('like'));
+  bindClick("swipeDislikeBtn", () => swipeVote('dislike'));
+  bindClick("swipeResultsLink", loadSwipeResults);
+  bindClick("profWriteBtn", () => { if (lastProfileNick) openPmWith(lastProfileNick); });
+  bindSwipeDrag();
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
   bindClick("adminEventsLoadBtn", loadAdminEvents);
   bindClick("adminStatsLoadBtn", loadAdminStats);
@@ -1079,6 +1092,9 @@ async function loadAdminUsers() {
             <input type="text" data-pos-user="${escapeHtml(u.username)}" value="${escapeHtml(u.position || '')}"
                 placeholder="Должность..." style="width:130px; font-size:10px; margin-top:3px;">
             <button onclick="savePosition('${u.username}')" style="font-size:10px; padding:2px 6px;">💾</button>
+            <input type="text" data-email-user="${escapeHtml(u.username)}" value="${escapeHtml(u.email || '')}"
+                placeholder="e-mail..." style="width:130px; font-size:10px; margin-top:3px;">
+            <button onclick="saveEmail('${u.username}')" style="font-size:10px; padding:2px 6px;">📧</button>
           </div>
           <div>
             ${u.username !== 'fifflaren'
@@ -1500,6 +1516,8 @@ async function openProfile(nick) {
     document.getElementById("profLikes").textContent = p.month.likes;
     const isMe = p.username.toLowerCase() === currentUser.toLowerCase();
     document.getElementById("profChangeAvatarBtn").style.display = isMe ? '' : 'none';
+    document.getElementById("profWriteBtn").style.display = isMe ? 'none' : '';
+    lastProfileNick = p.username;
     document.getElementById("profileModal").classList.add('open');
   } catch (e) { alert('Ошибка соединения'); }
 }
@@ -1526,7 +1544,209 @@ async function changeOwnAvatar() {
   } catch (e) { alert('Ошибка соединения'); }
 }
 
-// Должность (админ ставит в админке)
+// ==================== 3.2.0: ЛС, ЗВУК, ДАЙСЕРЧВИНЧИК ====================
+
+let pmWith = "";
+let lastProfileNick = "";
+let soundOn = localStorage.getItem('sh_sound') !== 'off';
+
+function playNoticeSound() {
+  if (!soundOn) return;
+  try { tlSound.currentTime = 0; tlSound.play().catch(() => {}); } catch (e) {}
+}
+
+function applySoundBtn() {
+  const b = document.getElementById("soundToggleBtn");
+  if (b) b.textContent = soundOn ? '🔊' : '🔇';
+  localStorage.setItem('sh_sound', soundOn ? 'on' : 'off');
+}
+
+// --- Личные сообщения ---
+async function loadPmInbox() {
+  const box = document.getElementById("pmDialogs");
+  if (!box || !currentUser) return 0;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/messages/inbox?user=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    const dialogs = data.dialogs || [];
+    let totalUnread = 0;
+    if (!dialogs.length) {
+      box.innerHTML = '<p style="color:#777; font-size:11px;">Диалогов пока нет.<br><br>Написать можно из карточки профиля (клик по нику в Штабе → «✉️ Написать»).</p>';
+    } else {
+      box.innerHTML = "";
+      dialogs.forEach(d => {
+        totalUnread += d.unread;
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:6px 4px; border-bottom:1px solid #333; cursor:pointer; font-size:12px;';
+        row.innerHTML = `<b>${escapeHtml(d.with)}</b>${d.unread ? ` <span style="background:#dc3545; border-radius:8px; padding:0 5px; font-size:9px; color:#fff;">${d.unread}</span>` : ''}<br><small style="color:#888;">${escapeHtml(String(d.lastText).slice(0, 28))}</small>`;
+        row.addEventListener('click', () => { pmWith = d.with; loadPmChat(); loadPmInbox(); });
+        box.appendChild(row);
+      });
+    }
+    const badge = document.getElementById("pmUnreadBadge");
+    if (badge) { badge.style.display = totalUnread ? 'inline' : 'none'; badge.textContent = totalUnread; }
+    return totalUnread;
+  } catch (e) { return 0; }
+}
+
+async function loadPmChat() {
+  const box = document.getElementById("pmMessages");
+  const head = document.getElementById("pmChatHead");
+  if (!box) return;
+  if (!pmWith) {
+    box.innerHTML = "<p style='color:#777; font-size:11px;'>Выбери диалог слева или напиши из профиля.</p>";
+    if (head) head.textContent = '';
+    return;
+  }
+  if (head) head.textContent = '✉️ Переписка с ' + pmWith;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/messages?user=${encodeURIComponent(currentUser)}&with=${encodeURIComponent(pmWith)}`);
+    const data = await res.json();
+    box.innerHTML = "";
+    (data.messages || []).forEach(m => {
+      const mine = m.from === currentUser;
+      const row = document.createElement('div');
+      row.style.cssText = `text-align:${mine ? 'right' : 'left'}; margin:3px 0;`;
+      const ticks = mine ? (m.read ? ' ✓✓' : ' ✓') : '';
+      row.innerHTML = `<span style="display:inline-block; max-width:75%; background:${mine ? '#0d6efd' : '#2b3035'}; color:#fff; padding:5px 9px; border-radius:8px; font-size:12px; text-align:left;">${escapeHtml(m.text)}<br><small style="color:#ddd; font-size:9px;">${new Date(m.createdAt).toLocaleTimeString('ru-RU')}${ticks}</small></span>`;
+      box.appendChild(row);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch (e) {}
+}
+
+async function sendPm() {
+  const input = document.getElementById("pmInput");
+  const text = input?.value.trim();
+  if (!text) return;
+  if (!pmWith) { alert("Сначала выбери, кому писать (из профиля)"); return; }
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to: pmWith, text })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    input.value = "";
+    loadPmChat();
+    loadPmInbox();
+  } catch (e) { alert('Ошибка соединения'); }
+}
+
+function openPmWith(nick) {
+  pmWith = nick.toLowerCase();
+  closeProfile();
+  document.querySelector('.tab-btn[data-tab="pm"]')?.click();
+  loadPmInbox();
+  loadPmChat();
+}
+
+// Опрос непрочитанных ЛС: бейдж на вкладке + звук
+setInterval(async () => {
+  if (!currentUser) return;
+  const prev = Number(document.getElementById("pmUnreadBadge")?.textContent || 0);
+  const now = await loadPmInbox();
+  if (now > prev) {
+    playNoticeSound();
+    if (document.getElementById("tab-pm")?.classList.contains('active')) loadPmChat();
+  }
+}, 10000);
+
+// --- Дайсерчвинчик ---
+let swipeQueue = [];
+let swipeDragging = false, swipeStartX = 0, swipeDX = 0;
+
+async function loadSwipeQueue() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/swipe/users?from=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    swipeQueue = data.users || [];
+    showSwipeCard();
+  } catch (e) {}
+}
+
+function showSwipeCard() {
+  const card = document.getElementById("swipeCard");
+  const empty = document.getElementById("swipeEmpty");
+  if (!card) return;
+  if (!swipeQueue.length) {
+    card.style.display = 'none';
+    if (empty) { empty.style.display = 'block'; loadSwipeResults(); }
+    return;
+  }
+  card.style.display = 'block';
+  if (empty) empty.style.display = 'none';
+  const u = swipeQueue[0];
+  const av = document.getElementById("swipeAvatar");
+  if (u.avatar) {
+    av.style.background = 'none';
+    av.innerHTML = `<img src="${u.avatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+  } else {
+    av.innerHTML = '';
+    av.style.background = '#4a5568';
+    av.textContent = (u.username[0] || '?').toUpperCase();
+  }
+  document.getElementById("swipeNick").textContent = u.username;
+  document.getElementById("swipeTeam").textContent = (u.team ? '🏴 ' + u.team : '') + (u.position ? ' · ' + u.position : '');
+  card.style.transform = '';
+  document.getElementById("swipeStamp").style.opacity = 0;
+}
+
+async function swipeVote(kind) {
+  if (!swipeQueue.length) return;
+  const u = swipeQueue[0];
+  try {
+    await fetch(`${SERVER_API_URL}/api/swipe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to: u.username, kind })
+    });
+  } catch (e) {}
+  swipeQueue.shift();
+  showSwipeCard();
+}
+
+async function loadSwipeResults() {
+  const box = document.getElementById("swipeResults");
+  if (!box) return;
+  box.style.display = 'block';
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/swipe/results`);
+    const data = await res.json();
+    const rows = Object.entries(data.results || {})
+      .sort((a, b) => (b[1].likes - b[1].dislikes) - (a[1].likes - a[1].dislikes));
+    if (!rows.length) { box.innerHTML = "<p style='color:#777;'>Голосов пока нет.</p>"; return; }
+    box.innerHTML = "<b>Итоги:</b><br>" + rows.map(([nick, r]) => `${escapeHtml(nick)} — 👍 ${r.likes} · 👎 ${r.dislikes}`).join('<br>');
+  } catch (e) {}
+}
+
+function bindSwipeDrag() {
+  const card = document.getElementById("swipeCard");
+  if (!card) return;
+  card.addEventListener('mousedown', (e) => { swipeDragging = true; swipeStartX = e.clientX; card.style.cursor = 'grabbing'; });
+  window.addEventListener('mousemove', (e) => {
+    if (!swipeDragging) return;
+    swipeDX = e.clientX - swipeStartX;
+    card.style.transform = `translateX(${swipeDX}px) rotate(${swipeDX / 20}deg)`;
+    const stamp = document.getElementById("swipeStamp");
+    if (swipeDX > 60) { stamp.textContent = '👍'; stamp.style.color = '#198754'; stamp.style.opacity = Math.min(1, swipeDX / 120); }
+    else if (swipeDX < -60) { stamp.textContent = '👎'; stamp.style.color = '#dc3545'; stamp.style.opacity = Math.min(1, -swipeDX / 120); }
+    else stamp.style.opacity = 0;
+  });
+  window.addEventListener('mouseup', () => {
+    if (!swipeDragging) return;
+    swipeDragging = false;
+    card.style.cursor = 'grab';
+    if (swipeDX > 100) swipeVote('like');
+    else if (swipeDX < -100) swipeVote('dislike');
+    else card.style.transform = '';
+    swipeDX = 0;
+  });
+}
+
+// Должность и почта (админ ставит в админке)
 window.savePosition = async (username) => {
   const input = document.querySelector(`input[data-pos-user="${username}"]`);
   const position = input?.value.trim() || '';
@@ -1535,6 +1755,22 @@ window.savePosition = async (username) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ adminUsername: currentUser, username, position })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    if (input) input.style.borderColor = '#198754';
+    setTimeout(() => { if (input) input.style.borderColor = ''; }, 800);
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+window.saveEmail = async (username) => {
+  const input = document.querySelector(`input[data-email-user="${username}"]`);
+  const email = input?.value.trim() || '';
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, username, email })
     });
     const data = await res.json();
     if (!data.success) { alert(data.message || 'Ошибка'); return; }

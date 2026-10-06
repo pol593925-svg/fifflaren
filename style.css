@@ -215,3 +215,14 @@ body.light .condition-note { background: #fff8e1; color: #7a6a00; }
 body.light .msg { color: #146c43; }
 body.light .counter { color: #0f8a63; }
 body.light .timer { color: #0b5ed7; }
+
+
+/* ==================== 3.2.0: ЛС, ДАЙСЕРЧВИНЧИК ==================== */
+#soundToggleBtn { flex: 0 0 auto; min-width: 34px; background: #2b3035; color: #aaa; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+#pmDialogs > div:hover { background: rgba(255,255,255,0.04); }
+#swipeCard { transition: transform 0.15s ease-out; }
+body.light #pmDialogs > div { border-bottom-color: #d0d5da !important; }
+body.light #pmDialogs { border-right-color: #d0d5da !important; }
+body.light #swipeCard { background: #fff; border-color: #c3c9cf; }
+body.light #swipeAvatar { background: #cfd6dd; color: #444; }
+body.light #swipeTeam { color: #666; }

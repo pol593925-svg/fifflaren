@@ -1182,6 +1182,7 @@ async function loadAdminStats() {
             <th>💎 Месяц</th>
             <th>✅ Месяц</th>
             <th>⏰ Овертайм мес</th>
+            <th>Роль</th>
           </tr>
         </thead>
         <tbody>
@@ -1201,6 +1202,12 @@ async function loadAdminStats() {
                 <td class="num">${ms.truffles ?? 0}</td>
                 <td class="num">${ms.approves ?? 0}</td>
                 <td class="num">${formatOvertime(ms.overtimeMin)}</td>
+                <td>${u.username === 'fifflaren'
+                    ? '<span style="color:#ff6b6b;">👑 админ</span>'
+                    : (u.role === 'admin'
+                        ? `<button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="toggleAdminRole('${u.username}', 'user')">👑 админ · забрать</button>`
+                        : `<button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="toggleAdminRole('${u.username}', 'admin')">➕ сделать админом</button>`)}
+                </td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -1237,6 +1244,24 @@ window.saveUserStat = async (date, username, field, value) => {
     loadAdminStats();
   } catch (err) {
     alert("Ошибка сохранения: " + err.message);
+  }
+};
+
+// Выдача/забор админки — кнопка в таблице админки
+window.toggleAdminRole = async (username, role) => {
+  const action = role === 'admin' ? 'выдать админку' : 'забрать админку';
+  if (!confirm(`Точно ${action} пользователю ${username}?`)) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/role`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, username, role })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    loadAdminStats();
+  } catch (err) {
+    alert("Ошибка соединения: " + err.message);
   }
 };
 

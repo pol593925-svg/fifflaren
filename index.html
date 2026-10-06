@@ -39,6 +39,8 @@
     <button class="tab-btn" data-tab="exchanges">🏛️ Биржи</button>
     <button class="tab-btn" data-tab="approve" style="background: #2a1b1b; color: #ff6b6b; border: 1px dashed #ff6b6b;">🐵 Найти апрув</button>
     <button class="tab-btn" data-tab="chat">💬 Чат</button>
+    <!-- Вкладка ТЛ-панели (видна только ТЛ — ник совпадает с названием команды) -->
+    <button class="tab-btn" data-tab="tlpanel" id="tlTabBtn" style="display: none; background: #1e2a3d; color: #4da6ff; border: 1px solid #4da6ff;">🎯 ТЛ-панель</button>
     <!-- Вкладка админки (видна только админу) -->
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display: none; background: #3d1e1e; color: #ff6b6b; border: 1px solid #ff6b6b;">👑 Админка</button>
   </div>
@@ -257,6 +259,28 @@
           <td class="chat-send-cell"><button id="sendChatMessageBtn" class="submit-btn green">Отправить</button></td>
         </tr>
       </table>
+    </div>
+  </div>
+
+  <!-- 8.5. ВКЛАДКА: ТЛ-панель (коллы, отпросы, смены, отписи своей команды) -->
+  <div id="tab-tlpanel" class="content" style="display: none;">
+    <div class="card admin-card">
+      <h3>🎯 ТЛ-панель — команда <span id="tlTeamName" style="color:#4da6ff;"></span></h3>
+      <p style="font-size:11px; color:#888; margin-top:2px;">Сюда прилетают коллы, отпросы, завершения смен и отписи твоей команды (со звуком). Логов здесь нет.</p>
+
+      <div class="admin-section">
+        <h4>🔴 События сегодня (живая лента)</h4>
+        <div id="tlLiveBox" class="admin-events-box"><p style="color:#777;">Пока событий нет</p></div>
+      </div>
+
+      <div class="admin-section">
+        <h4>📅 История по дате</h4>
+        <div class="row-group">
+          <input type="date" id="tlEventsDate">
+          <button id="tlEventsLoadBtn" class="template-btn" style="background:#0d6efd;">Показать</button>
+        </div>
+        <div id="tlHistoryBox" class="admin-events-box"><p style="color:#777;">Выбери дату и нажми «Показать»</p></div>
+      </div>
     </div>
   </div>
 

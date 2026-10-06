@@ -15,6 +15,8 @@ let socket = null;
 let currentUser = "";      // ник текущего пользователя
 let currentRole = "user";  // 'admin' или 'user'
 let onlineNicks = [];      // кто онлайн в чате (для точек в Штабе)
+let tlTeam = "";           // название команды, если текущий пользователь — ТЛ
+const tlSound = new Audio('alert.wav');
 
 // Состояние смены
 let timerInterval = null, startTimeMs = null, startTimeStr = "", count = 0, isWorking = false;
@@ -135,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyNickToApp(data.username);
         loadHQRoster();
         if (currentRole === 'admin') setupAdminPanel();
+        checkTLStatus();
         initSocketConnection(data.username);
       } catch (err) {
         console.error("Ошибка связи с сервером авторизации:", err);
@@ -161,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (tabName === 'admin') refreshAdminPanel();
       if (tabName === 'hq') loadHQRoster();
+      if (tabName === 'tlpanel') loadTlToday();
     });
   });
 
@@ -186,6 +190,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (evDate) evDate.value = localDateStr();
   const stDate = document.getElementById("adminStatsDate");
   if (stDate) stDate.value = localDateStr();
+  const tlDate = document.getElementById("tlEventsDate");
+  if (tlDate) tlDate.value = localDateStr();
 
   // --- ПРИВЯЗКА КНОПОК ---
 
@@ -205,6 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("openExplorerBtn", openExplorer);
   bindClick("saveNotesBtn", saveNotes);
   bindClick("adminNotifySendBtn", () => sendAdminNotification());
+  bindClick("tlEventsLoadBtn", () => loadTlHistory());
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
   bindClick("adminEventsLoadBtn", loadAdminEvents);
   bindClick("adminStatsLoadBtn", loadAdminStats);
@@ -332,6 +339,11 @@ function initSocketConnection(username) {
   // Уведомление поверх окон (новый формат)
   socket.on('show_notification', (payload) => {
     ipcRenderer.send('show-notification', payload);
+  });
+
+  // Событие от сотрудника команды — для ТЛ-панели (лента + звук)
+  socket.on('tl_event', (payload) => {
+    handleTlEvent(payload);
   });
 
   // Старый формат триггера — тоже показываем поверх окон
@@ -1142,6 +1154,110 @@ async function loadAdminEvents() {
       box.appendChild(item);
     });
   } catch (err) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
+  }
+}
+
+// ==================== ТЛ-ПАНЕЛЬ (события своей команды) ====================
+// ТЛ — пользователь, чей ник совпадает с названием команды
+
+async function checkTLStatus() {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/teams`);
+    const data = await res.json();
+    const team = (data.teams || []).find(t => t.name.toLowerCase() === currentUser.toLowerCase());
+    if (team) {
+      tlTeam = team.name;
+      const btn = document.getElementById("tlTabBtn");
+      if (btn) btn.style.display = "";
+      const nameEl = document.getElementById("tlTeamName");
+      if (nameEl) nameEl.textContent = team.name;
+      loadTlToday(); // сразу наполняем живую ленту событиями за сегодня
+    }
+  } catch (e) { /* сервер недоступен — вкладка не покажется */ }
+}
+
+// Один элемент события (тот же вид, что и в админке)
+function buildTlEventItem(ev, timeStr) {
+  const meta = EVENT_TYPE_META[ev.type] || { icon: '•', label: ev.type, cls: '' };
+  const item = document.createElement("div");
+  item.className = `admin-event-item ${meta.cls}`;
+  let details = "";
+  const d = ev.data || {};
+  if (ev.type === 'bug') {
+    details = `<b>${escapeHtml(d.bugType || '')}</b>: ${escapeHtml(d.desc || '')}`;
+  } else if (ev.type === 'leave') {
+    details = `${escapeHtml(d.reason || '')} (${escapeHtml(d.leaveDate || '')} ${escapeHtml(d.from || '')}–${escapeHtml(d.to || '')})`;
+  } else if (ev.type === 'call') {
+    details = `<b>${escapeHtml(d.callType || '')}</b> ${escapeHtml(d.serviceName || '')} | ${escapeHtml(d.callLink || '')} ${escapeHtml(d.callNote || '')}`;
+  } else if (ev.type === 'shift') {
+    details = `начало ${escapeHtml(d.start || '')} → конец ${escapeHtml(d.end || '')} · длительность <b>${escapeHtml(d.duration || '')}</b> · логов: <b>${escapeHtml(String(d.logs ?? 0))}</b>`;
+  } else {
+    details = escapeHtml(JSON.stringify(d));
+  }
+  item.innerHTML = `
+    <div class="ev-head">${meta.icon} ${meta.label} — ${escapeHtml(ev.user || '—')}</div>
+    <div>${details}</div>
+    <div class="ev-meta">${escapeHtml(timeStr || '')}</div>
+  `;
+  return item;
+}
+
+function playTlSound() {
+  try { tlSound.currentTime = 0; tlSound.play().catch(() => {}); } catch (e) {}
+}
+
+// Событие прилетело по сокету — добавляем в живую ленту и играем звук
+function handleTlEvent(payload) {
+  if (!tlTeam || !payload) return;
+  const box = document.getElementById("tlLiveBox");
+  if (!box) return;
+  const placeholder = box.querySelector('p');
+  if (placeholder) box.innerHTML = "";
+  box.prepend(buildTlEventItem(payload, payload.time));
+  // не даём ленте разрастись бесконечно
+  while (box.children.length > 100) box.removeChild(box.lastChild);
+  playTlSound();
+}
+
+// Живая лента на сегодня: с сервера (события, которые были до запуска приложения)
+async function loadTlToday() {
+  if (!tlTeam) return;
+  const box = document.getElementById("tlLiveBox");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/tl/events?tl=${encodeURIComponent(currentUser)}&date=${localDateStr()}`);
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = "<p style='color:#777;'>Пока событий нет</p>"; return; }
+    if (!data.events.length) { box.innerHTML = "<p style='color:#777;'>Пока событий нет</p>"; return; }
+    box.innerHTML = "";
+    data.events.forEach(ev => {
+      const time = new Date(ev.createdAt).toLocaleTimeString('ru-RU');
+      box.appendChild(buildTlEventItem(ev, time));
+    });
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
+  }
+}
+
+// История по выбранной дате
+async function loadTlHistory() {
+  if (!tlTeam) return;
+  const box = document.getElementById("tlHistoryBox");
+  const date = document.getElementById("tlEventsDate")?.value || localDateStr();
+  if (!box) return;
+  box.innerHTML = "<p style='color:#777;'>Загрузка...</p>";
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/tl/events?tl=${encodeURIComponent(currentUser)}&date=${date}`);
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = "<p style='color:red;'>Ошибка загрузки</p>"; return; }
+    if (!data.events.length) { box.innerHTML = "<p style='color:#777;'>За эту дату ничего нет</p>"; return; }
+    box.innerHTML = "";
+    data.events.forEach(ev => {
+      const time = new Date(ev.createdAt).toLocaleTimeString('ru-RU');
+      box.appendChild(buildTlEventItem(ev, time));
+    });
+  } catch (e) {
     box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
   }
 }

@@ -1040,6 +1040,9 @@ async function loadAdminUsers() {
             <small style="color:#888;">Мут: ${u.isMuted ? 'Да' : 'Нет'} | Бан: ${u.isBanned ? 'Да' : 'Нет'}</small>
           </div>
           <div>
+            ${u.username !== 'fifflaren'
+              ? `<button onclick="toggleAdminRole('${u.username}', '${u.role === 'admin' ? 'user' : 'admin'}')">${u.role === 'admin' ? '👑 Забрать админку' : '➕ Сделать админом'}</button>`
+              : '<span style="color:#ff6b6b; font-size:11px;">👑 главный админ</span>'}
             <button onclick="toggleUserMute('${u.username}', ${!u.isMuted})">${u.isMuted ? 'Размутить' : 'Мут'}</button>
             <button class="ban-btn" onclick="toggleUserBan('${u.username}', ${!u.isBanned})">${u.isBanned ? 'Разбанить' : 'Бан'}</button>
           </div>
@@ -1286,6 +1289,7 @@ window.toggleAdminRole = async (username, role) => {
     const data = await res.json();
     if (!data.success) { alert(data.message || 'Ошибка'); return; }
     loadAdminStats();
+    loadAdminUsers();
   } catch (err) {
     alert("Ошибка соединения: " + err.message);
   }

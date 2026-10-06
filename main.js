@@ -7,6 +7,9 @@ let notifyWindow = null;
 let tray = null;
 let pendingNotification = null; // уведомление, пришедшее до готовности окна
 let muted = false; // глобальное отключение звука (🔊/🔇 в приложении)
+let allowQuit = true;  // может ли пользователь закрыть приложение (админы/ТЛ)
+let forceQuit = false; // служебное принудительное закрытие (обновление и т.п.)
+let rebuildTrayMenuFn = null; // перестроить меню трея (скрыть/показать «Выход»)
 
 // --- ГЛАВНОЕ ОКНО ---
 function createWindow() {
@@ -29,6 +32,15 @@ function createWindow() {
     if (tray) {
       e.preventDefault();
       mainWindow.hide();
+      // Мягкий намёк сотруднику, что закрыть приложение нельзя
+      if (!allowQuit && tray && !mainWindow.__hintShown) {
+        mainWindow.__hintShown = true;
+        tray.displayBalloon({
+          title: 'Support Hub',
+          content: 'Приложение работает в фоне. Закрыть его может только админ/ТЛ через меню в трее.'
+        });
+        setTimeout(() => { if (mainWindow) mainWindow.__hintShown = false; }, 10000);
+      }
     }
   });
 }
@@ -163,7 +175,7 @@ function createTray() {
 
   const buildMenu = () => {
     const autoStart = app.getLoginItemSettings().openAtLogin;
-    return Menu.buildFromTemplate([
+    const items = [
       { label: '🔓 Открыть Support Hub', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } } },
       {
         label: `🚀 Автозапуск с Windows: ${autoStart ? 'вкл' : 'выкл'}`,
@@ -171,14 +183,19 @@ function createTray() {
           app.setLoginItemSettings({ openAtLogin: !autoStart });
           createTrayMenu();
         }
-      },
-      { type: 'separator' },
-      { label: '❌ Выход', click: () => { tray = null; app.isQuiting = true; app.quit(); } }
-    ]);
+      }
+    ];
+    // Закрыть приложение могут только админы и ТЛ
+    if (allowQuit) {
+      items.push({ type: 'separator' });
+      items.push({ label: '❌ Выход', click: () => { tray = null; app.isQuiting = true; app.quit(); } });
+    }
+    return Menu.buildFromTemplate(items);
   };
 
   const createTrayMenu = () => tray.setContextMenu(buildMenu());
   createTrayMenu();
+  rebuildTrayMenuFn = createTrayMenu;
 
   tray.on('click', () => {
     if (mainWindow) {
@@ -197,6 +214,12 @@ ipcMain.on('set-muted', (event, m) => {
   muted = !!m;
 });
 
+// Разрешение на закрытие приложения: true — админ/ТЛ, false — сотрудник
+ipcMain.on('set-can-quit', (event, can) => {
+  allowQuit = !!can;
+  if (rebuildTrayMenuFn) rebuildTrayMenuFn();
+});
+
 ipcMain.on('close-notification', () => {
   if (notifyWindow) notifyWindow.hide();
 });
@@ -210,6 +233,7 @@ ipcMain.on('close-image', () => {
 });
 
 ipcMain.on('restart_to_update', () => {
+  forceQuit = true; // обновление должно иметь возможность перезапустить приложение
   autoUpdater.quitAndInstall();
 });
 
@@ -264,6 +288,7 @@ autoUpdater.on('update-downloaded', () => {
     noLink: true
   }).then((result) => {
     if (result.response === 0) {
+      forceQuit = true; // обновление должно иметь возможность перезапустить приложение
       autoUpdater.quitAndInstall();
     }
   });
@@ -273,7 +298,12 @@ autoUpdater.on('update-downloaded', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
+  // Сотрудники не могут закрыть приложение — отменяем выход
+  if (!allowQuit && !forceQuit) {
+    e.preventDefault();
+    return;
+  }
   app.isQuiting = true;
 });
 

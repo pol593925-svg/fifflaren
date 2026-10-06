@@ -152,19 +152,43 @@ app.whenReady().then(() => {
     app.setLoginItemSettings({ openAtLogin: true });
   }
 
-  // Проверяем обновления через 3 секунды после запуска
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify();
-  }, 3000);
+  // Журнал обновлений — чтобы понимать, почему не обновляется
+  const fs = require('fs');
+  const updaterLogPath = path.join(app.getPath('userData'), 'updater.log');
+  const ulog = (msg) => {
+    try { fs.appendFileSync(updaterLogPath, `[${new Date().toISOString()}] ${msg}\n`); } catch {}
+  };
+  autoUpdater.logger = {
+    info: m => ulog('INFO ' + m),
+    warn: m => ulog('WARN ' + m),
+    error: m => ulog('ERROR ' + m)
+  };
+
+  ulog(`=== запуск приложения, версия ${app.getVersion()} ===`);
+  autoUpdater.on('update-available', (info) => ulog('update-available: ' + (info && info.version)));
+  autoUpdater.on('update-not-available', () => ulog('update-not-available'));
+  autoUpdater.on('error', (err) => ulog('ERROR event: ' + ((err && (err.stack || err.message)) || String(err))));
+
+  // Проверяем обновления через 3 секунды после запуска и далее каждые 20 минут
+  // (приложение висит в трее днями — разового запуска мало)
+  const checkUpdates = () => {
+    ulog('проверка обновлений...');
+    autoUpdater.checkForUpdatesAndNotify().catch(e => ulog('checkForUpdates failed: ' + ((e && e.message) || e)));
+  };
+  setTimeout(checkUpdates, 3000);
+  setInterval(checkUpdates, 20 * 60 * 1000);
 });
 
 // Когда обновление скачалось — предлагаем перезапустить
 autoUpdater.on('update-downloaded', () => {
-  dialog.showMessageBox(mainWindow, {
+  // Диалог НЕ привязываем к главному окну: оно обычно свёрнуто в трей,
+  // и сообщение с кнопкой «Да» просто не показывалось
+  dialog.showMessageBox({
     type: 'info',
     title: 'Обновление готово',
     message: 'Скачана новая версия Support Hub. Перезапустить приложение сейчас для обновления?',
-    buttons: ['Да', 'Позже']
+    buttons: ['Да', 'Позже'],
+    noLink: true
   }).then((result) => {
     if (result.response === 0) {
       autoUpdater.quitAndInstall();

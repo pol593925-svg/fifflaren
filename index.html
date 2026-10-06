@@ -37,8 +37,11 @@
     <button class="tab-btn" data-tab="crypto">🔍 Крипто</button>
     <button class="tab-btn" data-tab="notes">📓 Заметки</button>
     <button class="tab-btn" data-tab="exchanges">🏛️ Биржи</button>
+    <button class="tab-btn" data-tab="tasks">✅ Задачи</button>
+    <button class="tab-btn" data-tab="feed">🖼️ Лента</button>
     <button class="tab-btn" data-tab="approve" style="background: #2a1b1b; color: #ff6b6b; border: 1px dashed #ff6b6b;">🐵 Найти апрув</button>
     <button class="tab-btn" data-tab="chat">💬 Чат</button>
+    <button id="themeToggleBtn" title="Сменить тему">☀️</button>
     <!-- Вкладка ТЛ-панели (видна только ТЛ — ник совпадает с названием команды) -->
     <button class="tab-btn" data-tab="tlpanel" id="tlTabBtn" style="display: none; background: #1e2a3d; color: #4da6ff; border: 1px solid #4da6ff;">🎯 ТЛ-панель</button>
     <!-- Вкладка админки (видна только админу) -->
@@ -262,7 +265,36 @@
     </div>
   </div>
 
-  <!-- 8.5. ВКЛАДКА: ТЛ-панель (коллы, отпросы, смены, отписи своей команды) -->
+  <!-- 8.4. ВКЛАДКА: Задачи (чек-лист дня) -->
+  <div id="tab-tasks" class="content" style="display: none;">
+    <div class="card">
+      <h3>✅ Задачи на сегодня</h3>
+      <p style="font-size:11px; color:#888; margin-top:2px;">Отмечай галочками выполненное. Прогресс виден всем.</p>
+      <div class="task-progress-outer"><div class="task-progress-inner" id="tasksProgress"></div></div>
+      <div id="tasksList"><p style="color:#777; font-size:12px;">Загрузка...</p></div>
+    </div>
+  </div>
+
+  <!-- 8.5. ВКЛАДКА: Лента картинок -->
+  <div id="tab-feed" class="content" style="display: none;">
+    <div class="card">
+      <h3>🖼️ Лента находок</h3>
+      <p style="font-size:11px; color:#888; margin-top:2px;">Делись скринами трюфелей, скамов и разборов. Лайкай чужие.</p>
+      <div class="row-group">
+        <input type="file" id="feedImageFile" accept="image/*" style="flex:2; font-size:11px;">
+        <button id="feedSendBtn" class="template-btn" style="background:#0d6efd; font-weight:bold;">➕ В ленту</button>
+      </div>
+      <input type="text" id="feedCaption" placeholder="Подпись (необязательно)..." style="width:100%; margin-top:6px;">
+      <img id="feedPreview" alt="" style="display:none; max-height:120px; margin-top:6px; border-radius:6px; border:1px solid #333;">
+      <div class="row-group" style="margin-top:10px;">
+        <input type="text" id="feedSearch" placeholder="🔍 Поиск по подписям..." style="flex:2;">
+        <button id="feedSearchBtn" class="template-btn" style="background:#4a5568;">Найти</button>
+      </div>
+    </div>
+    <div id="feedList"></div>
+  </div>
+
+  <!-- 8.6. ВКЛАДКА: ТЛ-панель (коллы, отпросы, смены, отписи своей команды) -->
   <div id="tab-tlpanel" class="content" style="display: none;">
     <div class="card admin-card">
       <h3>🎯 ТЛ-панель — команда <span id="tlTeamName" style="color:#4da6ff;"></span></h3>
@@ -364,11 +396,41 @@
         <div id="adminExList" class="admin-events-box" style="max-height:250px; margin-top:10px;"><p style="color:#777;">Загрузка...</p></div>
       </div>
 
+      <!-- Чек-лист дня -->
+      <div class="admin-section">
+        <h4>✅ Чек-лист дня (задачи для всех)</h4>
+        <div class="row-group">
+          <input type="text" id="adminTaskText" placeholder="Текст задачи..." style="flex:2;">
+          <button id="adminTaskAddBtn" class="template-btn" style="background:#198754; font-weight:bold;">➕ Добавить</button>
+        </div>
+        <div id="adminTasksList" class="admin-events-box" style="max-height:200px;"><p style="color:#777;">Загрузка...</p></div>
+      </div>
+
       <!-- Модерация чата -->
       <div class="admin-section">
         <h4>👥 Управление пользователями чата</h4>
         <div id="adminUsersList"><p style="color:#777;">Загрузка списка пользователей...</p></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Мини-профиль (модалка по клику на ник) -->
+  <div id="profileModal" class="profile-modal">
+    <div class="profile-card">
+      <img id="profAvatar" src="" alt="" style="display:none;">
+      <div id="profAvatarPlaceholder" style="width:90px; height:90px; border-radius:50%; background:#4a5568; color:#fff; font-size:36px; font-weight:bold; display:flex; align-items:center; justify-content:center; margin:0 auto;">?</div>
+      <h3 id="profNick">—</h3>
+      <div class="prof-pos" id="profPos"></div>
+      <div class="prof-team" id="profTeam"></div>
+      <div class="profile-stats">
+        <div><b id="profTruffles">0</b><span>💎 Трюф. мес</span></div>
+        <div><b id="profApproves">0</b><span>✅ Апр. мес</span></div>
+        <div><b id="profShifts">0</b><span>⏱️ Смен мес</span></div>
+        <div><b id="profLikes">0</b><span>👍 В ленте</span></div>
+      </div>
+      <input type="file" id="profAvatarFile" accept="image/*" style="display:none;">
+      <button id="profChangeAvatarBtn" class="submit-btn blue" style="display:none;">📷 Сменить аватар</button>
+      <button id="profCloseBtn" class="submit-btn gray">Закрыть</button>
     </div>
   </div>
 

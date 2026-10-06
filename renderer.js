@@ -165,6 +165,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'admin') refreshAdminPanel();
       if (tabName === 'hq') loadHQRoster();
       if (tabName === 'tlpanel') loadTlToday();
+      if (tabName === 'tasks') loadTasks();
+      if (tabName === 'feed') loadFeed();
     });
   });
 
@@ -214,6 +216,18 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("adminImageSendBtn", sendAdminImage);
   bindAdminImagePicker();
   bindClick("tlEventsLoadBtn", () => loadTlHistory());
+  // 3.1.0
+  bindClick("feedSendBtn", sendFeedItem);
+  bindFeedPicker();
+  bindClick("feedSearchBtn", loadFeed);
+  bindClick("adminTaskAddBtn", addAdminTask);
+  bindClick("profCloseBtn", closeProfile);
+  bindClick("profChangeAvatarBtn", () => document.getElementById("profAvatarFile")?.click());
+  const profAvatarFile = document.getElementById("profAvatarFile");
+  if (profAvatarFile) profAvatarFile.addEventListener("change", changeOwnAvatar);
+  const themeBtn = document.getElementById("themeToggleBtn");
+  if (themeBtn) themeBtn.addEventListener("click", () => applyTheme(!document.body.classList.contains('light')));
+  applyTheme(localStorage.getItem('sh_theme') === 'light');
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
   bindClick("adminEventsLoadBtn", loadAdminEvents);
   bindClick("adminStatsLoadBtn", loadAdminStats);
@@ -288,6 +302,10 @@ async function loadHQRoster() {
       box.appendChild(col);
     });
     updateHQStatusDots();
+    // Клик по нику — мини-профиль
+    box.querySelectorAll('.team-list li[data-nick]').forEach(li => {
+      li.addEventListener('click', () => openProfile(li.getAttribute('data-nick')));
+    });
   } catch (e) {
     box.innerHTML = '<p style="color:#777; font-size:12px;">Не удалось загрузить состав (нет соединения).</p>';
   }
@@ -900,6 +918,7 @@ function refreshAdminPanel() {
   loadAdminStats();
   loadAdminTeams();
   loadAdminExchanges();
+  loadAdminTasks();
 }
 
 async function fetchAdmin(url) {
@@ -1056,7 +1075,10 @@ async function loadAdminUsers() {
         row.innerHTML = `
           <div>
             <strong>${escapeHtml(u.username)}</strong> (${u.role})<br>
-            <small style="color:#888;">Мут: ${u.isMuted ? 'Да' : 'Нет'} | Бан: ${u.isBanned ? 'Да' : 'Нет'}</small>
+            <small style="color:#888;">Мут: ${u.isMuted ? 'Да' : 'Нет'} | Бан: ${u.isBanned ? 'Да' : 'Нет'}</small><br>
+            <input type="text" data-pos-user="${escapeHtml(u.username)}" value="${escapeHtml(u.position || '')}"
+                placeholder="Должность..." style="width:130px; font-size:10px; margin-top:3px;">
+            <button onclick="savePosition('${u.username}')" style="font-size:10px; padding:2px 6px;">💾</button>
           </div>
           <div>
             ${u.username !== 'fifflaren'
@@ -1211,6 +1233,315 @@ async function loadAdminEvents() {
     box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
   }
 }
+
+// ==================== 3.1.0: ЗАДАЧИ, ЛЕНТА, ПРОФИЛЬ, ТЕМА ====================
+
+// Уменьшаем картинку перед отправкой (canvas), чтобы не лопнуть лимиты
+function fileToResizedDataUrl(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (Math.max(w, h) > maxDim) {
+          const k = maxDim / Math.max(w, h);
+          w = Math.round(w * k); h = Math.round(h * k);
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = reject;
+      img.src = r.result;
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// --- Тема ---
+function applyTheme(light) {
+  document.body.classList.toggle('light', light);
+  localStorage.setItem('sh_theme', light ? 'light' : 'dark');
+  const btn = document.getElementById("themeToggleBtn");
+  if (btn) btn.textContent = light ? '🌙' : '☀️';
+}
+
+// --- Чек-лист дня ---
+async function loadTasks() {
+  const box = document.getElementById("tasksList");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/tasks?date=${localDateStr()}`);
+    const data = await res.json();
+    renderTasks(box, data.tasks || [], false);
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
+  }
+}
+
+function renderTasks(box, tasks, isAdmin) {
+  if (!tasks.length) {
+    box.innerHTML = "<p style='color:#777; font-size:12px;'>Задач на сегодня нет</p>";
+    const bar = document.getElementById("tasksProgress");
+    if (bar) { bar.style.width = '0%'; bar.textContent = ''; }
+    return;
+  }
+  box.innerHTML = "";
+  let myDone = 0;
+  tasks.forEach(t => {
+    const mine = (t.done || []).includes(currentUser);
+    if (mine) myDone++;
+    const row = document.createElement('div');
+    row.className = 'task-item' + (mine ? ' done' : '');
+    row.innerHTML = `
+      <input type="checkbox" ${mine ? 'checked' : ''} onchange="toggleTask('${t._id}')">
+      <span>${escapeHtml(t.text)}</span>
+      <span class="task-meta">${(t.done || []).length ? '✅ ' + t.done.length : ''}</span>
+      ${isAdmin ? `<button class="task-del" title="Удалить" onclick="deleteTask('${t._id}')">🗑</button>` : ''}`;
+    box.appendChild(row);
+  });
+  const pct = Math.round(myDone / tasks.length * 100);
+  const bar = document.getElementById("tasksProgress");
+  if (bar) { bar.style.width = pct + '%'; bar.textContent = pct + '%'; }
+}
+
+window.toggleTask = async (id) => {
+  try {
+    await fetch(`${SERVER_API_URL}/api/tasks/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, id })
+    });
+    loadTasks();
+    if (currentRole === 'admin') loadAdminTasks();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+// --- Чек-лист в админке ---
+async function loadAdminTasks() {
+  const box = document.getElementById("adminTasksList");
+  if (!box) return;
+  try {
+    const data = await fetchAdmin(`${SERVER_API_URL}/api/tasks?date=${localDateStr()}`);
+    renderTasks(box, data.tasks || [], true);
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
+  }
+}
+
+async function addAdminTask() {
+  const input = document.getElementById("adminTaskText");
+  const text = input?.value.trim();
+  if (!text) return;
+  try {
+    await fetch(`${SERVER_API_URL}/api/admin/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, text })
+    });
+    input.value = "";
+    loadAdminTasks();
+  } catch (e) { alert('Ошибка соединения'); }
+}
+
+window.deleteTask = async (id) => {
+  if (!confirm('Удалить задачу?')) return;
+  try {
+    await fetch(`${SERVER_API_URL}/api/admin/tasks?id=${id}&admin=${encodeURIComponent(currentUser)}`, { method: 'DELETE' });
+    loadAdminTasks();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+// --- Лента картинок ---
+let feedImageDataUrl = null;
+
+function bindFeedPicker() {
+  const fileInput = document.getElementById("feedImageFile");
+  if (!fileInput) return;
+  fileInput.addEventListener("change", async () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    try {
+      feedImageDataUrl = await fileToResizedDataUrl(f, 1600);
+      const prev = document.getElementById("feedPreview");
+      if (prev) { prev.src = feedImageDataUrl; prev.style.display = "block"; }
+    } catch (e) { alert('Не удалось обработать картинку'); }
+  });
+}
+
+async function sendFeedItem() {
+  if (!feedImageDataUrl) { alert("Сначала выбери картинку!"); return; }
+  const caption = document.getElementById("feedCaption")?.value.trim() || "";
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, dataUrl: feedImageDataUrl, caption })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    feedImageDataUrl = null;
+    const fi = document.getElementById("feedImageFile"); if (fi) fi.value = "";
+    const prev = document.getElementById("feedPreview"); if (prev) prev.style.display = "none";
+    const cap = document.getElementById("feedCaption"); if (cap) cap.value = "";
+    loadFeed();
+  } catch (e) { alert('Ошибка соединения'); }
+}
+
+async function loadFeed() {
+  const box = document.getElementById("feedList");
+  if (!box) return;
+  const q = (document.getElementById("feedSearch")?.value || "").trim().toLowerCase();
+  box.innerHTML = "<p style='color:#777;'>Загрузка...</p>";
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/feed`);
+    const data = await res.json();
+    let items = data.items || [];
+    if (q) items = items.filter(i => (i.caption || '').toLowerCase().includes(q) || i.user.includes(q));
+    if (!items.length) { box.innerHTML = "<p style='color:#777;'>Пока пусто</p>"; return; }
+    box.innerHTML = "";
+    items.forEach(it => box.appendChild(buildFeedItem(it)));
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
+  }
+}
+
+function buildFeedItem(it) {
+  const div = document.createElement('div');
+  div.className = 'feed-item' + (it.pinned ? ' pinned' : '');
+  const time = new Date(it.createdAt).toLocaleString('ru-RU');
+  const liked = (it.likes || []).includes(currentUser);
+  const disliked = (it.dislikes || []).includes(currentUser);
+  div.innerHTML = `
+    ${it.pinned ? '<div class="feed-pin-badge">📌 Закреплено</div>' : ''}
+    <div class="feed-head">🖼️ ${escapeHtml(it.user)}<span class="feed-time">${time}</span></div>
+    <img class="feed-img" src="${it.dataUrl}" alt="">
+    ${it.caption ? `<div class="feed-caption">${escapeHtml(it.caption)}</div>` : ''}
+    <div class="feed-actions">
+      <button class="${liked ? 'active-like' : ''}" onclick="feedReact('${it._id}', 'like')">👍 ${(it.likes || []).length}</button>
+      <button class="${disliked ? 'active-dislike' : ''}" onclick="feedReact('${it._id}', 'dislike')">👎 ${(it.dislikes || []).length}</button>
+      ${currentRole === 'admin' ? `<button onclick="feedPin('${it._id}', ${!it.pinned})">${it.pinned ? '📌 Открепить' : '📌 Закрепить'}</button>` : ''}
+      ${(it.user === currentUser || currentRole === 'admin') ? `<button onclick="feedDelete('${it._id}')">🗑 Удалить</button>` : ''}
+    </div>
+    <div class="feed-comments">
+      ${(it.comments || []).map(c => `<div class="feed-comment"><b>${escapeHtml(c.user)}:</b> ${escapeHtml(c.text)}<span class="c-time">${escapeHtml(c.time || '')}</span></div>`).join('')}
+      <div class="row-group" style="margin-top:4px;">
+        <input type="text" id="commentInput-${it._id}" placeholder="Комментарий..." style="flex:2;">
+        <button class="template-btn" style="background:#4a5568;" onclick="feedComment('${it._id}')">➤</button>
+      </div>
+    </div>`;
+  return div;
+}
+
+window.feedReact = async (id, kind) => {
+  try {
+    await fetch(`${SERVER_API_URL}/api/feed/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, id, kind })
+    });
+    loadFeed();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+window.feedComment = async (id) => {
+  const input = document.getElementById("commentInput-" + id);
+  const text = input?.value.trim();
+  if (!text) return;
+  try {
+    await fetch(`${SERVER_API_URL}/api/feed/comment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, id, text })
+    });
+    loadFeed();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+window.feedDelete = async (id) => {
+  if (!confirm('Удалить запись из ленты?')) return;
+  try {
+    await fetch(`${SERVER_API_URL}/api/feed?id=${id}&username=${encodeURIComponent(currentUser)}`, { method: 'DELETE' });
+    loadFeed();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+window.feedPin = async (id, pinned) => {
+  try {
+    await fetch(`${SERVER_API_URL}/api/admin/feed/pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, id, pinned })
+    });
+    loadFeed();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+// --- Мини-профиль ---
+async function openProfile(nick) {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/profile?username=${encodeURIComponent(nick)}`);
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    const p = data.profile;
+    const av = document.getElementById("profAvatar");
+    const ph = document.getElementById("profAvatarPlaceholder");
+    if (p.avatar) { av.src = p.avatar; av.style.display = 'block'; ph.style.display = 'none'; }
+    else { av.style.display = 'none'; ph.style.display = 'flex'; ph.textContent = (p.username[0] || '?').toUpperCase(); }
+    document.getElementById("profNick").textContent = p.username;
+    document.getElementById("profPos").textContent = p.position || '';
+    document.getElementById("profTeam").textContent = p.team ? '🏴 ' + p.team : '';
+    document.getElementById("profTruffles").textContent = p.month.truffles;
+    document.getElementById("profApproves").textContent = p.month.approves;
+    document.getElementById("profShifts").textContent = p.month.shifts;
+    document.getElementById("profLikes").textContent = p.month.likes;
+    const isMe = p.username.toLowerCase() === currentUser.toLowerCase();
+    document.getElementById("profChangeAvatarBtn").style.display = isMe ? '' : 'none';
+    document.getElementById("profileModal").classList.add('open');
+  } catch (e) { alert('Ошибка соединения'); }
+}
+
+function closeProfile() {
+  document.getElementById("profileModal")?.classList.remove('open');
+}
+
+async function changeOwnAvatar() {
+  const fileInput = document.getElementById("profAvatarFile");
+  const f = fileInput?.files[0];
+  if (!f) return;
+  try {
+    const dataUrl = await fileToResizedDataUrl(f, 256);
+    const res = await fetch(`${SERVER_API_URL}/api/profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, avatar: dataUrl })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    closeProfile();
+    openProfile(currentUser);
+  } catch (e) { alert('Ошибка соединения'); }
+}
+
+// Должность (админ ставит в админке)
+window.savePosition = async (username) => {
+  const input = document.querySelector(`input[data-pos-user="${username}"]`);
+  const position = input?.value.trim() || '';
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, username, position })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    if (input) input.style.borderColor = '#198754';
+    setTimeout(() => { if (input) input.style.borderColor = ''; }, 800);
+  } catch (e) { alert('Ошибка соединения'); }
+};
 
 // ==================== ТЛ-ПАНЕЛЬ (события своей команды) ====================
 // ТЛ — пользователь, чей ник совпадает с названием команды

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Уведомление от Админа</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      background: #1e1e2f;
+      border: 2px solid #dc3545;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+      user-select: none;
+    }
+    .header {
+      background: #dc3545;
+      color: #fff;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header .time { font-weight: normal; opacity: 0.85; font-size: 12px; }
+    .text {
+      flex: 1;
+      padding: 16px;
+      color: #fff;
+      font-size: 19px;
+      line-height: 1.4;
+      display: flex;
+      align-items: center;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    button {
+      margin: 0 16px 14px;
+      padding: 10px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #218838; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span id="fromLabel">⚡ Сообщение от Админа</span>
+    <span class="time" id="timeLabel"></span>
+  </div>
+  <div class="text" id="textLabel"></div>
+  <button onclick="closeMe()">Понятно 👍</button>
+
+  <!-- Звук уведомления -->
+  <audio id="snd" src="alert.wav" autoplay></audio>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const text = params.get('text') || 'Внимание!';
+    const from = params.get('from') || 'Fifflaren';
+    const time = params.get('time') || '';
+
+    document.getElementById('textLabel').textContent = text;
+    document.getElementById('fromLabel').textContent = `⚡ Сообщение от ${from}`;
+    document.getElementById('timeLabel').textContent = time;
+
+    // Если автоплей не сработал (политики), пробуем ещё раз по клику
+    const snd = document.getElementById('snd');
+    snd.volume = 1.0;
+    const tryPlay = () => { snd.play().catch(() => {}); };
+    tryPlay();
+    setTimeout(tryPlay, 100);
+    document.body.addEventListener('click', tryPlay, { once: true });
+
+    function closeMe() {
+      require('electron').ipcRenderer.send('close-notification');
+    }
+  </script>
+</body>
+</html>

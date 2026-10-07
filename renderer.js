@@ -3200,3 +3200,26 @@ bindClick("crashBetBtn", crashPlaceBet);
 bindClick("crashCashoutBtn", crashTake);
 bindClick("duelChallengeBtn", duelChallenge);
 bindClick("adminDnoLoadBtn", loadAdminDno);
+
+// Начисление бабок в казино (админ)
+window.adminGrant = async () => {
+  const username = (document.getElementById("adminGrantNick")?.value || '').trim().toLowerCase();
+  const amount = Math.floor(Number(document.getElementById("adminGrantAmount")?.value || 0));
+  const status = document.getElementById("adminGrantStatus");
+  if (!username || !amount) { if (status) status.textContent = 'Впиши ник и сумму (не 0)'; return; }
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/casino/grant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, username, amount })
+    });
+    const data = await res.json();
+    if (!data.success) { if (status) { status.style.color = '#ff6b6b'; status.textContent = data.message || 'Ошибка'; } return; }
+    if (status) { status.style.color = '#2ecc71'; status.textContent = `${username}: теперь ${data.balance}$ ✔`; }
+    const amt = document.getElementById("adminGrantAmount");
+    if (amt) amt.value = '';
+  } catch (e) {
+    if (status) { status.style.color = '#ff6b6b'; status.textContent = 'Ошибка соединения'; }
+  }
+};
+bindClick("adminGrantBtn", adminGrant);

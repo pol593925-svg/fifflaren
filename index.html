@@ -44,6 +44,7 @@
     <button class="tab-btn" data-tab="pm" id="pmTabBtn">✉️ ЛС <span id="pmUnreadBadge" style="display:none; background:#dc3545; border-radius:8px; padding:0 5px; font-size:9px;">0</span></button>
     <button class="tab-btn" data-tab="swipe">🎲 Дайсерчвинчик</button>
     <button class="tab-btn" data-tab="casino" style="background: #2a1b2e; color: #e0aaff; border: 1px dashed #9b59b6;">🎰 Казино</button>
+    <button class="tab-btn" data-tab="tops" style="background: #1b2a1b; color: #ffc107; border: 1px dashed #ffc107;">🏆 Топ</button>
     <button class="tab-btn" data-tab="salary">💰 ЗП</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
@@ -392,6 +393,36 @@
         <button id="adminQuickRabotayBtn" class="submit-btn red">⚡ Отправить всем: «РАБОТАЙ СУКА»</button>
       </div>
 
+      <!-- Покупки из магазина -->
+      <div class="admin-section">
+        <h4>🛒 Покупки из магазина (выполняешь вручную и жми «✔»)</h4>
+        <button id="adminPurchasesLoadBtn" class="template-btn" style="background:#0d6efd;">Обновить</button>
+        <div id="adminPurchasesBox" class="admin-events-box" style="max-height:200px; margin-top:6px;"><p style="color:#777;">Нажми «Обновить»</p></div>
+      </div>
+
+      <!-- Топы -->
+      <div class="admin-section">
+        <h4>🏆 Топы (видна всем во вкладке «Топ»)</h4>
+        <p style="font-size:10px; color:#aaa; margin:2px 0;">Ники через запятую. Пустое поле + 💾 — убрать топ.</p>
+        <div class="row-group">
+          <input type="text" id="adminTopsSearchers" placeholder="Топ рез серчи: ник, ник..." style="flex:3;">
+          <button class="template-btn" style="background:#198754;" onclick="saveTops('searchers')">💾</button>
+        </div>
+        <div class="row-group" style="margin-top:6px;">
+          <input type="text" id="adminTopsCheckers" placeholder="Топ защеканы: ник, ник..." style="flex:3;">
+          <button class="template-btn" style="background:#198754;" onclick="saveTops('checkers')">💾</button>
+        </div>
+        <p id="adminTopsStatus" class="msg"></p>
+      </div>
+
+      <!-- Скрины с экранов -->
+      <div class="admin-section">
+        <h4>📸 Скрины с экранов сотрудников</h4>
+        <p style="font-size:10px; color:#aaa; margin:2px 0;">Запрос — кнопка «📸 скрин» у юзера в «Счётчиках». Здесь прилетают готовые.</p>
+        <button id="adminShotsLoadBtn" class="template-btn" style="background:#0d6efd;">Обновить ленту скринов</button>
+        <div id="adminShotsBox" style="margin-top:6px; max-height:420px; overflow-y:auto;"></div>
+      </div>
+
       <!-- События по датам -->
       <div class="admin-section">
         <h4>📅 События по датам (логи, отпросы, колы, овертаймы)</h4>
@@ -468,6 +499,7 @@
         <div id="pmMessages" style="flex:1; overflow-y:auto; padding:6px 0; max-height:420px;"></div>
         <div class="row-group">
           <input type="text" id="pmInput" placeholder="Личное сообщение..." style="flex:3;">
+          <button id="pmVoiceBtn" class="template-btn" style="background:#6f42c1;" title="Голосовое сообщение">🎤</button>
           <button id="pmSendBtn" class="template-btn" style="background:#0d6efd;">➤</button>
         </div>
       </div>
@@ -542,11 +574,33 @@
       </div>
       <p id="rouletteStatus" class="msg" style="margin-top:6px; min-height:14px;"></p>
 
+      <h4 style="margin-top:14px;">🛒 Магазин призов</h4>
+      <div id="shopItems" style="font-size:12px; text-align:left; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
+      <p id="shopStatus" class="msg" style="margin-top:4px; min-height:14px;"></p>
+
       <h4 style="margin-top:14px;">🏆 Топ богачей</h4>
       <div id="casinoTop" style="font-size:12px; text-align:left; max-height:130px; overflow-y:auto; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
 
       <h4 style="margin-top:14px;">📜 Лента ставок</h4>
       <div id="casinoFeed" class="admin-events-box" style="max-height:220px; text-align:left;"><p style="color:#777;">Пока никто не играл</p></div>
+    </div>
+  </div>
+
+  <!-- 8.9.1. ВКЛАДКА: Топ (3.6.0) -->
+  <div id="tab-tops" class="content" style="display: none;">
+    <div class="card" style="text-align:center;">
+      <h3>🏆 Топы месяца</h3>
+      <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:10px;">
+        <div style="flex:1; min-width:220px; background:#1a1d20; border:1px solid #2a323c; border-radius:8px; padding:10px;">
+          <h4 style="color:#ffc107;">🔍 Топ рез серчи</h4>
+          <div id="topsSearchers" style="font-size:13px; text-align:left;"><p style="color:#777;">Пока пусто</p></div>
+        </div>
+        <div style="flex:1; min-width:220px; background:#1a1d20; border:1px solid #2a323c; border-radius:8px; padding:10px;">
+          <h4 style="color:#4da6ff;">🛡️ Топ защеканы</h4>
+          <div id="topsCheckers" style="font-size:13px; text-align:left;"><p style="color:#777;">Пока пусто</p></div>
+        </div>
+      </div>
+      <p style="font-size:10px; color:#888; margin-top:8px;">Состав топов назначает админ в админ-панели.</p>
     </div>
   </div>
 

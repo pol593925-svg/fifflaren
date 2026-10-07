@@ -171,6 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
+      if (tabName === 'tops') loadTops();
     });
   });
 
@@ -371,6 +372,9 @@ function initSocketConnection(username) {
     console.log("Подключено к серверу чата");
     socket.emit('join_chat', username);
   });
+
+  // 3.6.0: запросы скринов + оповещения о покупках
+  bindScreenshotRequest();
 
   socket.on('chat_message', (msgData) => appendMessageToChatUI(msgData));
 
@@ -960,6 +964,7 @@ function refreshAdminPanel() {
   loadAdminTeams();
   loadAdminExchanges();
   loadAdminTasks();
+  loadAdminTopsInputs();
 }
 
 async function fetchAdmin(url) {
@@ -1666,7 +1671,9 @@ async function loadPmChat() {
       const row = document.createElement('div');
       row.style.cssText = `text-align:${mine ? 'right' : 'left'}; margin:3px 0;`;
       const ticks = mine ? (m.read ? ' ✓✓' : ' ✓') : '';
-      row.innerHTML = `<span style="display:inline-block; max-width:75%; background:${mine ? '#0d6efd' : '#2b3035'}; color:#fff; padding:5px 9px; border-radius:8px; font-size:12px; text-align:left;">${escapeHtml(m.text)}<br><small style="color:#ddd; font-size:9px;">${new Date(m.createdAt).toLocaleTimeString('ru-RU')}${ticks}</small></span>`;
+      const voiceHtml = m.voice ? `<audio controls src="${m.voice}" style="max-width:100%; height:32px; display:block; margin-bottom:2px;"></audio>` : '';
+      const textHtml = m.text ? escapeHtml(m.text) + '<br>' : '';
+      row.innerHTML = `<span style="display:inline-block; max-width:75%; background:${mine ? '#0d6efd' : '#2b3035'}; color:#fff; padding:5px 9px; border-radius:8px; font-size:12px; text-align:left;">${voiceHtml}${textHtml}<small style="color:#ddd; font-size:9px;">${new Date(m.createdAt).toLocaleTimeString('ru-RU')}${ticks}</small></span>`;
       box.appendChild(row);
     });
     box.scrollTop = box.scrollHeight;
@@ -2035,6 +2042,7 @@ async function loadAdminStats() {
                         ? `<button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="toggleAdminRole('${u.username}', 'user')">👑 админ · забрать</button>`
                         : `<button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="toggleAdminRole('${u.username}', 'admin')">➕ сделать админом</button>`)}
                   <button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="resetUserPassword('${u.username}')">🔑 пароль</button>
+                  <button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="requestScreenshot('${u.username}')">📸 скрин</button>
                 </td>
               </tr>`;
           }).join('')}
@@ -2647,3 +2655,247 @@ async function loadCasinoFeed() {
     box.innerHTML = "<p style='color:red;'>Ошибка загрузки ленты</p>";
   }
 }
+
+// ==================== 3.6.0: ТОПЫ, МАГАЗИН, СКРИНЫ, ГОЛОСОВЫЕ ====================
+
+// --- Вкладка «Топ» ---
+async function loadTops() {
+  const sBox = document.getElementById("topsSearchers");
+  const cBox = document.getElementById("topsCheckers");
+  if (!sBox || !cBox) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/tops`);
+    const data = await res.json();
+    const render = (list) => (list && list.length)
+      ? list.map((n, i) => `<div style="padding:5px 4px; border-bottom:1px solid #2a323c;"><b style="color:#ffc107;">${i + 1}.</b> ${escapeHtml(n)}</div>`).join('')
+      : '<p style="color:#777;">Пока пусто</p>';
+    sBox.innerHTML = render(data.searchers || []);
+    cBox.innerHTML = render(data.checkers || []);
+  } catch (e) {
+    sBox.innerHTML = '<p style="color:red;">Ошибка загрузки</p>';
+    cBox.innerHTML = '';
+  }
+}
+
+// --- Магазин призов ---
+async function loadShopItems() {
+  const box = document.getElementById("shopItems");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/shop/items`);
+    const data = await res.json();
+    box.innerHTML = (data.items || []).map(it =>
+      `<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 2px; border-bottom:1px solid #2a323c;">
+        <span>${escapeHtml(it.name)}</span>
+        <button class="template-btn" style="background:#9b59b6; font-size:11px; padding:3px 10px;" onclick="shopBuy('${it.id}')">${it.price}$</button>
+      </div>`
+    ).join('');
+  } catch (e) {
+    box.innerHTML = '<p style="color:red;">Ошибка загрузки</p>';
+  }
+}
+
+window.shopBuy = async (itemId) => {
+  const status = document.getElementById("shopStatus");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/shop/buy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, item: itemId })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      if (status) { status.style.color = '#ff6b6b'; status.textContent = data.message || 'Ошибка'; }
+      return;
+    }
+    casinoSetBalance(data.balance);
+    if (status) { status.style.color = '#2ecc71'; status.textContent = `Куплено: ${data.item}. Заявка ушла админам на выполнение.`; }
+    loadCasinoTop();
+  } catch (e) {
+    if (status) { status.style.color = '#ff6b6b'; status.textContent = 'Ошибка соединения'; }
+  }
+};
+
+// --- Админка: покупки ---
+window.loadAdminPurchases = async () => {
+  const box = document.getElementById("adminPurchasesBox");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/purchases?admin=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    const list = data.purchases || [];
+    if (!list.length) { box.innerHTML = '<p style="color:#777;">Покупок нет</p>'; return; }
+    box.innerHTML = list.map(p =>
+      `<div style="padding:5px 2px; border-bottom:1px solid #333; font-size:12px; ${p.done ? 'opacity:0.5;' : ''}">
+        <b>${escapeHtml(p.username)}</b> — ${escapeHtml(p.item)} (${p.price}$)
+        <small style="color:#888;">${new Date(p.time).toLocaleString('ru-RU')}</small>
+        ${p.done ? ' <span style="color:#2ecc71;">✔ выполнено</span>'
+                 : ` <button class="template-btn" style="background:#198754; font-size:10px; padding:2px 8px;" onclick="markPurchaseDone('${p.id}')">✔ выполнил</button>`}
+      </div>`
+    ).join('');
+  } catch (e) {
+    box.innerHTML = '<p style="color:red;">Ошибка загрузки</p>';
+  }
+};
+
+window.markPurchaseDone = async (id) => {
+  try {
+    await fetch(`${SERVER_API_URL}/api/admin/purchases/done`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, id })
+    });
+    loadAdminPurchases();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+// --- Админка: топы ---
+window.saveTops = async (list) => {
+  const input = document.getElementById(list === 'searchers' ? 'adminTopsSearchers' : 'adminTopsCheckers');
+  const status = document.getElementById("adminTopsStatus");
+  const usernames = (input?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/tops`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, list, usernames })
+    });
+    const data = await res.json();
+    if (!data.success) { if (status) status.textContent = data.message || 'Ошибка'; return; }
+    if (status) status.textContent = 'Сохранено ✔';
+    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+  } catch (e) {
+    if (status) status.textContent = 'Ошибка соединения';
+  }
+};
+
+async function loadAdminTopsInputs() {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/tops`);
+    const data = await res.json();
+    const sIn = document.getElementById("adminTopsSearchers");
+    const cIn = document.getElementById("adminTopsCheckers");
+    if (sIn) sIn.value = (data.searchers || []).join(', ');
+    if (cIn) cIn.value = (data.checkers || []).join(', ');
+  } catch (e) {}
+}
+
+// --- Скрины по кнопке ---
+window.requestScreenshot = (username) => {
+  if (!socket) { alert('Нет соединения'); return; }
+  socket.emit('admin_screenshot_request', { from: currentUser, targetNick: username });
+  const box = document.getElementById("adminShotsBox");
+  if (box) box.innerHTML = `<p style="color:#4da6ff;">📸 Запрос ${escapeHtml(username)} отправлен — жди скрин ниже, через ~10 сек жми «Обновить ленту скринов»...</p>` + box.innerHTML;
+};
+
+window.loadAdminShots = async () => {
+  const box = document.getElementById("adminShotsBox");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/screenshots?admin=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    const list = data.screenshots || [];
+    if (!list.length) { box.innerHTML = '<p style="color:#777;">Скринов пока нет</p>'; return; }
+    box.innerHTML = list.map(s =>
+      `<div style="margin-bottom:10px; border:1px solid #333; border-radius:6px; padding:6px;">
+        <div style="font-size:11px; color:#4da6ff; margin-bottom:4px;"><b>${escapeHtml(s.username)}</b> · ${new Date(s.time).toLocaleString('ru-RU')}</div>
+        <img src="${s.image}" style="max-width:100%; border-radius:4px; cursor:pointer;" onclick="window.open('${s.image}')">
+      </div>`
+    ).join('');
+  } catch (e) {
+    box.innerHTML = '<p style="color:red;">Ошибка загрузки</p>';
+  }
+};
+
+// Сотрудник: прилетел запрос скрина — делаем и шлём на сервер
+function bindScreenshotRequest() {
+  if (!socket) return;
+  socket.on('screenshot_request', async () => {
+    try {
+      const dataUrl = await ipcRenderer.invoke('take-screenshot');
+      if (!dataUrl) return;
+      await fetch(`${SERVER_API_URL}/api/screenshot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: currentUser, image: dataUrl })
+      });
+    } catch (e) { /* тихо */ }
+  });
+
+  // Живое оповещение админам о покупке
+  socket.on('shop_purchase', (p) => {
+    try {
+      ipcRenderer.send('show-notification', {
+        text: `🛒 ${p.user} купил: ${p.item} (${p.price}$)`,
+        from: 'магазин',
+        time: new Date().toLocaleTimeString('ru-RU')
+      });
+      const box = document.getElementById("adminPurchasesBox");
+      if (box && document.getElementById("tab-admin")?.classList.contains('active')) loadAdminPurchases();
+    } catch (e) {}
+  });
+}
+
+// --- Голосовые в ЛС ---
+let pmRecorder = null;
+let pmVoiceChunks = [];
+let pmRecording = false;
+let pmVoiceTimer = null;
+
+async function pmToggleVoice() {
+  const btn = document.getElementById("pmVoiceBtn");
+  if (pmRecording) {
+    try { pmRecorder && pmRecorder.stop(); } catch (e) {}
+    return;
+  }
+  if (!pmWith) { alert("Сначала выбери диалог (слева или из профиля)"); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    pmVoiceChunks = [];
+    pmRecorder = new MediaRecorder(stream);
+    pmRecorder.ondataavailable = (e) => { if (e.data && e.data.size) pmVoiceChunks.push(e.data); };
+    pmRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      pmRecording = false;
+      if (btn) { btn.textContent = '🎤'; btn.style.background = '#6f42c1'; }
+      clearTimeout(pmVoiceTimer);
+      const blob = new Blob(pmVoiceChunks, { type: pmRecorder.mimeType || 'audio/webm' });
+      pmVoiceChunks = [];
+      if (blob.size < 200) return; // пустое
+      await sendVoiceMessage(blob);
+    };
+    pmRecorder.start();
+    pmRecording = true;
+    if (btn) { btn.textContent = '⏹'; btn.style.background = '#dc3545'; }
+    // Автостоп через 60 секунд
+    pmVoiceTimer = setTimeout(() => { try { pmRecorder && pmRecorder.stop(); } catch (e) {} }, 60000);
+  } catch (e) {
+    alert('Нет доступа к микрофону: ' + e.message);
+  }
+}
+
+async function sendVoiceMessage(blob) {
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+    const res = await fetch(`${SERVER_API_URL}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to: pmWith, voice: dataUrl })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    loadPmChat();
+    loadPmInbox();
+  } catch (e) { alert('Ошибка отправки голосового'); }
+}
+
+// --- Привязки ---
+bindClick("pmVoiceBtn", pmToggleVoice);
+bindClick("adminShotsLoadBtn", loadAdminShots);
+bindClick("adminPurchasesLoadBtn", loadAdminPurchases);
+loadShopItems();

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -268,12 +268,30 @@ ipcMain.on('restart_to_update', () => {
   autoUpdater.quitAndInstall();
 });
 
+// --- СКРИНШОТ ЭКРАНА СОТРУДНИКА (3.6.0) ---
+ipcMain.handle('take-screenshot', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1600, height: 1000 } });
+    if (!sources.length) return null;
+    const img = sources[0].thumbnail;
+    if (!img || img.isEmpty()) return null;
+    return 'data:image/jpeg;base64,' + img.toJPEG(72).toString('base64');
+  } catch (e) {
+    return null;
+  }
+});
+
 // --- ЖИЗНЕННЫЙ ЦИКЛ ---
 app.whenReady().then(() => {
   createWindow();
   createNotifyWindow();
   createImageWindow();
   createTray();
+
+  // Разрешаем микрофон (голосовые в ЛС) и медиа
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(['media', 'audioCapture', 'speaker-selection'].includes(permission));
+  });
 
   // Автозапуск с Windows включён по умолчанию
   if (!app.getLoginItemSettings().wasOpenedAsHidden) {

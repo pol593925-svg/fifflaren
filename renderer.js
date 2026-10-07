@@ -167,6 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
+      if (tabName === 'casino') loadCasinoFeed();
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
@@ -246,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("swipeLikeBtn", () => swipeVote('like'));
   bindClick("swipeDislikeBtn", () => swipeVote('dislike'));
   bindClick("swipeResultsLink", loadSwipeResults);
+  bindClick("casinoSpinBtn", casinoSpin);
   bindClick("profWriteBtn", () => { if (lastProfileNick) openPmWith(lastProfileNick); });
   bindSwipeDrag();
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
@@ -2352,4 +2354,111 @@ function sendAdminLink() {
     setTimeout(() => status.innerText = "", 4000);
   }
   document.getElementById("adminLinkUrl").value = "";
+}
+
+// ==================== КАЗИНО (3.4.0) ====================
+const CASINO_SYMBOLS_LOCAL = ['7', '🍒', '🔔', '💎', '⭐', '🍋'];
+let casinoSpinning = false;
+
+async function casinoSpin() {
+  if (casinoSpinning) return;
+  const btn = document.getElementById("casinoSpinBtn");
+  const status = document.getElementById("casinoStatus");
+  if (!currentUser) return;
+
+  casinoSpinning = true;
+  if (btn) btn.disabled = true;
+  if (status) { status.style.color = ''; status.textContent = 'Крутим...'; }
+
+  // Запускаем анимацию барабанов сразу
+  const timers = [];
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById("reel" + i);
+    if (!el) continue;
+    el.classList.add("rolling");
+    timers.push(setInterval(() => {
+      el.textContent = CASINO_SYMBOLS_LOCAL[Math.floor(Math.random() * CASINO_SYMBOLS_LOCAL.length)];
+    }, 90));
+  }
+
+  let data = null;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/spin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: currentUser })
+    });
+    data = await res.json();
+    if (!data.success && res.status === 429) {
+      stopReels(timers, null);
+      if (status) { status.style.color = '#ff6b6b'; status.textContent = data.message || 'Подожди немного'; }
+      casinoSpinning = false;
+      if (btn) btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    stopReels(timers, null);
+    if (status) { status.style.color = '#ff6b6b'; status.textContent = 'Ошибка соединения'; }
+    casinoSpinning = false;
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  // Останавливаем барабаны по очереди, с серверным результатом
+  for (let i = 0; i < 4; i++) {
+    await new Promise(r => setTimeout(r, 420 + i * 380));
+    const el = document.getElementById("reel" + i);
+    if (el) {
+      el.textContent = data.reels[i];
+      el.classList.remove("rolling");
+    }
+    clearInterval(timers[i]);
+  }
+
+  if (data.prize) {
+    if (status) { status.style.color = '#198754'; status.textContent = '🎉 ДЖЕКПОТ! ' + data.prize; }
+  } else {
+    if (status) { status.style.color = ''; status.textContent = 'Ничего — крути ещё!'; }
+  }
+
+  casinoSpinning = false;
+  if (btn) btn.disabled = false;
+  loadCasinoFeed();
+}
+
+function stopReels(timers, finalReels) {
+  for (let i = 0; i < 4; i++) {
+    clearInterval(timers[i]);
+    const el = document.getElementById("reel" + i);
+    if (el) {
+      el.classList.remove("rolling");
+      if (finalReels) el.textContent = finalReels[i];
+    }
+  }
+}
+
+async function loadCasinoFeed() {
+  const box = document.getElementById("casinoFeed");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/feed`);
+    const data = await res.json();
+    const spins = data.spins || [];
+    if (!spins.length) {
+      box.innerHTML = '<p style="color:#777;">Пока никто не крутил</p>';
+      return;
+    }
+    box.innerHTML = spins.map(s => {
+      const t = s.time ? new Date(s.time).toLocaleTimeString('ru-RU') : '';
+      const prizeHtml = s.prize
+        ? ` — <b style="color:#198754;">🎁 ${escapeHtml(s.prize)}</b>`
+        : ' — <span style="color:#888;">ничего</span>';
+      return `<div style="font-size:12px; padding:4px 2px; border-bottom:1px dashed #333;">
+        <b>${escapeHtml(s.user)}</b> — ${(s.reels || []).map(r => `<span style="font-size:15px;">${r}</span>`).join(' ')}${prizeHtml}
+        <span style="color:#666; font-size:10px;"> · ${t}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка загрузки ленты</p>";
+  }
 }

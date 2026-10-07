@@ -226,3 +226,20 @@ body.light #pmDialogs { border-right-color: #d0d5da !important; }
 body.light #swipeCard { background: #fff; border-color: #c3c9cf; }
 body.light #swipeAvatar { background: #cfd6dd; color: #444; }
 body.light #swipeTeam { color: #666; }
+
+/* 3.4.0 — Казино: барабаны слот-машины */
+.casino-reel {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  background: #1a1d20;
+  border: 2px solid #9b59b6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+.casino-reel.rolling { border-color: #e0aaff; }
+body.light .casino-reel { background: #f2f4f6; border-color: #9b59b6; }

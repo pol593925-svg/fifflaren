@@ -43,6 +43,7 @@
     <button class="tab-btn" data-tab="chat">💬 Чат</button>
     <button class="tab-btn" data-tab="pm" id="pmTabBtn">✉️ ЛС <span id="pmUnreadBadge" style="display:none; background:#dc3545; border-radius:8px; padding:0 5px; font-size:9px;">0</span></button>
     <button class="tab-btn" data-tab="swipe">🎲 Дайсерчвинчик</button>
+    <button class="tab-btn" data-tab="casino" style="background: #2a1b2e; color: #e0aaff; border: 1px dashed #9b59b6;">🎰 Казино</button>
     <button class="tab-btn" data-tab="salary">💰 ЗП</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
@@ -495,7 +496,25 @@
     </div>
   </div>
 
-  <!-- 8.9. ВКЛАДКА: Личное инфо — ЗП (3.3.0) -->
+  <!-- 8.9. ВКЛАДКА: Казино (3.4.0) -->
+  <div id="tab-casino" class="content" style="display: none;">
+    <div class="card" style="text-align:center;">
+      <h3>🎰 Казино</h3>
+      <p style="font-size:11px; color:#888; margin-top:2px;">Собери четыре семёрки — и приз твой!<br>🎁 Призы: ⏰ на час позже на работу · 💎 бонус +1 трюфель · ⚠️ штраф −20$</p>
+      <div style="display:flex; gap:10px; justify-content:center; margin:16px 0;">
+        <div id="reel0" class="casino-reel">🍒</div>
+        <div id="reel1" class="casino-reel">🔔</div>
+        <div id="reel2" class="casino-reel">💎</div>
+        <div id="reel3" class="casino-reel">⭐</div>
+      </div>
+      <button id="casinoSpinBtn" class="submit-btn red" style="max-width:220px;">🎰 Крутить!</button>
+      <p id="casinoStatus" class="msg" style="margin-top:8px; min-height:16px;"></p>
+      <h4 style="margin-top:14px;">📜 Лента прокрутов</h4>
+      <div id="casinoFeed" class="admin-events-box" style="max-height:230px; text-align:left;"><p style="color:#777;">Пока никто не крутил</p></div>
+    </div>
+  </div>
+
+  <!-- 8.10. ВКЛАДКА: Личное инфо — ЗП (3.3.0) -->
   <div id="tab-salary" class="content" style="display: none;">
     <div class="card">
       <h3>💰 Личное инфо — ЗП</h3>

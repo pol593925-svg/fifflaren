@@ -172,6 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
       if (tabName === 'tops') loadTops();
+      if (tabName === 'battleship') bsTabOpen();
     });
   });
 
@@ -404,6 +405,8 @@ function initSocketConnection(username) {
   bindScreenshotRequest();
   // 3.7.0: краш + дуэль
   bindCasinoGameHandlers();
+  // 3.8.0: морской бой
+  bindBattleshipHandlers();
 
   socket.on('chat_message', (msgData) => appendMessageToChatUI(msgData));
 
@@ -3223,3 +3226,334 @@ window.adminGrant = async () => {
   }
 };
 bindClick("adminGrantBtn", adminGrant);
+
+// ==================== 3.8.0: МОРСКОЙ БОЙ ====================
+
+const BS_PALETTE = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+const BS_LETTERS = 'АБВГДЕЖЗИК';
+let bsView = null;          // последний вид игры с сервера
+let bsPlaced = [];          // расставленные корабли [{cells:[{x,y}]}]
+let bsCursor = 0;           // какой корабль ставим
+let bsHoriz = true;
+let bsPlacedSent = false;
+let bsWasMyTurn = false;
+let bsLastId = '';
+
+function bsBanner(html, cls) {
+  const b = document.getElementById("bsBanner");
+  if (!b) return;
+  b.innerHTML = html ? `<div class="bs-result-banner ${cls}">${html}</div>` : '';
+}
+
+function bsShowSetup() {
+  document.getElementById("bsSetup").style.display = '';
+  document.getElementById("bsGame").style.display = 'none';
+  document.getElementById("bsPlacement").style.display = 'none';
+}
+
+function bsUsedCells() {
+  const m = new Map();
+  bsPlaced.forEach((ship, idx) => ship.cells.forEach(c => m.set(c.x + ',' + c.y, idx)));
+  return m;
+}
+
+function bsCanPlace(x, y, len, horiz) {
+  const cells = [];
+  for (let i = 0; i < len; i++) cells.push({ x: x + (horiz ? i : 0), y: y + (horiz ? 0 : i) });
+  if (cells.some(c => c.x < 0 || c.x > 9 || c.y < 0 || c.y > 9)) return null;
+  const used = bsUsedCells();
+  for (const c of cells) {
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      if (used.has((c.x + dx) + ',' + (c.y + dy))) return null;
+    }
+  }
+  return cells;
+}
+
+function bsClearPreview() {
+  document.querySelectorAll('#bsMyBoard .bs-cell.preview, #bsMyBoard .bs-cell.preview-bad')
+    .forEach(c => c.classList.remove('preview', 'preview-bad'));
+}
+
+function bsRenderPlacement() {
+  const board = document.getElementById("bsMyBoard");
+  if (!board) return;
+  board.classList.remove('active');
+  bsDrawBoard(board, (x, y, cell) => {
+    const used = bsUsedCells();
+    if (used.has(x + ',' + y)) cell.classList.add('ship');
+
+    cell.addEventListener('mouseenter', () => {
+      bsClearPreview();
+      if (bsCursor >= BS_PALETTE.length) return;
+      const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
+      const preview = cells || (() => {
+        // показываем что влезает
+        const all = [];
+        for (let i = 0; i < BS_PALETTE[bsCursor]; i++) all.push({ x: x + (bsHoriz ? i : 0), y: y + (bsHoriz ? 0 : i) });
+        return all.filter(c => c.x >= 0 && c.x <= 9 && c.y >= 0 && c.y <= 9);
+      })();
+      preview.forEach(c => {
+        const el = board.querySelector(`[data-x="${c.x}"][data-y="${c.y}"]`);
+        if (el) el.classList.add(cells ? 'preview' : 'preview-bad');
+      });
+    });
+    cell.addEventListener('click', () => {
+      if (bsCursor >= BS_PALETTE.length || bsPlacedSent) return;
+      const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
+      if (!cells) return;
+      bsPlaced.push({ cells });
+      bsCursor++;
+      bsClearPreview();
+      bsRenderPlacement();
+    });
+    cell.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      bsHoriz = !bsHoriz;
+      bsClearPreview();
+    });
+  });
+
+  // палитра оставшихся кораблей
+  const pal = document.getElementById("bsFleetPalette");
+  if (pal) {
+    const left = BS_PALETTE.slice(bsCursor);
+    pal.innerHTML = bsCursor >= BS_PALETTE.length
+      ? '<span style="color:#2ecc71;">Флот готов! Жми «⚔️ Готов!»</span>'
+      : 'Ставишь: <b style="color:#4da6ff;">' + BS_PALETTE[bsCursor] + '-палубный</b> (' + (BS_PALETTE.length - bsCursor) + ' осталось) · ' +
+        left.map(l => l + 'п').join(', ');
+  }
+  const ready = document.getElementById("bsReadyBtn");
+  if (ready) {
+    const done = bsCursor >= BS_PALETTE.length;
+    ready.disabled = !done;
+    ready.style.opacity = done ? '1' : '0.5';
+  }
+}
+
+// Универсальный построитель доски 10×10
+function bsDrawBoard(board, fillCell) {
+  if (!board.dataset.built) {
+    board.innerHTML = '';
+    for (let y = 0; y < 10; y++) {
+      for (let x = 0; x < 10; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'bs-cell water';
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+        board.appendChild(cell);
+      }
+    }
+    board.dataset.built = '1';
+  }
+  [...board.children].forEach(cell => {
+    cell.className = 'bs-cell water';
+    cell.style.cursor = 'default';
+  });
+  if (fillCell) {
+    [...board.children].forEach(cell => fillCell(Number(cell.dataset.x), Number(cell.dataset.y), cell));
+  }
+}
+
+function bsRenderBattle() {
+  const v = bsView;
+  if (!v) return;
+  document.getElementById("bsPlacement").style.display = 'none';
+
+  // Мой флот
+  const myBoard = document.getElementById("bsMyBoard");
+  const myHit = new Set((v.incoming || []).filter(s => s.result === 'hit').map(s => s.x + ',' + s.y));
+  const myMiss = new Set((v.incoming || []).filter(s => s.result === 'miss').map(s => s.x + ',' + s.y));
+  bsDrawBoard(myBoard, (x, y, cell) => {
+    if (v.myShips.some(ship => ship.some(c => c.x === x && c.y === y))) {
+      cell.classList.add('ship');
+      if (myHit.has(x + ',' + y)) cell.classList.add('hit');
+    } else if (myMiss.has(x + ',' + y)) {
+      cell.classList.add('miss');
+    }
+  });
+
+  // Вражеские воды
+  const enBoard = document.getElementById("bsEnemyBoard");
+  const sunkSet = new Set();
+  (v.sunkShips || []).forEach(ship => ship.forEach(c => sunkSet.add(c.x + ',' + c.y)));
+  const shotMap = {};
+  (v.myShots || []).forEach(s => { shotMap[s.x + ',' + s.y] = s.result; });
+  bsDrawBoard(enBoard, (x, y, cell) => {
+    const k = x + ',' + y;
+    if (sunkSet.has(k)) { cell.classList.add('sunk'); return; }
+    if (shotMap[k] === 'hit') { cell.classList.add('hit'); return; }
+    if (shotMap[k] === 'miss') { cell.classList.add('miss'); return; }
+    if (v.myTurn) {
+      cell.classList.add('target');
+      cell.addEventListener('click', () => bsShoot(x, y));
+    }
+  });
+
+  // Подсветка активной доски
+  myBoard.classList.toggle('active', v.myTurn);
+  enBoard.classList.toggle('active', v.myTurn);
+
+  // Статус
+  const bar = document.getElementById("bsStatusBar");
+  if (bar) {
+    bar.innerHTML = `⚔️ <b>${escapeHtml(v.opponent)}</b> · ставка <b style="color:#e0aaff;">${v.bet}$</b> · ` +
+      (v.myTurn
+        ? '<span style="color:#2ecc71; font-weight:bold;">🟢 Твой ход — бей!</span>'
+        : '<span style="color:#ffc107;">🟡 Ход соперника...</span>');
+  }
+}
+
+async function bsShoot(x, y) {
+  if (!bsView) return;
+  try {
+    await fetch(`${SERVER_API_URL}/api/battleship/shot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bsView.id, username: currentUser, x, y })
+    });
+    // состояние прилетит сокетом bs_update
+  } catch (e) {}
+}
+
+function bsApplyView(v) {
+  if (!v) return;
+  if (v.phase === 'expired') { bsBanner('⏱ ' + escapeHtml(v.opponent || '') + ' не ответил на вызов', 'info'); bsShowSetup(); return; }
+  if (v.phase === 'declined') { bsBanner('🚫 ' + escapeHtml(v.opponent || '') + ' отказался от боя', 'info'); bsShowSetup(); return; }
+  if (!v.id) return;
+
+  if (v.id !== bsLastId) { // новая игра — сброс расстановки
+    bsLastId = v.id;
+    bsPlaced = [];
+    bsCursor = 0;
+    bsPlacedSent = false;
+    bsWasMyTurn = false;
+  }
+  bsView = v;
+  document.getElementById("bsSetup").style.display = 'none';
+  document.getElementById("bsGame").style.display = '';
+
+  if (v.phase === 'placement') {
+    document.getElementById("bsPlacement").style.display = '';
+    if (!bsPlacedSent) bsRenderPlacement();
+  } else if (v.phase === 'battle') {
+    bsRenderBattle();
+    if (v.myTurn && !bsWasMyTurn) playNoticeSound();
+    bsWasMyTurn = v.myTurn;
+    bsBanner('', '');
+  } else if (v.phase === 'done') {
+    bsRenderBattle();
+    const won = v.winner === currentUser;
+    bsBanner(won ? `🏆 ПОБЕДА! +${v.bet * 2}$` : `💀 ПОРАЖЕНИЕ −${v.bet}$`, won ? 'win' : 'lose');
+    playNoticeSound();
+    fetch(`${SERVER_API_URL}/api/casino/state?username=${encodeURIComponent(currentUser)}`)
+      .then(r => r.json()).then(d => { if (d.success) casinoSetBalance(d.balance); }).catch(() => {});
+    bsView = null;
+    setTimeout(() => { bsBanner('', ''); bsShowSetup(); }, 6000);
+  }
+}
+
+// Кнопки расстановки
+window.bsRotate = () => { bsHoriz = !bsHoriz; bsClearPreview(); };
+
+window.bsRandomLocal = () => {
+  const LENS = BS_PALETTE;
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const occ = new Set(); const ships = []; let ok = true;
+    for (const len of LENS) {
+      let placed = false;
+      for (let t = 0; t < 150; t++) {
+        const h = Math.random() < 0.5;
+        const x = Math.floor(Math.random() * (h ? 11 - len : 10));
+        const y = Math.floor(Math.random() * (h ? 10 : 11 - len));
+        const cells = [];
+        for (let i = 0; i < len; i++) cells.push({ x: x + (h ? i : 0), y: y + (h ? 0 : i) });
+        let free = true;
+        for (const c of cells) for (let dx = -1; dx <= 1 && free; dx++) for (let dy = -1; dy <= 1; dy++)
+          if (occ.has((c.x + dx) + ',' + (c.y + dy))) { free = false; break; }
+        if (free) { cells.forEach(c => occ.add(c.x + ',' + c.y)); ships.push({ cells }); placed = true; break; }
+      }
+      if (!placed) { ok = false; break; }
+    }
+    if (ok) {
+      bsPlaced = ships;
+      bsCursor = LENS.length;
+      bsRenderPlacement();
+      return;
+    }
+  }
+};
+
+window.bsReady = async () => {
+  if (!bsView || bsPlacedSent) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/battleship/place`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bsView.id, username: currentUser, ships: bsPlaced.map(s => s.cells) })
+    });
+    const data = await res.json();
+    if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Ошибка расстановки'), 'lose'); return; }
+    bsPlacedSent = true;
+    bsBanner('⚓ Флот готов! Ждём соперника...', 'info');
+    document.getElementById("bsPlacement").style.display = 'none';
+  } catch (e) { bsBanner('❌ Ошибка соединения', 'lose'); }
+};
+
+// Вызов / ответ
+window.bsChallenge = async () => {
+  const to = (document.getElementById("bsOpponent")?.value || '').trim().toLowerCase();
+  const bet = Math.floor(Number(document.getElementById("bsBet")?.value || 0));
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/battleship/challenge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to, bet })
+    });
+    const data = await res.json();
+    if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Ошибка'), 'lose'); return; }
+    bsBanner(`⚓ Вызов ${escapeHtml(to)} на ${bet}$ отправлен — жди ответа...`, 'info');
+  } catch (e) { bsBanner('❌ Ошибка соединения', 'lose'); }
+};
+
+window.bsRespond = async (id, accept) => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/battleship/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, username: currentUser, accept })
+    });
+    const data = await res.json();
+    if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Ошибка'), 'lose'); return; }
+    bsPlaced = []; bsCursor = 0; bsPlacedSent = false; bsWasMyTurn = false;
+    bsBanner('', '');
+  } catch (e) {}
+};
+
+function bindBattleshipHandlers() {
+  if (!socket) return;
+  socket.on('bs_challenge', (d) => {
+    bsBanner(`🚢 <b>${escapeHtml(d.from)}</b> вызывает тебя на морской бой — ставка <b>${d.bet}$</b>!
+      <button class="template-btn" style="background:#198754; font-size:12px; padding:4px 14px; margin-left:8px;" onclick="bsRespond('${d.id}', true)">Принять</button>
+      <button class="template-btn" style="background:#333; font-size:12px; padding:4px 14px;" onclick="bsRespond('${d.id}', false)">Отказ</button>`, 'info');
+    playNoticeSound();
+  });
+  socket.on('bs_update', (v) => bsApplyView(v));
+}
+
+function bsTabOpen() {
+  if (bsView) {
+    document.getElementById("bsSetup").style.display = 'none';
+    document.getElementById("bsGame").style.display = '';
+    if (bsView.phase === 'placement') { document.getElementById("bsPlacement").style.display = ''; bsRenderPlacement(); }
+    else bsRenderBattle();
+  } else {
+    bsShowSetup();
+  }
+}
+
+// --- Привязки ---
+bindClick("bsChallengeBtn", bsChallenge);
+bindClick("bsRotateBtn", bsRotate);
+bindClick("bsRandomBtn", bsRandomLocal);
+bindClick("bsReadyBtn", bsReady);

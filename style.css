@@ -243,3 +243,91 @@ body.light #swipeTeam { color: #666; }
 }
 .casino-reel.rolling { border-color: #e0aaff; }
 body.light .casino-reel { background: #f2f4f6; border-color: #9b59b6; }
+
+
+/* ==================== МОРСКОЙ БОЙ (3.8.0) ==================== */
+.bs-board {
+  display: grid;
+  grid-template-columns: repeat(10, 30px);
+  grid-template-rows: repeat(10, 30px);
+  gap: 3px;
+  background: linear-gradient(160deg, #0a1a2f 0%, #0d2440 100%);
+  padding: 10px;
+  border-radius: 12px;
+  border: 2px solid #1a3a5c;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), inset 0 0 24px rgba(20, 60, 100, 0.25);
+}
+.bs-cell {
+  background: #12305a;
+  border-radius: 5px;
+  position: relative;
+  transition: background 0.15s, box-shadow 0.15s;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.bs-cell.water { background: #0f2a4d; }
+.bs-cell.ship { background: #3d5a80; box-shadow: inset 0 0 6px rgba(120, 170, 220, 0.5); }
+.bs-cell.preview { background: #2e86c1; box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.4); }
+.bs-cell.preview-bad { background: #922b21; }
+.bs-cell.target { cursor: crosshair; }
+.bs-cell.target:hover { background: #1a5276; box-shadow: inset 0 0 0 2px #e74c3c, 0 0 10px rgba(231, 76, 60, 0.5); }
+.bs-cell.hit { background: #c0392b; animation: bs-boom 0.55s ease-out; }
+.bs-cell.hit::after { content: '💥'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; animation: bs-pop 0.55s ease-out; }
+.bs-cell.miss::after { content: '💦'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; animation: bs-splash 0.7s ease-out; }
+.bs-cell.miss { background: #0f2a4d; }
+.bs-cell.sunk { background: #6e2c00; animation: bs-sink 1.2s ease-in forwards; }
+.bs-cell.sunk::after { content: '🚢'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; filter: grayscale(0.4); }
+
+@keyframes bs-boom {
+  0% { background: #fff; transform: scale(1.35); }
+  45% { background: #f39c12; transform: scale(1.15); }
+  100% { background: #c0392b; transform: scale(1); }
+}
+@keyframes bs-pop {
+  0% { transform: scale(0.2); opacity: 0; }
+  45% { transform: scale(1.7); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes bs-splash {
+  0% { transform: scale(0.2) translateY(-6px); opacity: 0; }
+  55% { transform: scale(1.4) translateY(0); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes bs-sink {
+  0% { filter: brightness(2.2); transform: rotate(0deg); }
+  35% { filter: brightness(1.4); transform: rotate(-4deg); }
+  70% { filter: brightness(0.9); transform: rotate(3deg); }
+  100% { filter: brightness(0.55); transform: rotate(-2deg); }
+}
+@keyframes bs-pulse-turn {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.55), 0 4px 18px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 22px 5px rgba(46, 204, 113, 0.35), 0 4px 18px rgba(0, 0, 0, 0.5); }
+}
+.bs-board.active {
+  animation: bs-pulse-turn 1.5s infinite;
+  border-color: #2ecc71;
+}
+@keyframes bs-banner-drop {
+  0% { transform: scale(0) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(1.18) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.bs-result-banner {
+  display: inline-block;
+  animation: bs-banner-drop 0.65s ease-out;
+  font-size: 30px;
+  font-weight: bold;
+  padding: 16px 34px;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+.bs-result-banner.win { background: #145a32; color: #2ecc71; border: 2px solid #2ecc71; }
+.bs-result-banner.lose { background: #4a1818; color: #ff6b6b; border: 2px solid #ff6b6b; }
+.bs-result-banner.info { background: #1a2a3d; color: #4da6ff; border: 2px solid #4da6ff; }
+body.light .bs-board { background: #dde7f0; border-color: #8fb3d0; }
+body.light .bs-cell { background: #7ea8cc; }
+body.light .bs-cell.water, body.light .bs-cell.miss { background: #a9c6de; }
+body.light .bs-cell.ship { background: #4a6d8c; }

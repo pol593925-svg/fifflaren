@@ -45,6 +45,7 @@
     <button class="tab-btn" data-tab="swipe">🎲 Дайсерчвинчик</button>
     <button class="tab-btn" data-tab="casino" style="background: #2a1b2e; color: #e0aaff; border: 1px dashed #9b59b6;">🎰 Казино</button>
     <button class="tab-btn" data-tab="tops" style="background: #1b2a1b; color: #ffc107; border: 1px dashed #ffc107;">🏆 Топ</button>
+    <button class="tab-btn" data-tab="battleship" style="background: #0d1b2a; color: #4da6ff; border: 1px dashed #4da6ff;">🚢 Морской бой</button>
     <button class="tab-btn" data-tab="salary">💰 ЗП</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
@@ -625,6 +626,49 @@
 
       <h4 style="margin-top:14px;">📜 Лента ставок</h4>
       <div id="casinoFeed" class="admin-events-box" style="max-height:220px; text-align:left;"><p style="color:#777;">Пока никто не играл</p></div>
+    </div>
+  </div>
+
+  <!-- 8.9.2. ВКЛАДКА: Морской бой (3.8.0) -->
+  <div id="tab-battleship" class="content" style="display: none;">
+    <div class="card" style="text-align:center;">
+      <h3>🚢 Морской бой</h3>
+
+      <div id="bsSetup">
+        <p style="font-size:11px; color:#888;">Вызови соперника на бой за бабки. Классика: 10 кораблей, попал — стреляй ещё.</p>
+        <div class="row-group" style="max-width:420px; margin:8px auto;">
+          <input type="text" id="bsOpponent" placeholder="Ник соперника..." style="flex:2;">
+          <input type="number" id="bsBet" min="5" max="100" value="10" style="flex:1;">
+          <button id="bsChallengeBtn" class="template-btn" style="background:#dc3545;">Вызвать</button>
+        </div>
+      </div>
+
+      <div id="bsGame" style="display:none;">
+        <div id="bsStatusBar" style="font-size:14px; margin-bottom:10px; min-height:20px;"></div>
+
+        <div id="bsPlacement">
+          <p style="font-size:11px; color:#888;">Расставь флот: выбери корабль, жми на клетки. ПКМ или кнопка — повернуть.</p>
+          <div class="row-group" style="justify-content:center; margin:8px 0;">
+            <button id="bsRotateBtn" class="template-btn" style="background:#6f42c1; max-width:130px;">↻ Повернуть</button>
+            <button id="bsRandomBtn" class="template-btn" style="background:#fd7e14; max-width:130px;">🎲 Случайно</button>
+            <button id="bsReadyBtn" class="template-btn" style="background:#198754; max-width:130px; opacity:0.5;" disabled>⚔️ Готов!</button>
+          </div>
+          <div id="bsFleetPalette" style="font-size:11px; color:#aaa; margin-bottom:8px;"></div>
+        </div>
+
+        <div id="bsBoards" style="display:flex; gap:20px; justify-content:center; flex-wrap:wrap; align-items:flex-start;">
+          <div>
+            <h4 style="font-size:12px; color:#4da6ff; margin-bottom:4px;">🛡️ Твой флот</h4>
+            <div id="bsMyBoard" class="bs-board"></div>
+          </div>
+          <div>
+            <h4 style="font-size:12px; color:#ff6b6b; margin-bottom:4px;">🎯 Вражеские воды</h4>
+            <div id="bsEnemyBoard" class="bs-board"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bsBanner" style="margin-top:12px; min-height:10px;"></div>
     </div>
   </div>
 

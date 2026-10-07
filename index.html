@@ -444,6 +444,17 @@
         <div id="adminStatsBox" class="admin-stats-box"></div>
       </div>
 
+      <!-- Дно дня -->
+      <div class="admin-section">
+        <h4>📉 Дно дня (кто на нуле)</h4>
+        <div class="row-group">
+          <input type="date" id="adminDnoDate">
+          <button id="adminDnoLoadBtn" class="template-btn" style="background:#0d6efd;">Показать</button>
+        </div>
+        <p style="font-size:10px; color:#aaa; margin-top:4px;">Красным: меньше всех трюфелей / апрувов за дату и самый долгий AFK (по активности в приложении).</p>
+        <div id="adminDnoBox" class="admin-stats-box" style="margin-top:6px;"></div>
+      </div>
+
       <!-- Управление командами -->
       <div class="admin-section">
         <h4>🏴 Команды (выбор при регистрации)</h4>
@@ -573,6 +584,26 @@
         <button class="template-btn" style="background:#198754; flex:1;" onclick="rouletteNumberBet()">🎯 Число ×35</button>
       </div>
       <p id="rouletteStatus" class="msg" style="margin-top:6px; min-height:14px;"></p>
+
+      <h4 style="margin-top:14px;">📈 Краш</h4>
+      <p style="font-size:10px; color:#888;">Ставь до старта — пока множитель растёт, жми «Забрать». Не успел — сгорело.</p>
+      <div id="crashMult" style="font-size:36px; font-weight:bold; color:#2ecc71; min-height:44px;">×1.00</div>
+      <div id="crashSub" style="font-size:11px; color:#888; min-height:14px;">Жди раунд...</div>
+      <div class="row-group" style="margin-top:6px;">
+        <input type="number" id="crashBetAmount" min="5" max="100" value="10" style="flex:1;">
+        <button id="crashBetBtn" class="template-btn" style="background:#0d6efd; flex:1;">Ставка</button>
+        <button id="crashCashoutBtn" class="template-btn" style="background:#198754; flex:1; display:none;">Забрать</button>
+      </div>
+      <div id="crashHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
+
+      <h4 style="margin-top:14px;">⚔️ Дуэль слотами</h4>
+      <p style="font-size:10px; color:#888;">Одинаковая ставка, крутите оба — чья комбинация круче, тот забирает обе ставки.</p>
+      <div class="row-group">
+        <input type="text" id="duelOpponent" placeholder="Ник соперника..." style="flex:2;">
+        <input type="number" id="duelBet" min="5" max="100" value="10" style="flex:1;">
+        <button id="duelChallengeBtn" class="template-btn" style="background:#dc3545;">Вызвать</button>
+      </div>
+      <div id="duelBox" style="font-size:12px; margin-top:6px; min-height:16px;"></div>
 
       <h4 style="margin-top:14px;">🛒 Магазин призов</h4>
       <div id="shopItems" style="font-size:12px; text-align:left; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>

@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
-      if (tabName === 'casino') casinoLoadState();
+      if (tabName === 'casino') { casinoLoadState(); crashLoadState(); }
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
@@ -326,16 +326,43 @@ async function loadHQRoster() {
     }
 
     box.innerHTML = "";
+    // Карма недели (3.7.0)
+    let karmaTotals = {};
+    try {
+      const kres = await fetch(`${SERVER_API_URL}/api/karma?voter=${encodeURIComponent(currentUser)}`);
+      const kdata = await kres.json();
+      (kdata.totals || []).forEach(t => { karmaTotals[t.username] = t.total; });
+    } catch (e) {}
     teams.forEach(t => {
       const col = document.createElement("div");
       col.className = "team-column";
       col.style.flex = "1";
       const usersHtml = t.users.length
-        ? t.users.map(u => `<li data-nick="${escapeHtml(u)}">${escapeHtml(u)} <span class="status-dot"></span></li>`).join('')
+        ? t.users.map(u => {
+            const k = karmaTotals[u] || 0;
+            const kbadge = k !== 0
+              ? ` <span style="font-size:10px; color:${k > 0 ? '#ffc107' : '#ff6b6b'};" title="Карма недели">${k > 0 ? '🔥+' + k : '👎' + k}</span>`
+              : '';
+            return `<li data-nick="${escapeHtml(u)}">${escapeHtml(u)}${kbadge} <span class="status-dot"></span>
+              <span style="float:right; font-size:11px; letter-spacing:2px;">
+                <span style="cursor:pointer;" title="Похвалить" onclick="event.stopPropagation(); karmaVote('${escapeHtml(u)}', 1)">👍</span>
+                <span style="cursor:pointer;" title="Пожарить" onclick="event.stopPropagation(); karmaVote('${escapeHtml(u)}', -1)">👎</span>
+              </span></li>`;
+          }).join('')
         : '<li style="color:#666;">пусто</li>';
       col.innerHTML = `<h4 style="color:#4da6ff;">🏴 ${escapeHtml(t.name)}</h4><ul class="team-list">${usersHtml}</ul>`;
       box.appendChild(col);
     });
+    // Итоги недели по карме
+    const karmaSorted = Object.entries(karmaTotals).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]);
+    if (karmaSorted.length) {
+      const kbox = document.createElement("div");
+      kbox.style.cssText = "width:100%; margin-top:12px; font-size:12px; border-top:1px solid #333; padding-top:8px;";
+      kbox.innerHTML = '<b style="color:#ffc107;">🔥 Итоги недели:</b> ' + karmaSorted.map(([n, v]) =>
+        `<span style="margin-right:10px;">${escapeHtml(n)} <b style="color:${v > 0 ? '#ffc107' : '#ff6b6b'};">${v > 0 ? '+' + v : v}</b></span>`
+      ).join('');
+      box.appendChild(kbox);
+    }
     updateHQStatusDots();
     // Клик по нику — мини-профиль
     box.querySelectorAll('.team-list li[data-nick]').forEach(li => {
@@ -375,6 +402,8 @@ function initSocketConnection(username) {
 
   // 3.6.0: запросы скринов + оповещения о покупках
   bindScreenshotRequest();
+  // 3.7.0: краш + дуэль
+  bindCasinoGameHandlers();
 
   socket.on('chat_message', (msgData) => appendMessageToChatUI(msgData));
 
@@ -2899,3 +2928,275 @@ bindClick("pmVoiceBtn", pmToggleVoice);
 bindClick("adminShotsLoadBtn", loadAdminShots);
 bindClick("adminPurchasesLoadBtn", loadAdminPurchases);
 loadShopItems();
+
+// ==================== 3.7.0: КРАШ, ДУЭЛЬ, КАРМА, ДНО ДНЯ ====================
+
+// --- Краш ---
+let crashPhase = 'idle';
+let crashRound = 0;
+let crashMyBet = null; // {bet, cashed, mult}
+let crashLastMult = 1;
+
+function crashSetMult(m) {
+  crashLastMult = m;
+  const el = document.getElementById("crashMult");
+  if (!el) return;
+  el.textContent = '×' + m.toFixed(2);
+  el.style.color = m >= 2 ? '#ffc107' : '#2ecc71';
+}
+
+function crashUpdateUI() {
+  const sub = document.getElementById("crashSub");
+  const betBtn = document.getElementById("crashBetBtn");
+  const outBtn = document.getElementById("crashCashoutBtn");
+  const amt = document.getElementById("crashBetAmount");
+  if (!sub || !betBtn || !outBtn) return;
+
+  if (crashPhase === 'bet') {
+    sub.textContent = '⏳ Приём ставок...';
+    sub.style.color = '#4da6ff';
+    betBtn.style.display = '';
+    outBtn.style.display = 'none';
+    if (amt) amt.disabled = false;
+  } else if (crashPhase === 'run') {
+    sub.textContent = '🚀 Летит! Успей забрать';
+    sub.style.color = '#2ecc71';
+    betBtn.style.display = 'none';
+    if (crashMyBet && !crashMyBet.cashed) {
+      outBtn.style.display = '';
+      outBtn.textContent = `Забрать ${Math.floor(crashMyBet.bet * crashLastMult)}$`;
+    } else {
+      outBtn.style.display = 'none';
+    }
+    if (amt) amt.disabled = true;
+  } else {
+    sub.textContent = 'Жди раунд...';
+    sub.style.color = '#888';
+    betBtn.style.display = '';
+    outBtn.style.display = 'none';
+    if (amt) amt.disabled = true;
+  }
+}
+
+function crashRenderHistory(h) {
+  const box = document.getElementById("crashHistory");
+  if (!box) return;
+  box.innerHTML = 'Последние крахи: ' + (h || []).slice(0, 12).map(x =>
+    `<span style="color:${x.crashPoint >= 2 ? '#2ecc71' : '#ff6b6b'}; margin-right:6px;">×${x.crashPoint.toFixed(2)}</span>`
+  ).join('');
+}
+
+async function crashLoadState() {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/crash/state?username=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    crashPhase = data.phase;
+    crashRound = data.round;
+    crashMyBet = data.myBet;
+    crashRenderHistory(data.history);
+    crashSetMult(data.phase === 'run' ? data.mult : 1);
+    crashUpdateUI();
+  } catch (e) {}
+}
+
+window.crashPlaceBet = async () => {
+  const amt = Math.floor(Number(document.getElementById("crashBetAmount")?.value || 0));
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/crash/bet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, amount: amt })
+    });
+    const data = await res.json();
+    const sub = document.getElementById("crashSub");
+    if (!data.success) {
+      if (sub) { sub.textContent = data.message; sub.style.color = '#ff6b6b'; }
+      return;
+    }
+    crashMyBet = { bet: amt, cashed: false, mult: 0 };
+    casinoSetBalance(data.balance);
+    crashUpdateUI();
+  } catch (e) {}
+};
+
+window.crashTake = async () => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/crash/cashout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser })
+    });
+    const data = await res.json();
+    if (!data.success) return;
+    if (crashMyBet) { crashMyBet.cashed = true; crashMyBet.mult = data.mult; }
+    casinoSetBalance(data.balance);
+    const sub = document.getElementById("crashSub");
+    if (sub) { sub.textContent = `✅ Забрал ×${data.mult.toFixed(2)} = +${data.winnings}$`; sub.style.color = '#2ecc71'; }
+    crashUpdateUI();
+  } catch (e) {}
+};
+
+// --- Дуэль ---
+window.duelChallenge = async () => {
+  const to = (document.getElementById("duelOpponent")?.value || '').trim().toLowerCase();
+  const bet = Math.floor(Number(document.getElementById("duelBet")?.value || 0));
+  const box = document.getElementById("duelBox");
+  if (!to) { if (box) box.innerHTML = '<span style="color:#ff6b6b;">Впиши ник соперника</span>'; return; }
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/duel/challenge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to, bet })
+    });
+    const data = await res.json();
+    if (!data.success) { if (box) box.innerHTML = `<span style="color:#ff6b6b;">${escapeHtml(data.message || 'Ошибка')}</span>`; return; }
+    if (box) box.innerHTML = `<span style="color:#4da6ff;">⚔️ Вызов ${escapeHtml(to)} на ${bet}$ отправлен — жди ответа (90 сек)...</span>`;
+  } catch (e) {}
+};
+
+window.duelRespond = async (id, accept) => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/duel/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, username: currentUser, accept })
+    });
+    const data = await res.json();
+    const box = document.getElementById("duelBox");
+    if (!data.success) { if (box) box.innerHTML = `<span style="color:#ff6b6b;">${escapeHtml(data.message || 'Ошибка')}</span>`; return; }
+    if (box) box.innerHTML = '<span style="color:#4da6ff;">⚔️ Крутим барабаны...</span>';
+  } catch (e) {}
+};
+
+function duelShowResult(d) {
+  const box = document.getElementById("duelBox");
+  if (!box) return;
+  if (d.expired) { box.innerHTML = `<span style="color:#ff6b6b;">⏱ ${escapeHtml(d.message || 'Время вышло')}</span>`; return; }
+  if (d.declined) { box.innerHTML = `<span style="color:#ff6b6b;">🚫 ${escapeHtml(d.message || 'Отказ')}</span>`; return; }
+  const reels = (r) => (r || []).join(' ');
+  const me = reels(d.yourReels), opp = reels(d.oppReels);
+  if (d.tie) {
+    box.innerHTML = `🤝 Ничья! ${escapeHtml(d.you)}: ${me} — ${escapeHtml(d.opp)}: ${opp}. Ставки возвращены.`;
+    box.style.color = '#ccc';
+  } else if (d.youWin) {
+    box.innerHTML = `🏆 <b>Ты выиграл ${d.bet * 2}$!</b><br>Твои: ${me}<br>${escapeHtml(d.opp)}: ${opp}`;
+    box.style.color = '#2ecc71';
+  } else {
+    box.innerHTML = `💀 <b>Проиграл ${d.bet}$</b><br>Твои: ${me}<br>${escapeHtml(d.opp)}: ${opp}`;
+    box.style.color = '#ff6b6b';
+  }
+  if (typeof d.balance === 'number') casinoSetBalance(d.balance);
+  loadCasinoTop();
+}
+
+function bindCasinoGameHandlers() {
+  if (!socket) return;
+
+  socket.on('crash_phase', (d) => {
+    crashPhase = d.phase;
+    if (d.round) crashRound = d.round;
+    if (d.history) crashRenderHistory(d.history);
+    if (d.phase === 'bet') {
+      crashMyBet = null;
+      crashSetMult(1);
+    } else if (d.phase === 'run') {
+      crashSetMult(1);
+    } else if (d.phase === 'done') {
+      const sub = document.getElementById("crashSub");
+      if (sub) {
+        if (crashMyBet) {
+          if (crashMyBet.cashed) {
+            sub.textContent = `✅ Забрал ×${(crashMyBet.mult || 1).toFixed(2)} до краха`;
+            sub.style.color = '#2ecc71';
+          } else {
+            sub.textContent = `💥 Сгорело на ×${d.crashPoint.toFixed(2)}`;
+            sub.style.color = '#ff6b6b';
+          }
+        } else {
+          sub.textContent = `💥 Крах на ×${d.crashPoint.toFixed(2)}`;
+          sub.style.color = '#ff6b6b';
+        }
+      }
+      crashMyBet = null;
+    }
+    crashUpdateUI();
+  });
+
+  socket.on('crash_tick', (d) => {
+    if (d.round !== crashRound) return;
+    crashSetMult(d.mult);
+    crashUpdateUI();
+  });
+
+  socket.on('duel_challenge', (d) => {
+    const box = document.getElementById("duelBox");
+    if (!box) return;
+    box.innerHTML = `⚔️ <b>${escapeHtml(d.from)}</b> вызывает тебя на дуэль — ставка <b>${d.bet}$</b>!
+      <button class="template-btn" style="background:#198754; font-size:11px; padding:3px 10px; margin-left:6px;" onclick="duelRespond('${d.id}', true)">Принять</button>
+      <button class="template-btn" style="background:#333; font-size:11px; padding:3px 10px;" onclick="duelRespond('${d.id}', false)">Отказ</button>`;
+    box.style.color = '#ffc107';
+    playNoticeSound();
+  });
+
+  socket.on('duel_result', (d) => {
+    duelShowResult(d);
+    playNoticeSound();
+  });
+}
+
+// --- Карма ---
+window.karmaVote = async (to, value) => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/karma`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to, value })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    loadHQRoster();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+
+// --- Дно дня (админка) ---
+window.loadAdminDno = async () => {
+  const box = document.getElementById("adminDnoBox");
+  if (!box) return;
+  const date = document.getElementById("adminDnoDate")?.value || '';
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/dayreport?admin=${encodeURIComponent(currentUser)}&date=${encodeURIComponent(date)}`);
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = '<p style="color:red;">Ошибка</p>'; return; }
+    const b = data.bottoms || {};
+    const rows = [...(data.rows || [])].sort((a, b2) => (a.truffles + a.approves) - (b2.truffles + b2.approves));
+    box.innerHTML = `<table style="width:100%; font-size:11px; border-collapse:collapse;">
+      <tr style="color:#888;"><td>Ник</td><td>Команда</td><td>💎</td><td>✅</td><td>AFK</td></tr>
+      ${rows.map(r => {
+        const isDno = r.username === b.truffles || r.username === b.approves || r.username === b.idle;
+        const idleTxt = r.idleMin === null ? '—' : (r.idleMin < 1 ? 'сейчас' : r.idleMin + ' мин');
+        return `<tr style="border-top:1px solid #333; ${isDno ? 'background:#3d1e1e; color:#ff6b6b;' : ''}">
+          <td>${escapeHtml(r.username)}${r.username === b.truffles ? ' 💎' : ''}${r.username === b.approves ? ' ✅' : ''}${r.username === b.idle ? ' 💤' : ''}</td>
+          <td>${escapeHtml(r.team)}</td><td>${r.truffles}</td><td>${r.approves}</td><td>${idleTxt}</td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+  } catch (e) {
+    box.innerHTML = '<p style="color:red;">Ошибка соединения</p>';
+  }
+};
+
+// --- Пинг активности (для «дна дня») ---
+setInterval(() => {
+  if (!currentUser) return;
+  fetch(`${SERVER_API_URL}/api/activity`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: currentUser })
+  }).catch(() => {});
+}, 60000);
+
+// --- Привязки ---
+bindClick("crashBetBtn", crashPlaceBet);
+bindClick("crashCashoutBtn", crashTake);
+bindClick("duelChallengeBtn", duelChallenge);
+bindClick("adminDnoLoadBtn", loadAdminDno);

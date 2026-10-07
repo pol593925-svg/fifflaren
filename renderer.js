@@ -251,6 +251,10 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("bet5Btn", () => casinoSetBet(5));
   bindClick("bet10Btn", () => casinoSetBet(10));
   bindClick("casinoDailyBtn", casinoDaily);
+  bindClick("pwdModalOk", pwdModalConfirm);
+  bindClick("pwdModalCancel", pwdModalClose);
+  const pwdInput = document.getElementById("pwdModalInput");
+  if (pwdInput) pwdInput.addEventListener("keypress", (e) => { if (e.key === 'Enter') pwdModalConfirm(); });
   bindClick("profWriteBtn", () => { if (lastProfileNick) openPmWith(lastProfileNick); });
   bindSwipeDrag();
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
@@ -2091,11 +2095,22 @@ window.toggleAdminRole = async (username, role) => {
 };
 
 // Смена пароля юзеру (если забыл) — кнопка в таблице админки
-window.resetUserPassword = async (username) => {
-  const newPassword = prompt(`Новый пароль для ${username} (минимум 4 символа):`);
-  if (newPassword === null) return;
+let pwdTargetUser = '';
+
+window.resetUserPassword = (username) => {
+  pwdTargetUser = username;
+  document.getElementById("pwdModalUser").textContent = username;
+  const input = document.getElementById("pwdModalInput");
+  input.value = '';
+  document.getElementById("pwdModal").classList.add("open");
+  setTimeout(() => input.focus(), 50);
+};
+
+window.pwdModalConfirm = async () => {
+  const newPassword = document.getElementById("pwdModalInput").value.trim();
   if (newPassword.length < 4) { alert('Пароль минимум 4 символа'); return; }
-  if (!confirm(`Точно сменить пароль пользователю ${username}?`)) return;
+  const username = pwdTargetUser;
+  document.getElementById("pwdModal").classList.remove("open");
   try {
     const res = await fetch(`${SERVER_API_URL}/api/admin/password`, {
       method: 'POST',
@@ -2108,6 +2123,10 @@ window.resetUserPassword = async (username) => {
   } catch (err) {
     alert("Ошибка соединения: " + err.message);
   }
+};
+
+window.pwdModalClose = () => {
+  document.getElementById("pwdModal").classList.remove("open");
 };
 
 window.toggleUserMute = async (username, isMuted) => {

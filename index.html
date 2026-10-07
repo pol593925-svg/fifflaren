@@ -584,6 +584,18 @@
     </div>
   </div>
 
+  <!-- Модалка смены пароля (админка) -->
+  <div id="pwdModal" class="profile-modal">
+    <div class="profile-card">
+      <h3>🔑 Смена пароля</h3>
+      <p style="color:#aaa; font-size:12px;">Для: <b id="pwdModalUser" style="color:#4da6ff;">—</b></p>
+      <input type="text" id="pwdModalInput" placeholder="Новый пароль (мин. 4 символа)" autocomplete="off"
+        style="width:100%; padding:8px; margin:12px 0 6px; background:#1e2126; border:1px solid #444; border-radius:6px; color:#fff; box-sizing:border-box;">
+      <button id="pwdModalOk" class="submit-btn green">Сменить</button>
+      <button id="pwdModalCancel" class="submit-btn gray">Отмена</button>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>

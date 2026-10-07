@@ -2030,6 +2030,7 @@ async function loadAdminStats() {
                     : (u.role === 'admin'
                         ? `<button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="toggleAdminRole('${u.username}', 'user')">👑 админ · забрать</button>`
                         : `<button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="toggleAdminRole('${u.username}', 'admin')">➕ сделать админом</button>`)}
+                  <button class="tab-btn" style="font-size:10px; padding:2px 6px;" onclick="resetUserPassword('${u.username}')">🔑 пароль</button>
                 </td>
               </tr>`;
           }).join('')}
@@ -2084,6 +2085,26 @@ window.toggleAdminRole = async (username, role) => {
     if (!data.success) { alert(data.message || 'Ошибка'); return; }
     loadAdminStats();
     loadAdminUsers();
+  } catch (err) {
+    alert("Ошибка соединения: " + err.message);
+  }
+};
+
+// Смена пароля юзеру (если забыл) — кнопка в таблице админки
+window.resetUserPassword = async (username) => {
+  const newPassword = prompt(`Новый пароль для ${username} (минимум 4 символа):`);
+  if (newPassword === null) return;
+  if (newPassword.length < 4) { alert('Пароль минимум 4 символа'); return; }
+  if (!confirm(`Точно сменить пароль пользователю ${username}?`)) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, username, newPassword })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    alert(`Пароль для ${username} изменён`);
   } catch (err) {
     alert("Ошибка соединения: " + err.message);
   }

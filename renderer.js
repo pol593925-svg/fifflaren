@@ -166,6 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'hq') loadHQRoster();
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
+      if (tabName === 'salary') loadSalary();
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
@@ -196,6 +197,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (stDate) stDate.value = localDateStr();
   const tlDate = document.getElementById("tlEventsDate");
   if (tlDate) tlDate.value = localDateStr();
+  // Месяц по умолчанию в ЗП (3.3.0)
+  const curMonth = localDateStr().slice(0, 7);
+  const salMonth = document.getElementById("salaryMonth");
+  if (salMonth) salMonth.value = curMonth;
+  const tlSalMonth = document.getElementById("tlSalaryMonth");
+  if (tlSalMonth) tlSalMonth.value = curMonth;
 
   // --- ПРИВЯЗКА КНОПОК ---
 
@@ -246,6 +253,11 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("adminStatsLoadBtn", loadAdminStats);
   bindClick("adminTeamAddBtn", addAdminTeam);
   bindClick("adminExAddBtn", addAdminExchange);
+  // 3.3.0: ЗП, уведомления ТЛ, открытие ссылок
+  bindClick("salaryLoadBtn", loadSalary);
+  bindClick("tlSalaryLoadBtn", loadTlSalary);
+  bindClick("tlNotifySendBtn", tlSendNotify);
+  bindClick("adminLinkSendBtn", sendAdminLink);
 
   const exchangeSearchInput = document.getElementById("exchangeSearchInput");
   if (exchangeSearchInput) exchangeSearchInput.addEventListener("input", handleExchangeSearch);
@@ -382,6 +394,13 @@ function initSocketConnection(username) {
   // Фото от админа — открываем в отдельном окне поверх остальных
   socket.on('show_image', (payload) => {
     ipcRenderer.send('show-image', payload);
+  });
+
+  // Ссылка от админа — открываем в браузере на этом ПК (3.3.0)
+  socket.on('open_link', (payload) => {
+    if (!payload || !payload.url) return;
+    if (payload.from && payload.from.toLowerCase() === currentUser.toLowerCase()) return; // себе не открываем
+    ipcRenderer.send('open-url', payload);
   });
 
   // Старый формат триггера — тоже показываем поверх окон
@@ -1077,6 +1096,28 @@ async function loadAdminUsers() {
         opt.textContent = `👤 ${u.username}`;
         targetSelect.appendChild(opt);
       });
+    }
+
+    // Селект получателей для открытия ссылки (3.3.0): все + сотрудники + команды
+    const linkSelect = document.getElementById("adminLinkTarget");
+    if (linkSelect) {
+      linkSelect.innerHTML = '<option value="all">🌍 Всем сотрудникам</option>';
+      data.users.forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u.username;
+        opt.textContent = `👤 ${u.username}`;
+        linkSelect.appendChild(opt);
+      });
+      try {
+        const teamsRes = await fetch(`${SERVER_API_URL}/api/teams`);
+        const teamsData = await teamsRes.json();
+        (teamsData.teams || []).forEach(t => {
+          const opt = document.createElement("option");
+          opt.value = 'team:' + t.name;
+          opt.textContent = '🏴 ' + t.name;
+          linkSelect.appendChild(opt);
+        });
+      } catch (e) { /* команды не критичны */ }
     }
 
     // Список для мута/бана
@@ -2109,4 +2150,206 @@ function handleExchangeSearch(e) {
     if (statusText) statusText.textContent = "Не найдено";
     if (conditionBox) conditionBox.style.display = "none";
   }
+}
+
+// ==================== ЗАРПЛАТА (3.3.0) ====================
+// Вкладка «💰 ЗП»: сотрудник видит только своё. Вносит ТЛ через ТЛ-панель.
+
+function monthStr() {
+  return localDateStr().slice(0, 7);
+}
+
+// --- Своя зарплатная информация ---
+async function loadSalary() {
+  const box = document.getElementById("salaryBox");
+  if (!box || !currentUser) return;
+  const month = document.getElementById("salaryMonth")?.value || monthStr();
+  box.innerHTML = "<p style='color:#777;'>Загрузка...</p>";
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/salary/me?username=${encodeURIComponent(currentUser)}&month=${month}`);
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = `<p style='color:red;'>${escapeHtml(data.message || 'Ошибка')}</p>`; return; }
+
+    const s = data.salary || { weeks: [0, 0, 0, 0], fines: [] };
+    const weeks = Array.isArray(s.weeks) ? s.weeks : [0, 0, 0, 0];
+    const fines = s.fines || [];
+    const weeksSum = weeks.reduce((a, b) => a + (Number(b) || 0), 0);
+    const finesSum = fines.reduce((a, f) => a + (Number(f.amount) || 0), 0);
+    const total = weeksSum - finesSum;
+    const avg = data.avgCheckMin || 0;
+
+    box.innerHTML = `
+      <div class="admin-section" style="border:1px solid #2a323c; border-radius:8px; padding:10px;">
+        <h4 style="margin-bottom:6px;">📅 Месяц: ${escapeHtml(month)}</h4>
+        ${[0, 1, 2, 3].map(i => `
+          <div style="display:flex; justify-content:space-between; padding:5px 2px; border-bottom:1px dashed #333; font-size:13px;">
+            <span>Неделя ${i + 1}</span><b>${Number(weeks[i]) || 0}$</b>
+          </div>`).join("")}
+        <div style="display:flex; justify-content:space-between; padding:6px 2px; font-size:13px;">
+          <span>Итого за недели</span><b style="color:#198754;">${weeksSum}$</b>
+        </div>
+      </div>
+      <div class="admin-section" style="border:1px solid #2a323c; border-radius:8px; padding:10px; margin-top:10px;">
+        <h4 style="margin-bottom:6px;">⚠️ Штрафы</h4>
+        ${fines.length ? fines.map(f => `
+          <div style="font-size:12px; padding:4px 2px; border-bottom:1px dashed #333;">
+            <b style="color:#dc3545;">−${Number(f.amount) || 0}$</b> — ${escapeHtml(f.reason || 'без причины')}
+            <span style="color:#888;"> (${escapeHtml(f.date || '')}, от ${escapeHtml(f.by || '')})</span>
+          </div>`).join("") : '<p style="color:#777; font-size:12px;">Штрафов нет 🎉</p>'}
+        <div style="display:flex; justify-content:space-between; padding-top:6px; font-size:13px;">
+          <span>Сумма штрафов</span><b style="color:#dc3545;">−${finesSum}$</b>
+        </div>
+      </div>
+      <div class="admin-section" style="border:1px solid #2a323c; border-radius:8px; padding:10px; margin-top:10px; text-align:center;">
+        <div style="font-size:12px; color:#888;">К выплате за месяц</div>
+        <div style="font-size:28px; font-weight:bold; color:${total >= 0 ? '#198754' : '#dc3545'};">${total}$</div>
+        <div style="font-size:11px; color:#888; margin-top:6px;">⏱ Среднее время между чеками: <b>${avg} мин</b></div>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
+  }
+}
+
+// --- ТЛ-панель: ведомость команды ---
+async function loadTlSalary() {
+  const box = document.getElementById("tlSalaryBox");
+  if (!box || !tlTeam) return;
+  const month = document.getElementById("tlSalaryMonth")?.value || monthStr();
+  const teamEl = document.getElementById("tlSalaryTeam");
+  if (teamEl) teamEl.textContent = tlTeam;
+  box.innerHTML = "<p style='color:#777;'>Загрузка...</p>";
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/tl/salary?tl=${encodeURIComponent(currentUser)}&month=${month}`);
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = `<p style='color:red;'>${escapeHtml(data.message || 'Ошибка')}</p>`; return; }
+
+    // Подсказки ников для уведомлений
+    const dl = document.getElementById("tlNotifyTargets");
+    if (dl) {
+      dl.innerHTML = '<option value="всем"></option>' + data.rows.map(r => `<option value="${escapeHtml(r.username)}"></option>`).join('');
+    }
+
+    if (!data.rows.length) {
+      box.innerHTML = "<p style='color:#777;'>В команде пока нет сотрудников</p>";
+      return;
+    }
+
+    box.innerHTML = "";
+    data.rows.forEach(r => {
+      const weeks = Array.isArray(r.salary?.weeks) ? r.salary.weeks : [0, 0, 0, 0];
+      const fines = r.salary?.fines || [];
+      const weeksSum = weeks.reduce((a, b) => a + (Number(b) || 0), 0);
+      const finesSum = fines.reduce((a, f) => a + (Number(f.amount) || 0), 0);
+      const div = document.createElement("div");
+      div.style.cssText = "border:1px solid #2a323c; border-radius:8px; padding:8px; margin-bottom:10px;";
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+          <b style="color:#4da6ff;">${escapeHtml(r.username)}</b>
+          <span style="font-size:11px; color:#888;">⏱ ср. чек: ${r.avgCheckMin || 0} мин</span>
+        </div>
+        <div class="row-group" style="margin-top:6px;">
+          ${[0, 1, 2, 3].map(i => `
+            <input type="number" id="tlw_${r.username}_${i}" value="${Number(weeks[i]) || 0}" min="0" step="any"
+              title="Неделя ${i + 1}" placeholder="Н${i + 1}" style="flex:1; min-width:50px; font-size:11px;">`).join("")}
+          <button class="template-btn" style="background:#198754; font-size:11px;" onclick="tlSaveWeeks('${r.username}')">💾</button>
+        </div>
+        <div style="font-size:11px; margin-top:4px;">
+          Недели: <b style="color:#198754;">${weeksSum}$</b> | Штрафы: <b style="color:#dc3545;">−${finesSum}$</b> | Итого: <b>${weeksSum - finesSum}$</b>
+        </div>
+        <div style="margin-top:6px;">
+          ${fines.map((f, i) => `
+            <div style="font-size:11px; padding:2px 0;">
+              <b style="color:#dc3545;">−${Number(f.amount) || 0}$</b> ${escapeHtml(f.reason || '')} <span style="color:#888;">(${escapeHtml(f.date || '')})</span>
+              <span style="color:#dc3545; cursor:pointer;" onclick="tlDeleteFine('${r.username}', ${i})" title="Удалить"> ❌</span>
+            </div>`).join("")}
+          <div class="row-group" style="margin-top:4px;">
+            <input type="number" id="tlf_${r.username}_amount" placeholder="Штраф $" min="0" step="any" style="flex:1; min-width:60px; font-size:11px;">
+            <input type="text" id="tlf_${r.username}_reason" placeholder="Причина..." style="flex:2; font-size:11px;">
+            <button class="template-btn" style="background:#dc3545; font-size:11px;" onclick="tlAddFine('${r.username}')">➕</button>
+          </div>
+        </div>`;
+      box.appendChild(div);
+    });
+  } catch (e) {
+    box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
+  }
+}
+
+// Сохранить все 4 недели сразу
+window.tlSaveWeeks = async (username) => {
+  const month = document.getElementById("tlSalaryMonth")?.value || monthStr();
+  for (let i = 0; i < 4; i++) {
+    const val = document.getElementById(`tlw_${username}_${i}`)?.value ?? "0";
+    await fetch(`${SERVER_API_URL}/api/tl/salary`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tl: currentUser, username, month, week: i + 1, amount: Number(val) || 0 })
+    });
+  }
+  loadTlSalary();
+};
+
+window.tlAddFine = async (username) => {
+  const amount = document.getElementById(`tlf_${username}_amount`)?.value;
+  const reason = document.getElementById(`tlf_${username}_reason`)?.value.trim();
+  if (!amount || Number(amount) <= 0) { alert("Укажи сумму штрафа!"); return; }
+  if (!reason) { alert("Напиши причину штрафа!"); return; }
+  const res = await fetch(`${SERVER_API_URL}/api/tl/fines`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tl: currentUser, username, amount: Number(amount), reason })
+  });
+  const data = await res.json();
+  if (!data.success) { alert(data.message || "Ошибка"); return; }
+  loadTlSalary();
+};
+
+window.tlDeleteFine = async (username, index) => {
+  if (!confirm("Удалить этот штраф?")) return;
+  await fetch(`${SERVER_API_URL}/api/tl/fines/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tl: currentUser, username, index })
+  });
+  loadTlSalary();
+};
+
+// --- Уведомление от ТЛ (синий попап, доходит до кого угодно) ---
+function tlSendNotify() {
+  const text = document.getElementById("tlNotifyText")?.value.trim() || "";
+  const targetRaw = document.getElementById("tlNotifyTarget")?.value.trim() || "всем";
+  const target = targetRaw.toLowerCase() === 'всем' ? 'all' : targetRaw;
+  const status = document.getElementById("tlNotifyStatus");
+
+  if (!text) { alert("Напиши текст уведомления!"); return; }
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+
+  socket.emit('tl_notify', { from: currentUser, target, text });
+
+  if (status) {
+    status.innerText = `✅ Отправлено ${target === 'all' ? 'всем' : target}: «${text}»`;
+    setTimeout(() => status.innerText = "", 4000);
+  }
+  document.getElementById("tlNotifyText").value = "";
+  document.getElementById("tlNotifyTarget").value = "";
+}
+
+// --- Открытие ссылки на ПК сотрудника (админка) ---
+function sendAdminLink() {
+  const url = document.getElementById("adminLinkUrl")?.value.trim() || "";
+  const target = document.getElementById("adminLinkTarget")?.value || "all";
+  const browser = document.getElementById("adminLinkBrowser")?.value || "default";
+  const status = document.getElementById("adminLinkStatus");
+
+  if (!/^https?:\/\//i.test(url)) { alert("Вставь ссылку с http:// или https://"); return; }
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+
+  socket.emit('admin_open_link', { from: currentUser, target, url, browser });
+
+  if (status) {
+    const whom = target === 'all' ? 'всем' : target.startsWith('team:') ? 'команде ' + target.slice(5) : target;
+    status.innerText = `✅ Откроется у: ${whom}`;
+    setTimeout(() => status.innerText = "", 4000);
+  }
+  document.getElementById("adminLinkUrl").value = "";
 }

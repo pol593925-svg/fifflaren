@@ -43,6 +43,7 @@
     <button class="tab-btn" data-tab="chat">💬 Чат</button>
     <button class="tab-btn" data-tab="pm" id="pmTabBtn">✉️ ЛС <span id="pmUnreadBadge" style="display:none; background:#dc3545; border-radius:8px; padding:0 5px; font-size:9px;">0</span></button>
     <button class="tab-btn" data-tab="swipe">🎲 Дайсерчвинчик</button>
+    <button class="tab-btn" data-tab="salary">💰 ЗП</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
     <!-- Вкладка ТЛ-панели (видна только ТЛ — ник совпадает с названием команды) -->
@@ -316,6 +317,28 @@
         </div>
         <div id="tlHistoryBox" class="admin-events-box"><p style="color:#777;">Выбери дату и нажми «Показать»</p></div>
       </div>
+
+      <div class="admin-section">
+        <h4>💰 ЗП команды <span id="tlSalaryTeam" style="color:#4da6ff;"></span></h4>
+        <p style="font-size:10px; color:#aaa; margin-top:2px;">Вносишь суммы за недели 1–4 и штрафы. Сотрудник видит это у себя во вкладке «💰 ЗП».</p>
+        <div class="row-group" style="margin-top:6px;">
+          <input type="month" id="tlSalaryMonth" style="flex:1;">
+          <button id="tlSalaryLoadBtn" class="template-btn" style="background:#0d6efd;">Загрузить</button>
+        </div>
+        <div id="tlSalaryBox" style="margin-top:10px;"><p style="color:#777;">Выбери месяц и нажми «Загрузить»</p></div>
+      </div>
+
+      <div class="admin-section">
+        <h4>🚀 Уведомление поверх окон (синее)</h4>
+        <p style="font-size:10px; color:#aaa; margin-top:2px;">Долетит до любого: сотрудника, другого ТЛ или админа.</p>
+        <textarea id="tlNotifyText" rows="2" placeholder="Текст, который вылезет поверх всех окон..."></textarea>
+        <div class="row-group">
+          <input list="tlNotifyTargets" id="tlNotifyTarget" placeholder="ник или «всем»" style="flex:2;">
+          <datalist id="tlNotifyTargets"><option value="всем"></option></datalist>
+          <button id="tlNotifySendBtn" class="template-btn" style="background:#0d6efd; font-weight:bold;">⚡ Отправить</button>
+        </div>
+        <p id="tlNotifyStatus" class="msg"></p>
+      </div>
     </div>
   </div>
 
@@ -344,6 +367,22 @@
         </div>
         <input type="text" id="adminImageText" placeholder="Подпись к фото (необязательно)..." style="width:100%; margin-top:6px;">
         <img id="adminImagePreview" alt="" style="display:none; max-height:120px; margin-top:6px; border-radius:6px; border:1px solid #333;">
+      </div>
+
+      <!-- Открытие ссылки на ПК сотрудника -->
+      <div class="admin-section">
+        <h4>🔗 Открыть ссылку на ПК сотрудника</h4>
+        <input type="text" id="adminLinkUrl" placeholder="https://..." style="width:100%; margin-bottom:6px;">
+        <div class="row-group">
+          <select id="adminLinkTarget" style="flex:2;"><option value="all">🌍 Всем сотрудникам</option></select>
+          <select id="adminLinkBrowser" style="flex:2;">
+            <option value="default">Браузер по умолчанию</option>
+            <option value="brave">Brave</option>
+            <option value="chrome">Chrome</option>
+          </select>
+          <button id="adminLinkSendBtn" class="template-btn" style="background:#0d6efd; font-weight:bold;">🔗 Открыть</button>
+        </div>
+        <p id="adminLinkStatus" class="msg"></p>
       </div>
 
       <!-- Быстрый триггер -->
@@ -453,6 +492,19 @@
         <button id="swipeLikeBtn" class="template-btn" style="background:#198754; max-width:120px; font-size:14px;">👍</button>
       </div>
       <div id="swipeResults" style="display:none; margin-top:12px; text-align:left; font-size:12px;"></div>
+    </div>
+  </div>
+
+  <!-- 8.9. ВКЛАДКА: Личное инфо — ЗП (3.3.0) -->
+  <div id="tab-salary" class="content" style="display: none;">
+    <div class="card">
+      <h3>💰 Личное инфо — ЗП</h3>
+      <p style="font-size:11px; color:#888; margin-top:2px;">Видишь только свои данные. Суммы вносит ТЛ своей команды.</p>
+      <div class="row-group" style="margin-top:8px;">
+        <input type="month" id="salaryMonth" style="flex:1;">
+        <button id="salaryLoadBtn" class="template-btn" style="background:#0d6efd;">Показать</button>
+      </div>
+      <div id="salaryBox" style="margin-top:12px;"><p style="color:#777;">Выбери месяц и нажми «Показать»</p></div>
     </div>
   </div>
 

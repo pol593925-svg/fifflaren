@@ -1,6 +1,8 @@
-const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const fs = require('fs');
+const { execFile } = require('child_process');
 
 let mainWindow = null;
 let notifyWindow = null;
@@ -94,7 +96,8 @@ function showNotification(payload) {
     text: payload.text || '',
     from: payload.from || 'Fifflaren',
     time: payload.time || '',
-    muted: muted ? '1' : '0'
+    muted: muted ? '1' : '0',
+    color: payload.color === 'blue' ? 'blue' : 'red'
   });
   notifyWindow.webContents.loadFile('notification.html', { query: Object.fromEntries(q) });
   notifyWindow.show();
@@ -218,6 +221,34 @@ ipcMain.on('set-muted', (event, m) => {
 ipcMain.on('set-can-quit', (event, can) => {
   allowQuit = !!can;
   if (rebuildTrayMenuFn) rebuildTrayMenuFn();
+});
+
+// --- ОТКРЫТИЕ ССЫЛКИ В БРАУЗЕРЕ (3.3.0): default / brave / chrome ---
+const BROWSER_PATHS = {
+  brave: [
+    'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+    'C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+    (process.env.LOCALAPPDATA || '') + '\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'
+  ],
+  chrome: [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    (process.env.LOCALAPPDATA || '') + '\\Google\\Chrome\\Application\\chrome.exe'
+  ]
+};
+
+ipcMain.on('open-url', (event, payload) => {
+  try {
+    const url = payload && payload.url;
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    const browser = payload.browser || 'default';
+    if (browser !== 'default' && BROWSER_PATHS[browser]) {
+      const exe = BROWSER_PATHS[browser].find(p => p && fs.existsSync(p));
+      if (exe) { execFile(exe, [url], () => {}); return; }
+    }
+    // Браузер по умолчанию (или не нашли нужный — открываем как получится)
+    shell.openExternal(url).catch(() => {});
+  } catch (e) { /* тихо */ }
 });
 
 ipcMain.on('close-notification', () => {

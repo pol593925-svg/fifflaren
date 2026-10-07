@@ -15,6 +15,7 @@
       cursor: default;
       user-select: none;
     }
+    body.blue { border-color: #0d6efd; }
     .header {
       background: #dc3545;
       color: #fff;
@@ -25,6 +26,7 @@
       justify-content: space-between;
       align-items: center;
     }
+    body.blue .header { background: #0d6efd; }
     .header .time { font-weight: normal; opacity: 0.85; font-size: 12px; }
     .text {
       flex: 1;
@@ -68,9 +70,11 @@
     const from = params.get('from') || 'Fifflaren';
     const time = params.get('time') || '';
     const muted = params.get('muted') === '1';
+    const isBlue = params.get('color') === 'blue';
 
+    if (isBlue) document.body.classList.add('blue');
     document.getElementById('textLabel').textContent = text;
-    document.getElementById('fromLabel').textContent = `⚡ Сообщение от ${from}`;
+    document.getElementById('fromLabel').textContent = isBlue ? `💬 Сообщение от ${from}` : `⚡ Сообщение от ${from}`;
     document.getElementById('timeLabel').textContent = time;
 
     // Если автоплей не сработал (политики), пробуем ещё раз по клику

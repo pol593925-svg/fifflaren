@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
-      if (tabName === 'casino') loadCasinoFeed();
+      if (tabName === 'casino') casinoLoadState();
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
@@ -248,6 +248,9 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("swipeDislikeBtn", () => swipeVote('dislike'));
   bindClick("swipeResultsLink", loadSwipeResults);
   bindClick("casinoSpinBtn", casinoSpin);
+  bindClick("bet5Btn", () => casinoSetBet(5));
+  bindClick("bet10Btn", () => casinoSetBet(10));
+  bindClick("casinoDailyBtn", casinoDaily);
   bindClick("profWriteBtn", () => { if (lastProfileNick) openPmWith(lastProfileNick); });
   bindSwipeDrag();
   bindClick("adminQuickRabotayBtn", () => sendAdminNotification("РАБОТАЙ СУКА", "all", true));
@@ -2356,9 +2359,62 @@ function sendAdminLink() {
   document.getElementById("adminLinkUrl").value = "";
 }
 
-// ==================== КАЗИНО (3.4.0) ====================
+
+// ==================== КАЗИНО (3.5.0) ====================
 const CASINO_SYMBOLS_LOCAL = ['7', '🍒', '🔔', '💎', '⭐', '🍋'];
 let casinoSpinning = false;
+let rouletteBusy = false;
+let casinoBet = 5;
+
+function casinoSetBet(b) {
+  casinoBet = (b === 10) ? 10 : 5;
+  const b5 = document.getElementById("bet5Btn");
+  const b10 = document.getElementById("bet10Btn");
+  if (b5) b5.style.background = casinoBet === 5 ? '#0d6efd' : '#333';
+  if (b10) b10.style.background = casinoBet === 10 ? '#0d6efd' : '#333';
+}
+
+function casinoSetBalance(v) {
+  const el = document.getElementById("casinoBalance");
+  if (el) el.textContent = (v == null ? '—' : v + '$');
+}
+
+async function casinoLoadState() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/state?username=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    if (data.success) {
+      casinoSetBalance(data.balance);
+      const btn = document.getElementById("casinoDailyBtn");
+      if (btn) {
+        btn.disabled = !data.dailyAvailable;
+        btn.textContent = data.dailyAvailable ? '🎁 +20$/день' : '🎁 Завтра';
+      }
+    }
+  } catch (e) { /* молча */ }
+  loadCasinoTop();
+  loadCasinoFeed();
+}
+
+async function casinoDaily() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/daily`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: currentUser })
+    });
+    const data = await res.json();
+    if (data.success) {
+      casinoSetBalance(data.balance);
+      const btn = document.getElementById("casinoDailyBtn");
+      if (btn) { btn.disabled = true; btn.textContent = '🎁 Завтра'; }
+    } else {
+      alert(data.message || 'Не сегодня');
+    }
+  } catch (e) { alert('Ошибка соединения'); }
+}
 
 async function casinoSpin() {
   if (casinoSpinning) return;
@@ -2368,9 +2424,8 @@ async function casinoSpin() {
 
   casinoSpinning = true;
   if (btn) btn.disabled = true;
-  if (status) { status.style.color = ''; status.textContent = 'Крутим...'; }
+  if (status) { status.style.color = ''; status.textContent = 'Крутим ' + casinoBet + '$...'; }
 
-  // Запускаем анимацию барабанов сразу
   const timers = [];
   for (let i = 0; i < 4; i++) {
     const el = document.getElementById("reel" + i);
@@ -2386,12 +2441,12 @@ async function casinoSpin() {
     const res = await fetch(`${SERVER_API_URL}/api/casino/spin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: currentUser })
+      body: JSON.stringify({ username: currentUser, bet: casinoBet })
     });
     data = await res.json();
-    if (!data.success && res.status === 429) {
+    if (!data.success) {
       stopReels(timers, null);
-      if (status) { status.style.color = '#ff6b6b'; status.textContent = data.message || 'Подожди немного'; }
+      if (status) { status.style.color = '#ff6b6b'; status.textContent = data.message || 'Ошибка'; }
       casinoSpinning = false;
       if (btn) btn.disabled = false;
       return;
@@ -2404,7 +2459,6 @@ async function casinoSpin() {
     return;
   }
 
-  // Останавливаем барабаны по очереди, с серверным результатом
   for (let i = 0; i < 4; i++) {
     await new Promise(r => setTimeout(r, 420 + i * 380));
     const el = document.getElementById("reel" + i);
@@ -2415,15 +2469,21 @@ async function casinoSpin() {
     clearInterval(timers[i]);
   }
 
+  casinoSetBalance(data.balance);
   if (data.prize) {
-    if (status) { status.style.color = '#198754'; status.textContent = '🎉 ДЖЕКПОТ! ' + data.prize; }
+    if (status) { status.style.color = '#198754'; status.textContent = data.prize; }
+  } else if (data.multiplier > 1) {
+    if (status) { status.style.color = '#198754'; status.textContent = `Выигрыш +${data.winnings}$ (×${data.multiplier})`; }
+  } else if (data.multiplier === 1) {
+    if (status) { status.style.color = ''; status.textContent = 'Пара — ставка возвращается'; }
   } else {
-    if (status) { status.style.color = ''; status.textContent = 'Ничего — крути ещё!'; }
+    if (status) { status.style.color = '#ff6b6b'; status.textContent = `−${casinoBet}$ — крути ещё!`; }
   }
 
   casinoSpinning = false;
   if (btn) btn.disabled = false;
   loadCasinoFeed();
+  loadCasinoTop();
 }
 
 function stopReels(timers, finalReels) {
@@ -2437,6 +2497,81 @@ function stopReels(timers, finalReels) {
   }
 }
 
+// --- Рулетка ---
+async function rouletteBet(type, value) {
+  if (rouletteBusy) return;
+  if (!currentUser) return;
+  const status = document.getElementById("rouletteStatus");
+  const resultEl = document.getElementById("rouletteResult");
+  rouletteBusy = true;
+  if (status) { status.style.color = ''; status.textContent = 'Кручу колесо...'; }
+
+  let data = null;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/roulette`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: currentUser, bet: casinoBet, type, value })
+    });
+    data = await res.json();
+    if (!data.success) {
+      if (status) { status.style.color = '#ff6b6b'; status.textContent = data.message || 'Ошибка'; }
+      rouletteBusy = false;
+      return;
+    }
+  } catch (e) {
+    if (status) { status.style.color = '#ff6b6b'; status.textContent = 'Ошибка соединения'; }
+    rouletteBusy = false;
+    return;
+  }
+
+  // анимация кручения
+  let ticks = 0;
+  const spinAnim = setInterval(() => {
+    const n = Math.floor(Math.random() * 37);
+    if (resultEl) resultEl.textContent = '🎡 ' + n;
+    if (++ticks >= 14) {
+      clearInterval(spinAnim);
+      const colorTxt = data.color === 'red' ? '🔴 красное' : data.color === 'black' ? '⚫ чёрное' : '🟢 ЗЕРО';
+      if (resultEl) resultEl.innerHTML = `Выпало <b>${data.num}</b> — ${colorTxt}`;
+      casinoSetBalance(data.balance);
+      if (data.win) {
+        if (status) { status.style.color = '#198754'; status.textContent = `Выигрыш +${data.winnings}$ (×${data.multiplier})`; }
+      } else {
+        if (status) { status.style.color = '#ff6b6b'; status.textContent = `−${casinoBet}$`; }
+      }
+      rouletteBusy = false;
+      loadCasinoFeed();
+      loadCasinoTop();
+    }
+  }, 110);
+}
+
+function rouletteNumberBet() {
+  const input = document.getElementById("rouletteNumber");
+  const n = parseInt(input?.value, 10);
+  if (isNaN(n) || n < 0 || n > 36) { alert('Введи число от 0 до 36'); return; }
+  rouletteBet('number', String(n));
+}
+
+// --- Топ богачей ---
+async function loadCasinoTop() {
+  const box = document.getElementById("casinoTop");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/top`);
+    const data = await res.json();
+    const top = data.top || [];
+    if (!top.length) { box.innerHTML = '<p style="color:#777;">Пока никто не играл</p>'; return; }
+    const medals = ['🥇', '🥈', '🥉'];
+    box.innerHTML = top.map((t, i) =>
+      `<div style="display:flex; justify-content:space-between; padding:3px 4px; border-bottom:1px dashed #333;">
+        <span>${medals[i] || (i + 1) + '.'} ${escapeHtml(t.username)}</span><b style="color:#e0aaff;">${t.balance}$</b>
+      </div>`).join('');
+  } catch (e) { box.innerHTML = '<p style="color:red;">Ошибка</p>'; }
+}
+
+// --- Лента ставок ---
 async function loadCasinoFeed() {
   const box = document.getElementById("casinoFeed");
   if (!box) return;
@@ -2445,16 +2580,26 @@ async function loadCasinoFeed() {
     const data = await res.json();
     const spins = data.spins || [];
     if (!spins.length) {
-      box.innerHTML = '<p style="color:#777;">Пока никто не крутил</p>';
+      box.innerHTML = '<p style="color:#777;">Пока никто не играл</p>';
       return;
     }
     box.innerHTML = spins.map(s => {
       const t = s.time ? new Date(s.time).toLocaleTimeString('ru-RU') : '';
-      const prizeHtml = s.prize
-        ? ` — <b style="color:#198754;">🎁 ${escapeHtml(s.prize)}</b>`
-        : ' — <span style="color:#888;">ничего</span>';
+      let line;
+      if (s.kind === 'roulette') {
+        const betTxt = { color: 'цвет', parity: 'чёт/нечет', dozen: 'дюжина', number: 'число' }[s.rType] || s.rType;
+        const colorTxt = s.color === 'red' ? '🔴' : s.color === 'black' ? '⚫' : '🟢';
+        line = `🎡 ${colorTxt}<b>${s.num}</b> · ставка ${s.bet}$ (${betTxt} ${escapeHtml(s.rValue)})`;
+      } else {
+        line = `🎰 ${(s.reels || []).map(r => `<span style="font-size:14px;">${r}</span>`).join(' ')} · ставка ${s.bet}$`;
+      }
+      const resHtml = s.prize
+        ? ` — <b style="color:#198754;">👑 ${escapeHtml(s.prize)}</b>`
+        : (s.winnings > 0
+            ? ` — <b style="color:#198754;">+${s.winnings}$</b>`
+            : ` — <span style="color:#888;">−${s.bet}$</span>`);
       return `<div style="font-size:12px; padding:4px 2px; border-bottom:1px dashed #333;">
-        <b>${escapeHtml(s.user)}</b> — ${(s.reels || []).map(r => `<span style="font-size:15px;">${r}</span>`).join(' ')}${prizeHtml}
+        <b>${escapeHtml(s.user)}</b> — ${line}${resHtml}
         <span style="color:#666; font-size:10px;"> · ${t}</span>
       </div>`;
     }).join('');

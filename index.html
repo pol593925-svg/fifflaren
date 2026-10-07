@@ -496,12 +496,23 @@
     </div>
   </div>
 
-  <!-- 8.9. ВКЛАДКА: Казино (3.4.0) -->
+  <!-- 8.9. ВКЛАДКА: Казино (3.5.0) -->
   <div id="tab-casino" class="content" style="display: none;">
     <div class="card" style="text-align:center;">
       <h3>🎰 Казино</h3>
-      <p style="font-size:11px; color:#888; margin-top:2px;">Собери четыре семёрки — и приз твой!<br>🎁 Призы: ⏰ на час позже на работу · 💎 бонус +1 трюфель · ⚠️ штраф −20$</p>
-      <div style="display:flex; gap:10px; justify-content:center; margin:16px 0;">
+      <div style="margin:8px 0; font-size:14px;">
+        💰 Баланс: <b id="casinoBalance" style="color:#e0aaff; font-size:19px;">—</b>
+        <button id="casinoDailyBtn" class="template-btn" style="background:#198754; font-size:11px; margin-left:6px;">🎁 +20$/день</button>
+      </div>
+      <div style="margin:6px 0; font-size:12px;">
+        Ставка:
+        <button id="bet5Btn" class="template-btn casino-bet-btn" data-bet="5" style="background:#0d6efd;">5$</button>
+        <button id="bet10Btn" class="template-btn casino-bet-btn" data-bet="10" style="background:#333;">10$</button>
+      </div>
+
+      <h4 style="margin-top:12px;">🎰 Слот</h4>
+      <p style="font-size:10px; color:#888;">Пара ×1 (возврат) · Трио ×5 · Четвёрка ×25 · 7777 — джекпот ×100 + призы</p>
+      <div style="display:flex; gap:10px; justify-content:center; margin:12px 0;">
         <div id="reel0" class="casino-reel">🍒</div>
         <div id="reel1" class="casino-reel">🔔</div>
         <div id="reel2" class="casino-reel">💎</div>
@@ -509,8 +520,33 @@
       </div>
       <button id="casinoSpinBtn" class="submit-btn red" style="max-width:220px;">🎰 Крутить!</button>
       <p id="casinoStatus" class="msg" style="margin-top:8px; min-height:16px;"></p>
-      <h4 style="margin-top:14px;">📜 Лента прокрутов</h4>
-      <div id="casinoFeed" class="admin-events-box" style="max-height:230px; text-align:left;"><p style="color:#777;">Пока никто не крутил</p></div>
+
+      <h4 style="margin-top:14px;">🎡 Рулетка</h4>
+      <div id="rouletteResult" style="font-size:14px; min-height:20px; color:#ccc;">Делай ставку — кручу колесо</div>
+      <div class="row-group" style="margin-top:6px;">
+        <button class="template-btn" style="background:#dc3545; flex:1;" onclick="rouletteBet('color','red')">🔴 Красное ×2</button>
+        <button class="template-btn" style="background:#222; border:1px solid #555; flex:1;" onclick="rouletteBet('color','black')">⚫ Чёрное ×2</button>
+      </div>
+      <div class="row-group" style="margin-top:6px;">
+        <button class="template-btn" style="background:#0d6efd; flex:1;" onclick="rouletteBet('parity','even')">⚪ Чёт ×2</button>
+        <button class="template-btn" style="background:#6f42c1; flex:1;" onclick="rouletteBet('parity','odd')">🔷 Нечет ×2</button>
+      </div>
+      <div class="row-group" style="margin-top:6px;">
+        <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','1')">1–12 ×3</button>
+        <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','2')">13–24 ×3</button>
+        <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','3')">25–36 ×3</button>
+      </div>
+      <div class="row-group" style="margin-top:6px;">
+        <input type="number" id="rouletteNumber" min="0" max="36" placeholder="Число 0–36" style="flex:1;">
+        <button class="template-btn" style="background:#198754; flex:1;" onclick="rouletteNumberBet()">🎯 Число ×35</button>
+      </div>
+      <p id="rouletteStatus" class="msg" style="margin-top:6px; min-height:14px;"></p>
+
+      <h4 style="margin-top:14px;">🏆 Топ богачей</h4>
+      <div id="casinoTop" style="font-size:12px; text-align:left; max-height:130px; overflow-y:auto; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
+
+      <h4 style="margin-top:14px;">📜 Лента ставок</h4>
+      <div id="casinoFeed" class="admin-events-box" style="max-height:220px; text-align:left;"><p style="color:#777;">Пока никто не играл</p></div>
     </div>
   </div>
 

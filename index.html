@@ -412,6 +412,13 @@
         <p id="adminGrantStatus" class="msg"></p>
       </div>
 
+      <!-- Додепы: запросы на заём -->
+      <div class="admin-section">
+        <h4>🏦 Додепы (запросы на заём в казино)</h4>
+        <button id="adminDoddepLoadBtn" class="template-btn" style="background:#0d6efd;">Обновить</button>
+        <div id="adminDoddepBox" class="admin-events-box" style="max-height:220px; margin-top:6px;"><p style="color:#777;">Нажми «Обновить»</p></div>
+      </div>
+
       <!-- Топы -->
       <div class="admin-section">
         <h4>🏆 Топы (видна всем во вкладке «Топ»)</h4>
@@ -559,6 +566,17 @@
         💰 Баланс: <b id="casinoBalance" style="color:#e0aaff; font-size:19px;">—</b>
         <button id="casinoDailyBtn" class="template-btn" style="background:#198754; font-size:11px; margin-left:6px;">🎁 +20$/день</button>
       </div>
+
+      <!-- 3.9.0: Додеп -->
+      <div style="border:1px solid #2a323c; border-radius:8px; padding:10px; margin:10px 0; background:#14171a;">
+        <h4 style="margin:0 0 6px;">🏦 Додеп</h4>
+        <p style="font-size:10px; color:#aaa; margin:2px 0;">Заём в казино: 50–500$. Условия: ежедневный возврат 20% от суммы из ЗП, 1 апрув в неделю, залог хаты. Невыполнение условий недели — штраф −40$ с ЗП (автоматически).</p>
+        <div id="doddepMyStatus" style="font-size:11px; color:#ffc107; min-height:14px; margin:4px 0;"></div>
+        <div class="row-group" id="doddepForm" style="margin-top:4px;">
+          <input type="number" id="doddepAmount" min="50" max="500" value="100" style="flex:1;">
+          <button id="doddepBtn" class="template-btn" style="background:#9b59b6; flex:2;">✍️ Соглашаюсь с условиями</button>
+        </div>
+      </div>
       <div style="margin:6px 0; font-size:12px;">
         Ставка:
         <button id="bet5Btn" class="template-btn casino-bet-btn" data-bet="5" style="background:#0d6efd;">5$</button>
@@ -608,6 +626,21 @@
       </div>
       <div id="crashHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
 
+      <h4 style="margin-top:14px;">📊 Опцион</h4>
+      <p style="font-size:10px; color:#888;">Ставь направление: цена вырастет (🟢 ВВЕРХ) или упадёт (🔴 ВНИЗ) за 30 сек. Угадал — ×1.8.</p>
+      <div style="background:#0d1117; border:1px solid #2a323c; border-radius:8px; padding:8px; margin-top:6px;">
+        <canvas id="optChart" width="600" height="140" style="width:100%; height:140px; display:block;"></canvas>
+        <div id="optStatus" style="font-size:11px; color:#888; margin-top:4px; min-height:14px;">Жди раунд...</div>
+        <div id="optTimer" style="font-size:20px; font-weight:bold; color:#4da6ff; min-height:24px;"></div>
+        <div class="row-group" style="margin-top:6px;">
+          <input type="number" id="optBetAmount" min="5" max="100" value="10" style="flex:1;">
+          <button id="optUpBtn" class="template-btn" style="background:#198754; flex:1;">🟢 ВВЕРХ</button>
+          <button id="optDownBtn" class="template-btn" style="background:#dc3545; flex:1;">🔴 ВНИЗ</button>
+        </div>
+        <div id="optMyBet" style="font-size:11px; color:#ffc107; margin-top:4px; min-height:14px;"></div>
+        <div id="optHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
+      </div>
+
       <h4 style="margin-top:14px;">⚔️ Дуэль слотами</h4>
       <p style="font-size:10px; color:#888;">Одинаковая ставка, крутите оба — чья комбинация круче, тот забирает обе ставки.</p>
       <div class="row-group">
@@ -635,19 +668,29 @@
       <h3>🚢 Морской бой</h3>
 
       <div id="bsSetup">
-        <p style="font-size:11px; color:#888;">Вызови соперника на бой за бабки. Классика: 10 кораблей, попал — стреляй ещё.</p>
+        <p style="font-size:11px; color:#888;">Вызови соперника на бой за бабки. Классика: попал — стреляй ещё. Быстрый огонь: каждый стреляет раз в 5 сек, очереди нет.</p>
         <div class="row-group" style="max-width:420px; margin:8px auto;">
           <input type="text" id="bsOpponent" placeholder="Ник соперника..." style="flex:2;">
           <input type="number" id="bsBet" min="5" max="100" value="10" style="flex:1;">
           <button id="bsChallengeBtn" class="template-btn" style="background:#dc3545;">Вызвать</button>
         </div>
+        <div class="row-group" style="max-width:420px; margin:0 auto 6px;">
+          <select id="bsMode" style="flex:1;">
+            <option value="classic">🎖️ Классика</option>
+            <option value="rapid">🌊 Быстрый огонь</option>
+          </select>
+          <label style="flex:1; font-size:11px; color:#aaa; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="bsRandomFleet"> 🎰 Случайный флот</label>
+          <label style="flex:1; font-size:11px; color:#aaa; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="bsFreeFight"> 🍀 Бесплатный бой</label>
+        </div>
+        <div id="bsFreeHint" style="font-size:10px; color:#2ecc71; display:none;">🍀 Бесплатный бой дня: казино крывает твою ставку 10$. Доступен раз в сутки.</div>
       </div>
 
       <div id="bsGame" style="display:none;">
         <div id="bsStatusBar" style="font-size:14px; margin-bottom:10px; min-height:20px;"></div>
 
         <div id="bsPlacement">
-          <p style="font-size:11px; color:#888;">Расставь флот: выбери корабль, жми на клетки. ПКМ или кнопка — повернуть.</p>
+          <p style="font-size:11px; color:#888;">Расставь флот: выбери корабль, жми на клетки. ПКМ или кнопка — повернуть. Потом поставь 💣 3 мины на пустые клетки.</p>
+          <div id="bsMineBar" style="font-size:12px; color:#ffc107; min-height:16px; margin-bottom:4px;"></div>
           <div class="row-group" style="justify-content:center; margin:8px 0;">
             <button id="bsRotateBtn" class="template-btn" style="background:#6f42c1; max-width:130px;">↻ Повернуть</button>
             <button id="bsRandomBtn" class="template-btn" style="background:#fd7e14; max-width:130px;">🎲 Случайно</button>
@@ -667,6 +710,7 @@
           </div>
         </div>
         <div style="margin-top:10px;">
+          <button id="bsRadarBtn" class="template-btn" style="background:#17a2b8; display:none;">👀 Радар</button>
           <button id="bsSurrenderBtn" class="template-btn" style="background:#6c757d; display:none;">🏳️ Сдаться</button>
         </div>
       </div>
@@ -687,6 +731,10 @@
         <div style="flex:1; min-width:220px; background:#1a1d20; border:1px solid #2a323c; border-radius:8px; padding:10px;">
           <h4 style="color:#4da6ff;">🛡️ Топ защеканы</h4>
           <div id="topsCheckers" style="font-size:13px; text-align:left;"><p style="color:#777;">Пока пусто</p></div>
+        </div>
+        <div style="flex:1; min-width:220px; background:#1a1d20; border:1px solid #2a323c; border-radius:8px; padding:10px;">
+          <h4 style="color:#17a2b8;">🚢 Ладдер морского боя</h4>
+          <div id="topsBsLadder" style="font-size:13px; text-align:left;"><p style="color:#777;">Пока пусто</p></div>
         </div>
       </div>
       <p style="font-size:10px; color:#888; margin-top:8px;">Состав топов назначает админ в админ-панели.</p>
@@ -719,6 +767,9 @@
         <div><b id="profApproves">0</b><span>✅ Апр. мес</span></div>
         <div><b id="profShifts">0</b><span>⏱️ Смен мес</span></div>
         <div><b id="profLikes">0</b><span>👍 В ленте</span></div>
+        <div><b id="profBsElo">1000</b><span>🚢 МБ ELO</span></div>
+        <div><b id="profBsWL">0/0</b><span>⚓ В/П МБ</span></div>
+        <div><b id="profBsAcc">0%</b><span>🎯 Точность МБ</span></div>
       </div>
       <input type="file" id="profAvatarFile" accept="image/*" style="display:none;">
       <button id="profChangeAvatarBtn" class="submit-btn blue" style="display:none;">📷 Сменить аватар</button>

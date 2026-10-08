@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
-      if (tabName === 'casino') { casinoLoadState(); crashLoadState(); }
+      if (tabName === 'casino') { casinoLoadState(); crashLoadState(); optionsLoadState(); doddepLoadMy(); }
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
@@ -407,6 +407,8 @@ function initSocketConnection(username) {
   bindCasinoGameHandlers();
   // 3.8.0: морской бой
   bindBattleshipHandlers();
+  // 3.9.0: опционы
+  bindOptionsHandlers();
 
   socket.on('chat_message', (msgData) => appendMessageToChatUI(msgData));
 
@@ -999,6 +1001,7 @@ function refreshAdminPanel() {
   loadAdminExchanges();
   loadAdminTasks();
   loadAdminTopsInputs();
+  loadAdminDoddep();
 }
 
 async function fetchAdmin(url) {
@@ -1610,6 +1613,11 @@ async function openProfile(nick) {
     document.getElementById("profApproves").textContent = p.month.approves;
     document.getElementById("profShifts").textContent = p.month.shifts;
     document.getElementById("profLikes").textContent = p.month.likes;
+    if (p.bs) {
+      document.getElementById("profBsElo").textContent = p.bs.elo;
+      document.getElementById("profBsWL").textContent = p.bs.wins + '/' + p.bs.losses;
+      document.getElementById("profBsAcc").textContent = p.bs.accuracy + '%';
+    }
     const isMe = p.username.toLowerCase() === currentUser.toLowerCase();
     document.getElementById("profChangeAvatarBtn").style.display = isMe ? '' : 'none';
     document.getElementById("profWriteBtn").style.display = isMe ? 'none' : '';
@@ -2709,6 +2717,22 @@ async function loadTops() {
     sBox.innerHTML = '<p style="color:red;">Ошибка загрузки</p>';
     cBox.innerHTML = '';
   }
+  // 3.9.0: ладдер морского боя
+  const lBox = document.getElementById("topsBsLadder");
+  if (lBox) {
+    try {
+      const res = await fetch(`${SERVER_API_URL}/api/battleship/ladder`);
+      const d = await res.json();
+      lBox.innerHTML = (d.ladder && d.ladder.length)
+        ? d.ladder.map((u, i) => `<div style="padding:5px 4px; border-bottom:1px solid #2a323c; display:flex; justify-content:space-between;">
+            <span><b style="color:${i === 0 ? '#ffc107' : '#17a2b8'};">${i + 1}.</b> ${escapeHtml(u.username)}</span>
+            <span style="color:#888;">${u.elo} ELO · ${u.wins}W/${u.losses}L</span>
+          </div>`).join('')
+        : '<p style="color:#777;">Пока пусто</p>';
+    } catch (e) {
+      lBox.innerHTML = '<p style="color:red;">Ошибка загрузки</p>';
+    }
+  }
 }
 
 // --- Магазин призов ---
@@ -3205,6 +3229,8 @@ bindClick("crashBetBtn", crashPlaceBet);
 bindClick("crashCashoutBtn", crashTake);
 bindClick("duelChallengeBtn", duelChallenge);
 bindClick("adminDnoLoadBtn", loadAdminDno);
+bindClick("optUpBtn", () => optPlaceBet('up'));
+bindClick("optDownBtn", () => optPlaceBet('down'));
 
 // Начисление бабок в казино (админ)
 window.adminGrant = async () => {
@@ -3229,6 +3255,285 @@ window.adminGrant = async () => {
 };
 bindClick("adminGrantBtn", adminGrant);
 
+// ==================== 3.9.0: ДОДЕП (клиент) ====================
+
+// Мой додеп: показываем статус или форму запроса
+window.doddepLoadMy = async () => {
+  const status = document.getElementById("doddepMyStatus");
+  const form = document.getElementById("doddepForm");
+  if (!status || !form) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/doddep/my?username=${encodeURIComponent(currentUser)}`);
+    const d = await res.json();
+    if (!d.success || !d.loan) {
+      status.textContent = '';
+      form.style.display = '';
+      return;
+    }
+    form.style.display = 'none';
+    if (d.loan.status === 'pending') {
+      status.textContent = `⏳ Запрос на ${d.loan.amount}$ на рассмотрении у админа...`;
+      status.style.color = '#ffc107';
+    } else {
+      status.textContent = `🏦 Активный додеп: ${d.loan.amount}$ · остаток долга ${d.loan.remaining}$ · возврат ${d.loan.dailyReturn}$/день из ЗП`;
+      status.style.color = '#e0aaff';
+    }
+  } catch (e) {}
+};
+
+window.doddepRequest = async () => {
+  const amount = Math.floor(Number(document.getElementById("doddepAmount")?.value || 0));
+  const status = document.getElementById("doddepMyStatus");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/doddep/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, amount })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      if (status) { status.textContent = '❌ ' + (data.message || 'Ошибка'); status.style.color = '#ff6b6b'; }
+      return;
+    }
+    if (status) { status.textContent = `⏳ Запрос на ${amount}$ отправлен админу — жди подтверждения`; status.style.color = '#ffc107'; }
+    const form = document.getElementById("doddepForm");
+    if (form) form.style.display = 'none';
+  } catch (e) {}
+};
+bindClick("doddepBtn", doddepRequest);
+
+// Админка: список додепов + решения
+window.loadAdminDoddep = async () => {
+  const box = document.getElementById("adminDoddepBox");
+  if (!box) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/doddep/list?admin=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = `<p style="color:red;">${escapeHtml(data.message || 'Ошибка')}</p>`; return; }
+    let html = '';
+    if (data.pending && data.pending.length) {
+      html += '<p style="color:#ffc107; margin:4px 0;">Новые запросы:</p>' + data.pending.map(l => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 2px; border-bottom:1px solid #2a323c;">
+          <span><b>${escapeHtml(l.username)}</b> — ${l.amount}$ (возврат ${l.dailyReturn}$/день) · ${new Date(l.createdAt).toLocaleString('ru-RU')}</span>
+          <span>
+            <button class="template-btn" style="background:#198754; font-size:11px; padding:3px 10px;" onclick="adminDoddepDecide('${l._id}', true)">✅ Начислить</button>
+            <button class="template-btn" style="background:#333; font-size:11px; padding:3px 10px;" onclick="adminDoddepDecide('${l._id}', false)">❌</button>
+          </span>
+        </div>`).join('');
+    } else {
+      html += '<p style="color:#777; margin:4px 0;">Новых запросов нет</p>';
+    }
+    if (data.active && data.active.length) {
+      html += '<p style="color:#4da6ff; margin:8px 0 4px;">Активные займы:</p>' + data.active.map(l => `
+        <div style="padding:5px 2px; border-bottom:1px solid #2a323c; font-size:12px;">
+          <b>${escapeHtml(l.username)}</b> — долг ${l.remaining}$ из ${l.amount}$ · ${l.dailyReturn}$/день
+        </div>`).join('');
+    }
+    box.innerHTML = html || '<p style="color:#777;">Пусто</p>';
+  } catch (e) {
+    box.innerHTML = '<p style="color:red;">Ошибка соединения</p>';
+  }
+};
+
+window.adminDoddepDecide = async (id, approve) => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/doddep/decide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, id, approve })
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+    loadAdminDoddep();
+  } catch (e) { alert('Ошибка соединения'); }
+};
+bindClick("adminDoddepLoadBtn", loadAdminDoddep);
+
+// ==================== 3.9.0: ОПЦИОНЫ (клиент) ====================
+
+let optPhase = 'idle';
+let optRound = 0;
+let optEndsAt = 0;
+let optStartPrice = 100;
+let optPrice = 100;
+let optHistory = [];
+let optMyBet = null;
+let optTicks = [];
+let optTimerInt = null;
+
+function optDraw() {
+  const cv = document.getElementById("optChart");
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  // сетка
+  ctx.strokeStyle = '#1d232c';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath(); ctx.moveTo(0, H * i / 4); ctx.lineTo(W, H * i / 4); ctx.stroke();
+  }
+  const ticks = optTicks.length ? optTicks : [optStartPrice];
+  const all = [...ticks, optStartPrice];
+  let min = Math.min(...all), max = Math.max(...all);
+  if (max - min < 2) { max += 1; min -= 1; }
+  const px = (i) => ticks.length > 1 ? (i / (ticks.length - 1)) * (W - 10) + 5 : W / 2;
+  const py = (p) => H - 8 - ((p - min) / (max - min)) * (H - 16);
+  // уровень старта
+  ctx.strokeStyle = '#888';
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(0, py(optStartPrice)); ctx.lineTo(W, py(optStartPrice)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#888';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('старт ' + optStartPrice.toFixed(2), 4, py(optStartPrice) - 3);
+  // линия цены
+  const up = optPrice >= optStartPrice;
+  ctx.strokeStyle = up ? '#2ecc71' : '#e74c3c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ticks.forEach((p, i) => { i === 0 ? ctx.moveTo(px(i), py(p)) : ctx.lineTo(px(i), py(p)); });
+  ctx.stroke();
+  // точка конца
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.beginPath(); ctx.arc(px(ticks.length - 1), py(optPrice), 3.5, 0, Math.PI * 2); ctx.fill();
+}
+
+function optUpdateUI() {
+  const status = document.getElementById("optStatus");
+  const my = document.getElementById("optMyBet");
+  const upBtn = document.getElementById("optUpBtn");
+  const downBtn = document.getElementById("optDownBtn");
+  if (status) {
+    if (optPhase === 'bet') {
+      status.textContent = `⏳ Раунд #${optRound}: приём ставок — цена стартует с ${optStartPrice.toFixed(2)}`;
+      status.style.color = '#ffc107';
+    } else if (optPhase === 'run') {
+      const dir = optPrice >= optStartPrice ? 'ВВЕРХ 🟢' : 'ВНИЗ 🔴';
+      status.textContent = `▶️ Раунд #${optRound}: ${optPrice.toFixed(2)} (${dir}) — выплата ×1.8`;
+      status.style.color = optPrice >= optStartPrice ? '#2ecc71' : '#ff6b6b';
+    } else {
+      status.textContent = 'Жди следующий раунд...';
+      status.style.color = '#888';
+    }
+  }
+  if (my) {
+    my.textContent = optMyBet
+      ? `Твоя ставка: ${optMyBet.amount}$ на ${optMyBet.dir === 'up' ? '🟢 ВВЕРХ' : '🔴 ВНИЗ'}`
+      : '';
+  }
+  const canBet = optPhase === 'bet' && !optMyBet;
+  if (upBtn) { upBtn.disabled = !canBet; upBtn.style.opacity = canBet ? '1' : '0.4'; }
+  if (downBtn) { downBtn.disabled = !canBet; downBtn.style.opacity = canBet ? '1' : '0.4'; }
+  // история стрелками
+  const hist = document.getElementById("optHistory");
+  if (hist) {
+    hist.innerHTML = 'История: ' + (optHistory.slice(0, 10).map(h =>
+      h.dir === 'up' ? '<span style="color:#2ecc71;">▲</span>'
+      : h.dir === 'down' ? '<span style="color:#e74c3c;">▼</span>' : '<span style="color:#888;">◆</span>'
+    ).join(' ') || '—');
+  }
+  optDraw();
+}
+
+function optRenderHistory(h) {
+  if (Array.isArray(h)) { optHistory = h; optUpdateUI(); }
+}
+
+function optStartTimer() {
+  if (optTimerInt) clearInterval(optTimerInt);
+  const el = document.getElementById("optTimer");
+  optTimerInt = setInterval(() => {
+    const left = Math.max(0, optEndsAt - Date.now());
+    if (el) {
+      el.textContent = (optPhase === 'bet' || optPhase === 'run') ? (left / 1000).toFixed(1) + ' сек' : '';
+    }
+    if (left <= 0 && optPhase !== 'run') { /* ждём событие с сервера */ }
+  }, 100);
+}
+
+async function optionsLoadState() {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/options/state?username=${encodeURIComponent(currentUser)}`);
+    const d = await res.json();
+    optPhase = d.phase;
+    optRound = d.round;
+    optEndsAt = d.endsAt || 0;
+    optStartPrice = d.startPrice;
+    optPrice = d.price;
+    optMyBet = d.myBet;
+    optHistory = d.history || [];
+    optTicks = [optStartPrice];
+    optStartTimer();
+    optUpdateUI();
+  } catch (e) {}
+}
+
+window.optPlaceBet = async (dir) => {
+  const amt = Math.floor(Number(document.getElementById("optBetAmount")?.value || 0));
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/options/bet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, amount: amt, dir })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      const s = document.getElementById("optStatus");
+      if (s) { s.textContent = '❌ ' + (data.message || 'Ошибка'); s.style.color = '#ff6b6b'; }
+      return;
+    }
+    optMyBet = { amount: amt, dir };
+    casinoSetBalance(data.balance);
+    optUpdateUI();
+  } catch (e) {}
+};
+
+function bindOptionsHandlers() {
+  if (!socket) return;
+  socket.on('option_phase', (d) => {
+    optPhase = d.phase;
+    if (d.round) optRound = d.round;
+    if (d.endsAt) optEndsAt = d.endsAt;
+    if (typeof d.startPrice === 'number') { optStartPrice = d.startPrice; optPrice = d.startPrice; }
+    if (d.phase === 'bet') { optMyBet = null; optTicks = [optStartPrice]; }
+    if (d.phase === 'run') optTicks = [optStartPrice];
+    if (Array.isArray(d.history)) optHistory = d.history;
+    if (d.phase === 'done' && typeof d.endPrice === 'number') {
+      optPrice = d.endPrice;
+      optTicks.push(d.endPrice);
+      const s = document.getElementById("optStatus");
+      if (s) {
+        s.textContent = d.dir === 'flat'
+          ? `◆ Раунд #${d.round}: ничья ${d.endPrice.toFixed(2)} — ставки возвращены`
+          : `${d.dir === 'up' ? '🟢' : '🔴'} Раунд #${d.round}: финал ${d.endPrice.toFixed(2)}`;
+        s.style.color = d.dir === 'up' ? '#2ecc71' : d.dir === 'down' ? '#ff6b6b' : '#888';
+      }
+    }
+    optStartTimer();
+    optUpdateUI();
+  });
+  socket.on('option_tick', (d) => {
+    if (d.round !== optRound) return;
+    optPrice = d.price;
+    optTicks.push(d.price);
+    if (optTicks.length > 200) optTicks.shift();
+    optUpdateUI();
+  });
+  socket.on('option_result', (d) => {
+    if (typeof d.balance === 'number') casinoSetBalance(d.balance);
+    const s = document.getElementById("optStatus");
+    if (s) {
+      if (d.win) { s.textContent = `🏆 Угадал! +${d.payout}$ (${d.dir === 'up' ? 'вверх' : 'вниз'})`; s.style.color = '#2ecc71'; }
+      else if (d.dir === 'flat') { s.textContent = `◆ Ничья — возврат ${d.payout}$`; s.style.color = '#888'; }
+      else { s.textContent = `💀 Мимо. Цена пошла ${d.dir === 'up' ? 'вверх' : 'вниз'} — ставка сгорела`; s.style.color = '#ff6b6b'; }
+    }
+    if (d.win) playNoticeSound();
+    optMyBet = null;
+    optUpdateUI();
+  });
+}
+
 // ==================== 3.8.0: МОРСКОЙ БОЙ ====================
 
 const BS_PALETTE = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
@@ -3240,6 +3545,14 @@ let bsHoriz = true;
 let bsPlacedSent = false;
 let bsWasMyTurn = false;
 let bsLastId = '';
+let bsMines = [];           // 3.9.0: мины, поставленные при расстановке [{x,y}]
+let bsRadarZone = [];       // 3.9.0: зона радара (подсветка на вражеской доске)
+let bsClockOffset = 0;      // 3.9.0: расхождение с серверным временем
+let bsRapidTimer = null;    // 3.9.0: тикер кулдауна rapid
+let bsLastOpponent = '';    // 3.9.0: для реванша
+let bsLastBet = 10;
+let bsLastMode = 'classic';
+let bsLastRandom = false;
 
 function bsBanner(html, cls) {
   const b = document.getElementById("bsBanner");
@@ -3283,55 +3596,80 @@ function bsRenderPlacement() {
   const board = document.getElementById("bsMyBoard");
   if (!board) return;
   board.classList.remove('active');
+  const shipsDone = bsCursor >= BS_PALETTE.length;
   bsDrawBoard(board, (x, y, cell) => {
     const used = bsUsedCells();
-    if (used.has(x + ',' + y)) cell.classList.add('ship');
+    const isShipCell = used.has(x + ',' + y);
+    if (isShipCell) cell.classList.add('ship');
+    const mineIdx = bsMines.findIndex(m => m.x === x && m.y === y);
+    if (mineIdx >= 0) cell.classList.add('mine-own');
 
-    cell.onmouseenter = () => {
-      bsClearPreview();
-      if (bsCursor >= BS_PALETTE.length) return;
-      const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
-      const preview = cells || (() => {
-        // показываем что влезает
-        const all = [];
-        for (let i = 0; i < BS_PALETTE[bsCursor]; i++) all.push({ x: x + (bsHoriz ? i : 0), y: y + (bsHoriz ? 0 : i) });
-        return all.filter(c => c.x >= 0 && c.x <= 9 && c.y >= 0 && c.y <= 9);
-      })();
-      preview.forEach(c => {
-        const el = board.querySelector(`[data-x="${c.x}"][data-y="${c.y}"]`);
-        if (el) el.classList.add(cells ? 'preview' : 'preview-bad');
-      });
-    };
-    cell.onclick = () => {
-      if (bsCursor >= BS_PALETTE.length || bsPlacedSent) return;
-      const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
-      if (!cells) return;
-      bsPlaced.push({ cells });
-      bsCursor++;
-      bsClearPreview();
-      bsRenderPlacement();
-    };
+    if (!shipsDone) {
+      cell.onmouseenter = () => {
+        bsClearPreview();
+        const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
+        const preview = cells || (() => {
+          // показываем что влезает
+          const all = [];
+          for (let i = 0; i < BS_PALETTE[bsCursor]; i++) all.push({ x: x + (bsHoriz ? i : 0), y: y + (bsHoriz ? 0 : i) });
+          return all.filter(c => c.x >= 0 && c.x <= 9 && c.y >= 0 && c.y <= 9);
+        })();
+        preview.forEach(c => {
+          const el = board.querySelector(`[data-x="${c.x}"][data-y="${c.y}"]`);
+          if (el) el.classList.add(cells ? 'preview' : 'preview-bad');
+        });
+      };
+      cell.onclick = () => {
+        if (bsCursor >= BS_PALETTE.length || bsPlacedSent) return;
+        const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
+        if (!cells) return;
+        bsPlaced.push({ cells });
+        bsCursor++;
+        bsClearPreview();
+        bsRenderPlacement();
+      };
+    } else {
+      // фаза мин: клик по пустой воде — поставить/убрать мину
+      cell.onmouseenter = () => {
+        bsClearPreview();
+        if (bsPlacedSent || isShipCell) return;
+        if (bsMines.length < 3 && mineIdx < 0) cell.classList.add('preview');
+      };
+      cell.onclick = () => {
+        if (bsPlacedSent || isShipCell) return;
+        const idx = bsMines.findIndex(m => m.x === x && m.y === y);
+        if (idx >= 0) bsMines.splice(idx, 1);
+        else if (bsMines.length < 3) bsMines.push({ x, y });
+        bsClearPreview();
+        bsRenderPlacement();
+      };
+    }
     cell.oncontextmenu = (e) => {
       e.preventDefault();
-      bsHoriz = !bsHoriz;
-      bsClearPreview();
+      if (!shipsDone) { bsHoriz = !bsHoriz; bsClearPreview(); }
     };
   });
+
+  // строка мин
+  const mineBar = document.getElementById("bsMineBar");
+  if (mineBar) {
+    mineBar.innerHTML = !shipsDone ? '' :
+      `💣 Мины: <b>${bsMines.length}/3</b> — кликай по пустым клеткам (необязательно, не поставишь — расставим сами)`;
+  }
 
   // палитра оставшихся кораблей
   const pal = document.getElementById("bsFleetPalette");
   if (pal) {
     const left = BS_PALETTE.slice(bsCursor);
-    pal.innerHTML = bsCursor >= BS_PALETTE.length
-      ? '<span style="color:#2ecc71;">Флот готов! Жми «⚔️ Готов!»</span>'
+    pal.innerHTML = shipsDone
+      ? '<span style="color:#2ecc71;">Флот готов! Поставь мины и жми «⚔️ Готов!»</span>'
       : 'Ставишь: <b style="color:#4da6ff;">' + BS_PALETTE[bsCursor] + '-палубный</b> (' + (BS_PALETTE.length - bsCursor) + ' осталось) · ' +
         left.map(l => l + 'п').join(', ');
   }
   const ready = document.getElementById("bsReadyBtn");
   if (ready) {
-    const done = bsCursor >= BS_PALETTE.length;
-    ready.disabled = !done;
-    ready.style.opacity = done ? '1' : '0.5';
+    ready.disabled = !shipsDone;
+    ready.style.opacity = shipsDone ? '1' : '0.5';
   }
 }
 
@@ -3367,16 +3705,28 @@ function bsRenderBattle() {
   if (!v) return;
   document.getElementById("bsPlacement").style.display = 'none';
 
+  const now = Date.now() + bsClockOffset;
+  const rapid = v.mode === 'rapid';
+  const rapidReady = !rapid || now >= (v.myNextShotAt || 0);
+  const canShoot = (v.myTurn || rapid) && rapidReady;
+
   // Мой флот
   const myBoard = document.getElementById("bsMyBoard");
   const myHit = new Set((v.incoming || []).filter(s => s.result === 'hit').map(s => s.x + ',' + s.y));
   const myMiss = new Set((v.incoming || []).filter(s => s.result === 'miss').map(s => s.x + ',' + s.y));
+  const myMineHits = new Set((v.incoming || []).filter(s => s.result === 'mine').map(s => s.x + ',' + s.y));
+  const myMineSet = new Set((v.myMines || []).map(m => m.x + ',' + m.y));
   bsDrawBoard(myBoard, (x, y, cell) => {
+    const k = x + ',' + y;
     if (v.myShips.some(ship => ship.some(c => c.x === x && c.y === y))) {
       cell.classList.add('ship');
-      if (myHit.has(x + ',' + y)) cell.classList.add('hit');
-    } else if (myMiss.has(x + ',' + y)) {
+      if (myHit.has(k)) cell.classList.add('hit');
+    } else if (myMineHits.has(k)) {
+      cell.classList.add('mine-hit');
+    } else if (myMiss.has(k)) {
       cell.classList.add('miss');
+    } else if (myMineSet.has(k)) {
+      cell.classList.add('mine-own');
     }
   });
 
@@ -3386,29 +3736,57 @@ function bsRenderBattle() {
   (v.sunkShips || []).forEach(ship => ship.forEach(c => sunkSet.add(c.x + ',' + c.y)));
   const shotMap = {};
   (v.myShots || []).forEach(s => { shotMap[s.x + ',' + s.y] = s.result; });
+  const radarSet = new Set((bsRadarZone || []).map(c => c.x + ',' + c.y));
   bsDrawBoard(enBoard, (x, y, cell) => {
     const k = x + ',' + y;
+    if (radarSet.has(k) && !shotMap[k]) cell.classList.add('radar-zone');
     if (sunkSet.has(k)) { cell.classList.add('sunk'); return; }
     if (shotMap[k] === 'hit') { cell.classList.add('hit'); return; }
+    if (shotMap[k] === 'mine') { cell.classList.add('mine-hit'); return; }
     if (shotMap[k] === 'miss') { cell.classList.add('miss'); return; }
-    if (v.myTurn) {
+    if (canShoot) {
       cell.classList.add('target');
       cell.onclick = () => bsShoot(x, y);
     }
   });
 
   // Подсветка активной доски
-  myBoard.classList.toggle('active', v.myTurn);
-  enBoard.classList.toggle('active', v.myTurn);
+  myBoard.classList.toggle('active', canShoot);
+  enBoard.classList.toggle('active', canShoot);
+
+  // Радар
+  const rb = document.getElementById("bsRadarBtn");
+  if (rb) {
+    rb.style.display = v.canRadar ? '' : 'none';
+    rb.textContent = `👀 Радар (${v.radarCost}$)`;
+  }
 
   // Статус
   const bar = document.getElementById("bsStatusBar");
   if (bar) {
-    bar.innerHTML = `⚔️ <b>${escapeHtml(v.opponent)}</b> · ставка <b style="color:#e0aaff;">${v.bet}$</b> · ` +
-      (v.myTurn
+    const modeLabel = rapid ? '🌊 Быстрый огонь' : '🎖️ Классика';
+    let turnHtml;
+    if (rapid) {
+      turnHtml = rapidReady
+        ? '<span style="color:#2ecc71; font-weight:bold;">🟢 Стреляй!</span>'
+        : `<span style="color:#ffc107;">🔃 Перезарядка: ${Math.ceil(((v.myNextShotAt || 0) - now) / 1000)} сек</span>`;
+    } else {
+      turnHtml = v.myTurn
         ? '<span style="color:#2ecc71; font-weight:bold;">🟢 Твой ход — бей!</span>'
-        : '<span style="color:#ffc107;">🟡 Ход соперника...</span>');
+        : '<span style="color:#ffc107;">🟡 Ход соперника...</span>';
+    }
+    const freeTag = v.iAmFree ? ' · <span style="color:#2ecc71;">🍀 твой бой за счёт казино</span>'
+      : v.oppIsFree ? ' · <span style="color:#2ecc71;">🍀 бой соперника бесплатный</span>' : '';
+    bar.innerHTML = `⚔️ <b>${escapeHtml(v.opponent)}</b> · ${modeLabel} · ставка <b style="color:#e0aaff;">${v.bet}$</b>${freeTag} · ` + turnHtml;
   }
+}
+
+function bsStartRapidTicker() {
+  if (bsRapidTimer) return;
+  bsRapidTimer = setInterval(() => {
+    if (bsView && bsView.phase === 'battle' && bsView.mode === 'rapid') bsRenderBattle();
+    else { clearInterval(bsRapidTimer); bsRapidTimer = null; }
+  }, 500);
 }
 
 async function bsShoot(x, y) {
@@ -3435,8 +3813,12 @@ function bsApplyView(v) {
     bsCursor = 0;
     bsPlacedSent = false;
     bsWasMyTurn = false;
+    bsMines = [];
+    bsRadarZone = [];
+    if (bsRapidTimer) { clearInterval(bsRapidTimer); bsRapidTimer = null; }
   }
   bsView = v;
+  if (v.serverTime) bsClockOffset = v.serverTime - Date.now();
   document.getElementById("bsSetup").style.display = 'none';
   document.getElementById("bsGame").style.display = '';
   const sb = document.getElementById("bsSurrenderBtn");
@@ -3446,21 +3828,64 @@ function bsApplyView(v) {
     document.getElementById("bsPlacement").style.display = '';
     if (!bsPlacedSent) bsRenderPlacement();
   } else if (v.phase === 'battle') {
+    bsLastOpponent = v.opponent;
+    bsLastBet = v.bet;
+    bsLastMode = v.mode || 'classic';
     bsRenderBattle();
     if (v.myTurn && !bsWasMyTurn) playNoticeSound();
     bsWasMyTurn = v.myTurn;
     bsBanner('', '');
+    if (v.mode === 'rapid') bsStartRapidTicker();
   } else if (v.phase === 'done') {
     bsRenderBattle();
     const won = v.winner === currentUser;
-    bsBanner(won ? `🏆 ПОБЕДА! +${v.bet * 2}$` : `💀 ПОРАЖЕНИЕ −${v.bet}$`, won ? 'win' : 'lose');
+    const freeWin = won && v.iAmFree;
+    const freeLose = !won && v.iAmFree;
+    const profit = freeLose ? 0 : won ? (freeWin ? v.bet * 2 : v.bet) : -v.bet;
+    bsBanner(
+      (won ? `🏆 ПОБЕДА! +${profit}$` : freeLose ? '🤝 Поражение, но ты ничего не потерял (бой за счёт казино)' : `💀 ПОРАЖЕНИЕ −${v.bet}$`) +
+      ` <button class="template-btn" style="background:#dc3545; font-size:12px; padding:4px 14px; margin-left:8px;" onclick="bsRematch()">⚔️ Реванш</button>`,
+      won ? 'win' : 'lose');
     playNoticeSound();
     fetch(`${SERVER_API_URL}/api/casino/state?username=${encodeURIComponent(currentUser)}`)
       .then(r => r.json()).then(d => { if (d.success) casinoSetBalance(d.balance); }).catch(() => {});
     bsView = null;
-    setTimeout(() => { bsBanner('', ''); bsShowSetup(); }, 6000);
+    setTimeout(() => { bsBanner('', ''); bsShowSetup(); }, 8000);
   }
 }
+
+// Реванш: тот же соперник, ставка и режим
+window.bsRematch = async () => {
+  if (!bsLastOpponent) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/battleship/challenge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to: bsLastOpponent, bet: bsLastBet, mode: bsLastMode, random: bsLastRandom })
+    });
+    const data = await res.json();
+    bsBanner(data.success
+      ? `⚓ Реванш: вызвал ${escapeHtml(bsLastOpponent)} на ${bsLastBet}$ — жди ответа...`
+      : '❌ ' + escapeHtml(data.message || 'Ошибка'), data.success ? 'info' : 'lose');
+  } catch (e) { bsBanner('❌ Ошибка соединения', 'lose'); }
+};
+
+// Радар: подсветка зоны 3×3 с вражеским кораблём
+window.bsUseRadar = async () => {
+  if (!bsView) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/battleship/radar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bsView.id, username: currentUser })
+    });
+    const data = await res.json();
+    if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Радар недоступен'), 'lose'); return; }
+    bsRadarZone = data.zone || [];
+    if (typeof data.balance === 'number') casinoSetBalance(data.balance);
+    bsRenderBattle();
+  } catch (e) { bsBanner('❌ Ошибка соединения', 'lose'); }
+};
 
 // Кнопки расстановки
 window.bsRotate = () => { bsHoriz = !bsHoriz; bsClearPreview(); };
@@ -3487,6 +3912,17 @@ window.bsRandomLocal = () => {
     if (ok) {
       bsPlaced = ships;
       bsCursor = LENS.length;
+      // мины: 3 случайные свободные клетки
+      const occ2 = new Set();
+      ships.forEach(s => s.cells.forEach(c => occ2.add(c.x + ',' + c.y)));
+      const freeCells = [];
+      for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) {
+        if (!occ2.has(x + ',' + y)) freeCells.push({ x, y });
+      }
+      bsMines = [];
+      while (bsMines.length < 3 && freeCells.length) {
+        bsMines.push(freeCells.splice(Math.floor(Math.random() * freeCells.length), 1)[0]);
+      }
       bsRenderPlacement();
       return;
     }
@@ -3499,7 +3935,7 @@ window.bsReady = async () => {
     const res = await fetch(`${SERVER_API_URL}/api/battleship/place`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: bsView.id, username: currentUser, ships: bsPlaced.map(s => s.cells) })
+      body: JSON.stringify({ id: bsView.id, username: currentUser, ships: bsPlaced.map(s => s.cells), mines: bsMines })
     });
     const data = await res.json();
     if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Ошибка расстановки'), 'lose'); return; }
@@ -3512,12 +3948,17 @@ window.bsReady = async () => {
 // Вызов / ответ
 window.bsChallenge = async () => {
   const to = (document.getElementById("bsOpponent")?.value || '').trim().toLowerCase();
-  const bet = Math.floor(Number(document.getElementById("bsBet")?.value || 0));
+  const mode = document.getElementById("bsMode")?.value === 'rapid' ? 'rapid' : 'classic';
+  const random = !!document.getElementById("bsRandomFleet")?.checked;
+  const free = !!document.getElementById("bsFreeFight")?.checked;
+  let bet = Math.floor(Number(document.getElementById("bsBet")?.value || 0));
+  if (free) bet = 10;
+  bsLastMode = mode; bsLastRandom = random;
   try {
     const res = await fetch(`${SERVER_API_URL}/api/battleship/challenge`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: currentUser, to, bet })
+      body: JSON.stringify({ from: currentUser, to, bet, mode, random, free })
     });
     const data = await res.json();
     if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Ошибка'), 'lose'); return; }
@@ -3534,7 +3975,7 @@ window.bsRespond = async (id, accept) => {
     });
     const data = await res.json();
     if (!data.success) { bsBanner('❌ ' + escapeHtml(data.message || 'Ошибка'), 'lose'); return; }
-    bsPlaced = []; bsCursor = 0; bsPlacedSent = false; bsWasMyTurn = false;
+    bsPlaced = []; bsCursor = 0; bsPlacedSent = false; bsWasMyTurn = false; bsMines = []; bsRadarZone = [];
     bsBanner('', '');
   } catch (e) {}
 };
@@ -3542,7 +3983,8 @@ window.bsRespond = async (id, accept) => {
 function bindBattleshipHandlers() {
   if (!socket) return;
   socket.on('bs_challenge', (d) => {
-    bsBanner(`🚢 <b>${escapeHtml(d.from)}</b> вызывает тебя на морской бой — ставка <b>${d.bet}$</b>!
+    const tag = [d.mode === 'rapid' ? '🌊 быстрый огонь' : '', d.random ? '🎰 случайный флот' : '', d.free ? '🍀 бесплатный бой (ставка казино)' : ''].filter(Boolean).join(', ');
+    bsBanner(`🚢 <b>${escapeHtml(d.from)}</b> вызывает тебя на морской бой — ставка <b>${d.bet}$</b>${tag ? ` (${tag})` : ''}!
       <button class="template-btn" style="background:#198754; font-size:12px; padding:4px 14px; margin-left:8px;" onclick="bsRespond('${d.id}', true)">Принять</button>
       <button class="template-btn" style="background:#333; font-size:12px; padding:4px 14px;" onclick="bsRespond('${d.id}', false)">Отказ</button>`, 'info');
     playNoticeSound();
@@ -3551,6 +3993,17 @@ function bindBattleshipHandlers() {
 }
 
 function bsTabOpen() {
+  // доступность бесплатного боя дня
+  fetch(`${SERVER_API_URL}/api/casino/state?username=${encodeURIComponent(currentUser)}`)
+    .then(r => r.json()).then(d => {
+      const freeCb = document.getElementById("bsFreeFight");
+      const hint = document.getElementById("bsFreeHint");
+      if (freeCb) {
+        freeCb.disabled = !d.bsFreeAvailable;
+        freeCb.checked = freeCb.checked && d.bsFreeAvailable;
+      }
+      if (hint) hint.style.display = d.bsFreeAvailable ? '' : 'none';
+    }).catch(() => {});
   if (bsView) {
     document.getElementById("bsSetup").style.display = 'none';
     document.getElementById("bsGame").style.display = '';
@@ -3566,6 +4019,7 @@ bindClick("bsChallengeBtn", bsChallenge);
 bindClick("bsRotateBtn", bsRotate);
 bindClick("bsRandomBtn", bsRandomLocal);
 bindClick("bsReadyBtn", bsReady);
+bindClick("bsRadarBtn", bsUseRadar);
 
 // Сдаться
 window.bsSurrender = async () => {

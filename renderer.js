@@ -504,6 +504,8 @@ function appendMessageToChatUI(msgData) {
   div.className = "chat-msg";
   div.innerHTML = `<strong>${escapeHtml(msgData.username || 'Аноним')}:</strong> ${escapeHtml(msgData.text)}`;
   chatContainer.appendChild(div);
+  // Анти-лаг: не даём чату расти бесконечно
+  while (chatContainer.children.length > 200) chatContainer.removeChild(chatContainer.firstChild);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
@@ -3249,6 +3251,8 @@ function bsShowSetup() {
   document.getElementById("bsSetup").style.display = '';
   document.getElementById("bsGame").style.display = 'none';
   document.getElementById("bsPlacement").style.display = 'none';
+  const sb = document.getElementById("bsSurrenderBtn");
+  if (sb) sb.style.display = 'none';
 }
 
 function bsUsedCells() {
@@ -3283,7 +3287,7 @@ function bsRenderPlacement() {
     const used = bsUsedCells();
     if (used.has(x + ',' + y)) cell.classList.add('ship');
 
-    cell.addEventListener('mouseenter', () => {
+    cell.onmouseenter = () => {
       bsClearPreview();
       if (bsCursor >= BS_PALETTE.length) return;
       const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
@@ -3297,8 +3301,8 @@ function bsRenderPlacement() {
         const el = board.querySelector(`[data-x="${c.x}"][data-y="${c.y}"]`);
         if (el) el.classList.add(cells ? 'preview' : 'preview-bad');
       });
-    });
-    cell.addEventListener('click', () => {
+    };
+    cell.onclick = () => {
       if (bsCursor >= BS_PALETTE.length || bsPlacedSent) return;
       const cells = bsCanPlace(x, y, BS_PALETTE[bsCursor], bsHoriz);
       if (!cells) return;
@@ -3306,12 +3310,12 @@ function bsRenderPlacement() {
       bsCursor++;
       bsClearPreview();
       bsRenderPlacement();
-    });
-    cell.addEventListener('contextmenu', (e) => {
+    };
+    cell.oncontextmenu = (e) => {
       e.preventDefault();
       bsHoriz = !bsHoriz;
       bsClearPreview();
-    });
+    };
   });
 
   // палитра оставшихся кораблей
@@ -3331,7 +3335,7 @@ function bsRenderPlacement() {
   }
 }
 
-// Универсальный построитель доски 10×10
+// Универсальный построитель доски 10×10 (обработчики через свойства — не копятся)
 function bsDrawBoard(board, fillCell) {
   if (!board.dataset.built) {
     board.innerHTML = '';
@@ -3349,6 +3353,9 @@ function bsDrawBoard(board, fillCell) {
   [...board.children].forEach(cell => {
     cell.className = 'bs-cell water';
     cell.style.cursor = 'default';
+    cell.onclick = null;
+    cell.onmouseenter = null;
+    cell.oncontextmenu = null;
   });
   if (fillCell) {
     [...board.children].forEach(cell => fillCell(Number(cell.dataset.x), Number(cell.dataset.y), cell));
@@ -3386,7 +3393,7 @@ function bsRenderBattle() {
     if (shotMap[k] === 'miss') { cell.classList.add('miss'); return; }
     if (v.myTurn) {
       cell.classList.add('target');
-      cell.addEventListener('click', () => bsShoot(x, y));
+      cell.onclick = () => bsShoot(x, y);
     }
   });
 
@@ -3432,6 +3439,8 @@ function bsApplyView(v) {
   bsView = v;
   document.getElementById("bsSetup").style.display = 'none';
   document.getElementById("bsGame").style.display = '';
+  const sb = document.getElementById("bsSurrenderBtn");
+  if (sb) sb.style.display = (v.phase === 'placement' || v.phase === 'battle') ? '' : 'none';
 
   if (v.phase === 'placement') {
     document.getElementById("bsPlacement").style.display = '';
@@ -3557,3 +3566,18 @@ bindClick("bsChallengeBtn", bsChallenge);
 bindClick("bsRotateBtn", bsRotate);
 bindClick("bsRandomBtn", bsRandomLocal);
 bindClick("bsReadyBtn", bsReady);
+
+// Сдаться
+window.bsSurrender = async () => {
+  if (!bsView) return;
+  if (!confirm(`Сдаться? Соперник заберёт ${bsView.bet * 2}$.`)) return;
+  try {
+    await fetch(`${SERVER_API_URL}/api/battleship/surrender`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bsView.id, username: currentUser })
+    });
+    // финал прилетит сокетом bs_update
+  } catch (e) {}
+};
+bindClick("bsSurrenderBtn", bsSurrender);

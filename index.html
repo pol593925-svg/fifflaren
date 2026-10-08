@@ -567,98 +567,181 @@
         <button id="casinoDailyBtn" class="template-btn" style="background:#198754; font-size:11px; margin-left:6px;">🎁 +20$/день</button>
       </div>
 
-      <!-- 3.9.0: Додеп -->
-      <div style="border:1px solid #2a323c; border-radius:8px; padding:10px; margin:10px 0; background:#14171a;">
-        <h4 style="margin:0 0 6px;">🏦 Додеп</h4>
-        <p style="font-size:10px; color:#aaa; margin:2px 0;">Заём в казино: 50–500$. Условия: ежедневный возврат 20% от суммы из ЗП, 1 апрув в неделю, залог хаты. Невыполнение условий недели — штраф −40$ с ЗП (автоматически).</p>
-        <div id="doddepMyStatus" style="font-size:11px; color:#ffc107; min-height:14px; margin:4px 0;"></div>
-        <div class="row-group" id="doddepForm" style="margin-top:4px;">
-          <input type="number" id="doddepAmount" min="50" max="500" value="100" style="flex:1;">
-          <button id="doddepBtn" class="template-btn" style="background:#9b59b6; flex:2;">✍️ Соглашаюсь с условиями</button>
+      <!-- 3.10.0: ЗАСТАВКА КАЗИНО -->
+      <div id="casinoSplash" onclick="casinoSkipSplash()">
+        <div class="casino-splash-bg"></div>
+        <div class="casino-splash-inner">
+          <div class="casino-splash-title">САППОРТ&nbsp;ХАБ</div>
+          <div class="casino-splash-sub">К&nbsp;А&nbsp;З&nbsp;И&nbsp;Н&nbsp;О</div>
+          <div class="casino-splash-bar"><div id="casinoSplashFill"></div></div>
+          <div class="casino-splash-hint" id="casinoSplashHint">Прогружаем барабаны...</div>
         </div>
       </div>
-      <div style="margin:6px 0; font-size:12px;">
-        Ставка:
-        <button id="bet5Btn" class="template-btn casino-bet-btn" data-bet="5" style="background:#0d6efd;">5$</button>
-        <button id="bet10Btn" class="template-btn casino-bet-btn" data-bet="10" style="background:#333;">10$</button>
+
+      <!-- 3.10.0: ЛОББИ -->
+      <div id="casinoLobby" style="display:none;">
+        <div class="casino-rooms">
+          <button class="casino-room-btn" onclick="openCasinoRoom('slot')">🎰<span>Слоты</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('roulette')">🎡<span>Рулетка</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('blackjack')">🃏<span>Блекджек</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('crash')">📈<span>Краш</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('options')">📊<span>Опцион</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('duel')">⚔️<span>Дуэль</span></button>
+          <button class="casino-room-btn casino-room-bank" onclick="openCasinoRoom('bank')">🏦<span>Банк</span></button>
+        </div>
+
+        <h4 style="margin-top:14px;">🏆 Топ богачей</h4>
+        <div id="casinoTop" style="font-size:12px; text-align:left; max-height:130px; overflow-y:auto; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
+
+        <h4 style="margin-top:14px;">📜 Лента ставок</h4>
+        <div id="casinoFeed" class="admin-events-box" style="max-height:220px; text-align:left;"><p style="color:#777;">Пока никто не играл</p></div>
       </div>
 
-      <h4 style="margin-top:12px;">🎰 Слот</h4>
-      <p style="font-size:10px; color:#888;">Пара ×1 (возврат) · Трио ×5 · Четвёрка ×25 · 7777 — джекпот ×100 + призы</p>
-      <div style="display:flex; gap:10px; justify-content:center; margin:12px 0;">
-        <div id="reel0" class="casino-reel">🍒</div>
-        <div id="reel1" class="casino-reel">🔔</div>
-        <div id="reel2" class="casino-reel">💎</div>
-        <div id="reel3" class="casino-reel">⭐</div>
+      <!-- КОМНАТА: Слоты -->
+      <div class="casino-room" id="room-slot" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🎰 Слот-машина</h4>
+        <div class="row-group" style="justify-content:center; margin:6px 0;">
+          <button class="template-btn slot-theme-btn" data-theme="classic" style="background:#dc3545; font-size:11px;" onclick="slotSetTheme('classic')">🍒 Классика</button>
+          <button class="template-btn slot-theme-btn" data-theme="bananza" style="background:#333; font-size:11px;" onclick="slotSetTheme('bananza')">🍌 Bananza</button>
+          <button class="template-btn slot-theme-btn" data-theme="zeus" style="background:#333; font-size:11px;" onclick="slotSetTheme('zeus')">⚡ Зевс</button>
+          <button class="template-btn slot-theme-btn" data-theme="dogs" style="background:#333; font-size:11px;" onclick="slotSetTheme('dogs')">🐶 Собаки</button>
+        </div>
+        <p style="font-size:10px; color:#888;">Пара ×1 (возврат) · Трио ×5 · Четвёрка ×25 · 7777 — джекпот ×100 + призы</p>
+        <div style="margin:6px 0; font-size:12px;">
+          Ставка:
+          <button id="bet5Btn" class="template-btn casino-bet-btn" data-bet="5" style="background:#0d6efd;">5$</button>
+          <button id="bet10Btn" class="template-btn casino-bet-btn" data-bet="10" style="background:#333;">10$</button>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:center; margin:12px 0;">
+          <div id="reel0" class="casino-reel">🍒</div>
+          <div id="reel1" class="casino-reel">🔔</div>
+          <div id="reel2" class="casino-reel">💎</div>
+          <div id="reel3" class="casino-reel">⭐</div>
+        </div>
+        <button id="casinoSpinBtn" class="submit-btn red" style="max-width:220px;">🎰 Крутить!</button>
+        <p id="casinoStatus" class="msg" style="margin-top:8px; min-height:16px;"></p>
       </div>
-      <button id="casinoSpinBtn" class="submit-btn red" style="max-width:220px;">🎰 Крутить!</button>
-      <p id="casinoStatus" class="msg" style="margin-top:8px; min-height:16px;"></p>
 
-      <h4 style="margin-top:14px;">🎡 Рулетка</h4>
-      <div id="rouletteResult" style="font-size:14px; min-height:20px; color:#ccc;">Делай ставку — кручу колесо</div>
-      <div class="row-group" style="margin-top:6px;">
-        <button class="template-btn" style="background:#dc3545; flex:1;" onclick="rouletteBet('color','red')">🔴 Красное ×2</button>
-        <button class="template-btn" style="background:#222; border:1px solid #555; flex:1;" onclick="rouletteBet('color','black')">⚫ Чёрное ×2</button>
-      </div>
-      <div class="row-group" style="margin-top:6px;">
-        <button class="template-btn" style="background:#0d6efd; flex:1;" onclick="rouletteBet('parity','even')">⚪ Чёт ×2</button>
-        <button class="template-btn" style="background:#6f42c1; flex:1;" onclick="rouletteBet('parity','odd')">🔷 Нечет ×2</button>
-      </div>
-      <div class="row-group" style="margin-top:6px;">
-        <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','1')">1–12 ×3</button>
-        <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','2')">13–24 ×3</button>
-        <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','3')">25–36 ×3</button>
-      </div>
-      <div class="row-group" style="margin-top:6px;">
-        <input type="number" id="rouletteNumber" min="0" max="36" placeholder="Число 0–36" style="flex:1;">
-        <button class="template-btn" style="background:#198754; flex:1;" onclick="rouletteNumberBet()">🎯 Число ×35</button>
-      </div>
-      <p id="rouletteStatus" class="msg" style="margin-top:6px; min-height:14px;"></p>
-
-      <h4 style="margin-top:14px;">📈 Краш</h4>
-      <p style="font-size:10px; color:#888;">Ставь до старта — пока множитель растёт, жми «Забрать». Не успел — сгорело.</p>
-      <div id="crashMult" style="font-size:36px; font-weight:bold; color:#2ecc71; min-height:44px;">×1.00</div>
-      <div id="crashSub" style="font-size:11px; color:#888; min-height:14px;">Жди раунд...</div>
-      <div class="row-group" style="margin-top:6px;">
-        <input type="number" id="crashBetAmount" min="5" max="100" value="10" style="flex:1;">
-        <button id="crashBetBtn" class="template-btn" style="background:#0d6efd; flex:1;">Ставка</button>
-        <button id="crashCashoutBtn" class="template-btn" style="background:#198754; flex:1; display:none;">Забрать</button>
-      </div>
-      <div id="crashHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
-
-      <h4 style="margin-top:14px;">📊 Опцион</h4>
-      <p style="font-size:10px; color:#888;">Ставь направление: цена вырастет (🟢 ВВЕРХ) или упадёт (🔴 ВНИЗ) за 30 сек. Угадал — ×1.8.</p>
-      <div style="background:#0d1117; border:1px solid #2a323c; border-radius:8px; padding:8px; margin-top:6px;">
-        <canvas id="optChart" width="600" height="140" style="width:100%; height:140px; display:block;"></canvas>
-        <div id="optStatus" style="font-size:11px; color:#888; margin-top:4px; min-height:14px;">Жди раунд...</div>
-        <div id="optTimer" style="font-size:20px; font-weight:bold; color:#4da6ff; min-height:24px;"></div>
+      <!-- КОМНАТА: Рулетка -->
+      <div class="casino-room" id="room-roulette" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🎡 Рулетка</h4>
+        <div id="rouletteResult" style="font-size:14px; min-height:20px; color:#ccc;">Делай ставку — кручу колесо</div>
         <div class="row-group" style="margin-top:6px;">
-          <input type="number" id="optBetAmount" min="5" max="100" value="10" style="flex:1;">
-          <button id="optUpBtn" class="template-btn" style="background:#198754; flex:1;">🟢 ВВЕРХ</button>
-          <button id="optDownBtn" class="template-btn" style="background:#dc3545; flex:1;">🔴 ВНИЗ</button>
+          <button class="template-btn" style="background:#dc3545; flex:1;" onclick="rouletteBet('color','red')">🔴 Красное ×2</button>
+          <button class="template-btn" style="background:#222; border:1px solid #555; flex:1;" onclick="rouletteBet('color','black')">⚫ Чёрное ×2</button>
         </div>
-        <div id="optMyBet" style="font-size:11px; color:#ffc107; margin-top:4px; min-height:14px;"></div>
-        <div id="optHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
+        <div class="row-group" style="margin-top:6px;">
+          <button class="template-btn" style="background:#0d6efd; flex:1;" onclick="rouletteBet('parity','even')">⚪ Чёт ×2</button>
+          <button class="template-btn" style="background:#6f42c1; flex:1;" onclick="rouletteBet('parity','odd')">🔷 Нечет ×2</button>
+        </div>
+        <div class="row-group" style="margin-top:6px;">
+          <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','1')">1–12 ×3</button>
+          <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','2')">13–24 ×3</button>
+          <button class="template-btn" style="background:#fd7e14; flex:1; font-size:11px;" onclick="rouletteBet('dozen','3')">25–36 ×3</button>
+        </div>
+        <div class="row-group" style="margin-top:6px;">
+          <input type="number" id="rouletteNumber" min="0" max="36" placeholder="Число 0–36" style="flex:1;">
+          <button class="template-btn" style="background:#198754; flex:1;" onclick="rouletteNumberBet()">🎯 Число ×35</button>
+        </div>
+        <p id="rouletteStatus" class="msg" style="margin-top:6px; min-height:14px;"></p>
       </div>
 
-      <h4 style="margin-top:14px;">⚔️ Дуэль слотами</h4>
-      <p style="font-size:10px; color:#888;">Одинаковая ставка, крутите оба — чья комбинация круче, тот забирает обе ставки.</p>
-      <div class="row-group">
-        <input type="text" id="duelOpponent" placeholder="Ник соперника..." style="flex:2;">
-        <input type="number" id="duelBet" min="5" max="100" value="10" style="flex:1;">
-        <button id="duelChallengeBtn" class="template-btn" style="background:#dc3545;">Вызвать</button>
+      <!-- КОМНАТА: Блекджек -->
+      <div class="casino-room" id="room-blackjack" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🃏 Блекджек</h4>
+        <p style="font-size:10px; color:#888;">Набери 21 или ближе дилера. Победа ×2 · Блекджек ×2.5 · Ничья — возврат. Дилер добирает до 17. Удвоить — только на старте.</p>
+        <div id="bjTable" style="background:#0d3b2e; border:2px solid #1e5c46; border-radius:10px; padding:12px; margin:8px 0;">
+          <div style="text-align:left; margin-bottom:8px;">
+            <span style="font-size:11px; color:#9fd6bb;">ДИЛЕР <span id="bjDealerSum" style="color:#ffc107;"></span></span>
+            <div id="bjDealer" style="font-size:28px; letter-spacing:6px; min-height:36px;">—</div>
+          </div>
+          <div style="text-align:left;">
+            <span style="font-size:11px; color:#9fd6bb;">ТЫ <span id="bjPlayerSum" style="color:#ffc107;"></span></span>
+            <div id="bjPlayer" style="font-size:28px; letter-spacing:6px; min-height:36px;">—</div>
+          </div>
+        </div>
+        <div class="row-group" id="bjBetRow">
+          <input type="number" id="bjBet" min="5" max="100" value="10" style="flex:1;">
+          <button id="bjStartBtn" class="template-btn" style="background:#198754; flex:2;">🎴 Раздать</button>
+        </div>
+        <div class="row-group" id="bjActions" style="margin-top:6px; display:none;">
+          <button id="bjHitBtn" class="template-btn" style="background:#0d6efd; flex:1;">👆 Ещё</button>
+          <button id="bjStandBtn" class="template-btn" style="background:#6c757d; flex:1;">✋ Стоп</button>
+          <button id="bjDoubleBtn" class="template-btn" style="background:#9b59b6; flex:1;">⚡ Удвоить</button>
+        </div>
+        <p id="bjStatus" class="msg" style="margin-top:8px; min-height:16px;"></p>
       </div>
-      <div id="duelBox" style="font-size:12px; margin-top:6px; min-height:16px;"></div>
 
-      <h4 style="margin-top:14px;">🛒 Магазин призов</h4>
-      <div id="shopItems" style="font-size:12px; text-align:left; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
-      <p id="shopStatus" class="msg" style="margin-top:4px; min-height:14px;"></p>
+      <!-- КОМНАТА: Краш -->
+      <div class="casino-room" id="room-crash" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>📈 Краш</h4>
+        <p style="font-size:10px; color:#888;">Ставь до старта — пока множитель растёт, жми «Забрать». Не успел — сгорело.</p>
+        <div id="crashMult" style="font-size:36px; font-weight:bold; color:#2ecc71; min-height:44px;">×1.00</div>
+        <div id="crashSub" style="font-size:11px; color:#888; min-height:14px;">Жди раунд...</div>
+        <div class="row-group" style="margin-top:6px;">
+          <input type="number" id="crashBetAmount" min="5" max="100" value="10" style="flex:1;">
+          <button id="crashBetBtn" class="template-btn" style="background:#0d6efd; flex:1;">Ставка</button>
+          <button id="crashCashoutBtn" class="template-btn" style="background:#198754; flex:1; display:none;">Забрать</button>
+        </div>
+        <div id="crashHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
+      </div>
 
-      <h4 style="margin-top:14px;">🏆 Топ богачей</h4>
-      <div id="casinoTop" style="font-size:12px; text-align:left; max-height:130px; overflow-y:auto; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
+      <!-- КОМНАТА: Опцион -->
+      <div class="casino-room" id="room-options" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>📊 Опцион</h4>
+        <p style="font-size:10px; color:#888;">Ставь направление: цена вырастет (🟢 ВВЕРХ) или упадёт (🔴 ВНИЗ) за 30 сек. Угадал — ×1.8.</p>
+        <div style="background:#0d1117; border:1px solid #2a323c; border-radius:8px; padding:8px; margin-top:6px;">
+          <canvas id="optChart" width="600" height="140" style="width:100%; height:140px; display:block;"></canvas>
+          <div id="optStatus" style="font-size:11px; color:#888; margin-top:4px; min-height:14px;">Жди раунд...</div>
+          <div id="optTimer" style="font-size:20px; font-weight:bold; color:#4da6ff; min-height:24px;"></div>
+          <div class="row-group" style="margin-top:6px;">
+            <input type="number" id="optBetAmount" min="5" max="100" value="10" style="flex:1;">
+            <button id="optUpBtn" class="template-btn" style="background:#198754; flex:1;">🟢 ВВЕРХ</button>
+            <button id="optDownBtn" class="template-btn" style="background:#dc3545; flex:1;">🔴 ВНИЗ</button>
+          </div>
+          <div id="optMyBet" style="font-size:11px; color:#ffc107; margin-top:4px; min-height:14px;"></div>
+          <div id="optHistory" style="font-size:10px; color:#888; margin-top:4px;"></div>
+        </div>
+      </div>
 
-      <h4 style="margin-top:14px;">📜 Лента ставок</h4>
-      <div id="casinoFeed" class="admin-events-box" style="max-height:220px; text-align:left;"><p style="color:#777;">Пока никто не играл</p></div>
+      <!-- КОМНАТА: Дуэль -->
+      <div class="casino-room" id="room-duel" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>⚔️ Дуэль слотами</h4>
+        <p style="font-size:10px; color:#888;">Одинаковая ставка, крутите оба — чья комбинация круче, тот забирает обе ставки.</p>
+        <div class="row-group">
+          <input type="text" id="duelOpponent" placeholder="Ник соперника..." style="flex:2;">
+          <input type="number" id="duelBet" min="5" max="100" value="10" style="flex:1;">
+          <button id="duelChallengeBtn" class="template-btn" style="background:#dc3545;">Вызвать</button>
+        </div>
+        <div id="duelBox" style="font-size:12px; margin-top:6px; min-height:16px;"></div>
+      </div>
+
+      <!-- КОМНАТА: Банк -->
+      <div class="casino-room" id="room-bank" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🏦 Банк</h4>
+
+        <!-- 3.9.0: Додеп -->
+        <div style="border:1px solid #2a323c; border-radius:8px; padding:10px; margin:10px 0; background:#14171a;">
+          <h4 style="margin:0 0 6px;">💸 В долг (додеп)</h4>
+          <p style="font-size:10px; color:#aaa; margin:2px 0;">Заём в казино: 50–500$. Условия: ежедневный возврат 20% от суммы из ЗП, 1 апрув в неделю, залог хаты. Невыполнение условий недели — штраф −40$ с ЗП (автоматически).</p>
+          <div id="doddepMyStatus" style="font-size:11px; color:#ffc107; min-height:14px; margin:4px 0;"></div>
+          <div class="row-group" id="doddepForm" style="margin-top:4px;">
+            <input type="number" id="doddepAmount" min="50" max="500" value="100" style="flex:1;">
+            <button id="doddepBtn" class="template-btn" style="background:#9b59b6; flex:2;">✍️ Соглашаюсь с условиями</button>
+          </div>
+        </div>
+
+        <h4 style="margin-top:12px;">🛒 Обменять на призы</h4>
+        <div id="shopItems" style="font-size:12px; text-align:left; border:1px solid #2a323c; border-radius:8px; padding:6px;"><p style="color:#777;">Загрузка...</p></div>
+        <p id="shopStatus" class="msg" style="margin-top:4px; min-height:14px;"></p>
+      </div>
     </div>
   </div>
 

@@ -339,3 +339,76 @@ body.light .bs-board { background: #dde7f0; border-color: #8fb3d0; }
 body.light .bs-cell { background: #7ea8cc; }
 body.light .bs-cell.water, body.light .bs-cell.miss { background: #a9c6de; }
 body.light .bs-cell.ship { background: #4a6d8c; }
+
+/* ==================== 3.10.0: КАЗИНО — заставка, лобби, комнаты ==================== */
+#tab-casino .card { position: relative; overflow: hidden; }
+
+#casinoSplash {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; background: #000;
+}
+.casino-splash-bg {
+  position: absolute; inset: 0;
+  background: url('casino-splash.jpg') center/cover no-repeat;
+  animation: casino-pan 14s ease-in-out infinite alternate;
+}
+.casino-splash-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.75) 100%);
+}
+@keyframes casino-pan {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+.casino-splash-inner { position: relative; z-index: 2; text-align: center; padding: 20px; }
+.casino-splash-title {
+  font-family: Impact, 'Arial Black', 'Franklin Gothic Medium', sans-serif;
+  font-size: 52px; letter-spacing: 6px; color: #fff;
+  text-shadow: 0 0 18px rgba(255, 210, 80, 0.65), 0 4px 10px rgba(0,0,0,0.9);
+}
+.casino-splash-sub {
+  font-family: Impact, 'Arial Black', sans-serif;
+  font-size: 22px; letter-spacing: 12px; color: #ffd54a; margin-top: 4px;
+  text-shadow: 0 0 14px rgba(255, 190, 40, 0.8);
+}
+.casino-splash-bar {
+  width: 280px; height: 8px; margin: 26px auto 10px;
+  background: rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+#casinoSplashFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #ffd54a, #ff8c42);
+  box-shadow: 0 0 12px rgba(255, 200, 70, 0.8);
+  border-radius: 6px;
+}
+.casino-splash-hint { font-size: 12px; color: rgba(255,255,255,0.75); letter-spacing: 1px; }
+
+/* Лобби: комнаты */
+.casino-rooms {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0;
+}
+.casino-room-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 86px; padding: 10px 4px;
+  font-size: 30px; color: #fff;
+  background: #1a1d20; border: 1px solid #2a323c; border-radius: 10px;
+  cursor: pointer; transition: all 0.18s ease;
+}
+.casino-room-btn span { font-size: 12px; color: #bbb; }
+.casino-room-btn:hover {
+  border-color: #ffd54a; box-shadow: 0 0 14px rgba(255, 200, 70, 0.35);
+  transform: translateY(-2px);
+}
+.casino-room-bank { background: #241a2e; border-color: #6f42c1; }
+.casino-room-bank:hover { border-color: #b07fe8; box-shadow: 0 0 14px rgba(155, 89, 182, 0.5); }
+
+/* Выбор темы слота */
+.slot-theme-btn { opacity: 0.55; }
+.slot-theme-btn.active { opacity: 1; box-shadow: 0 0 0 2px #ffd54a; }
+
+/* Блекджек: карты */
+.bj-card { display: inline-block; min-width: 30px; padding: 2px 4px; margin-right: 4px; background: #fff; color: #111; border-radius: 5px; text-align: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.bj-card.bj-red { color: #c0392b; }
+.bj-card.bj-back { background: #7d3c98; color: #7d3c98; }

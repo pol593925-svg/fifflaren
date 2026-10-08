@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
-      if (tabName === 'casino') { casinoLoadState(); crashLoadState(); optionsLoadState(); doddepLoadMy(); }
+      if (tabName === 'casino') casinoEnter();
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
       if (tabName === 'swipe') loadSwipeQueue();
@@ -2451,7 +2451,32 @@ function sendAdminLink() {
 
 
 // ==================== КАЗИНО (3.5.0) ====================
-const CASINO_SYMBOLS_LOCAL = ['7', '🍒', '🔔', '💎', '⭐', '🍋'];
+// 3.10.0: символы по темам барабанов
+const SLOT_THEMES_LOCAL = {
+  classic: ['7', '🍒', '🔔', '💎', '⭐', '🍋'],
+  bananza: ['7', '🍌', '🍍', '🥭', '🍉', '🍇'],
+  zeus: ['7', '⚡', '🏛️', '🦅', '👑', '🛡️'],
+  dogs: ['7', '🐕', '🐩', '🐕‍🦺', '🦴', '🏠']
+};
+let slotTheme = 'classic';
+function slotSyms() { return SLOT_THEMES_LOCAL[slotTheme] || SLOT_THEMES_LOCAL.classic; }
+
+// Смена темы слота
+window.slotSetTheme = (t) => {
+  if (!SLOT_THEMES_LOCAL[t]) return;
+  slotTheme = t;
+  document.querySelectorAll('.slot-theme-btn').forEach(b => {
+    const active = b.dataset.theme === t;
+    b.classList.toggle('active', active);
+    b.style.boxShadow = active ? '0 0 0 2px #ffd54a' : '';
+  });
+  // стартовые картинки барабанов под тему
+  const syms = slotSyms();
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById("reel" + i);
+    if (el) el.textContent = syms[(i + 1) % syms.length];
+  }
+};
 let casinoSpinning = false;
 let rouletteBusy = false;
 let casinoBet = 5;
@@ -2522,7 +2547,8 @@ async function casinoSpin() {
     if (!el) continue;
     el.classList.add("rolling");
     timers.push(setInterval(() => {
-      el.textContent = CASINO_SYMBOLS_LOCAL[Math.floor(Math.random() * CASINO_SYMBOLS_LOCAL.length)];
+      const syms = slotSyms();
+      el.textContent = syms[Math.floor(Math.random() * syms.length)];
     }, 90));
   }
 
@@ -2531,7 +2557,7 @@ async function casinoSpin() {
     const res = await fetch(`${SERVER_API_URL}/api/casino/spin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: currentUser, bet: casinoBet })
+      body: JSON.stringify({ username: currentUser, bet: casinoBet, theme: slotTheme })
     });
     data = await res.json();
     if (!data.success) {
@@ -3348,6 +3374,176 @@ window.adminDoddepDecide = async (id, approve) => {
   } catch (e) { alert('Ошибка соединения'); }
 };
 bindClick("adminDoddepLoadBtn", loadAdminDoddep);
+
+// ==================== 3.10.0: КАЗИНО — заставка, лобби, комнаты, блекджек ====================
+
+let casinoSplashTimer = null;
+let casinoSplashDone = false;
+
+// Вход в казино: заставка ~5 секунд → лобби
+window.casinoEnter = () => {
+  casinoLoadState();
+  loadCasinoTop();
+  const splash = document.getElementById("casinoSplash");
+  const lobby = document.getElementById("casinoLobby");
+  if (!splash || !lobby) return; // старая разметка — страховка
+  closeCasinoRoom(true);
+  lobby.style.display = 'none';
+  splash.style.display = 'flex';
+  casinoSplashDone = false;
+
+  const fill = document.getElementById("casinoSplashFill");
+  const hint = document.getElementById("casinoSplashHint");
+  if (hint) hint.textContent = 'Прогружаем барабаны...';
+  const start = Date.now();
+  const DUR = 5000;
+  if (casinoSplashTimer) clearInterval(casinoSplashTimer);
+  casinoSplashTimer = setInterval(() => {
+    const p = Math.min(100, ((Date.now() - start) / DUR) * 100);
+    if (fill) fill.style.width = p + '%';
+    if (p >= 100) {
+      clearInterval(casinoSplashTimer);
+      casinoSplashTimer = null;
+      casinoShowLobby();
+    }
+  }, 100);
+};
+
+// Клик по заставке — пропустить
+window.casinoSkipSplash = () => {
+  if (casinoSplashDone) return;
+  if (casinoSplashTimer) { clearInterval(casinoSplashTimer); casinoSplashTimer = null; }
+  casinoShowLobby();
+};
+
+function casinoShowLobby() {
+  casinoSplashDone = true;
+  const splash = document.getElementById("casinoSplash");
+  const lobby = document.getElementById("casinoLobby");
+  if (splash) splash.style.display = 'none';
+  if (lobby) lobby.style.display = '';
+  loadCasinoTop();
+}
+
+// Открыть комнату
+window.openCasinoRoom = (room) => {
+  casinoSkipSplash();
+  const lobby = document.getElementById("casinoLobby");
+  if (lobby) lobby.style.display = 'none';
+  document.querySelectorAll('.casino-room').forEach(r => r.style.display = 'none');
+  const el = document.getElementById('room-' + room);
+  if (el) el.style.display = '';
+  // загрузчики комнат
+  if (room === 'crash') crashLoadState();
+  else if (room === 'options') optionsLoadState();
+  else if (room === 'bank') { doddepLoadMy(); loadShopItems(); }
+  else if (room === 'blackjack') bjLoadState();
+  else if (room === 'slot') slotSetTheme(slotTheme);
+};
+
+// Назад в лобби
+window.closeCasinoRoom = (silent) => {
+  document.querySelectorAll('.casino-room').forEach(r => r.style.display = 'none');
+  const lobby = document.getElementById("casinoLobby");
+  if (lobby && (casinoSplashDone || silent)) lobby.style.display = '';
+};
+
+// ==================== БЛЕКДЖЕК (клиент) ====================
+
+function bjCardHtml(c) {
+  if (!c) return '<span class="bj-card bj-back">🂠</span>';
+  const red = c.s === '♥' || c.s === '♦';
+  return `<span class="bj-card ${red ? 'bj-red' : ''}">${c.r}${c.s}</span>`;
+}
+
+function bjRender(g) {
+  const dEl = document.getElementById("bjDealer");
+  const pEl = document.getElementById("bjPlayer");
+  const dSum = document.getElementById("bjDealerSum");
+  const pSum = document.getElementById("bjPlayerSum");
+  const st = document.getElementById("bjStatus");
+  const betRow = document.getElementById("bjBetRow");
+  const actions = document.getElementById("bjActions");
+  if (!g) {
+    if (dEl) dEl.innerHTML = '—';
+    if (pEl) pEl.innerHTML = '—';
+    if (dSum) dSum.textContent = '';
+    if (pSum) pSum.textContent = '';
+    if (st) st.textContent = '';
+    if (betRow) betRow.style.display = '';
+    if (actions) actions.style.display = 'none';
+    return;
+  }
+  if (dEl) dEl.innerHTML = g.dealer.map(bjCardHtml).join('');
+  if (pEl) pEl.innerHTML = g.player.map(bjCardHtml).join('');
+  if (dSum) dSum.textContent = g.status === 'done' ? `(${g.dealerSum})` : `(открыто ${g.dealerSum})`;
+  if (pSum) pSum.textContent = `(${g.playerSum}${g.playerBJ ? ' — БЛЕКДЖЕК!' : ''})`;
+  const inGame = g.status === 'player';
+  if (betRow) betRow.style.display = inGame ? 'none' : '';
+  if (actions) actions.style.display = inGame ? '' : 'none';
+  if (st && g.status === 'done') {
+    const texts = {
+      win: `🏆 Победа! +${g.bet}$`,
+      bj: `🌟 БЛЕКДЖЕК! +${Math.floor(g.bet * 1.5)}$ чистыми (×2.5)`,
+      push: '🤝 Ничья — ставка возвращена',
+      lose: `💀 Проигрыш −${g.bet}$`
+    };
+    st.textContent = (texts[g.result] || '') + ' — «Раздать» для новой раздачи';
+    st.style.color = g.result === 'win' || g.result === 'bj' ? '#2ecc71' : g.result === 'push' ? '#888' : '#ff6b6b';
+  }
+}
+
+window.bjLoadState = async () => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/blackjack/state?username=${encodeURIComponent(currentUser)}`);
+    const d = await res.json();
+    bjRender(d.game);
+  } catch (e) {}
+};
+
+window.bjStart = async () => {
+  const bet = Math.floor(Number(document.getElementById("bjBet")?.value || 0));
+  const st = document.getElementById("bjStatus");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/blackjack/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, bet })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      if (st) { st.textContent = '❌ ' + (data.message || 'Ошибка'); st.style.color = '#ff6b6b'; }
+      return;
+    }
+    casinoSetBalance(data.balance);
+    if (st) st.textContent = '';
+    bjRender(data.game);
+  } catch (e) {}
+};
+
+window.bjAction = async (action) => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/blackjack/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, action })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      const st = document.getElementById("bjStatus");
+      if (st) { st.textContent = '❌ ' + (data.message || 'Ошибка'); st.style.color = '#ff6b6b'; }
+      return;
+    }
+    casinoSetBalance(data.balance);
+    bjRender(data.game);
+    if (data.game.status === 'done' && (data.game.result === 'win' || data.game.result === 'bj')) playNoticeSound();
+  } catch (e) {}
+};
+
+bindClick("bjStartBtn", bjStart);
+bindClick("bjHitBtn", () => bjAction('hit'));
+bindClick("bjStandBtn", () => bjAction('stand'));
+bindClick("bjDoubleBtn", () => bjAction('double'));
 
 // ==================== 3.9.0: ОПЦИОНЫ (клиент) ====================
 

@@ -343,17 +343,18 @@ body.light .bs-cell.ship { background: #4a6d8c; }
 /* ==================== 3.10.0: КАЗИНО — заставка, лобби, комнаты ==================== */
 #tab-casino .card { position: relative; overflow: hidden; }
 
+/* 3.10.1: заставка на весь экран (fixed — не зависит от высоты карточки) */
 #casinoSplash {
-  position: absolute; inset: 0; z-index: 20;
+  position: fixed; inset: 0; z-index: 10000;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; background: #000;
 }
-.casino-splash-bg {
-  position: absolute; inset: 0;
+#casinoSplash::before {
+  content: ''; position: absolute; inset: 0;
   background: url('casino-splash.jpg') center/cover no-repeat;
-  animation: casino-pan 14s ease-in-out infinite alternate;
+  animation: casino-pan 16s ease-in-out infinite alternate;
 }
-.casino-splash-bg::after {
+#casinoSplash::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.75) 100%);
 }

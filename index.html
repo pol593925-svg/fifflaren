@@ -735,6 +735,11 @@
             <input type="number" id="doddepAmount" min="50" max="500" value="100" style="flex:1;">
             <button id="doddepBtn" class="template-btn" style="background:#9b59b6; flex:2;">✍️ Соглашаюсь с условиями</button>
           </div>
+          <!-- 3.11.0: возврат долга -->
+          <div class="row-group" id="doddepRepayRow" style="margin-top:6px; display:none;">
+            <button id="doddepRepayFullBtn" class="template-btn" style="background:#198754; flex:2;">💰 Вернуть долг</button>
+            <button id="doddepRepayPartBtn" class="template-btn" style="background:#0d6efd; flex:2;">💳 Частями</button>
+          </div>
         </div>
 
         <h4 style="margin-top:12px;">🛒 Обменять на призы</h4>
@@ -869,6 +874,19 @@
         style="width:100%; padding:8px; margin:12px 0 6px; background:#1e2126; border:1px solid #444; border-radius:6px; color:#fff; box-sizing:border-box;">
       <button id="pwdModalOk" class="submit-btn green">Сменить</button>
       <button id="pwdModalCancel" class="submit-btn gray">Отмена</button>
+    </div>
+  </div>
+
+  <!-- Модалка возврата долга частями (3.11.0) -->
+  <div id="repayModal" class="profile-modal">
+    <div class="profile-card">
+      <h3>💳 Вернуть долг частями</h3>
+      <p style="color:#aaa; font-size:12px;">Остаток долга: <b id="repayModalRemain" style="color:#ffc107;">—</b><br>На балансе: <b id="repayModalBalance" style="color:#e0aaff;">—</b></p>
+      <input type="number" id="repayModalInput" min="1" placeholder="Сумма возврата ($)"
+        style="width:100%; padding:8px; margin:12px 0 6px; background:#1e2126; border:1px solid #444; border-radius:6px; color:#fff; box-sizing:border-box;">
+      <p id="repayModalMsg" style="color:#ff6b6b; font-size:11px; min-height:14px; margin:2px 0 4px;"></p>
+      <button id="repayModalOk" class="submit-btn green">Вернуть</button>
+      <button id="repayModalCancel" class="submit-btn gray">Отмена</button>
     </div>
   </div>
 

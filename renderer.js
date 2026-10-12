@@ -3284,9 +3284,11 @@ bindClick("adminGrantBtn", adminGrant);
 // ==================== 3.9.0: ДОДЕП (клиент) ====================
 
 // Мой додеп: показываем статус или форму запроса
+window.doddepMyRemaining = 0;
 window.doddepLoadMy = async () => {
   const status = document.getElementById("doddepMyStatus");
   const form = document.getElementById("doddepForm");
+  const repayRow = document.getElementById("doddepRepayRow");
   if (!status || !form) return;
   try {
     const res = await fetch(`${SERVER_API_URL}/api/casino/doddep/my?username=${encodeURIComponent(currentUser)}`);
@@ -3294,15 +3296,19 @@ window.doddepLoadMy = async () => {
     if (!d.success || !d.loan) {
       status.textContent = '';
       form.style.display = '';
+      if (repayRow) repayRow.style.display = 'none';
       return;
     }
     form.style.display = 'none';
     if (d.loan.status === 'pending') {
       status.textContent = `⏳ Запрос на ${d.loan.amount}$ на рассмотрении у админа...`;
       status.style.color = '#ffc107';
+      if (repayRow) repayRow.style.display = 'none';
     } else {
+      window.doddepMyRemaining = d.loan.remaining;
       status.textContent = `🏦 Активный додеп: ${d.loan.amount}$ · остаток долга ${d.loan.remaining}$ · возврат ${d.loan.dailyReturn}$/день из ЗП`;
       status.style.color = '#e0aaff';
+      if (repayRow) repayRow.style.display = '';
     }
   } catch (e) {}
 };
@@ -3327,6 +3333,72 @@ window.doddepRequest = async () => {
   } catch (e) {}
 };
 bindClick("doddepBtn", doddepRequest);
+
+// ==================== 3.11.0: ВОЗВРАТ ДОЛГА ====================
+async function doddepDoRepay(amount) {
+  const status = document.getElementById("doddepMyStatus");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/doddep/repay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, amount })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      if (status) { status.textContent = '❌ ' + (data.message || 'Ошибка'); status.style.color = '#ff6b6b'; }
+      return false;
+    }
+    casinoSetBalance(data.balance);
+    if (status) {
+      status.textContent = data.closed ? `🎉 Долг погашен полностью! Баланс: ${data.balance}$` : `🏦 Возвращено. Остаток долга: ${data.remaining}$ · баланс: ${data.balance}$`;
+      status.style.color = data.closed ? '#20c997' : '#e0aaff';
+    }
+    doddepLoadMy();
+    return true;
+  } catch (e) { return false; }
+}
+
+window.doddepRepayFull = () => { doddepDoRepay(null); };
+
+window.doddepRepayPart = async () => {
+  const modal = document.getElementById("repayModal");
+  const inp = document.getElementById("repayModalInput");
+  const msg = document.getElementById("repayModalMsg");
+  if (!modal) return;
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`${SERVER_API_URL}/api/casino/doddep/my?username=${encodeURIComponent(currentUser)}`),
+      fetch(`${SERVER_API_URL}/api/casino/state?username=${encodeURIComponent(currentUser)}`)
+    ]);
+    const d1 = await r1.json();
+    const d2 = await r2.json();
+    if (d1.success && d1.loan && d2.success) {
+      window.doddepMyRemaining = d1.loan.remaining;
+      const rem = document.getElementById("repayModalRemain");
+      const bal = document.getElementById("repayModalBalance");
+      if (rem) rem.textContent = d1.loan.remaining + '$';
+      if (bal) bal.textContent = d2.balance + '$';
+      if (inp) inp.max = d1.loan.remaining;
+    }
+  } catch (e) {}
+  if (inp) inp.value = '';
+  if (msg) msg.textContent = '';
+  modal.classList.add('open');
+};
+
+bindClick("doddepRepayFullBtn", () => doddepRepayFull());
+bindClick("doddepRepayPartBtn", () => doddepRepayPart());
+bindClick("repayModalCancel", () => document.getElementById("repayModal")?.classList.remove('open'));
+bindClick("repayModalOk", async () => {
+  const inp = document.getElementById("repayModalInput");
+  const msg = document.getElementById("repayModalMsg");
+  const amount = Math.floor(Number(inp?.value || 0));
+  if (!amount || amount <= 0) { if (msg) msg.textContent = 'Введи сумму больше 0'; return; }
+  if (window.doddepMyRemaining && amount > window.doddepMyRemaining) { if (msg) msg.textContent = `Больше остатка долга (${window.doddepMyRemaining}$)`; return; }
+  const ok = await doddepDoRepay(amount);
+  if (ok) document.getElementById("repayModal")?.classList.remove('open');
+  else if (msg) msg.textContent = 'Не получилось — проверь баланс';
+});
 
 // Админка: список додепов + решения
 window.loadAdminDoddep = async () => {

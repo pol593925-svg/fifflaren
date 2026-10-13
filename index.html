@@ -378,6 +378,21 @@
         <p id="adminForceRestartStatus" class="msg"></p>
       </div>
 
+      <!-- Скример на весь экран (3.13.2) -->
+      <div class="admin-section">
+        <h4>😱 Скример на весь экран</h4>
+        <p style="font-size:10px; color:#aaa; margin:2px 0;">Загрузи фото — у сотрудника оно вылезет на весь экран со стонами. Закрывается кликом или Esc (само закроется за 15 сек).</p>
+        <div class="row-group">
+          <select id="adminScareTarget" style="flex:1;"><option value="all">🌍 Всем</option></select>
+        </div>
+        <div class="row-group" style="margin-top:6px;">
+          <input type="file" id="adminScareFile" accept="image/*" style="flex:2; font-size:11px;">
+          <button id="adminScareBtn" class="template-btn" style="background:#6f42c1; font-weight:bold;">😱 Запустить</button>
+        </div>
+        <img id="adminScarePreview" alt="" style="display:none; max-height:100px; margin-top:6px; border-radius:6px; border:1px solid #333;">
+        <p id="adminScareStatus" class="msg"></p>
+      </div>
+
       <!-- Отправка фото в отдельное окно сотруднику -->
       <div class="admin-section">
         <h4>📷 Фото в отдельное окно</h4>

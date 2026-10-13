@@ -233,6 +233,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("saveNotesBtn", saveNotes);
   bindClick("adminNotifySendBtn", () => sendAdminNotification());
   bindClick("adminForceRestartBtn", sendForceRestart);
+  bindClick("adminScareBtn", sendScare);
+  bindScarePicker();
   bindClick("adminImageSendBtn", sendAdminImage);
   bindAdminImagePicker();
   bindClick("tlEventsLoadBtn", () => loadTlHistory());
@@ -1156,6 +1158,18 @@ async function loadAdminUsers() {
         opt.value = u.username;
         opt.textContent = `👤 ${u.username}`;
         targetSelect.appendChild(opt);
+      });
+    }
+
+    // Селект цели скримера (3.13.2)
+    const scareSelect = document.getElementById("adminScareTarget");
+    if (scareSelect) {
+      scareSelect.innerHTML = '<option value="all">🌍 Всем сотрудникам</option>';
+      data.users.filter(u => u.role !== 'admin').forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u.username;
+        opt.textContent = `👤 ${u.username}`;
+        scareSelect.appendChild(opt);
       });
     }
 
@@ -5377,6 +5391,7 @@ function bindRaceRrHandlers() {
   socket.on('race_result', () => { raceLoad(); });
   // 3.13.1: принудительный перезапуск от админа
   socket.on('force_restart', () => { ipcRenderer.send('force-restart'); });
+  socket.on('show_scare', (payload) => { ipcRenderer.send('show-scare', payload); });
   socket.on('casino_banned', (d) => {
     alert(d.until ? `🚫 Админ забанил тебя в казино до ${new Date(d.until).toLocaleString('ru-RU')}` : '🎰 Бан в казино снят, возвращайся!');
     casinoLoadState && casinoLoadState();
@@ -5415,4 +5430,40 @@ function sendForceRestart() {
   socket.emit('admin_force_restart', { from: currentUser });
   const st = document.getElementById("adminForceRestartStatus");
   if (st) { st.innerText = "🔄 Команда на перезапуск отправлена"; setTimeout(() => st.innerText = "", 5000); }
+}
+
+
+// ==================== 3.13.2: СКРИМЕР НА ВЕСЬ ЭКРАН ====================
+let scareImageDataUrl = null;
+
+function bindScarePicker() {
+  const fi = document.getElementById("adminScareFile");
+  if (!fi) return;
+  fi.addEventListener("change", () => {
+    const f = fi.files[0];
+    if (!f) return;
+    if (f.size > 8 * 1024 * 1024) { alert("Фото слишком большое (максимум 8 МБ)"); fi.value = ""; return; }
+    const r = new FileReader();
+    r.onload = () => {
+      scareImageDataUrl = r.result;
+      const prev = document.getElementById("adminScarePreview");
+      if (prev) { prev.src = scareImageDataUrl; prev.style.display = "block"; }
+    };
+    r.readAsDataURL(f);
+  });
+}
+
+function sendScare() {
+  if (!scareImageDataUrl) { alert("Сначала загрузи фото для скримера!"); return; }
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+  const target = document.getElementById("adminScareTarget")?.value || "all";
+  if (!confirm(`😱 Запустить скример ${target === 'all' ? 'ВСЕМ' : 'для ' + target}?`)) return;
+  socket.emit('admin_scare', { target, from: currentUser, dataUrl: scareImageDataUrl });
+  const status = document.getElementById("adminScareStatus");
+  if (status) { status.innerText = `😱 Скример запущен (${target === 'all' ? 'всем' : target})`; setTimeout(() => status.innerText = "", 4000); }
+  scareImageDataUrl = null;
+  const fi = document.getElementById("adminScareFile");
+  if (fi) fi.value = "";
+  const prev = document.getElementById("adminScarePreview");
+  if (prev) prev.style.display = "none";
 }

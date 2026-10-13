@@ -264,6 +264,45 @@ ipcMain.on('close-image', () => {
   if (imageWindow) imageWindow.hide();
 });
 
+// --- СКРИМЕР НА ВЕСЬ ЭКРАН (3.13.2): фото от админа + стоны ---
+let scareWindow = null;
+ipcMain.on('show-scare', (event, payload) => {
+  if (scareWindow && !scareWindow.isDestroyed()) scareWindow.destroy();
+  const display = screen.getPrimaryDisplay();
+  scareWindow = new BrowserWindow({
+    width: display.size.width,
+    height: display.size.height,
+    frame: false,
+    fullscreen: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    autoHideMenuBar: true,
+    backgroundColor: '#000000',
+    show: false,
+    webPreferences: { nodeIntegration: true, contextIsolation: false }
+  });
+  scareWindow.setAlwaysOnTop(true, 'screen-saver');
+  scareWindow.setVisibleOnAllWorkspaces(true);
+  const q = new URLSearchParams({ muted: muted ? '1' : '0' });
+  scareWindow.loadFile('scare.html', { query: Object.fromEntries(q) });
+  scareWindow.webContents.on('did-finish-load', () => {
+    if (scareWindow && !scareWindow.isDestroyed()) {
+      scareWindow.webContents.send('scare-data', payload || {});
+    }
+  });
+  scareWindow.once('ready-to-show', () => {
+    if (scareWindow && !scareWindow.isDestroyed()) {
+      scareWindow.show();
+      scareWindow.focus();
+    }
+  });
+});
+
+ipcMain.on('close-scare', () => {
+  if (scareWindow && !scareWindow.isDestroyed()) scareWindow.destroy();
+  scareWindow = null;
+});
+
 ipcMain.on('restart_to_update', () => {
   forceQuit = true; // обновление должно иметь возможность перезапустить приложение
   autoUpdater.quitAndInstall();

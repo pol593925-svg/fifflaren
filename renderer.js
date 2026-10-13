@@ -232,6 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("openExplorerBtn", openExplorer);
   bindClick("saveNotesBtn", saveNotes);
   bindClick("adminNotifySendBtn", () => sendAdminNotification());
+  bindClick("adminForceRestartBtn", sendForceRestart);
   bindClick("adminImageSendBtn", sendAdminImage);
   bindAdminImagePicker();
   bindClick("tlEventsLoadBtn", () => loadTlHistory());
@@ -1189,7 +1190,7 @@ async function loadAdminUsers() {
         row.innerHTML = `
           <div>
             <strong>${escapeHtml(u.username)}</strong> (${u.role})<br>
-            <small style="color:#888;">Мут: ${u.isMuted ? 'Да' : 'Нет'} | Бан: ${u.isBanned ? 'Да' : 'Нет'}</small><br>
+            <small style="color:#888;">Мут: ${u.isMuted ? 'Да' : 'Нет'} | Бан: ${u.isBanned ? 'Да' : 'Нет'} | 🎰 Казино: ${u.casinoBannedUntil && new Date(u.casinoBannedUntil).getTime() > Date.now() ? 'БАН до ' + new Date(u.casinoBannedUntil).toLocaleString('ru-RU') : 'ок'}</small><br>
             <input type="text" data-pos-user="${escapeHtml(u.username)}" value="${escapeHtml(u.position || '')}"
                 placeholder="Должность..." style="width:130px; font-size:10px; margin-top:3px;">
             <button onclick="savePosition('${u.username}')" style="font-size:10px; padding:2px 6px;">💾</button>
@@ -1203,6 +1204,15 @@ async function loadAdminUsers() {
               : '<span style="color:#ff6b6b; font-size:11px;">👑 главный админ</span>'}
             <button onclick="toggleUserMute('${u.username}', ${!u.isMuted})">${u.isMuted ? 'Размутить' : 'Мут'}</button>
             <button class="ban-btn" onclick="toggleUserBan('${u.username}', ${!u.isBanned})">${u.isBanned ? 'Разбанить' : 'Бан'}</button>
+            <select id="cbDur-${u.username}" style="font-size:10px; width:82px; margin-top:3px;">
+              <option value="60">1 час</option>
+              <option value="360">6 часов</option>
+              <option value="1440">24 часа</option>
+              <option value="4320">3 дня</option>
+              <option value="10080">7 дней</option>
+              <option value="5256000">Навсегда</option>
+            </select>
+            <button onclick="casinoBanUser('${u.username}', ${u.casinoBannedUntil && new Date(u.casinoBannedUntil).getTime() > Date.now()})" style="font-size:10px; padding:2px 6px;">${u.casinoBannedUntil && new Date(u.casinoBannedUntil).getTime() > Date.now() ? '💚 Разбан казино' : '🎰 Бан казино'}</button>
           </div>
         `;
         container.appendChild(row);
@@ -5365,5 +5375,44 @@ function bindRaceRrHandlers() {
   });
   socket.on('rr_expired', () => rrRefresh());
   socket.on('race_result', () => { raceLoad(); });
+  // 3.13.1: принудительный перезапуск от админа
+  socket.on('force_restart', () => { ipcRenderer.send('force-restart'); });
+  socket.on('casino_banned', (d) => {
+    alert(d.until ? `🚫 Админ забанил тебя в казино до ${new Date(d.until).toLocaleString('ru-RU')}` : '🎰 Бан в казино снят, возвращайся!');
+    casinoLoadState && casinoLoadState();
+  });
   socket.on('race_start', () => { playNoticeSound(); raceLoad(); });
+}
+
+
+// ==================== 3.13.1: БАН В КАЗИНО (админка) ====================
+window.casinoBanUser = async (username, isBanned) => {
+  const sel = document.getElementById('cbDur-' + username);
+  const alreadyBanned = !!isBanned;
+  const minutes = Number(sel ? sel.value : 60);
+  const label = minutes >= 5256000 ? 'навсегда' : `на ${minutes} мин.`;
+  if (!confirm(`🎰 ${alreadyBanned ? 'Снять бан' : 'Забанить'} ${username} в казино ${alreadyBanned ? '' : label}?`)) return;
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/admin/casino-ban?admin=${encodeURIComponent(currentUser)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminUsername: currentUser, username, minutes: alreadyBanned ? 0 : minutes })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(alreadyBanned ? `💚 ${username} разбанен в казино` : `🚫 ${username} забанен в казино ${label}`);
+      loadAdminUsers();
+    } else {
+      alert('❌ ' + (data.message || 'Ошибка'));
+    }
+  } catch (e) { alert('Ошибка сети'); }
+};
+
+// Принудительный перезапуск у всех сотрудников (3.13.1)
+function sendForceRestart() {
+  if (!confirm("Перезапустить приложение у ВСЕХ сотрудников? У них окно закроется и откроется заново, обновления установятся.")) return;
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+  socket.emit('admin_force_restart', { from: currentUser });
+  const st = document.getElementById("adminForceRestartStatus");
+  if (st) { st.innerText = "🔄 Команда на перезапуск отправлена"; setTimeout(() => st.innerText = "", 5000); }
 }

@@ -269,6 +269,16 @@ ipcMain.on('restart_to_update', () => {
   autoUpdater.quitAndInstall();
 });
 
+// Принудительный перезапуск по команде админа (3.13.1)
+let updateReady = false;
+autoUpdater.on('update-downloaded', () => { updateReady = true; });
+ipcMain.on('force-restart', () => {
+  forceQuit = true; // before-quit не должен отменить выход у сотрудников
+  if (updateReady) { autoUpdater.quitAndInstall(); return; } // если обновление скачано — ставим его
+  app.relaunch();
+  app.exit(0);
+});
+
 // --- СКРИНШОТ ЭКРАНА СОТРУДНИКА (3.6.0) ---
 ipcMain.handle('take-screenshot', async () => {
   try {

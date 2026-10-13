@@ -416,6 +416,8 @@ function initSocketConnection(username) {
   bindBattleshipHandlers();
   // 3.9.0: опционы
   bindOptionsHandlers();
+  // 3.13.0: русская рулетка
+  bindRaceRrHandlers();
 
   socket.on('chat_message', (msgData) => appendMessageToChatUI(msgData));
 
@@ -1237,8 +1239,9 @@ function sendAdminImage() {
 
   const target = document.getElementById("adminNotifyTarget")?.value || "all";
   const text = document.getElementById("adminImageText")?.value.trim() || "";
+  const sound = document.getElementById("adminNotifySound")?.value || "default";
 
-  socket.emit('admin_image', { target, text, from: currentUser, dataUrl: adminImageDataUrl });
+  socket.emit('admin_image', { target, text, from: currentUser, dataUrl: adminImageDataUrl, sound });
 
   const status = document.getElementById("adminNotifyStatus");
   if (status) {
@@ -1268,7 +1271,8 @@ function sendAdminNotification(forcedText, forcedTarget, isQuick) {
     return;
   }
 
-  socket.emit('admin_notify', { target, text, from: currentUser });
+  const sound = document.getElementById("adminNotifySound")?.value || "default";
+  socket.emit('admin_notify', { target, text, from: currentUser, sound });
 
   if (status) {
     const whom = target === 'all' ? 'всем' : target;
@@ -3529,6 +3533,9 @@ window.openCasinoRoom = (room) => {
   else if (room === 'mines') minesRender(null);
   else if (room === 'poker') { pokerHeld = []; pokerRenderHand(null); }
   else if (room === 'snake') snakeShowBest();
+  else if (room === 'race') raceEnter();
+  else if (room === 'case') caseEnter();
+  else if (room === 'rr') rrEnter();
 };
 
 // Назад в лобби
@@ -4858,3 +4865,505 @@ bindClick("logoutBtn", () => {
   localStorage.clear();
   location.reload();
 });
+
+
+// ==================== 3.13.0: БЕГА · КЕЙС · РУССКАЯ РУЛЕТКА ====================
+
+function rrApi(path, body) {
+  return fetch(`${SERVER_API_URL}/api/casino/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(r => r.json());
+}
+
+function raceApiGet(path) {
+  return fetch(`${SERVER_API_URL}/api/casino/${path}`).then(r => r.json());
+}
+
+// ---------- ПЕТУШИНЫЕ БЕГА ----------
+const raceImg = new Image();
+raceImg.src = 'obii-head.png';
+let raceCache = null;
+let raceTimer = null;
+let raceAnimId = null;
+let raceSelected = -1;
+let raceSmooth = [0, 0, 0, 0, 0];
+
+window.raceEnter = () => {
+  raceSelected = -1;
+  raceLoad();
+  if (raceTimer) clearInterval(raceTimer);
+  raceTimer = setInterval(raceLoad, 1000);
+  if (raceAnimId) cancelAnimationFrame(raceAnimId);
+  raceAnimLoop();
+  const btn = document.getElementById("raceBetBtn");
+  if (btn) btn.onclick = racePlaceBet;
+};
+
+function raceLeaveCheck() {
+  const room = document.getElementById("room-race");
+  if (room && room.style.display === 'none') {
+    if (raceTimer) { clearInterval(raceTimer); raceTimer = null; }
+    if (raceAnimId) { cancelAnimationFrame(raceAnimId); raceAnimId = null; }
+    return true;
+  }
+  return false;
+}
+
+async function raceLoad() {
+  if (raceLeaveCheck()) return;
+  try {
+    const data = await raceApiGet(`race/state?username=${encodeURIComponent(currentUser)}`);
+    if (data.success) raceApply(data.race);
+  } catch (e) {}
+}
+
+function raceApply(r) {
+  raceCache = r;
+  const st = document.getElementById("raceStatus");
+  if (st) {
+    if (r.phase === 'bet') st.innerText = `🏇 Забег #${r.round} — приём ставок: ${r.timeLeft} сек`;
+    else if (r.phase === 'run') st.innerText = `🔥 ЗАБЕГ #${r.round}! До финиша: ${r.timeLeft} сек`;
+    else st.innerText = r.winner >= 0 ? `🏆 Победил: ${r.roosters[r.winner].name} (×${r.roosters[r.winner].odds}). Новый забег через ${r.timeLeft} сек` : `Новый забег через ${r.timeLeft} сек`;
+  }
+  const box = document.getElementById("raceRoosters");
+  if (box) {
+    const canBet = r.phase === 'bet' && !r.myBet;
+    box.innerHTML = r.roosters.map((ro, i) => {
+      const sel = raceSelected === i ? 'outline:2px solid #ffc107;' : '';
+      const dis = canBet ? '' : 'opacity:.55;';
+      return `<button class="template-btn" style="background:#2a323c; font-size:11px; padding:6px 8px; ${sel}${dis}" onclick="racePick(${i})" ${canBet ? '' : 'disabled'}>
+        🐔 ${escapeHtml(ro.name)}<br><b style="color:#ffc107;">×${ro.odds}</b></button>`;
+    }).join('');
+  }
+  const betBtn = document.getElementById("raceBetBtn");
+  if (betBtn) betBtn.disabled = !(r.phase === 'bet' && !r.myBet && raceSelected >= 0);
+}
+
+window.racePick = (i) => { raceSelected = i; if (raceCache) raceApply(raceCache); };
+
+async function racePlaceBet() {
+  const amount = Number(document.getElementById("raceBetAmount")?.value) || 10;
+  const msg = document.getElementById("raceMsg");
+  const data = await rrApi('race/bet', { username: currentUser, rooster: raceSelected, amount });
+  if (msg) msg.innerText = data.success ? `✅ Ставка ${amount}$ на «${data.myBet.rooster >= 0 ? (raceCache ? raceCache.roosters[data.myBet.rooster].name : '') : ''}» принята!` : (`❌ ${data.message || 'Ошибка'}`);
+  if (data.success) { casinoSetBalance(data.balance); raceLoad(); }
+}
+
+function raceAnimLoop() {
+  if (raceLeaveCheck()) return;
+  raceAnimId = requestAnimationFrame(raceAnimLoop);
+  const cv = document.getElementById("raceCanvas");
+  if (!cv || !raceCache) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  // небо и земля
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#101820'); sky.addColorStop(1, '#1c2a1a');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#24401f'; ctx.fillRect(0, 40, W, H - 40);
+  const lanes = raceCache.roosters.length;
+  const laneH = (H - 50) / lanes;
+  const trackX = 10, trackW = W - 90;
+  // финишная лента
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = i % 2 ? '#fff' : '#111';
+    ctx.fillRect(trackX + trackW + 6 + (i % 2) * 6, 40, 6, H - 50);
+  }
+  for (let i = 0; i < lanes; i++) {
+    const y = 40 + i * laneH;
+    // дорожка
+    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.12)';
+    ctx.fillRect(trackX, y, trackW + 20, laneH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.moveTo(trackX, y + laneH); ctx.lineTo(trackX + trackW + 20, y + laneH); ctx.stroke();
+    // сглаживание позиции
+    raceSmooth[i] += ((raceCache.positions[i] || 0) - raceSmooth[i]) * 0.12;
+    const px = trackX + (raceSmooth[i] / 100) * trackW;
+    const py = y + laneH / 2;
+    const bob = raceCache.phase === 'run' ? Math.sin(Date.now() / 90 + i) * 3 : 0;
+    // петух (голова обии)
+    const sz = Math.min(46, laneH - 8);
+    if (raceImg.complete && raceImg.naturalWidth) {
+      ctx.save();
+      if (raceCache.phase === 'run') {
+        ctx.translate(px + sz / 2, py + bob);
+        ctx.rotate(Math.sin(Date.now() / 110 + i) * 0.12);
+        ctx.drawImage(raceImg, -sz / 2, -sz / 2, sz, sz);
+      } else {
+        ctx.drawImage(raceImg, px - sz / 2, py - sz / 2, sz, sz);
+      }
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.arc(px, py + bob, sz / 2.5, 0, 7); ctx.fill();
+    }
+    // имя + позиция
+    ctx.fillStyle = raceCache.winner === i ? '#ffc107' : '#cfd8dc';
+    ctx.font = 'bold 11px Segoe UI';
+    ctx.fillText(`${raceCache.roosters[i].name} ×${raceCache.roosters[i].odds}`, 12, y + 13);
+    if (raceCache.winner === i) { ctx.font = '16px Segoe UI'; ctx.fillText('👑', px + 24, py + 5); }
+  }
+}
+
+// ---------- КЕЙС ДНЯ ----------
+let caseBusy = false;
+let caseParticles = [];
+
+window.caseEnter = async () => {
+  caseDraw('closed');
+  const btn = document.getElementById("caseOpenBtn");
+  const msg = document.getElementById("caseMsg");
+  try {
+    const data = await raceApiGet(`case/state?username=${encodeURIComponent(currentUser)}`);
+    if (btn) {
+      btn.disabled = !data.available || caseBusy;
+      btn.textContent = data.available ? '🔓 Открыть кейс' : '🔒 Уже открыт — завтра новый';
+    }
+    if (msg && data.available) msg.innerText = `VIP-уровень: ${data.level}. Возможные награды: 0$ · 5$ · 15$ · 30$ · 60$ · 100$`;
+  } catch (e) {}
+  if (btn) btn.onclick = caseOpen;
+};
+
+function caseDraw(state, reward) {
+  const cv = document.getElementById("caseCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2 + 10;
+  const t = Date.now();
+  if (state === 'closed') {
+    const glow = 0.5 + Math.sin(t / 400) * 0.2;
+    const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 120);
+    g.addColorStop(0, `rgba(255,193,7,${0.25 * glow})`); g.addColorStop(1, 'rgba(255,193,7,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // корпус кейса
+    ctx.fillStyle = '#5d4037';
+    ctx.beginPath(); ctx.roundRect(cx - 70, cy - 35, 140, 75, 10); ctx.fill();
+    ctx.fillStyle = '#795548';
+    ctx.beginPath(); ctx.roundRect(cx - 70, cy - 35, 140, 35, 10); ctx.fill();
+    ctx.strokeStyle = '#ffc107'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(cx - 70, cy - 35, 140, 75, 10); ctx.stroke();
+    ctx.fillStyle = '#ffc107';
+    ctx.fillRect(cx - 8, cy - 6, 16, 18);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText('🎁', cx, cy + 45);
+    ctx.fillText('КЕЙС ДНЯ', cx, cy - 50);
+    ctx.textAlign = 'left';
+  } else if (state === 'open') {
+    // открытая крышка + свет
+    ctx.fillStyle = '#5d4037';
+    ctx.beginPath(); ctx.roundRect(cx - 70, cy - 10, 140, 50, 10); ctx.fill();
+    ctx.save();
+    ctx.translate(cx - 70, cy - 10); ctx.rotate(-1.2);
+    ctx.fillStyle = '#795548';
+    ctx.beginPath(); ctx.roundRect(0, -35, 140, 35, 10); ctx.fill();
+    ctx.restore();
+    const lg = ctx.createLinearGradient(cx, cy - 60, cx, cy);
+    lg.addColorStop(0, 'rgba(255,235,150,0.9)'); lg.addColorStop(1, 'rgba(255,235,150,0)');
+    ctx.fillStyle = lg;
+    ctx.beginPath(); ctx.moveTo(cx - 45, cy); ctx.lineTo(cx - 15, cy - 90); ctx.lineTo(cx + 15, cy - 90); ctx.lineTo(cx + 45, cy); ctx.fill();
+  } else if (state === 'reward') {
+    caseDraw('open');
+    // частицы
+    caseParticles = caseParticles.filter(p => p.life > 0);
+    for (const p of caseParticles) {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.015;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(p.x, p.y, 4, 4);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = reward > 0 ? '#ffc107' : '#90a4ae';
+    ctx.font = 'bold 34px Segoe UI';
+    ctx.shadowColor = reward > 0 ? '#ffc107' : 'transparent'; ctx.shadowBlur = 18;
+    ctx.fillText(reward > 0 ? `+${reward}$` : 'Пусто...', cx, cy + 15);
+    ctx.shadowBlur = 0; ctx.textAlign = 'left';
+  }
+}
+
+async function caseOpen() {
+  if (caseBusy) return;
+  caseBusy = true;
+  const btn = document.getElementById("caseOpenBtn");
+  const msg = document.getElementById("caseMsg");
+  if (btn) btn.disabled = true;
+  // анимация встряхивания и открытия
+  for (let i = 0; i < 12; i++) {
+    const cv = document.getElementById("caseCanvas");
+    if (cv) {
+      const ctx = cv.getContext("2d");
+      ctx.save();
+      ctx.translate(cv.width / 2, cv.height / 2);
+      ctx.rotate(Math.sin(i) * 0.06);
+      ctx.translate(-cv.width / 2, -cv.height / 2);
+      caseDraw('closed');
+      ctx.restore();
+    }
+    await new Promise(r => setTimeout(r, 80));
+  }
+  const data = await rrApi('case/open', { username: currentUser });
+  if (!data.success) {
+    caseBusy = false;
+    if (msg) msg.innerText = `❌ ${data.message || 'Ошибка'}`;
+    if (btn) { btn.disabled = false; btn.textContent = '🔓 Открыть кейс'; }
+    return;
+  }
+  caseDraw('open');
+  const cx = 180, cy = 120;
+  caseParticles = Array.from({ length: 40 }, () => ({
+    x: cx, y: cy, vx: (Math.random() - 0.5) * 7, vy: -Math.random() * 7 - 2,
+    life: 1, c: ['#ffc107', '#fff176', '#ffffff', '#ff8f00'][Math.floor(Math.random() * 4)]
+  }));
+  let frames = 0;
+  const anim = () => {
+    caseDraw('reward', data.reward);
+    if (++frames < 140) requestAnimationFrame(anim);
+  };
+  anim();
+  if (msg) msg.innerText = data.reward > 0 ? `🎉 Из кейса выпало ${data.reward}$! Баланс: ${data.balance}$` : '😶 Кейс оказался пустым. Повезёт завтра!';
+  casinoSetBalance(data.balance);
+  if (btn) btn.textContent = '🔒 Уже открыт — завтра новый';
+  playNoticeSound();
+  caseBusy = false;
+}
+
+// ---------- РУССКАЯ РУЛЕТКА ----------
+let rrCache = null;
+let rrSpinning = false;
+
+window.rrEnter = async () => {
+  const sel = document.getElementById("rrOpponent");
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Соперник...</option>' +
+      (typeof onlineNicks !== 'undefined' ? onlineNicks : [])
+        .filter(n => n.toLowerCase() !== currentUser.toLowerCase())
+        .map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+    if (cur) sel.value = cur;
+  }
+  const ch = document.getElementById("rrChallengeBtn");
+  if (ch) ch.onclick = rrChallenge;
+  const pl = document.getElementById("rrPullBtn");
+  if (pl) pl.onclick = rrPull;
+  rrDrawRevolver(0, 0, false);
+  rrRefresh();
+};
+
+async function rrRefresh() {
+  try {
+    const data = await raceApiGet(`rr/state?username=${encodeURIComponent(currentUser)}`);
+    rrCache = data;
+    const st = document.getElementById("rrStatus");
+    const pull = document.getElementById("rrPullBtn");
+    const row = document.getElementById("rrChallengeBtn");
+    if (data.game) {
+      if (st) st.innerHTML = `🔫 Дуэль: <b>${escapeHtml(data.game.players[0])}</b> vs <b>${escapeHtml(data.game.players[1])}</b> · ставка ${data.game.bet}$ · выстрелов: ${data.game.chambersFired}/6`;
+      if (pull) {
+        pull.style.display = '';
+        pull.disabled = !data.game.yourTurn || rrSpinning;
+        pull.textContent = data.game.yourTurn ? '💥 Нажать на курок' : '⏳ Ход соперника...';
+      }
+      if (row) row.style.display = 'none';
+      rrDrawRevolver(0, data.game.chambersFired, false);
+    } else {
+      if (pull) pull.style.display = 'none';
+      if (row) row.style.display = '';
+      if (data.challenge) {
+        if (data.challenge.incoming) {
+          if (st) st.innerHTML = `⚔️ <b>${escapeHtml(data.challenge.from)}</b> вызывает тебя на русскую рулетку — ставка ${data.challenge.bet}$!
+            <button class="template-btn" style="background:#198754; font-size:11px; padding:3px 10px; margin-left:6px;" onclick="rrRespond('${data.challenge.id}', true)">Принять</button>
+            <button class="template-btn" style="background:#333; font-size:11px; padding:3px 10px;" onclick="rrRespond('${data.challenge.id}', false)">Отказ</button>`;
+          playNoticeSound();
+        } else if (st) st.innerText = `⏳ Ждём ответа от ${data.challenge.to}...`;
+      } else if (st) st.innerText = 'Выбери соперника и ставку — и по очереди давайте на курок.';
+      rrDrawRevolver(0, 0, false);
+    }
+  } catch (e) {}
+}
+
+async function rrChallenge() {
+  const to = document.getElementById("rrOpponent")?.value;
+  const bet = Number(document.getElementById("rrBet")?.value) || 20;
+  const msg = document.getElementById("rrMsg");
+  if (!to) { if (msg) msg.innerText = '❌ Выбери соперника'; return; }
+  const data = await rrApi('rr/challenge', { from: currentUser, to, bet });
+  if (msg) msg.innerText = data.success ? `⚔️ Вызов ${to} отправлен — ставка ${bet}$` : `❌ ${data.message || 'Ошибка'}`;
+  if (data.success) rrRefresh();
+}
+
+window.rrRespond = async (id, accept) => {
+  const data = await rrApi('rr/answer', { username: currentUser, id, accept });
+  const msg = document.getElementById("rrMsg");
+  if (!data.success && msg) msg.innerText = `❌ ${data.message || 'Ошибка'}`;
+  if (data.accepted) { rrSpinAnim(); playNoticeSound(); }
+  rrRefresh();
+};
+
+async function rrPull() {
+  if (rrSpinning) return;
+  rrSpinning = true;
+  rrSpinAnim(); // вращение барабана
+  await new Promise(r => setTimeout(r, 1300));
+  const data = await rrApi('rr/pull', { username: currentUser });
+  rrSpinning = false;
+  if (!data.success) {
+    const msg = document.getElementById("rrMsg");
+    if (msg) msg.innerText = `❌ ${data.message || 'Ошибка'}`;
+    rrRefresh();
+    return;
+  }
+  rrDrawRevolver(0, data.chambersFired, data.boom);
+  if (data.boom) {
+    // выстрел — проигрыш (сервер эмитит rr_result обоим)
+    rrRefresh();
+  } else {
+    rrRefresh();
+  }
+}
+
+// Анимация вращения барабана
+function rrSpinAnim() {
+  let rot = 0, speed = 0.45;
+  const step = () => {
+    if (speed < 0.005) { rrRefresh(); return; }
+    rot += speed; speed *= 0.965;
+    rrDrawRevolver(rot, rrCache && rrCache.game ? rrCache.game.chambersFired : 0, false);
+    requestAnimationFrame(step);
+  };
+  step();
+}
+
+// Отрисовка револьвера: rot — поворот барабана, fired — сколько камор уже стреляли
+function rrDrawRevolver(rot, fired, bang) {
+  const cv = document.getElementById("rrCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const bg = ctx.createRadialGradient(W / 2, H / 2, 30, W / 2, H / 2, 260);
+  bg.addColorStop(0, '#1a2530'); bg.addColorStop(1, '#0a0e12');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2 - 10, cy = H / 2 - 30;
+
+  // рукоять
+  ctx.save();
+  ctx.translate(cx, cy + 55); ctx.rotate(0.5);
+  const grip = ctx.createLinearGradient(0, 0, 0, 75);
+  grip.addColorStop(0, '#6d4c41'); grip.addColorStop(1, '#3e2723');
+  ctx.fillStyle = grip;
+  ctx.beginPath(); ctx.roundRect(-16, 0, 34, 78, 12); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 2;
+  for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.moveTo(-14, i * 14); ctx.lineTo(16, i * 14); ctx.stroke(); }
+  ctx.restore();
+
+  // ствол
+  const barrel = ctx.createLinearGradient(cx + 45, cy - 14, cx + 45, cy + 14);
+  barrel.addColorStop(0, '#b0bec5'); barrel.addColorStop(0.5, '#78909c'); barrel.addColorStop(1, '#455a64');
+  ctx.fillStyle = barrel;
+  ctx.beginPath(); ctx.roundRect(cx + 40, cy - 13, 110, 26, 8); ctx.fill();
+  ctx.strokeStyle = '#263238'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(cx + 40, cy - 13, 110, 26, 8); ctx.stroke();
+  ctx.fillStyle = '#37474f';
+  ctx.beginPath(); ctx.arc(cx + 150, cy, 11, 0, 7); ctx.fill();
+  ctx.fillStyle = '#102027';
+  ctx.beginPath(); ctx.arc(cx + 150, cy, 6, 0, 7); ctx.fill();
+
+  // барабан
+  ctx.save();
+  ctx.translate(cx, cy); ctx.rotate(rot);
+  const drum = ctx.createRadialGradient(0, 0, 10, 0, 0, 62);
+  drum.addColorStop(0, '#cfd8dc'); drum.addColorStop(0.7, '#90a4ae'); drum.addColorStop(1, '#546e7a');
+  ctx.fillStyle = drum;
+  ctx.beginPath(); ctx.arc(0, 0, 62, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#263238'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, 62, 0, 7); ctx.stroke();
+  // 6 камор: одна под стволом (угол 0)
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const kx = Math.cos(a) * 36, ky = Math.sin(a) * 36;
+    ctx.beginPath(); ctx.arc(kx, ky, 14, 0, 7);
+    ctx.fillStyle = i < fired ? '#20262b' : '#37474f';
+    ctx.fill();
+    ctx.strokeStyle = '#263238'; ctx.lineWidth = 1.5; ctx.stroke();
+    if (i >= fired) {
+      // пуля латунная
+      const bul = ctx.createRadialGradient(kx - 3, ky - 3, 1, kx, ky, 9);
+      bul.addColorStop(0, '#ffe082'); bul.addColorStop(1, '#c62828');
+      ctx.fillStyle = bul;
+      ctx.beginPath(); ctx.arc(kx, ky, 8, 0, 7); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(120,144,156,0.4)';
+      ctx.beginPath(); ctx.arc(kx, ky, 8, 0, 7); ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // курок
+  ctx.strokeStyle = '#b0bec5'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(cx - 45, cy + 42, 20, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 45, cy + 22); ctx.lineTo(cx - 45, cy + 8); ctx.stroke();
+
+  // метка каморы под курком
+  if (fired > 0) {
+    ctx.fillStyle = '#ffc107';
+    ctx.font = 'bold 12px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText(`💥 выстрелов: ${fired}/6`, cx + 10, 24);
+    ctx.textAlign = 'left';
+  }
+
+  // выстрел
+  if (bang) {
+    const t = Date.now();
+    const flash = ctx.createRadialGradient(cx + 150, cy, 5, cx + 150, cy, 90);
+    flash.addColorStop(0, 'rgba(255,235,120,0.95)'); flash.addColorStop(0.5, 'rgba(255,80,0,0.6)'); flash.addColorStop(1, 'rgba(255,0,0,0)');
+    ctx.fillStyle = flash;
+    ctx.beginPath(); ctx.arc(cx + 150, cy, 90, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ff5252';
+    ctx.font = 'bold 44px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText('BANG!', W / 2, H - 26);
+    ctx.textAlign = 'left';
+    setTimeout(() => rrDrawRevolver(0, rrCache && rrCache.game ? rrCache.game.chambersFired : 6, false), 1200);
+  }
+}
+
+// Сокет-хендлеры дуэли на выживание
+function bindRaceRrHandlers() {
+  socket.on('rr_challenge', (d) => {
+    const room = document.getElementById("room-rr");
+    if (room && room.style.display !== 'none') { rrRefresh(); return; }
+    playNoticeSound();
+    if (confirm(`🔫 ${d.from} вызывает тебя на русскую рулетку — ставка ${d.bet}$. Принять?`)) {
+      rrRespond(d.id, true);
+    } else {
+      rrRespond(d.id, false);
+    }
+  });
+  socket.on('rr_start', (d) => { playNoticeSound(); rrSpinAnim(); if (d.balance != null) casinoSetBalance(d.balance); rrRefresh(); });
+  socket.on('rr_turn', (d) => { playNoticeSound(); rrRefresh(); });
+  socket.on('rr_result', (d) => {
+    rrDrawRevolver(0, 6, true);
+    playNoticeSound();
+    const msg = document.getElementById("rrMsg");
+    if (msg) {
+      msg.innerHTML = d.youWin
+        ? `🏆 <b>${escapeHtml(d.winner)}</b> выжил! <b>${escapeHtml(d.loser)}</b> лёг. Твой выигрыш: <b style="color:#ffc107;">+${d.payout}$</b>`
+        : `💀 БА-БАХ. <b>${escapeHtml(d.loser)}</b> лёг — это ты. Победитель: <b>${escapeHtml(d.winner)}</b>`;
+    }
+    if (d.youWin && d.balance != null) casinoSetBalance(d.balance);
+    rrCache = null;
+    setTimeout(rrRefresh, 2500);
+  });
+  socket.on('rr_declined', (d) => {
+    const msg = document.getElementById("rrMsg");
+    if (msg) msg.innerText = `😤 ${d.to} отказался от дуэли`;
+    rrRefresh();
+  });
+  socket.on('rr_expired', () => rrRefresh());
+  socket.on('race_result', () => { raceLoad(); });
+  socket.on('race_start', () => { playNoticeSound(); raceLoad(); });
+}

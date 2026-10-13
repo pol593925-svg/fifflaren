@@ -97,7 +97,8 @@ function showNotification(payload) {
     from: payload.from || 'Fifflaren',
     time: payload.time || '',
     muted: muted ? '1' : '0',
-    color: payload.color === 'blue' ? 'blue' : 'red'
+    color: payload.color === 'blue' ? 'blue' : 'red',
+    sound: ['default', 'fart', 'moan'].includes(payload.sound) ? payload.sound : 'default'
   });
   notifyWindow.webContents.loadFile('notification.html', { query: Object.fromEntries(q) });
   notifyWindow.show();

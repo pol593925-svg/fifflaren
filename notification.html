@@ -71,6 +71,7 @@
     const time = params.get('time') || '';
     const muted = params.get('muted') === '1';
     const isBlue = params.get('color') === 'blue';
+    const sound = params.get('sound') || 'default';
 
     if (isBlue) document.body.classList.add('blue');
     document.getElementById('textLabel').textContent = text;
@@ -79,6 +80,7 @@
 
     // Если автоплей не сработал (политики), пробуем ещё раз по клику
     const snd = document.getElementById('snd');
+    snd.src = sound === 'fart' ? 'fart.mp3' : sound === 'moan' ? 'moan.mp3' : 'alert.wav';
     snd.volume = 1.0;
     const tryPlay = () => { if (!muted) snd.play().catch(() => {}); };
     tryPlay();

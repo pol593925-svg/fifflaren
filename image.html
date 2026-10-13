@@ -81,6 +81,7 @@
       } else {
         cap.style.display = 'none';
       }
+      snd.src = p.sound === 'fart' ? 'fart.mp3' : p.sound === 'moan' ? 'moan.mp3' : 'alert.wav';
       snd.currentTime = 0;
       if (!p.muted) snd.play().catch(() => {});
     });

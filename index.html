@@ -360,6 +360,11 @@
         <textarea id="adminNotifyText" rows="2" placeholder="Текст, который вылезет у сотрудника поверх всех окон..."></textarea>
         <div class="row-group">
           <select id="adminNotifyTarget"><option value="all">🌍 Всем сотрудникам</option></select>
+          <select id="adminNotifySound" title="Звук уведомления" style="max-width:150px;">
+            <option value="default">🔔 Стандартный</option>
+            <option value="fart">💨 Пердёж</option>
+            <option value="moan">🔞 Стоны</option>
+          </select>
           <button id="adminNotifySendBtn" class="template-btn" style="background:#dc3545; font-weight:bold;">⚡ Отправить</button>
         </div>
         <p id="adminNotifyStatus" class="msg"></p>
@@ -596,6 +601,9 @@
           <button class="casino-room-btn" onclick="openCasinoRoom('mines')">💣<span>Сапёр</span></button>
           <button class="casino-room-btn" onclick="openCasinoRoom('poker')">🂡<span>Покер</span></button>
           <button class="casino-room-btn" onclick="openCasinoRoom('snake')">🐍<span>Дать в рот обии</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('race')">🏇<span>Петушиные бега</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('case')">🎁<span>Кейс дня</span></button>
+          <button class="casino-room-btn" onclick="openCasinoRoom('rr')">🔫<span>Русская рулетка</span></button>
           <button class="casino-room-btn casino-room-bank" onclick="openCasinoRoom('bank')">🏦<span>Банк</span></button>
         </div>
 
@@ -792,6 +800,49 @@
         <canvas id="snakeCanvas" width="360" height="360" style="max-width:100%; border:2px solid #2a323c; border-radius:8px; background:#0d0f12; margin:8px auto; display:block;"></canvas>
         <div id="snakeScore" style="font-size:13px; color:#20c997; min-height:18px;">Счёт: 0</div>
         <button id="snakeStartBtn" class="submit-btn green" style="font-size:13px;">▶️ Начать</button>
+      </div>
+
+      <!-- КОМНАТА: Петушиные бега (3.13.0) -->
+      <div class="casino-room" id="room-race" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🏇 Петушиные бега</h4>
+        <p style="font-size:10px; color:#aaa;">Ставь на петуха до старта. Победитель забирает ставку ×коэффициент. Ставка 5–500$.</p>
+        <div id="raceStatus" style="font-size:13px; color:#ffc107; min-height:20px; margin:4px 0;">Загрузка...</div>
+        <canvas id="raceCanvas" width="420" height="300" style="max-width:100%; border:2px solid #2a323c; border-radius:8px; background:#0d0f12; margin:6px auto; display:block;"></canvas>
+        <div id="raceRoosters" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:8px 0;"></div>
+        <div class="row-group" style="justify-content:center;">
+          <input type="number" id="raceBetAmount" min="5" max="500" value="10" style="width:80px;">
+          <button id="raceBetBtn" class="submit-btn green" style="font-size:13px;">🏇 Поставить</button>
+        </div>
+        <p id="raceMsg" class="msg" style="min-height:16px;"></p>
+      </div>
+
+      <!-- КОМНАТА: Кейс дня (3.13.0) -->
+      <div class="casino-room" id="room-case" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🎁 Кейс дня</h4>
+        <p style="font-size:10px; color:#aaa;">Один кейс в день бесплатно. VIP-уровень повышает шансы на жирный дроп.</p>
+        <canvas id="caseCanvas" width="360" height="220" style="max-width:100%; border:2px solid #2a323c; border-radius:8px; background:#0d0f12; margin:8px auto; display:block;"></canvas>
+        <button id="caseOpenBtn" class="submit-btn green" style="font-size:14px;">🔓 Открыть кейс</button>
+        <p id="caseMsg" class="msg" style="min-height:18px;"></p>
+      </div>
+
+      <!-- КОМНАТА: Русская рулетка (3.13.0) -->
+      <div class="casino-room" id="room-rr" style="display:none;">
+        <button class="template-btn" style="background:#333; margin-bottom:8px;" onclick="closeCasinoRoom()">← В лобби</button>
+        <h4>🔫 Русская рулетка</h4>
+        <p style="font-size:10px; color:#aaa;">Дуэль на деньги: по очереди нажимай на курок. Кто нарвётся на пулю — проиграл ставку. 5–100$.</p>
+        <div id="rrStatus" style="font-size:13px; color:#ffc107; min-height:20px; margin:4px 0;"></div>
+        <canvas id="rrCanvas" width="360" height="300" style="max-width:100%; border:2px solid #2a323c; border-radius:8px; background:#0d0f12; margin:6px auto; display:block;"></canvas>
+        <div class="row-group" style="justify-content:center; margin-top:6px;">
+          <select id="rrOpponent" style="flex:1; max-width:150px;"></select>
+          <input type="number" id="rrBet" min="5" max="100" value="20" style="width:70px;">
+          <button id="rrChallengeBtn" class="template-btn" style="background:#dc3545; font-size:12px;">⚔️ Вызвать</button>
+        </div>
+        <div class="row-group" style="justify-content:center; margin-top:6px;">
+          <button id="rrPullBtn" class="submit-btn green" style="font-size:14px; display:none;">💥 Нажать на курок</button>
+        </div>
+        <p id="rrMsg" class="msg" style="min-height:16px;"></p>
       </div>
 
       <!-- КОМНАТА: Банк -->

@@ -130,6 +130,13 @@ document.addEventListener("DOMContentLoaded", () => {
         currentRole = data.role || 'user';
         localStorage.setItem('global_worker_nick', data.username);
         localStorage.setItem('support_hub_user', data.username);
+        // 3.12.0: «Оставаться в системе»
+        const rememberBox = document.getElementById("authRemember");
+        if (rememberBox && rememberBox.checked) {
+          localStorage.setItem('sh_auth', JSON.stringify({ u: username, p: password }));
+        } else {
+          localStorage.removeItem('sh_auth');
+        }
 
         if (authScreen) authScreen.style.display = "none";
         authSubmitBtn.disabled = false;
@@ -2504,7 +2511,13 @@ async function casinoLoadState() {
       const btn = document.getElementById("casinoDailyBtn");
       if (btn) {
         btn.disabled = !data.dailyAvailable;
-        btn.textContent = data.dailyAvailable ? '🎁 +20$/день' : '🎁 Завтра';
+        btn.textContent = data.dailyAvailable ? `🎁 +${data.dailyAmount || 20}$/день` : '🎁 Завтра';
+      }
+      const vip = document.getElementById("casinoVip");
+      if (vip) {
+        const lvl = data.level || 0;
+        vip.textContent = `⭐ Уровень ${lvl} · оборот ${data.wagered || 0}$ · ежедневный бонус до +${data.dailyAmount || 20}$`;
+        vip.style.display = '';
       }
     }
   } catch (e) { /* молча */ }
@@ -3511,6 +3524,11 @@ window.openCasinoRoom = (room) => {
   else if (room === 'bank') { doddepLoadMy(); loadShopItems(); }
   else if (room === 'blackjack') bjLoadState();
   else if (room === 'slot') slotSetTheme(slotTheme);
+  else if (room === 'wheel') wheelLoad();
+  else if (room === 'lottery') lotteryLoad();
+  else if (room === 'mines') minesRender(null);
+  else if (room === 'poker') { pokerHeld = []; pokerRenderHand(null); }
+  else if (room === 'snake') snakeShowBest();
 };
 
 // Назад в лобби
@@ -4303,3 +4321,540 @@ window.bsSurrender = async () => {
   } catch (e) {}
 };
 bindClick("bsSurrenderBtn", bsSurrender);
+
+// ==================== 3.12.0: КЛИЕНТ — переводы, колесо, лотерея, сапёр, покер, змейка ====================
+
+// --- ПЕРЕВОДЫ ---
+window.transferSend = async () => {
+  const to = (document.getElementById("transferTo")?.value || '').trim();
+  const amount = Math.floor(Number(document.getElementById("transferAmount")?.value || 0));
+  const st = document.getElementById("transferStatus");
+  if (!to || amount < 5) { if (st) { st.textContent = '❌ Укажи ник и сумму от 5$'; st.style.color = '#ff6b6b'; } return; }
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/transfer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: currentUser, to, amount })
+    });
+    const data = await res.json();
+    if (!data.success) { if (st) { st.textContent = '❌ ' + (data.message || 'Ошибка'); st.style.color = '#ff6b6b'; } return; }
+    casinoSetBalance(data.balance);
+    if (st) { st.textContent = `✅ Отправлено ${to}: ${data.delivered}$ (комиссия ${data.fee}$)`; st.style.color = '#20c997'; }
+  } catch (e) { if (st) { st.textContent = '❌ Ошибка соединения'; st.style.color = '#ff6b6b'; } }
+};
+bindClick("transferBtn", () => transferSend());
+
+// --- КОЛЕСО ФОРТУНЫ ---
+let wheelSectors = [];
+let wheelAvailable = false;
+let wheelSpinning = false;
+const WHEEL_KIND_COLOR = (id) => id.startsWith('fine') ? '#c0392b' : id.startsWith('win') ? '#27ae60' : id === 'spin' ? '#8e44ad' : '#2980b9';
+
+function wheelDraw(rotation) {
+  const cv = document.getElementById("wheelCanvas");
+  if (!cv || !wheelSectors.length) return;
+  const ctx = cv.getContext("2d");
+  const R = cv.width / 2, cx = R, cy = R;
+  const total = wheelSectors.reduce((s, x) => s + x.w, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  let a = 0;
+  wheelSectors.forEach((s) => {
+    const seg = (s.w / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, R - 6, a, a + seg);
+    ctx.closePath();
+    ctx.fillStyle = WHEEL_KIND_COLOR(s.id);
+    ctx.fill();
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // подпись
+    ctx.save();
+    ctx.rotate(a + seg / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px Arial';
+    ctx.fillText(s.label, R - 14, 4);
+    ctx.restore();
+    a += seg;
+  });
+  ctx.restore();
+  // стрелка сверху
+  ctx.beginPath();
+  ctx.moveTo(cx - 10, 4);
+  ctx.lineTo(cx + 10, 4);
+  ctx.lineTo(cx, 24);
+  ctx.closePath();
+  ctx.fillStyle = '#ffd54a';
+  ctx.fill();
+  ctx.strokeStyle = '#000';
+  ctx.stroke();
+  // центр
+  ctx.beginPath();
+  ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+  ctx.fillStyle = '#1a1d20';
+  ctx.fill();
+  ctx.strokeStyle = '#ffd54a';
+  ctx.stroke();
+}
+
+window.wheelLoad = async () => {
+  const btn = document.getElementById("wheelSpinBtn");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/wheel/state?username=${encodeURIComponent(currentUser)}`);
+    const data = await res.json();
+    if (data.success) {
+      wheelSectors = data.sectors;
+      wheelAvailable = data.available;
+      wheelDraw(0);
+      if (btn) { btn.disabled = !wheelAvailable; btn.textContent = wheelAvailable ? '🎡 Крутануть!' : '🎡 Уже крутил — завтра'; }
+    }
+  } catch (e) {}
+};
+
+bindClick("wheelSpinBtn", async () => {
+  if (wheelSpinning) return;
+  const resEl = document.getElementById("wheelResult");
+  const btn = document.getElementById("wheelSpinBtn");
+  wheelSpinning = true;
+  if (btn) btn.disabled = true;
+  if (resEl) resEl.textContent = 'Крутим...';
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/wheel/spin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      if (resEl) { resEl.textContent = '❌ ' + (data.message || 'Ошибка'); resEl.style.color = '#ff6b6b'; }
+      wheelSpinning = false;
+      if (btn) btn.disabled = false;
+      return;
+    }
+    const idx = wheelSectors.findIndex(s => s.id === data.sector);
+    const total = wheelSectors.reduce((s, x) => s + x.w, 0);
+    const seg = (wheelSectors[idx].w / total) * Math.PI * 2;
+    // центр выигравшего сектора должен оказаться под стрелкой (верх = -π/2)
+    let before = 0;
+    for (let i = 0; i < idx; i++) before += (wheelSectors[i].w / total) * Math.PI * 2;
+    const center = before + seg / 2;
+    const target = Math.PI * 2 * 6 - center - Math.PI / 2;
+    const start = performance.now(), DUR = 4200;
+    const step = (now) => {
+      const p = Math.min(1, (now - start) / DUR);
+      const ease = 1 - Math.pow(1 - p, 3);
+      wheelDraw(target * ease);
+      if (p < 1) requestAnimationFrame(step);
+      else {
+        casinoSetBalance(data.balance);
+        casinoLoadState();
+        if (resEl) {
+          resEl.textContent = `🎯 ${data.label} — ${data.detail}`;
+          resEl.style.color = data.kind === 'fine' ? '#ff6b6b' : '#20c997';
+        }
+        if (btn) btn.textContent = '🎡 Завтра снова';
+        wheelSpinning = false;
+      }
+    };
+    requestAnimationFrame(step);
+  } catch (e) {
+    wheelSpinning = false;
+    if (btn) btn.disabled = false;
+  }
+});
+
+// --- ЛОТЕРЕЯ ---
+let lotteryInt = null;
+function lotteryFmtMs(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return `${h}ч ${String(m).padStart(2, '0')}м ${String(sec).padStart(2, '0')}с`;
+}
+
+window.lotteryLoad = async () => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/lottery/state?username=${encodeURIComponent(currentUser)}`);
+    const d = await res.json();
+    if (!d.success) return;
+    const pool = document.getElementById("lotteryPool");
+    const tickets = document.getElementById("lotteryTickets");
+    const my = document.getElementById("lotteryMy");
+    const last = document.getElementById("lotteryLast");
+    if (pool) pool.textContent = d.pool + '$';
+    if (tickets) tickets.textContent = d.tickets;
+    if (my) my.textContent = d.myTickets;
+    if (last) last.textContent = d.lastWinner ? `Последний победитель: ${d.lastWinner.winner} — ${d.lastWinner.pool}$ (${d.lastWinner.date})` : '';
+    const btn = document.getElementById("lotteryBuyBtn");
+    if (btn) btn.disabled = !!d.played;
+    if (lotteryInt) clearInterval(lotteryInt);
+    lotteryInt = setInterval(() => {
+      const t = document.getElementById("lotteryTimer");
+      if (!t || d.played) { if (t) t.textContent = 'Сегодня розыгрыш состоялся — жди завтра'; clearInterval(lotteryInt); return; }
+      d.msUntilDraw -= 1000;
+      t.textContent = d.msUntilDraw > 0 ? `До розыгрыша: ${lotteryFmtMs(d.msUntilDraw)}` : '🎲 Розыгрыш...';
+    }, 1000);
+  } catch (e) {}
+};
+
+bindClick("lotteryBuyBtn", async () => {
+  const st = document.getElementById("lotteryStatus");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/lottery/buy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser })
+    });
+    const data = await res.json();
+    if (!data.success) { if (st) { st.textContent = '❌ ' + (data.message || 'Ошибка'); st.style.color = '#ff6b6b'; } return; }
+    casinoSetBalance(data.balance);
+    if (st) { st.textContent = `✅ Билет #${data.ticket} куплен! Всего у тебя: ${data.myTickets}`; st.style.color = '#20c997'; }
+    lotteryLoad();
+  } catch (e) {}
+});
+
+// --- САПЁР ---
+let minesGame = null; // {status, opened, mines, bet, mineCount, multiplier, payout}
+
+window.minesRender = (game) => {
+  const field = document.getElementById("minesField");
+  const info = document.getElementById("minesInfo");
+  const startBtn = document.getElementById("minesStartBtn");
+  const cashBtn = document.getElementById("minesCashoutBtn");
+  if (!field) return;
+  if (game) minesGame = game;
+  if (!minesGame) minesGame = { status: 'idle', opened: [], mines: [] };
+  const g = minesGame;
+  field.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const b = document.createElement('button');
+    b.style.cssText = 'height:44px; font-size:18px; border-radius:6px; border:1px solid #2a323c; background:#1a1d20; color:#fff; cursor:pointer;';
+    if (g.status === 'done' && g.mines.includes(i)) {
+      b.textContent = '💣';
+      b.style.background = '#5c1a1a';
+    } else if (g.opened.includes(i)) {
+      b.textContent = '💎';
+      b.style.background = '#1a3d2e';
+    } else {
+      b.textContent = g.status === 'idle' ? '' : '❔';
+      if (g.status === 'play') b.onclick = () => minesOpen(i);
+    }
+    field.appendChild(b);
+  }
+  if (info) {
+    if (g.status === 'play') info.textContent = `Открыто ${g.opened.length} · множитель ×${g.multiplier} · заберёшь ${Math.round((g.bet * g.multiplier) * 100) / 100}$`;
+    else if (g.status === 'done') info.textContent = g.payout > 0 ? `💰 Забрано ${g.payout}$` : '💥 БУМ! Ставка сгорела';
+    else info.textContent = 'Выбери ставку и число мин, жми «Начать»';
+  }
+  if (startBtn) startBtn.textContent = g.status === 'play' ? '🔄 Заново (ставка сгорит)' : '▶️ Начать';
+  if (cashBtn) cashBtn.style.display = g.status === 'play' && g.opened.length > 0 ? '' : 'none';
+};
+
+window.minesStart = async () => {
+  try {
+    const bet = Number(document.getElementById("minesBet")?.value || 5);
+    const mines = Number(document.getElementById("minesCount")?.value || 5);
+    const res = await fetch(`${SERVER_API_URL}/api/casino/mines/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, bet, mines })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      const info = document.getElementById("minesInfo");
+      if (info) { info.textContent = '❌ ' + (data.message || 'Ошибка'); info.style.color = '#ff6b6b'; }
+      return;
+    }
+    casinoSetBalance(data.balance);
+    casinoLoadState();
+    minesRender(data.game);
+  } catch (e) {}
+};
+
+window.minesOpen = async (cell) => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/mines/open`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, cell })
+    });
+    const data = await res.json();
+    if (!data.success) return;
+    if (data.boom && data.balance != null) { casinoSetBalance(data.balance); casinoLoadState(); }
+    minesRender(data.game);
+  } catch (e) {}
+};
+
+window.minesCashout = async () => {
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/mines/cashout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser })
+    });
+    const data = await res.json();
+    if (!data.success) return;
+    if (data.balance != null) { casinoSetBalance(data.balance); casinoLoadState(); }
+    minesRender(data.game);
+  } catch (e) {}
+};
+
+bindClick("minesStartBtn", () => minesStart());
+bindClick("minesCashoutBtn", () => minesCashout());
+
+// --- ВИДЕО-ПОКЕР ---
+let pokerHeld = [];
+let pokerCurrentHand = null;
+
+function pokerCardHtml(card, idx, interactive) {
+  const red = card.s === '♥' || card.s === '♦';
+  const held = pokerHeld.includes(idx);
+  const border = held ? 'border:2px solid #ffd54a; box-shadow:0 0 10px rgba(255,213,74,0.6);' : 'border:1px solid #444;';
+  const onclick = interactive ? `onclick="pokerToggle(${idx})"` : '';
+  return `<div ${onclick} style="display:inline-block; min-width:44px; padding:8px 4px; border-radius:8px; background:#fff; color:${red ? '#c0392b' : '#111'}; font-weight:bold; font-size:20px; text-align:center; cursor:${interactive ? 'pointer' : 'default'}; ${border}">
+    ${card.r}<br>${card.s}${held ? '<div style="font-size:9px; color:#b8860b;">ДЕРЖУ</div>' : ''}
+  </div>`;
+}
+
+window.pokerRenderHand = (hand, interactive) => {
+  const box = document.getElementById("pokerHand");
+  if (!box) return;
+  if (hand) pokerCurrentHand = hand;
+  if (!pokerCurrentHand) { box.innerHTML = '<p style="color:#777; font-size:12px;">Жми «Раздать» — ставка спишется</p>'; return; }
+  box.innerHTML = pokerCurrentHand.map((c, i) => pokerCardHtml(c, i, interactive)).join('');
+};
+
+window.pokerToggle = (idx) => {
+  if (!pokerCurrentHand || !document.getElementById("pokerDrawBtn") || document.getElementById("pokerDrawBtn").style.display === 'none') return;
+  const i = pokerHeld.indexOf(idx);
+  if (i >= 0) pokerHeld.splice(i, 1);
+  else pokerHeld.push(idx);
+  pokerRenderHand(null, true);
+};
+
+bindClick("pokerDealBtn", async () => {
+  const bet = Number(document.getElementById("pokerBet")?.value || 5);
+  const resEl = document.getElementById("pokerResult");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/poker/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, bet })
+    });
+    const data = await res.json();
+    if (!data.success) { if (resEl) { resEl.textContent = '❌ ' + (data.message || 'Ошибка'); resEl.style.color = '#ff6b6b'; } return; }
+    casinoSetBalance(data.balance);
+    casinoLoadState();
+    pokerHeld = [];
+    pokerRenderHand(data.hand, true);
+    const drawBtn = document.getElementById("pokerDrawBtn");
+    if (drawBtn) drawBtn.style.display = '';
+    if (resEl) { resEl.textContent = 'Отметь карты, которые ОСТАВИШЬ (ДЕРЖУ), и жми «Поменять остальные»'; resEl.style.color = '#aaa'; }
+  } catch (e) {}
+});
+
+bindClick("pokerDrawBtn", async () => {
+  const resEl = document.getElementById("pokerResult");
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/casino/poker/draw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: currentUser, hold: pokerHeld })
+    });
+    const data = await res.json();
+    if (!data.success) { if (resEl) { resEl.textContent = '❌ ' + (data.message || 'Ошибка'); resEl.style.color = '#ff6b6b'; } return; }
+    casinoSetBalance(data.balance);
+    casinoLoadState();
+    pokerHeld = [];
+    pokerRenderHand(data.hand, false);
+    const drawBtn = document.getElementById("pokerDrawBtn");
+    if (drawBtn) drawBtn.style.display = 'none';
+    if (resEl) {
+      resEl.textContent = data.mult > 0 ? `🎉 ${data.combo}! Выплата +${data.payout}$ (×${data.mult})` : `💀 ${data.combo} — ставка сгорела`;
+      resEl.style.color = data.mult > 0 ? '#20c997' : '#ff6b6b';
+    }
+  } catch (e) {}
+});
+
+// --- ЗМЕЙКА «ДАТЬ В РОТ ОБИИ» ---
+const snake = { grid: 20, cell: 18, body: [], dir: { x: 1, y: 0 }, food: null, score: 0, running: false, timer: null, speed: 160 };
+const obiiImg = new Image();
+obiiImg.src = 'obii-head.png';
+
+function snakeDraw() {
+  const cv = document.getElementById("snakeCanvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = '#0d0f12';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  // какашки-еда
+  if (snake.food) {
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💩', snake.food.x * snake.cell + snake.cell / 2, snake.food.y * snake.cell + snake.cell / 2);
+  }
+  // хвост — коричневые сегменты
+  for (let i = snake.body.length - 1; i > 0; i--) {
+    const s = snake.body[i];
+    ctx.fillStyle = i % 2 ? '#6b4a2b' : '#8a6238';
+    ctx.beginPath();
+    ctx.arc(s.x * snake.cell + snake.cell / 2, s.y * snake.cell + snake.cell / 2, snake.cell / 2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // голова — фото обии
+  if (snake.body.length) {
+    const h = snake.body[0];
+    const px = h.x * snake.cell, py = h.y * snake.cell;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(px + snake.cell / 2, py + snake.cell / 2, snake.cell / 2, 0, Math.PI * 2);
+    ctx.clip();
+    if (obiiImg.complete && obiiImg.naturalWidth) {
+      ctx.drawImage(obiiImg, px, py - 2, snake.cell, snake.cell + 4);
+    } else {
+      ctx.fillStyle = '#f0c8a0';
+      ctx.fillRect(px, py, snake.cell, snake.cell);
+    }
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(px + snake.cell / 2, py + snake.cell / 2, snake.cell / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = '#ffd54a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function snakePlaceFood() {
+  while (true) {
+    const f = { x: Math.floor(Math.random() * snake.grid), y: Math.floor(Math.random() * snake.grid) };
+    if (!snake.body.some(s => s.x === f.x && s.y === f.y)) { snake.food = f; return; }
+  }
+}
+
+function snakeTick() {
+  const head = { x: snake.body[0].x + snake.dir.x, y: snake.body[0].y + snake.dir.y };
+  // стены или сам себя — конец
+  if (head.x < 0 || head.y < 0 || head.x >= snake.grid || head.y >= snake.grid || snake.body.some(s => s.x === head.x && s.y === head.y)) {
+    snakeStop();
+    return;
+  }
+  snake.body.unshift(head);
+  if (snake.food && head.x === snake.food.x && head.y === snake.food.y) {
+    snake.score++;
+    snake.food = null;
+    snakePlaceFood();
+    // ускоряемся
+    if (snake.speed > 70 && snake.score % 3 === 0) {
+      snake.speed -= 8;
+      clearInterval(snake.timer);
+      snake.timer = setInterval(snakeTick, snake.speed);
+    }
+    const sc = document.getElementById("snakeScore");
+    if (sc) sc.textContent = `Счёт: ${snake.score}`;
+  } else {
+    snake.body.pop();
+  }
+  snakeDraw();
+}
+
+function snakeStop() {
+  snake.running = false;
+  clearInterval(snake.timer);
+  snake.timer = null;
+  const best = Math.max(snake.score, Number(localStorage.getItem('sh_snake_best') || 0));
+  localStorage.setItem('sh_snake_best', String(best));
+  snakeShowBest();
+  const sc = document.getElementById("snakeScore");
+  if (sc) { sc.textContent = `💀 Конец! Съедено: ${snake.score}. Рекорд: ${best}`; sc.style.color = '#ff6b6b'; }
+  const btn = document.getElementById("snakeStartBtn");
+  if (btn) btn.textContent = '▶️ Ещё раз';
+}
+
+window.snakeShowBest = () => {
+  const b = document.getElementById("snakeBest");
+  if (b) b.textContent = localStorage.getItem('sh_snake_best') || '0';
+};
+
+window.snakeStart = () => {
+  if (snake.running) return;
+  snake.body = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  snake.dir = { x: 1, y: 0 };
+  snake.score = 0;
+  snake.speed = 160;
+  snake.running = true;
+  snakePlaceFood();
+  const sc = document.getElementById("snakeScore");
+  if (sc) { sc.textContent = 'Счёт: 0'; sc.style.color = '#20c997'; }
+  const btn = document.getElementById("snakeStartBtn");
+  if (btn) btn.textContent = '⏳ Игра...';
+  snakeDraw();
+  snake.timer = setInterval(snakeTick, snake.speed);
+};
+
+bindClick("snakeStartBtn", () => snakeStart());
+
+document.addEventListener('keydown', (e) => {
+  if (!snake.running) return;
+  const k = e.key.toLowerCase();
+  const dirs = { arrowup: { x: 0, y: -1 }, w: { x: 0, y: -1 }, arrowdown: { x: 0, y: 1 }, s: { x: 0, y: 1 }, arrowleft: { x: -1, y: 0 }, a: { x: -1, y: 0 }, arrowright: { x: 1, y: 0 }, d: { x: 1, y: 0 } };
+  const nd = dirs[k];
+  if (!nd) return;
+  e.preventDefault();
+  // нельзя развернуться в себя
+  if (snake.body.length > 1 && nd.x === -snake.dir.x && nd.y === -snake.dir.y) return;
+  snake.dir = nd;
+});
+
+// ==================== 3.12.0: АВТОЛОГИН («Оставаться в системе») ====================
+(function () {
+  const doAutoLogin = async () => {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('sh_auth') || 'null'); } catch (e) {}
+    if (!saved || !saved.u || !saved.p) return;
+    const authScreen = document.getElementById("authScreen");
+    const err = document.getElementById("authErrorMsg");
+    if (err) err.innerText = 'Автовход...';
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(`${SERVER_API_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: saved.u, password: saved.p }),
+        signal: controller.signal
+      });
+      clearTimeout(t);
+      const data = await response.json();
+      if (!data || !data.success) {
+        localStorage.removeItem('sh_auth');
+        if (err) err.innerText = '';
+        return;
+      }
+      currentUser = data.username;
+      currentRole = data.role || 'user';
+      localStorage.setItem('global_worker_nick', data.username);
+      localStorage.setItem('support_hub_user', data.username);
+      if (authScreen) authScreen.style.display = 'none';
+      applyNickToApp(data.username);
+      loadHQRoster();
+      if (currentRole === 'admin') setupAdminPanel();
+      checkTLStatus();
+      initSocketConnection(data.username);
+    } catch (e) {
+      if (err) err.innerText = '';
+    }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', doAutoLogin);
+  else doAutoLogin();
+})();
+
+// 3.12.0: кнопка выхода из аккаунта
+bindClick("logoutBtn", () => {
+  localStorage.clear();
+  location.reload();
+});

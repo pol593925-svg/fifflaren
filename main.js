@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer, globalShortcut } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -474,6 +474,14 @@ function createQuickWindow(mode) {
 
 ipcMain.on('show-toolbar', () => createToolbarWindow());
 ipcMain.on('open-quick', (e, mode) => createQuickWindow(mode));
+// 3.14.3: кнопка казино из меню питомца — открываем вкладку казино в главном окне
+ipcMain.on('open-casino', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send('open-casino');
+  }
+});
 ipcMain.on('close-quick', () => { if (quickWindow) quickWindow.close(); });
 ipcMain.on('toggle-toolbar', () => {
   // 3.14.2: сворачивание убрано — меню открывается кругом по клику на морду; оставлено как пустышка для совместимости
@@ -516,6 +524,18 @@ app.whenReady().then(() => {
   createNotifyWindow();
   createImageWindow();
   createTray();
+
+  // 3.14.3: Ctrl+5 — показать/скрыть питомца Ебобию поверх всех окон
+  globalShortcut.register('Control+5', () => {
+    if (!toolbarWindow || toolbarWindow.isDestroyed()) {
+      createToolbarWindow();
+    } else if (toolbarWindow.isVisible()) {
+      toolbarWindow.hide();
+    } else {
+      toolbarWindow.show();
+      toolbarWindow.focus();
+    }
+  });
 
   // Разрешаем микрофон (голосовые в ЛС) и медиа
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
@@ -589,4 +609,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });

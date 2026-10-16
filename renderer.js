@@ -1693,10 +1693,9 @@ let pmWith = "";
 let lastProfileNick = "";
 let soundOn = localStorage.getItem('sh_sound') !== 'off';
 
-function playNoticeSound() {
-  if (!soundOn) return;
-  try { tlSound.currentTime = 0; tlSound.play().catch(() => {}); } catch (e) {}
-}
+// 3.14.3: все «писки» в приложении отключены — звук остаётся только на SMS/фото/скример
+// (окна notification.html / image.html / scare.html, глушится кнопкой 🔊/🔇 через set-muted)
+function playNoticeSound() {}
 
 function applySoundBtn() {
   const b = document.getElementById("soundToggleBtn");
@@ -1974,10 +1973,7 @@ function buildTlEventItem(ev, timeStr) {
   return item;
 }
 
-function playTlSound() {
-  if (!soundOn) return;
-  try { tlSound.currentTime = 0; tlSound.play().catch(() => {}); } catch (e) {}
-}
+function playTlSound() {} // 3.14.3: звук ТЛ-ленты и событий питомца отключён вместе с остальными «писками»
 
 // Событие прилетело по сокету — добавляем в живую ленту и играем звук
 function handleTlEvent(payload) {
@@ -5660,4 +5656,11 @@ ipcRenderer.on('quick-submit', async (e, payload) => {
   } catch (err) {
     ipcRenderer.send('quick-result', { ok: false, message: '❌ Нет связи с сервером' });
   }
+});
+
+
+// 3.14.3: кнопка «Казино» из меню питомца Ебобия — открываем вкладку казино
+ipcRenderer.on('open-casino', () => {
+  const btn = document.querySelector('.tab-btn[data-tab="casino"]');
+  if (btn) btn.click(); // переключит вкладку и запустит casinoEnter (заставка → лобби)
 });

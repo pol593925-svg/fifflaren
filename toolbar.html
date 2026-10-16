@@ -54,10 +54,11 @@
     .open .orb { opacity: 1; transform: rotate(var(--a)) translate(0, -82px) rotate(calc(-1 * var(--a))); }
     .open .orb:hover { filter: brightness(1.2); box-shadow: 0 0 12px rgba(255,255,255,0.5); }
     .o1 { --a: -90deg; background: #dc3545; transition-delay: 0.00s; }
-    .o2 { --a: -18deg; background: #0d6efd; transition-delay: 0.03s; }
-    .o3 { --a:  54deg; background: #198754; transition-delay: 0.06s; }
-    .o4 { --a: 126deg; background: #fd7e14; transition-delay: 0.09s; }
-    .o5 { --a: 198deg; background: #6f42c1; transition-delay: 0.12s; }
+    .o2 { --a: -30deg; background: #0d6efd; transition-delay: 0.03s; }
+    .o3 { --a:  30deg; background: #198754; transition-delay: 0.06s; }
+    .o4 { --a:  90deg; background: #fd7e14; transition-delay: 0.09s; }
+    .o5 { --a: 150deg; background: #6f42c1; transition-delay: 0.12s; }
+    .o6 { --a: 210deg; background: #9b59b6; transition-delay: 0.15s; }
   </style>
 </head>
 <body>
@@ -67,6 +68,7 @@
     <button class="orb o3" data-mode="leave"      title="🏖 Отпроситься">🏖️</button>
     <button class="orb o4" data-mode="question"   title="❓ Вопрос тиму">❓</button>
     <button class="orb o5" data-mode="translator" title="🌐 Переводчик (текст и фото)">🌐</button>
+    <button class="orb o6" data-mode="casino"      title="🎰 Казино">🎰</button>
 
     <img src="obii-head.png" class="avatar" id="avatar" title="Ебобия — жми, чтобы открыть меню">
     <div class="pname">Ебобия</div>
@@ -84,7 +86,11 @@
 
     document.querySelectorAll('.orb').forEach(btn => {
       btn.addEventListener('click', () => {
-        ipcRenderer.send('open-quick', btn.dataset.mode);
+        if (btn.dataset.mode === 'casino') {
+          ipcRenderer.send('open-casino'); // 3.14.3: открыть вкладку казино в главном окне
+        } else {
+          ipcRenderer.send('open-quick', btn.dataset.mode);
+        }
         pet.classList.remove('open');
       });
     });

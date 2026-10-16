@@ -438,9 +438,9 @@ function createToolbarWindow() {
   if (toolbarWindow && !toolbarWindow.isDestroyed()) return;
   const display = screen.getPrimaryDisplay();
   toolbarWindow = new BrowserWindow({
-    width: 116, height: 336,
-    x: display.workArea.x + display.workArea.width - 124,
-    y: display.workArea.y + Math.round(display.workArea.height / 2 - 168),
+    width: 224, height: 224,
+    x: display.workArea.x + display.workArea.width - 232,
+    y: display.workArea.y + Math.round(display.workArea.height / 2 - 112),
     frame: false, resizable: false, maximizable: false, minimizable: false,
     alwaysOnTop: true, skipTaskbar: true, transparent: true, backgroundColor: '#00000000',
     webPreferences: { nodeIntegration: true, contextIsolation: false }
@@ -476,13 +476,7 @@ ipcMain.on('show-toolbar', () => createToolbarWindow());
 ipcMain.on('open-quick', (e, mode) => createQuickWindow(mode));
 ipcMain.on('close-quick', () => { if (quickWindow) quickWindow.close(); });
 ipcMain.on('toggle-toolbar', () => {
-  toolbarCollapsed = !toolbarCollapsed;
-  if (toolbarWindow && !toolbarWindow.isDestroyed()) {
-    const [x, y] = toolbarWindow.getPosition();
-    if (toolbarCollapsed) toolbarWindow.setBounds({ x: x + 60, y, width: 56, height: 100 });
-    else toolbarWindow.setBounds({ x: x - 60, y, width: 116, height: 336 });
-    toolbarWindow.webContents.send('toolbar-collapse-state', toolbarCollapsed);
-  }
+  // 3.14.2: сворачивание убрано — меню открывается кругом по клику на морду; оставлено как пустышка для совместимости
 });
 // Формы питомца отправляем в главное окно (там сокет и авторизация)
 ipcMain.on('quick-submit', (e, data) => { if (mainWindow && mainWindow.webContents) mainWindow.webContents.send('quick-submit', data); });

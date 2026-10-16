@@ -479,7 +479,7 @@ ipcMain.on('toggle-toolbar', () => {
   toolbarCollapsed = !toolbarCollapsed;
   if (toolbarWindow && !toolbarWindow.isDestroyed()) {
     const [x, y] = toolbarWindow.getPosition();
-    if (toolbarCollapsed) toolbarWindow.setBounds({ x: x + 60, y, width: 56, height: 76 });
+    if (toolbarCollapsed) toolbarWindow.setBounds({ x: x + 60, y, width: 56, height: 100 });
     else toolbarWindow.setBounds({ x: x - 60, y, width: 116, height: 336 });
     toolbarWindow.webContents.send('toolbar-collapse-state', toolbarCollapsed);
   }

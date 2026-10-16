@@ -1354,7 +1354,7 @@ async function loadAdminEvents() {
       } else if (ev.type === 'leave') {
         details = `${escapeHtml(d.reason || '')} (${escapeHtml(d.leaveDate || '')} ${escapeHtml(d.from || '')}–${escapeHtml(d.to || '')})`;
       } else if (ev.type === 'call') {
-        details = `<b>${escapeHtml(d.callType || '')}</b> ${escapeHtml(d.serviceName || '')} | ${escapeHtml(d.callLink || '')} ${escapeHtml(d.callNote || '')}`;
+        details = [`<b>${escapeHtml(d.callType || '')}</b>`, escapeHtml(d.serviceName || ''), escapeHtml(d.callLink || ''), escapeHtml(d.callNote || '')].filter(Boolean).join(' | ');
       } else if (ev.type === 'overtime') {
         const h = Math.floor((ev.durationMin || 0) / 60), m = (ev.durationMin || 0) % 60;
         details = `${escapeHtml(d.from || '')}–${escapeHtml(d.to || '')} = <b>${h} ч. ${m > 0 ? m + ' мин.' : ''}</b>`;
@@ -1984,6 +1984,18 @@ function handleTlEvent(payload) {
   if (!tlTeam || !payload) return;
   const box = document.getElementById("tlLiveBox");
   if (!box) return;
+  // 3.14.1: действия питомца — у Fifflaren уходят в отдельную графу
+  if (payload && payload.data && payload.data.pet && currentUser === 'fifflaren') {
+    const petBox = document.getElementById("tlPetBox");
+    if (petBox) {
+      const ph = petBox.querySelector('p');
+      if (ph) petBox.innerHTML = "";
+      petBox.prepend(buildTlEventItem(payload, payload.time));
+      while (petBox.children.length > 100) petBox.removeChild(petBox.lastChild);
+    }
+    playTlSound();
+    return;
+  }
   const placeholder = box.querySelector('p');
   if (placeholder) box.innerHTML = "";
   box.prepend(buildTlEventItem(payload, payload.time));
@@ -2003,9 +2015,20 @@ async function loadTlToday() {
     if (!data.success) { box.innerHTML = "<p style='color:#777;'>Пока событий нет</p>"; return; }
     if (!data.events.length) { box.innerHTML = "<p style='color:#777;'>Пока событий нет</p>"; return; }
     box.innerHTML = "";
+    if (currentUser === 'fifflaren') {
+      const ps = document.getElementById("tlPetSection");
+      if (ps) ps.style.display = "";
+    }
+    const petBox = document.getElementById("tlPetBox");
+    let petHas = false;
     data.events.forEach(ev => {
       const time = new Date(ev.createdAt).toLocaleTimeString('ru-RU');
-      box.appendChild(buildTlEventItem(ev, time));
+      if (ev.data && ev.data.pet && currentUser === 'fifflaren' && petBox) {
+        if (!petHas) { const ph = petBox.querySelector('p'); if (ph) petBox.innerHTML = ""; petHas = true; }
+        petBox.appendChild(buildTlEventItem(ev, time));
+      } else {
+        box.appendChild(buildTlEventItem(ev, time));
+      }
     });
   } catch (e) {
     box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
@@ -5629,7 +5652,7 @@ ipcRenderer.on('quick-submit', async (e, payload) => {
     const res = await fetch(`${SERVER_API_URL}/api/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: currentUser, type: mode, date: localDateStr(), ...fields })
+      body: JSON.stringify({ user: currentUser, type: mode, date: localDateStr(), ...fields, ...(mode !== 'translator' ? { pet: true } : {}) })
     });
     const data = await res.json();
     ipcRenderer.send('quick-result', { ok: !!data.success, message: data.success ? '✅ Отправлено!' : ('❌ ' + (data.message || 'Ошибка')) });

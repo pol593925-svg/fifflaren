@@ -59,21 +59,19 @@
 
     <!-- КОЛ -->
     <div id="f-call" style="display:none;">
-      <label>Тип кола</label>
+      <label>Что заколить *</label>
       <select id="callType">
-        <option>Жду апрува</option>
-        <option>Без инвольса</option>
-        <option>Нужна помощь</option>
-        <option>Залочен апрув</option>
-        <option>Другое</option>
+        <option>Заколить на биржу</option>
+        <option>Заколить на почту</option>
+        <option>Скачать пасы</option>
+        <option>Заколить на пин</option>
       </select>
-      <label>Название сервиса *</label>
-      <input id="callService" placeholder="Binance / Bybit / ...">
-      <label>Ссылка *</label>
-      <input id="callLink" placeholder="https://...">
+      <label>Ссылка / пояснение</label>
+      <input id="callLink" placeholder="Необязательно">
       <label>Комментарий</label>
       <input id="callNote" placeholder="Необязательно">
-      <button class="go go-call" id="submitBtn">🆘 Отправить кол</button>
+      <button class="go go-call" id="submitBtn">🆘 Заколить</button>
+      <p class="hint">Улетит сразу Fifflarenу — в его графу питомца, с уведомлением и звуком.</p>
     </div>
 
     <!-- ЛОГ -->
@@ -193,10 +191,12 @@
 
     // --- формы ---
     if (mode === 'call') document.getElementById('submitBtn').onclick = () => {
-      const serviceName = document.getElementById('callService').value.trim();
-      const callLink = document.getElementById('callLink').value.trim();
-      if (!serviceName || !callLink) return showResult(false, 'Заполни название и ссылку!');
-      submit({ callType: document.getElementById('callType').value, serviceName, callLink, callNote: document.getElementById('callNote').value.trim() });
+      submit({
+        callType: document.getElementById('callType').value,
+        serviceName: '',
+        callLink: document.getElementById('callLink').value.trim(),
+        callNote: document.getElementById('callNote').value.trim()
+      });
     };
     if (mode === 'log') document.getElementById('submitBtn2').onclick = () => {
       const link = document.getElementById('logLink').value.trim();

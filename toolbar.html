@@ -32,6 +32,11 @@
       25% { transform: rotate(-14deg) scale(1.1); }
       75% { transform: rotate(14deg) scale(1.1); }
     }
+    .pname {
+      margin-top: 3px; font-size: 10px; font-weight: bold; color: #ffc107;
+      text-shadow: 0 1px 3px #000; letter-spacing: 0.5px;
+    }
+    .collapsed .pname { display: none; }
 
     .btns { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; -webkit-app-region: no-drag; }
     .tb {
@@ -58,7 +63,8 @@
 </head>
 <body>
   <div class="pet" id="pet">
-    <img src="obii-head.png" class="avatar" id="avatar" title="Обэ — твой питомец-помощник">
+    <img src="obii-head.png" class="avatar" id="avatar" title="Ебобия — твой питомец-помощник">
+    <div class="pname">Ебобия</div>
     <div class="btns" id="btns">
       <button class="tb tcall" onclick="openQ('call')" title="🆘 Отправить кол">🆘</button>
       <button class="tb tlog" onclick="openQ('log')" title="📝 Добавить лог в смену">📝</button>

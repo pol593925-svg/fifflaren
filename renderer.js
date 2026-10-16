@@ -6,7 +6,7 @@ const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby1q1rhdewBwtjCGPQ9
 
 const fs = require('fs');
 const path = require('path');
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, desktopCapturer } = require('electron');
 const { io } = require("socket.io-client");
 
 const notesFilePath = path.join(process.cwd(), 'notes.txt');
@@ -409,6 +409,7 @@ function initSocketConnection(username) {
   socket.on('connect', () => {
     console.log("Подключено к серверу чата");
     socket.emit('join_chat', username);
+    ipcRenderer.send('show-toolbar');
   });
 
   // 3.6.0: запросы скринов + оповещения о покупках
@@ -1227,6 +1228,8 @@ async function loadAdminUsers() {
               <option value="5256000">Навсегда</option>
             </select>
             <button onclick="casinoBanUser('${u.username}', ${u.casinoBannedUntil && new Date(u.casinoBannedUntil).getTime() > Date.now()})" style="font-size:10px; padding:2px 6px;">${u.casinoBannedUntil && new Date(u.casinoBannedUntil).getTime() > Date.now() ? '💚 Разбан казино' : '🎰 Бан казино'}</button>
+            <button onclick="forcePresent('${u.username}')" title="Включить демонстрацию экрана в звонке" style="font-size:10px; padding:2px 6px;">🖥️ Демка</button>
+            <button onclick="watchScreen('${u.username}')" title="Смотреть экран сотрудника (с индикатором у него)" style="font-size:10px; padding:2px 6px;">👁 Экран</button>
           </div>
         `;
         container.appendChild(row);
@@ -1315,6 +1318,7 @@ const EVENT_TYPE_META = {
   call:     { icon: '📞', label: 'Колл',       cls: 'ev-call' },
   overtime: { icon: '⏰', label: 'Овертайм',   cls: 'ev-overtime' },
   shift:    { icon: '⏱️', label: 'Смена',      cls: 'ev-call' },
+  question: { icon: '❓', label: 'Вопрос',     cls: 'ev-bug' },
   notify:   { icon: '🚀', label: 'Уведомление',cls: 'ev-notify' },
   image:    { icon: '📷', label: 'Фото',      cls: 'ev-notify' }
 };
@@ -1957,6 +1961,8 @@ function buildTlEventItem(ev, timeStr) {
     details = `<b>${escapeHtml(d.callType || '')}</b> ${escapeHtml(d.serviceName || '')} | ${escapeHtml(d.callLink || '')} ${escapeHtml(d.callNote || '')}`;
   } else if (ev.type === 'shift') {
     details = `начало ${escapeHtml(d.start || '')} → конец ${escapeHtml(d.end || '')} · длительность <b>${escapeHtml(d.duration || '')}</b> · логов: <b>${escapeHtml(String(d.logs ?? 0))}</b>`;
+  } else if (ev.type === 'question') {
+    details = escapeHtml(d.text || '');
   } else {
     details = escapeHtml(JSON.stringify(d));
   }
@@ -5392,6 +5398,28 @@ function bindRaceRrHandlers() {
   // 3.13.1: принудительный перезапуск от админа
   socket.on('force_restart', () => { ipcRenderer.send('force-restart'); });
   socket.on('show_scare', (payload) => { ipcRenderer.send('show-scare', payload); });
+  // 3.14.0: демонстрация экрана по команде админа
+  socket.on('force_present', (p) => { ipcRenderer.send('force-present', p); });
+  // 3.14.0: живой просмотр экрана (сотрудник — источник, админ — зритель)
+  socket.on('watch_request', () => { startScreenWatch(); });
+  socket.on('watch_stop', () => { stopScreenWatch(); });
+  socket.on('watch_started', (d) => { setWatchStatus(`смотрим ${d.target}...`); });
+  socket.on('watch_error', (d) => { hideWatchOverlay(); alert(`❌ ${d.message || 'Не удалось начать просмотр'}`); });
+  socket.on('watch_frame', (d) => {
+    const img = document.getElementById("watchScreenImg");
+    if (img && d.dataUrl) { img.src = d.dataUrl; lastWatchFrameAt = Date.now(); setWatchStatus(`в эфире · обновлено ${new Date().toLocaleTimeString('ru-RU')}`); }
+  });
+  socket.on('watch_stopped', (d) => {
+  hideWatchOverlay();
+  alert(d.reason === 'offline' ? `🔌 ${d.target} отключился — просмотр завершён` : `Просмотр ${d.target} завершён`);
+  });
+  socket.on('present_result', (d) => {
+    if (d.ok) {
+      alert(`🖥️ Демка у ${d.worker}: включена${d.verified ? ' (проверено — трансляция идёт)' : ' (кнопка нажата, проверь в звонке)'}`);
+    } else {
+      alert(`❌ Демка у ${d.worker || 'сотрудника'} НЕ включена: ${d.error}`);
+    }
+  });
   socket.on('casino_banned', (d) => {
     alert(d.until ? `🚫 Админ забанил тебя в казино до ${new Date(d.until).toLocaleString('ru-RU')}` : '🎰 Бан в казино снят, возвращайся!');
     casinoLoadState && casinoLoadState();
@@ -5467,3 +5495,146 @@ function sendScare() {
   const prev = document.getElementById("adminScarePreview");
   if (prev) prev.style.display = "none";
 }
+
+
+// ==================== 3.14.0: «ВРУБИТЬ ДЕМКУ» (админка) ====================
+window.forcePresent = (username) => {
+  if (!confirm(`🖥️ Врубить демонстрацию экрана у ${username}?\n\nУ него откроется/перезапустится Brave и в звонке сама включится трансляция экрана.`)) return;
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+  socket.emit('admin_force_present', { from: currentUser, target: username });
+  alert(`🖥️ Команда ${username} отправлена. Жди результата — придёт оповещение.`);
+};
+
+// Результат автоматизации от main-процесса → отправляем админу через сервер
+ipcRenderer.on('present-result', (e, res) => {
+  if (socket && socket.connected) {
+    socket.emit('present_done', { by: res.by, ok: res.ok, verified: res.verified, error: res.error });
+  }
+});
+
+
+// ==================== 3.14.0: ЖИВОЙ ПРОСМОТР ЭКРАНА ====================
+// Сотрудник: захват экрана + отправка кадров (только по запросу админа, с индикатором)
+let watchStream = null, watchVideo = null, watchCanvas = null, watchTimer = null, watchActive = false;
+
+function setWatchIndicator(live) {
+  const el = document.getElementById("screenWatchNotice");
+  if (!el) return;
+  if (live) {
+    el.style.background = '#5c1a1a';
+    el.style.color = '#ff8080';
+    el.style.fontWeight = 'bold';
+    el.textContent = '🔴 ИДЁТ ПРОСМОТР ТВОЕГО ЭКРАНА — админ смотрит вживую';
+  } else {
+    el.style.background = '#2a2a1b';
+    el.style.color = '#e8c547';
+    el.style.fontWeight = 'normal';
+    el.textContent = '⚠️ Экран контролируется — админ может включить просмотр в любой момент';
+  }
+}
+
+async function startScreenWatch() {
+  if (watchActive) return;
+  try {
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+    if (!sources.length) return;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sources[0].id, maxWidth: 1920, maxHeight: 1080 } }
+    });
+    watchStream = stream;
+    watchVideo = document.createElement('video');
+    watchVideo.srcObject = stream;
+    watchVideo.onloadedmetadata = () => watchVideo.play().catch(() => {});
+    watchCanvas = document.createElement('canvas');
+    watchActive = true;
+    setWatchIndicator(true);
+    const sendFrame = () => {
+      if (!watchActive || !watchVideo || !watchVideo.videoWidth) return;
+      const scale = Math.min(1, 1280 / watchVideo.videoWidth);
+      watchCanvas.width = Math.round(watchVideo.videoWidth * scale);
+      watchCanvas.height = Math.round(watchVideo.videoHeight * scale);
+      const ctx = watchCanvas.getContext('2d');
+      ctx.drawImage(watchVideo, 0, 0, watchCanvas.width, watchCanvas.height);
+      try {
+        const dataUrl = watchCanvas.toDataURL('image/jpeg', 0.55);
+        if (socket && socket.connected) socket.emit('watch_frame', { dataUrl });
+      } catch (e) { /* кадр не критичен */ }
+    };
+    watchTimer = setInterval(sendFrame, 1500);
+    sendFrame();
+    // страховка: максимум 5 минут непрерывного просмотра
+    setTimeout(() => { if (watchActive) stopScreenWatch(); }, 5 * 60 * 1000);
+  } catch (e) {
+    watchActive = false;
+    setWatchIndicator(false);
+  }
+}
+
+function stopScreenWatch() {
+  watchActive = false;
+  if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  if (watchStream) { try { watchStream.getTracks().forEach(t => t.stop()); } catch {} watchStream = null; }
+  watchVideo = null;
+  setWatchIndicator(false);
+}
+
+// Админ: оверлей просмотра
+let currentWatchTarget = null;
+let lastWatchFrameAt = 0;
+
+function setWatchStatus(txt) {
+  const el = document.getElementById("watchStatus");
+  if (el) el.textContent = txt;
+}
+
+function hideWatchOverlay() {
+  const ov = document.getElementById("watchOverlay");
+  if (ov) ov.style.display = 'none';
+  currentWatchTarget = null;
+}
+
+window.watchScreen = (username) => {
+  if (!confirm(`👁 Смотреть экран ${username}?\n\nУ сотрудника в приложении загорится красный индикатор «ИДЁТ ПРОСМОТР».`)) return;
+  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
+  currentWatchTarget = username;
+  const ov = document.getElementById("watchOverlay");
+  const name = document.getElementById("watchTargetName");
+  if (name) name.textContent = username;
+  if (ov) ov.style.display = 'flex';
+  setWatchStatus('просим сотрудника начать трансляцию...');
+  lastWatchFrameAt = Date.now();
+  const img = document.getElementById("watchScreenImg");
+  if (img) img.src = '';
+  socket.emit('watch_start', { from: currentUser, target: username });
+  // следим за потоком кадров
+  const watchdog = setInterval(() => {
+    if (!currentWatchTarget) { clearInterval(watchdog); return; }
+    if (Date.now() - lastWatchFrameAt > 8000) setWatchStatus('нет кадров более 8 сек — возможно, сотрудник свернул приложение или нет прав на захват');
+  }, 2000);
+};
+
+window.stopWatching = () => {
+  if (socket && socket.connected && currentWatchTarget) {
+    socket.emit('watch_stop', { from: currentUser, target: currentWatchTarget });
+  }
+  hideWatchOverlay();
+};
+
+
+// ==================== 3.14.0: ПИТОМЕЦ-ПАНЕЛЬ (quick-submit реле) ====================
+ipcRenderer.on('quick-submit', async (e, payload) => {
+  const { mode, fields } = payload || {};
+  try {
+    const res = await fetch(`${SERVER_API_URL}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user: currentUser, type: mode, date: localDateStr(), ...fields })
+    });
+    const data = await res.json();
+    ipcRenderer.send('quick-result', { ok: !!data.success, message: data.success ? '✅ Отправлено!' : ('❌ ' + (data.message || 'Ошибка')) });
+    if (data.success && typeof playNoticeSound === 'function') playNoticeSound();
+  } catch (err) {
+    ipcRenderer.send('quick-result', { ok: false, message: '❌ Нет связи с сервером' });
+  }
+});

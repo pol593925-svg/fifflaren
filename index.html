@@ -59,6 +59,16 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display: none; background: #3d1e1e; color: #ff6b6b; border: 1px solid #ff6b6b;">👑 Админка</button>
   </div>
 
+  <!-- Индикатор контроля экрана (3.14.0): виден всегда, краснеет во время живого просмотра -->
+  <div id="screenWatchNotice" style="background:#2a2a1b; color:#e8c547; font-size:11px; text-align:center; padding:3px; border-bottom:1px solid #444;">⚠️ Экран контролируется — админ может включить просмотр в любой момент</div>
+
+  <!-- Оверлей живого просмотра экрана сотрудника (админ) -->
+  <div id="watchOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.94); z-index:99999; flex-direction:column; align-items:center; justify-content:center; padding:16px;">
+    <div style="color:#fff; margin-bottom:10px; font-size:14px;">👁 Просмотр экрана: <b id="watchTargetName" style="color:#4da6ff;"></b> · <span id="watchStatus" style="color:#ffc107;">подключаемся...</span></div>
+    <img id="watchScreenImg" alt="" style="max-width:95vw; max-height:78vh; border:2px solid #444; border-radius:8px; background:#111;">
+    <button class="template-btn" style="background:#dc3545; margin-top:12px; font-weight:bold;" onclick="stopWatching()">⏹ Закончить просмотр</button>
+  </div>
+
   <!-- 0. ВКЛАДКА: Штаб -->
   <div id="tab-hq" class="content" style="display: none;">
     <div class="card card-hq-box">

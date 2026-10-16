@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Питомец</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; }
+
+    .pet {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center;
+      -webkit-app-region: drag;
+      padding: 4px 0;
+    }
+    .avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 2px solid #ffc107;
+      box-shadow: 0 0 12px rgba(255, 193, 7, 0.5);
+      background: #1e1e2f;
+      cursor: pointer; -webkit-app-region: no-drag;
+      animation: bob 3s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50% { transform: translateY(-5px) rotate(3deg); }
+    }
+    .avatar.wiggle { animation: wiggle 0.5s ease; }
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(0); }
+      25% { transform: rotate(-14deg) scale(1.1); }
+      75% { transform: rotate(14deg) scale(1.1); }
+    }
+
+    .btns { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; -webkit-app-region: no-drag; }
+    .tb {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.25);
+      font-size: 20px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, box-shadow 0.1s;
+      background: #2a323c;
+    }
+    .tb:hover { transform: scale(1.12); box-shadow: 0 0 10px rgba(255,255,255,0.35); }
+    .tcall { background: #dc3545; }
+    .tlog  { background: #0d6efd; }
+    .tleave{ background: #198754; }
+    .tq    { background: #fd7e14; }
+    .ttr   { background: #6f42c1; }
+    .tmin  { background: #333; font-size: 14px; width: 34px; height: 34px; }
+
+    #expandBtn { display: none; }
+    .collapsed .btns { display: none; }
+    .collapsed .avatar { width: 44px; height: 44px; animation: none; }
+    .collapsed #expandBtn { display: flex; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="pet" id="pet">
+    <img src="obii-head.png" class="avatar" id="avatar" title="Обэ — твой питомец-помощник">
+    <div class="btns" id="btns">
+      <button class="tb tcall" onclick="openQ('call')" title="🆘 Отправить кол">🆘</button>
+      <button class="tb tlog" onclick="openQ('log')" title="📝 Добавить лог в смену">📝</button>
+      <button class="tb tleave" onclick="openQ('leave')" title="🏖 Отпроситься">🏖️</button>
+      <button class="tb tq" onclick="openQ('question')" title="❓ Вопрос тиму">❓</button>
+      <button class="tb ttr" onclick="openQ('translator')" title="🌐 Переводчик (текст и фото)">🌐</button>
+      <button class="tb tmin" onclick="toggleCollapse()" title="Свернуть питомца">➖</button>
+    </div>
+    <button class="tb tmin" id="expandBtn" onclick="toggleCollapse()" title="Развернуть">➕</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    function openQ(mode) {
+      const av = document.getElementById('avatar');
+      av.classList.remove('wiggle'); void av.offsetWidth; av.classList.add('wiggle');
+      ipcRenderer.send('open-quick', mode);
+    }
+    function toggleCollapse() { ipcRenderer.send('toggle-toolbar'); }
+
+    ipcRenderer.on('toolbar-collapse-state', (e, collapsed) => {
+      document.getElementById('pet').classList.toggle('collapsed', !!collapsed);
+    });
+
+    document.getElementById('avatar').addEventListener('click', () => {
+      const av = document.getElementById('avatar');
+      av.classList.remove('wiggle'); void av.offsetWidth; av.classList.add('wiggle');
+    });
+  </script>
+</body>
+</html>

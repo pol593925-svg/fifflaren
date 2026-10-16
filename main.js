@@ -252,6 +252,132 @@ ipcMain.on('open-url', (event, payload) => {
   } catch (e) { /* тихо */ }
 });
 
+// ==================== «ВРУБИТЬ ДЕМКУ»: демонстрация экрана в звонке через Brave (3.14.0) ====================
+// Схема: Brave запущен с --remote-debugging-port=9222 (если нет — перезапускаем с флагами).
+// Через CDP находим вкладку/iframe со звонком (Element/Jitsi), жмём кнопку «Начать трансляцию с экрана».
+// Окно выбора источника не появляется — Brave запущен с --auto-select-desktop-capture-source="Экран 1".
+
+const CDP_PORT = 9222;
+
+async function cdpTargets() {
+  try {
+    const r = await fetch(`http://localhost:${CDP_PORT}/json`);
+    return await r.json();
+  } catch { return null; }
+}
+
+function cdpEval(wsUrl, expression) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; try { ws.close(); } catch {} resolve(v); } };
+    try {
+      const ws = new WebSocket(wsUrl);
+      const to = setTimeout(() => done(undefined), 8000);
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, returnByValue: true, awaitPromise: true } }));
+      });
+      ws.addEventListener('message', (ev) => {
+        const m = JSON.parse(ev.data);
+        if (m.id === 1) { clearTimeout(to); done(m.result && m.result.result ? m.result.result.value : undefined); }
+      });
+      ws.addEventListener('error', () => { clearTimeout(to); done(undefined); });
+    } catch { done(undefined); }
+  });
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function restartBraveWithCdp() {
+  const exe = BROWSER_PATHS.brave.find(p => p && fs.existsSync(p));
+  if (!exe) return false;
+  try { execFile('taskkill', ['/IM', 'brave.exe', '/F'], () => {}); } catch {}
+  await sleep(2500);
+  try {
+    const { spawn } = require('child_process');
+    spawn(exe, [
+      `--remote-debugging-port=${CDP_PORT}`,
+      '--no-first-run',
+      '--auto-select-desktop-capture-source=Экран 1'
+    ], { detached: true, stdio: 'ignore' }).unref();
+  } catch { return false; }
+  for (let i = 0; i < 6; i++) {
+    await sleep(2000);
+    const t = await cdpTargets();
+    if (t && t.length) return true;
+  }
+  return false;
+}
+
+// JS: нажать кнопку демонстрации экрана в Jitsi/Element
+const CLICK_PRESENT_JS = `(() => {
+  const needles = ['трансляц', 'демонстрац', 'present now', 'share your screen', 'start presenting', 'screen share'];
+  const els = [...document.querySelectorAll('button,[role="button"]')];
+  for (const el of els) {
+    const txt = ((el.getAttribute('aria-label') || '') + ' ' + (el.title || '') + ' ' + (el.textContent || '')).toLowerCase();
+    if (needles.some(n => txt.includes(n))) { el.click(); return 'clicked'; }
+  }
+  return 'not_found';
+})()`;
+
+// JS: проверить, идёт ли демонстрация экрана (видеотрек экрана в странице)
+const CHECK_SHARING_JS = `(() => {
+  const vids = [...document.querySelectorAll('video')];
+  for (const v of vids) {
+    if (v.srcObject) {
+      const t = (v.srcObject.getVideoTracks() || [])[0];
+      if (t && /screen|desktop|экран|window|окно/i.test(t.label || '')) return 'sharing';
+    }
+  }
+  return vids.length ? 'videos_no_share' : 'no_videos';
+})()`;
+
+async function forcePresentScreen() {
+  // 1) CDP доступен?
+  let targets = await cdpTargets();
+  let weRestarted = false;
+  if (!targets || !targets.length) {
+    if (!await restartBraveWithCdp()) return { ok: false, error: 'Brave не удалось запустить с управлением (CDP)' };
+    weRestarted = true;
+    targets = await cdpTargets();
+  }
+  if (!targets || !targets.length) return { ok: false, error: 'Brave не отвечает на управление' };
+
+  // 2) ищем цели звонка: сначала iframe (Jitsi внутри Element), потом обычные вкладки
+  const callTargets = targets.filter(t => (t.type === 'page' || t.type === 'iframe') &&
+    /meet\\.|jitsi|element\\.|wcomp|call|conf/i.test(t.url || ''));
+  const ordered = [...callTargets.filter(t => t.type === 'iframe'), ...callTargets.filter(t => t.type === 'page')];
+  if (!ordered.length) return { ok: false, error: 'Вкладка со звонком не найдена (пусть сотрудник откроет общалку)' };
+
+  // 3) жмём кнопку трансляции
+  let clickedTarget = null;
+  for (const t of ordered) {
+    const r = await cdpEval(t.webSocketDebuggerUrl, CLICK_PRESENT_JS);
+    if (r === 'clicked') { clickedTarget = t; break; }
+  }
+  if (!clickedTarget) return { ok: false, error: 'Кнопка демонстрации в звонке не найдена' };
+
+  // 4) если Brave запущен не нами (без флага автовыбора) — подтверждаем окно выбора через Enter
+  if (!weRestarted) {
+    await sleep(1500);
+    execFile('powershell', ['-NoProfile', '-Command', '(New-Object -ComObject WScript.Shell).SendKeys("{ENTER}")'], () => {});
+  }
+
+  // 5) проверяем результат
+  await sleep(3500);
+  const check = await cdpEval(clickedTarget.webSocketDebuggerUrl, CHECK_SHARING_JS);
+  if (check === 'sharing') return { ok: true, verified: true };
+  return { ok: true, verified: false };
+}
+
+ipcMain.on('force-present', async (event, payload) => {
+  try {
+    const res = await forcePresentScreen();
+    if (event.sender && !event.sender.isDestroyed()) event.sender.send('present-result', { ...res, by: payload && payload.by });
+  } catch (err) {
+    if (event.sender && !event.sender.isDestroyed()) event.sender.send('present-result', { ok: false, error: String(err.message || err), by: payload && payload.by });
+  }
+});
+
 ipcMain.on('close-notification', () => {
   if (notifyWindow) notifyWindow.hide();
 });
@@ -302,6 +428,65 @@ ipcMain.on('close-scare', () => {
   if (scareWindow && !scareWindow.isDestroyed()) scareWindow.destroy();
   scareWindow = null;
 });
+
+// --- ПИТОМЕЦ-ПАНЕЛЬ БЫСТРОГО ДОСТУПА (3.14.0): всегда поверх окон ---
+let toolbarWindow = null;
+let quickWindow = null;
+let toolbarCollapsed = false;
+
+function createToolbarWindow() {
+  if (toolbarWindow && !toolbarWindow.isDestroyed()) return;
+  const display = screen.getPrimaryDisplay();
+  toolbarWindow = new BrowserWindow({
+    width: 116, height: 336,
+    x: display.workArea.x + display.workArea.width - 124,
+    y: display.workArea.y + Math.round(display.workArea.height / 2 - 168),
+    frame: false, resizable: false, maximizable: false, minimizable: false,
+    alwaysOnTop: true, skipTaskbar: true, transparent: true, backgroundColor: '#00000000',
+    webPreferences: { nodeIntegration: true, contextIsolation: false }
+  });
+  toolbarWindow.setAlwaysOnTop(true, 'screen-saver');
+  toolbarWindow.setVisibleOnAllWorkspaces(true);
+  toolbarWindow.loadFile('toolbar.html');
+  toolbarWindow.on('closed', () => { toolbarWindow = null; });
+}
+
+function createQuickWindow(mode) {
+  if (!quickWindow || quickWindow.isDestroyed()) {
+    quickWindow = new BrowserWindow({
+      width: 460, height: 580, frame: false, resizable: false, maximizable: false,
+      alwaysOnTop: true, skipTaskbar: true, show: false, backgroundColor: '#16181d',
+      webPreferences: { nodeIntegration: true, contextIsolation: false }
+    });
+    quickWindow.setAlwaysOnTop(true, 'screen-saver');
+    quickWindow.on('closed', () => { quickWindow = null; });
+  }
+  const display = screen.getPrimaryDisplay();
+  quickWindow.setBounds({
+    x: display.workArea.x + Math.round(display.workArea.width / 2 - 230),
+    y: display.workArea.y + Math.round(display.workArea.height / 2 - 290),
+    width: 460, height: 580
+  });
+  const q = new URLSearchParams({ mode: mode || '' });
+  quickWindow.loadFile('quick.html', { query: Object.fromEntries(q) });
+  quickWindow.once('ready-to-show', () => { if (quickWindow) { quickWindow.show(); quickWindow.focus(); } });
+}
+
+ipcMain.on('show-toolbar', () => createToolbarWindow());
+ipcMain.on('open-quick', (e, mode) => createQuickWindow(mode));
+ipcMain.on('close-quick', () => { if (quickWindow) quickWindow.close(); });
+ipcMain.on('toggle-toolbar', () => {
+  toolbarCollapsed = !toolbarCollapsed;
+  if (toolbarWindow && !toolbarWindow.isDestroyed()) {
+    const [x, y] = toolbarWindow.getPosition();
+    if (toolbarCollapsed) toolbarWindow.setBounds({ x: x + 60, y, width: 56, height: 76 });
+    else toolbarWindow.setBounds({ x: x - 60, y, width: 116, height: 336 });
+    toolbarWindow.webContents.send('toolbar-collapse-state', toolbarCollapsed);
+  }
+});
+// Формы питомца отправляем в главное окно (там сокет и авторизация)
+ipcMain.on('quick-submit', (e, data) => { if (mainWindow && mainWindow.webContents) mainWindow.webContents.send('quick-submit', data); });
+ipcMain.on('quick-result', (e, r) => { if (quickWindow && !quickWindow.isDestroyed()) quickWindow.webContents.send('quick-result', r); });
 
 ipcMain.on('restart_to_update', () => {
   forceQuit = true; // обновление должно иметь возможность перезапустить приложение

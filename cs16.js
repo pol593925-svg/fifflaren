@@ -738,7 +738,8 @@
     sock.on('cs16_state', (s) => {
       state = s;
       if (s.now) clockOffset = s.now - Date.now();
-      me.team = (s.players.find(p => p.nick === myNick) || {}).team ?? me.team;
+      const my = s.players.find(p => p.nick === myNick);
+      if (my) { me.team = my.team ?? me.team; me.money = my.money; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
       if (s.phase === 'lobby') { renderLobby(); return; }
       ui.lobby.style.display = 'none';
       ui.canvas.style.display = 'block';

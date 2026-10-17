@@ -10,6 +10,7 @@
   // ---------- КАРТА (сетка 42x42, ячейка 4 юнита) ----------
   const MW = 42, MH = 42, CELL = 4;
   const WALL_H = 4, DOOR_H = 2.6, CRATE_H = 1.15;
+  const TUNNEL_H = 2.3; // 3.15.7: потолок подземных туннелей (тип ячейки 4)
   const grid = [];
   for (let y = 0; y < MH; y++) grid.push(new Array(MW).fill(1));
   function carve(x1, y1, x2, y2) {
@@ -20,6 +21,10 @@
     for (let y = y1; y <= y2; y++) for (let x = x1; x <= x2; x++) grid[y][x] = 2;
   }
   function crate(x, y) { grid[y][x] = 3; }
+  function tunnel(x1, y1, x2, y2) { // 3.15.7: подземный ход с потолком
+    for (let y = Math.max(0, y1); y <= Math.min(MH - 1, y2); y++)
+      for (let x = Math.max(0, x1); x <= Math.min(MW - 1, x2); x++) grid[y][x] = 4;
+  }
   function buildMap() {
     carve(16, 1, 25, 6);    // CT спавн
     carve(2, 1, 14, 8);     // плент B
@@ -33,6 +38,13 @@
     carve(8, 2, 16, 5);     // B-двери коридор (CT → B)
     carve(25, 2, 27, 3);    // стык CT → плент A
     carve(15, 11, 18, 13);  // CT → мид
+    // 3.15.7: новые ходы
+    carve(8, 26, 17, 27);   // наземный коннектор туннели B → мид (южный ярус)
+    carve(23, 30, 32, 31);  // коннектор мид → лонг (шорт №2)
+    // 3.15.7: подземные ходы (тёмные туннели с потолком)
+    tunnel(8, 21, 17, 22);  // подземка туннели B → мид (под верхним ярусом)
+    tunnel(29, 34, 32, 35); // подземка T-спавн → лонг
+    tunnel(26, 4, 32, 5);   // крытый ход CT → лонг (под плентом A)
     door(18, 19, 22, 20);   // двери мид
     door(8, 2, 10, 3);      // B-двери
     door(15, 12, 16, 13);   // двери CT-мид
@@ -40,6 +52,8 @@
     crate(4, 3); crate(6, 5); crate(11, 6); crate(3, 6);            // B сайт
     crate(30, 3); crate(33, 6); crate(28, 7); crate(36, 4); crate(31, 7); // A сайт
     crate(20, 14); crate(19, 27); crate(36, 20); crate(35, 12); crate(6, 20); crate(6, 28);
+    crate(26, 30); crate(30, 31); // укрытия на новом коннекторе мид → лонг
+    crate(13, 26);                // укрытие на коннекторе туннели → мид
   }
   buildMap();
   function cellAt(wx, wz) {
@@ -65,6 +79,11 @@
       else { t = tMaxY; tMaxY += tDeltaY; cy += stepY; nx = 0; nz = -stepY; }
       if (t > maxT) return null;
       const c = (cx < 0 || cy < 0 || cx >= MW || cy >= MH) ? 1 : grid[cy][cx];
+      if (c === 4) { // 3.15.7: туннель — внутри пролетает, сверху/снизу корка
+        const hy = oy + dy * t;
+        if (hy < TUNNEL_H && hy > -0.01) continue;
+        return { t, nx, nz, cell: c };
+      }
       if (c !== 0) {
         const hy = oy + dy * t;
         const h = cellH(c);
@@ -390,6 +409,37 @@
     inst(walls, WALL_H, T.wall);
     inst(doors, DOOR_H, T.door);
     inst(crates, CRATE_H, T.crateT);
+    // 3.15.7: подземные туннели — тёмный пол, потолок и боковые стенки
+    {
+      const tunFloor = [], tunCeil = [], sideX = [], sideZ = [];
+      for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+        if (grid[y][x] !== 4) continue;
+        const px = x * CELL + CELL / 2, pz = y * CELL + CELL / 2;
+        tunFloor.push([px, 0.03, pz]);
+        tunCeil.push([px, TUNNEL_H + 0.14, pz]);
+        const nb = (dx, dy) => {
+          const ax = x + dx, ay = y + dy;
+          return (ax < 0 || ay < 0 || ax >= MW || ay >= MH) ? 1 : grid[ay][ax];
+        };
+        if (nb(1, 0) === 1) sideX.push([x * CELL + CELL, TUNNEL_H / 2, pz]);
+        if (nb(-1, 0) === 1) sideX.push([x * CELL, TUNNEL_H / 2, pz]);
+        if (nb(0, 1) === 1) sideZ.push([px, TUNNEL_H / 2, y * CELL + CELL]);
+        if (nb(0, -1) === 1) sideZ.push([px, TUNNEL_H / 2, y * CELL]);
+      }
+      function instGeo(list, geo, mat) {
+        if (!list.length) return;
+        const m = new THREE.InstancedMesh(geo, mat, list.length);
+        const M = new THREE.Matrix4();
+        list.forEach((p, i) => { M.setPosition(p[0], p[1], p[2]); m.setMatrixAt(i, M); });
+        scene.add(m);
+      }
+      const matRock = new THREE.MeshLambertMaterial({ color: 0x54483a });
+      const matDark = new THREE.MeshLambertMaterial({ color: 0x2e2a24 });
+      instGeo(tunFloor, new THREE.BoxGeometry(CELL, 0.06, CELL), matDark);
+      instGeo(tunCeil, new THREE.BoxGeometry(CELL, 0.3, CELL), matRock);
+      instGeo(sideX, new THREE.BoxGeometry(0.4, TUNNEL_H, CELL), matRock);
+      instGeo(sideZ, new THREE.BoxGeometry(CELL, TUNNEL_H, 0.4), matRock);
+    }
     resize3();
   }
   function resize3() {
@@ -481,6 +531,11 @@
       }
     }
     P.y = ny;
+    // 3.15.7: потолок подземного туннеля
+    if (cellAt(P.x, P.z) === 4 && ny + HEIGHT > TUNNEL_H) {
+      P.y = TUNNEL_H - HEIGHT;
+      if (P.vy > 0) P.vy = 0;
+    }
   }
 
   // ---------- ЗВУК (WebAudio-синтез, без файлов) ----------
@@ -815,6 +870,12 @@
       for (const n of [...remotes.keys()]) if (!spawnNicks.has(n)) removeRemote(n);
       bombPlanted = null; action = null; lastBeep = -1;
       removeBombMesh();
+      // 3.15.7: полная очистка поля — летящие гранаты и трассеры прошлого раунда
+      for (const n of nadesList) scene.remove(n.mesh);
+      nadesList.length = 0;
+      for (const tr of tracers) scene.remove(tr.line);
+      tracers.length = 0;
+      flashAlpha = 0; shake = 0;
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
       closeBuy();
@@ -915,6 +976,9 @@
     return sp;
   }
   function addRemote(nick, team) {
+    // 3.15.7: если моделька уже есть — удаляем старую (иначе дубли накапливаются в сцене)
+    const prev = remotes.get(nick);
+    if (prev) { scene.remove(prev.group); remotes.delete(nick); }
     const jacket = team === 't' ? 0xc9a13b : 0x3b7ac9;
     const pants = 0x3a3f45;
     const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
@@ -1093,6 +1157,8 @@
       // крышка ящика
       const cU = cellAt(nx, nz), hU = cellH(cU);
       if (hU > 0 && hU < WALL_H && ny - 0.16 < hU && n.mesh.position.y >= hU - 0.1 && n.vy <= 0) { ny = hU + 0.16; n.vy = 0; n.vx *= 0.8; n.vz *= 0.8; }
+      // 3.15.7: потолок туннеля
+      if (cU === 4 && ny > TUNNEL_H - 0.16) { ny = TUNNEL_H - 0.16; n.vy = -Math.abs(n.vy) * 0.38; }
       n.mesh.position.set(nx, ny, nz);
       n.fuse -= dt;
       if (n.fuse <= 0) {

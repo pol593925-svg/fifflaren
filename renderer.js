@@ -180,6 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'swipe') loadSwipeQueue();
       if (tabName === 'tops') loadTops();
       if (tabName === 'battleship') bsTabOpen();
+      if (tabName === 'cs16' && typeof window.__cs16Open === 'function') window.__cs16Open(currentUser);
     });
   });
 

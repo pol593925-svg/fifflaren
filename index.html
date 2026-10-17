@@ -49,6 +49,7 @@
     <button class="tab-btn" data-tab="casino" style="background: #2a1b2e; color: #e0aaff; border: 1px dashed #9b59b6;">🎰 Казино</button>
     <button class="tab-btn" data-tab="tops" style="background: #1b2a1b; color: #ffc107; border: 1px dashed #ffc107;">🏆 Топ</button>
     <button class="tab-btn" data-tab="battleship" style="background: #0d1b2a; color: #4da6ff; border: 1px dashed #4da6ff;">🚢 Морской бой</button>
+    <button class="tab-btn" data-tab="cs16" style="background: #221c10; color: #e8c34a; border: 1px dashed #8a6b3a;">🔫 КС 1.6</button>
     <button class="tab-btn" data-tab="salary">💰 ЗП</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
@@ -926,6 +927,8 @@
   </div>
 
   <!-- 8.9.2. ВКЛАДКА: Морской бой (3.8.0) -->
+  <div id="tab-cs16" class="content" style="display: none;"></div>
+
   <div id="tab-battleship" class="content" style="display: none;">
     <div class="card" style="text-align:center;">
       <h3>🚢 Морской бой</h3>
@@ -1066,6 +1069,8 @@
     </div>
   </div>
 
+  <script src="three.min.js"></script>
+  <script src="cs16.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

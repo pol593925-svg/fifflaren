@@ -119,6 +119,157 @@
   let mySkin = '';             // экипированный скин ('' = стандарт)
   let skinsBalance = 0, skinsOwned = [];
 
+  // ---------- 3.15.3: НАСТОЯЩИЕ 3D-МОДЕЛИ ОРУЖИЯ (GLB) ----------
+  // Конфиг: поворот (чтобы ствол смотрел в -Z, верх +Y) и длина в мирах.
+  const GLB_MODELS = {
+    ak47:    { url: 'models/ak47.glb',    rotY: -Math.PI / 2, len: 0.85 },
+    awp:     { url: 'models/awp.glb',     rotY: -Math.PI / 2, len: 1.1 },
+    m4a1:    { url: 'models/m4a4.glb',    rotY:  Math.PI / 2, len: 0.8 },
+    deagle:  { url: 'models/deagle.glb',  rotY:  Math.PI / 2, len: 0.38 },
+    usp:     { url: 'models/pistol.glb',  rotY:  Math.PI,     len: 0.36 },
+    glock:   { url: 'models/pistol.glb',  rotY:  Math.PI,     len: 0.34 },
+    knife:   { url: 'models/bayonet.glb', rotY:  Math.PI / 2, len: 0.55 },
+    c4:      { url: 'models/c4.glb',      rotX: -Math.PI / 2, len: 0.42 },
+    grenade: { url: 'models/grenade.glb',                  len: 0.3 },
+  };
+  const glbCache = {}; // weapon -> { model: Group|null }
+  // Мини-загрузчик GLB: статические меши + материалы (baseColor/текстура), без скиннинга
+  function loadGLBAll() {
+    for (const id of Object.keys(GLB_MODELS)) {
+      glbCache[id] = { model: null };
+      fetch(GLB_MODELS[id].url)
+        .then(r => { if (!r.ok) throw new Error('http'); return r.arrayBuffer(); })
+        .then(buf => { const m = parseGLB(buf, id); if (m) glbCache[id].model = m; })
+        .catch(() => {});
+    }
+  }
+  function parseGLB(buf, id) {
+    const dv = new DataView(buf);
+    if (dv.getUint32(0, true) !== 0x46546C67) return null; // 'glTF'
+    let off = 12, json = null, bin = null;
+    const td = new TextDecoder();
+    while (off + 8 <= buf.byteLength) {
+      const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
+      if (type === 0x4E4F534A) json = JSON.parse(td.decode(new Uint8Array(buf, off + 8, len)));
+      else if (type === 0x004E4942) bin = new Uint8Array(buf, off + 8, len);
+      off += 8 + len;
+    }
+    if (!json || !bin) return null;
+    const binBuf = bin.buffer, binOff = bin.byteOffset;
+    // изображения -> objectURL -> текстуры (асинхронно подгружаются в материал)
+    const imgURL = (json.images || []).map(img => {
+      if (img.bufferView == null) return null;
+      const bv = json.bufferViews[img.bufferView];
+      const bytes = bin.subarray(bv.byteOffset || 0, (bv.byteOffset || 0) + bv.byteLength);
+      return URL.createObjectURL(new Blob([bytes], { type: img.mimeType || 'image/png' }));
+    });
+    const textures = (json.textures || []).map(t => {
+      if (t.source == null || !imgURL[t.source]) return null;
+      const tx = new THREE.TextureLoader().load(imgURL[t.source]);
+      tx.colorSpace = THREE.SRGBColorSpace;
+      tx.flipY = false; // конвенция glTF
+      return tx;
+    });
+    const compN = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
+    const readAcc = (i) => {
+      const a = json.accessors[i], bv = json.bufferViews[a.bufferView];
+      const start = binOff + (bv.byteOffset || 0) + (a.byteOffset || 0);
+      const n = compN[a.type], sz = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 }[a.componentType];
+      const stride = bv.byteStride || n * sz;
+      const out = new Float32Array(a.count * n);
+      for (let k = 0; k < a.count; k++) {
+        const base = start + k * stride;
+        for (let c = 0; c < n; c++) {
+          const o = base + c * sz;
+          let v = 0;
+          if (a.componentType === 5126) v = dv.getFloat32(o, true);
+          else if (a.componentType === 5125) v = dv.getUint32(o, true);
+          else if (a.componentType === 5123) v = dv.getUint16(o, true);
+          else if (a.componentType === 5121) v = dv.getUint8(o);
+          else if (a.componentType === 5122) v = dv.getInt16(o, true);
+          else if (a.componentType === 5120) v = dv.getInt8(o);
+          out[k * n + c] = v;
+        }
+      }
+      return out;
+    };
+    const readIdx = (i) => {
+      const a = json.accessors[i], bv = json.bufferViews[a.bufferView];
+      const start = binOff + (bv.byteOffset || 0) + (a.byteOffset || 0);
+      if (a.componentType === 5125) return new Uint32Array(binBuf, start, a.count);
+      if (a.componentType === 5123) return new Uint16Array(binBuf, start, a.count);
+      return null;
+    };
+    const mats = (json.materials || []).map(m => {
+      const p = m.pbrMetallicRoughness || {};
+      const col = p.baseColorFactor || [1, 1, 1, 1];
+      const mt = new THREE.MeshLambertMaterial({ color: new THREE.Color(col[0], col[1], col[2]) });
+      if (p.baseColorTexture != null && textures[p.baseColorTexture.index]) {
+        mt.map = textures[p.baseColorTexture.index];
+        mt.color.set(0xffffff);
+      }
+      if (m.doubleSided) mt.side = THREE.DoubleSide;
+      if (m.alphaMode === 'BLEND') { mt.transparent = true; mt.opacity = col[3]; }
+      return mt;
+    });
+    const buildNode = (ni) => {
+      const n = json.nodes[ni];
+      const g = new THREE.Group();
+      if (n.matrix) new THREE.Matrix4().fromArray(n.matrix).decompose(g.position, g.quaternion, g.scale);
+      else {
+        if (n.translation) g.position.fromArray(n.translation);
+        if (n.rotation) g.quaternion.fromArray(n.rotation);
+        if (n.scale) g.scale.fromArray(n.scale);
+      }
+      if (n.mesh != null) {
+        for (const prim of (json.meshes[n.mesh].primitives || [])) {
+          if (prim.mode != null && prim.mode !== 4) continue;
+          const geo = new THREE.BufferGeometry();
+          if (prim.attributes.POSITION != null) geo.setAttribute('position', new THREE.BufferAttribute(readAcc(prim.attributes.POSITION), 3));
+          if (prim.attributes.NORMAL != null) geo.setAttribute('normal', new THREE.BufferAttribute(readAcc(prim.attributes.NORMAL), 3));
+          if (prim.attributes.TEXCOORD_0 != null) geo.setAttribute('uv', new THREE.BufferAttribute(readAcc(prim.attributes.TEXCOORD_0), 2));
+          if (prim.indices != null) { const ix = readIdx(prim.indices); if (ix) geo.setIndex(new THREE.BufferAttribute(ix, 1)); }
+          if (!geo.getAttribute('normal')) geo.computeVertexNormals();
+          g.add(new THREE.Mesh(geo, mats[prim.material] || new THREE.MeshLambertMaterial({ color: 0x888888 })));
+        }
+      }
+      for (const c of (n.children || [])) g.add(buildNode(c));
+      return g;
+    };
+    const root = new THREE.Group();
+    for (const ni of ((json.scenes[json.scene || 0]).nodes || [])) root.add(buildNode(ni));
+    // нормализация: поворот по конфигу, масштаб до нужной длины, центровка
+    const cfg = GLB_MODELS[id];
+    if (cfg.rotY) root.rotation.y = cfg.rotY;
+    if (cfg.rotX) root.rotation.x = cfg.rotX;
+    root.updateMatrixWorld(true);
+    let bb = new THREE.Box3().setFromObject(root);
+    let dim = bb.getSize(new THREE.Vector3());
+    const maxDim = Math.max(dim.x, dim.y, dim.z) || 1;
+    root.scale.setScalar((cfg.len || 0.8) / maxDim);
+    root.updateMatrixWorld(true);
+    bb = new THREE.Box3().setFromObject(root);
+    const ctr = bb.getCenter(new THREE.Vector3());
+    root.position.sub(ctr);
+    const wrap = new THREE.Group();
+    wrap.add(root);
+    return wrap;
+  }
+  // Клон GLB-модели оружия с тонировкой скином
+  function glbGunClone(weapon, skin) {
+    const entry = glbCache[weapon];
+    if (!entry || !entry.model) return null;
+    const m = entry.model.clone();
+    const s = SKINS[skin];
+    if (s) {
+      const tint = s.rainbow ? 0xffffff : s.color;
+      m.traverse(o => {
+        if (o.isMesh) o.material = (s.glow || s.rainbow) ? new THREE.MeshBasicMaterial({ color: tint }) : new THREE.MeshLambertMaterial({ color: tint });
+      });
+    }
+    return m;
+  }
+
   // ---------- БОМБА (пленты A и B — клетки карты) ----------
   const SITE_A = { x1: 27, y1: 1, x2: 38, y2: 9 };
   const SITE_B = { x1: 2, y1: 1, x2: 14, y2: 8 };
@@ -409,20 +560,28 @@
     const bw = el('div', 'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#1c1a16; border:1px solid #8a6b3a; padding:14px 18px; min-width:340px; color:#eee;', ui.buy);
     el('div', 'font:bold 16px monospace; color:#ffc107; margin-bottom:8px;', bw, '🛒 ПОКУПКИ <span style="float:right;color:#7ee08a;" id="cs16BuyMoney"></span>');
     ui.buyList = el('div', '', bw);
-    el('div', 'font:11px monospace; color:#999; margin-top:8px;', bw, 'B — закрыть · покупка только в начале раунда (freeze + 15 сек)');
+    el('div', 'font:11px monospace; color:#999; margin-top:8px;', bw, 'B — закрыть · 1-9 — купить быстро · покупка в начале раунда (freeze + 15 сек)');
+    // 3.15.3: панель хоста после конца матча — реванш или выход в меню
+    ui.hostPanel = el('div', 'position:absolute; left:50%; top:62%; transform:translateX(-50%); display:none; background:rgba(20,16,10,0.92); border:1px solid #8a6b3a; border-radius:6px; padding:12px 16px; text-align:center; pointer-events:auto;', ui.hud);
+    el('div', 'font:bold 13px monospace; color:#ffc107; margin-bottom:8px;', ui.hostPanel, '👑 Хост: управление матчем');
+    const hpRow = el('div', '', ui.hostPanel);
+    const rematchBtn = el('button', 'padding:8px 18px; margin:0 6px; font:bold 14px monospace; cursor:pointer; background:#2d6a22; color:#dfffcf; border:1px solid #4a8a3a;', hpRow, '🔄 НАЧАТЬ ЗАНОВО');
+    const menuBtn = el('button', 'padding:8px 18px; margin:0 6px; font:bold 14px monospace; cursor:pointer; background:#6a2d22; color:#ffd9cf; border:1px solid #8a4a3a;', hpRow, '🏳️ ВЫЙТИ В МЕНЮ');
+    rematchBtn.onclick = () => sock && sock.emit('cs16_rematch');
+    menuBtn.onclick = () => { if (confirm('Завершить матч и выйти в меню? Команды будут сброшены.')) sock && sock.emit('cs16_tomenu'); };
     window.addEventListener('resize', resize3);
   }
   function renderBuyList() {
     ui.buyList.innerHTML = '';
     const mEl = document.getElementById('cs16BuyMoney');
     if (mEl) mEl.textContent = '$' + me.money;
-    for (const it of BUY_ITEMS) {
+    for (const [i, it] of BUY_ITEMS.entries()) {
       const w = WEAPONS[it.id];
       const teamGate = (w && w.team) || it.team;
       let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
       if (it.id === 'defuser' && me.kit) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
-      b.textContent = `${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
+      b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
       if (dis) b.disabled = true;
       b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
     }
@@ -541,7 +700,7 @@
         ${isFiff ? `<div style="margin-top:12px; background:#2a1515; border:1px solid #7a3a3a; border-radius:6px; padding:10px; font:12px monospace; color:#e8b8b8;">👑 Ты Fifflaren: кнопки <b>👑</b> у ника — отдать хост, <b>🥾</b> — кикнуть из комнаты (если хост афк).</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
           Управление: WASD — движение · Shift — тихий шаг · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · ПКМ (AWP) — прицел ·
-          R — перезарядка · B — магазин · G — HE-граната · F — флешка · 1/2/3 — основное/пистолет/нож · <b style="color:#ffd76a;">E — закладка/разминирование C4</b>
+          R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE-граната · F — флешка · 1/2/3 — основное/пистолет/нож · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b>
         </div>
       </div>`;
     const jt = document.getElementById('cs16JoinT'), jc = document.getElementById('cs16JoinCT');
@@ -591,6 +750,12 @@
       if (y.weapon && y.weapon !== current && WEAPONS[y.weapon]) { primary = y.weapon; }
     });
     sock.on('cs16_err', (m) => { killfeed('⚠️ ' + esc(m)); if (ui.buy.style.display === 'block') renderBuyList(); });
+    sock.on('cs16_swapped', (d) => {
+      killfeed(`🔁 Ты перешёл в команду ${d.team === 't' ? 'ТЕРРОРИСТОВ' : 'КОНТР-ТЕРРОРИСТОВ'}`);
+      current = d.team === 't' ? 'glock' : 'usp';
+      primary = null;
+      if (ui.buy.style.display === 'block') renderBuyList();
+    });
     sock.on('cs16_bought', (d) => {
       buyOk(d.item);
       me.money = d.money;
@@ -677,11 +842,13 @@
     sock.on('cs16_death', (d) => {
       killfeed(d.killer
         ? `☠️ ${esc(d.killer)} → ${esc(d.nick)}${d.head ? ' 🎯' : ''}`
-        : `💥 ${esc(d.nick)} разорвало гранатой`);
+        : (d.weapon === 'swap' ? `🔁 ${esc(d.nick)} сменил команду` : `💥 ${esc(d.nick)} разорвало гранатой`));
       if (d.nick === myNick) {
         me.alive = false; scoped = false; closeBuy();
         primary = null; current = me.team === 't' ? 'glock' : 'usp'; // убитый роняет основное оружие
-        centerMsg(`☠️ Тебя убил <b>${esc(d.killer || 'граната')}</b><br><span style="font-size:13px; color:#999;">Жди следующий раунд</span>`, 0);
+        centerMsg(d.weapon === 'swap'
+          ? '🔁 Команда сменена — ты появишься в новой команде со следующего раунда'
+          : `☠️ Тебя убил <b>${esc(d.killer || 'граната')}</b><br><span style="font-size:13px; color:#999;">Жди следующий раунд</span>`, 0);
       }
       const r = remotes.get(d.nick);
       if (r) r.alive = false;
@@ -780,8 +947,9 @@
   }
   // Оружие в руках пересобираем при смене оружия/скина
   function setRemoteGun(r) {
-    if (r.gunWeapon === r.weapon && r.gunSkin === r.skin) return;
-    r.gunWeapon = r.weapon; r.gunSkin = r.skin;
+    const hasGlb = !!(glbCache[r.weapon || 'usp'] && glbCache[r.weapon || 'usp'].model);
+    if (r.gunWeapon === r.weapon && r.gunSkin === r.skin && r.gunGlb === hasGlb) return;
+    r.gunWeapon = r.weapon; r.gunSkin = r.skin; r.gunGlb = hasGlb;
     while (r.gunHolder.children.length) r.gunHolder.remove(r.gunHolder.children[0]);
     r.gun = buildGun(r.weapon || 'usp', r.skin, 1);
     r.gunHolder.add(r.gun);
@@ -790,6 +958,13 @@
   // красится скином. scale>1.5 — вид от первого лица (более детально).
   function buildGun(weapon, skin, scale) {
     const g = new THREE.Group();
+    // 3.15.3: настоящая GLB-модель, если уже загрузилась
+    const glb = glbGunClone(weapon, skin);
+    if (glb) {
+      glb.scale.multiplyScalar((scale || 1) * 0.9);
+      g.add(glb);
+      return g;
+    }
     const s = SKINS[skin];
     const bodyC = s ? s.color : 0x6a6a74;
     const trimC = s && s.trim ? s.trim : 0x33333a;
@@ -881,10 +1056,18 @@
   const nadesList = [];
   let flashAlpha = 0, shake = 0;
   function spawnNade(pos, vel, kind, isMine) {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.16, 8, 6),
-      new THREE.MeshLambertMaterial({ color: kind === 'flash' ? 0xeeeeee : 0x3a5f2a })
-    );
+    let mesh;
+    const glbN = glbCache.grenade && glbCache.grenade.model;
+    if (glbN) {
+      mesh = glbN.clone();
+      mesh.scale.multiplyScalar(1.1);
+      mesh.traverse(o => { if (o.isMesh && kind === 'flash') o.material = new THREE.MeshLambertMaterial({ color: 0xdddddd }); });
+    } else {
+      mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.16, 8, 6),
+        new THREE.MeshLambertMaterial({ color: kind === 'flash' ? 0xeeeeee : 0x3a5f2a })
+      );
+    }
     mesh.position.set(pos[0], pos[1], pos[2]);
     scene.add(mesh);
     nadesList.push({ mesh, vx: vel[0], vy: vel[1], vz: vel[2], kind, fuse: 1.5, mine: isMine, boomSent: false });
@@ -938,8 +1121,15 @@
   function spawnBombMesh(pos) {
     removeBombMesh();
     bombMesh = new THREE.Group();
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.3), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
-    bombMesh.add(box);
+    const glbC4 = glbCache.c4 && glbCache.c4.model;
+    if (glbC4) {
+      const m = glbC4.clone();
+      m.scale.multiplyScalar(1.15);
+      bombMesh.add(m);
+    } else {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.3), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
+      bombMesh.add(box);
+    }
     bombLight = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
     bombLight.position.set(0.15, 0.15, 0);
     bombMesh.add(bombLight);
@@ -990,12 +1180,12 @@
   }
 
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
-  let vm = null, vmWeapon = '', vmSkin = '', vmKick = 0, vmSwayX = 0, vmSwayY = 0;
+  let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmSwayX = 0, vmSwayY = 0;
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
-    if (vmWeapon !== current || vmSkin !== mySkin) {
-      vmWeapon = current; vmSkin = mySkin;
+    if (vmWeapon !== current || vmSkin !== mySkin || vmGlb !== !!(glbCache[current] && glbCache[current].model)) {
+      vmWeapon = current; vmSkin = mySkin; vmGlb = !!(glbCache[current] && glbCache[current].model);
       if (vm) camera.remove(vm);
       vm = buildGun(current, mySkin, 1.8);
       vm.position.set(0.3, -0.3, -0.55);
@@ -1202,7 +1392,18 @@
       keys[e.key.toLowerCase()] = true;
       if (e.code === 'Space') { keys.space = true; e.preventDefault(); }
       const k = e.key.toLowerCase();
-      if (k === 'b') { if (ui.buy.style.display === 'block') closeBuy(); else openBuy(); }
+      // 3.15.3: покупка цифрами, пока открыт магазин
+      if (ui.buy.style.display === 'block') {
+        const n = parseInt(k, 10);
+        if (n >= 1 && n <= 9) {
+          const btns = ui.buyList.querySelectorAll('button');
+          if (btns[n - 1] && !btns[n - 1].disabled) btns[n - 1].click();
+        }
+        if (k === 'b' || k === 'escape') closeBuy();
+        return;
+      }
+      if (k === 'b') openBuy();
+      if (k === 'm') { sock && me.team && sock.emit('cs16_swap'); }
       if (k === 'r') startReload();
       if (k === 'g') throwNade('he');
       if (k === 'f') throwNade('flash');
@@ -1243,6 +1444,8 @@
       ui.bombTimer.style.display = 'block';
       ui.bombTimer.style.color = bleft < 10000 ? '#ff2222' : '#ffaa44';
     } else ui.bombTimer.style.display = 'none';
+    // панель хоста после матча
+    ui.hostPanel.style.display = (state.phase === 'matchend' && state.host === myNick) ? 'block' : 'none';
   }
 
   // ---------- ГЛАВНЫЙ ЦИКЛ ----------
@@ -1340,6 +1543,7 @@
       buildUI();
       initScene();
       bindInput();
+      loadGLBAll();
       ensureSocket();
       loadSkins();
       requestAnimationFrame(loop);

@@ -800,14 +800,18 @@
       else current = primary;
       if (sp) { P.x = sp.pos[0]; P.y = 0; P.z = sp.pos[2]; P.vx = P.vy = P.vz = 0; }
       // ставим соперников на их спавны, чтобы не мелькали в углу
+      const spawnNicks = new Set();
       for (const s of (d.spawns || [])) {
         const pl = state.players.find(p => p.id === s.id);
         if (!pl || pl.nick === myNick) continue;
+        spawnNicks.add(pl.nick);
         const r = addRemote(pl.nick, pl.team);
         r.alive = true; // 3.15.2: воскрешаем модельки на новый раунд
         r.group.rotation.z = 0;
         r.x = r.tx = s.pos[0]; r.y = r.ty = s.pos[1] - EYE; r.z = r.tz = s.pos[2];
       }
+      // 3.15.5: трупы/лишние модельки не из этого раунда — убираем с карты
+      for (const n of [...remotes.keys()]) if (!spawnNicks.has(n)) removeRemote(n);
       bombPlanted = null; action = null; lastBeep = -1;
       removeBombMesh();
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
@@ -937,7 +941,8 @@
     gunHolder.position.set(0, -0.52, -0.15);
     armR.add(gunHolder);
     g.add(torso, head, legL, legR, armL, armR);
-    g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
+    // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
+    if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
     const r = { group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '',
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
@@ -1250,7 +1255,7 @@
       // нож: короткая дистанция
       const d = dirFromCam();
       const hit = rayPlayers(P.x, P.y + EYE, P.z, d, 2.4);
-      if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false });
+      if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body' });
       spawnTracer([P.x, P.y + EYE, P.z], d, 2, false);
       return;
     }
@@ -1266,7 +1271,7 @@
     const wallT = wall ? wall.t : MAXT;
     const hit = rayPlayers(P.x, P.y + EYE, P.z, d, wallT);
     spawnTracer([P.x, P.y + EYE - 0.1, P.z], d, hit ? hit.t : wallT, false);
-    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head });
+    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head, zone: hit.zone });
     // отдача
     P.pitch = Math.min(1.45, P.pitch + (current === 'awp' ? 0.035 : 0.008 + Math.random() * 0.006));
     P.yaw += (Math.random() - 0.5) * 0.004;
@@ -1302,7 +1307,11 @@
         if (t > 0 && t < maxT) tHead = t;
       }
       const t = tHead != null ? tHead : tBody;
-      if (t != null && (!best || t < best.t)) best = { t, nick, head: tHead != null && (tBody == null || tHead <= tBody) };
+      if (t != null && (!best || t < best.t)) {
+        const hy = oy + d[1] * t;
+        const zone = tHead != null && (tBody == null || tHead <= tBody) ? 'head' : (hy < r.y + 0.85 ? 'leg' : 'body');
+        best = { t, nick, head: zone === 'head', zone };
+      }
     }
     return best;
   }

@@ -537,9 +537,9 @@ app.whenReady().then(() => {
     }
   });
 
-  // Разрешаем микрофон (голосовые в ЛС) и медиа
+  // Разрешаем микрофон (голосовые в ЛС) и медиа; pointerLock — для прицела в КС 1.6
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(['media', 'audioCapture', 'speaker-selection'].includes(permission));
+    cb(['media', 'audioCapture', 'speaker-selection', 'pointerLock', 'fullscreen'].includes(permission));
   });
 
   // Автозапуск с Windows включён по умолчанию

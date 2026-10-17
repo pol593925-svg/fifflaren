@@ -639,6 +639,8 @@
         const pl = state.players.find(p => p.id === s.id);
         if (!pl || pl.nick === myNick) continue;
         const r = addRemote(pl.nick, pl.team);
+        r.alive = true; // 3.15.2: воскрешаем модельки на новый раунд
+        r.group.rotation.z = 0;
         r.x = r.tx = s.pos[0]; r.y = r.ty = s.pos[1] - EYE; r.z = r.tz = s.pos[2];
       }
       bombPlanted = null; action = null; lastBeep = -1;
@@ -678,6 +680,7 @@
         : `💥 ${esc(d.nick)} разорвало гранатой`);
       if (d.nick === myNick) {
         me.alive = false; scoped = false; closeBuy();
+        primary = null; current = me.team === 't' ? 'glock' : 'usp'; // убитый роняет основное оружие
         centerMsg(`☠️ Тебя убил <b>${esc(d.killer || 'граната')}</b><br><span style="font-size:13px; color:#999;">Жди следующий раунд</span>`, 0);
       }
       const r = remotes.get(d.nick);
@@ -783,42 +786,80 @@
     r.gun = buildGun(r.weapon || 'usp', r.skin, 1);
     r.gunHolder.add(r.gun);
   }
-  // Маленькая модель оружия из примитивов (для рук и первого лица), красится скином
+  // Модель оружия из примитивов по мотивам CS:GO (АК с изогнутым магазином, AWP с прицелом и затвором),
+  // красится скином. scale>1.5 — вид от первого лица (более детально).
   function buildGun(weapon, skin, scale) {
     const g = new THREE.Group();
     const s = SKINS[skin];
-    const bodyC = s ? s.color : 0x2b2b2b;
-    const trimC = s && s.trim ? s.trim : 0x141414;
+    const bodyC = s ? s.color : 0x6a6a74;
+    const trimC = s && s.trim ? s.trim : 0x33333a;
+    const woodC = 0x8a5a28;
     const mat = (c) => (s && (s.glow || s.rainbow)) ? new THREE.MeshBasicMaterial({ color: c }) : new THREE.MeshLambertMaterial({ color: c });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x232327 });
+    const wood = new THREE.MeshLambertMaterial({ color: woodC });
     const sc = scale || 1;
+    const det = sc > 1.5; // детализация для первого лица
+    const add = (geo, m, x, y, z, rx, ry, rz) => {
+      const mm = new THREE.Mesh(geo, m);
+      mm.scale.setScalar(sc); // размеры умножаем на масштаб, позиции — отдельно
+      mm.position.set(x * sc, y * sc, z * sc);
+      if (rx) mm.rotation.x = rx; if (ry) mm.rotation.y = ry; if (rz) mm.rotation.z = rz;
+      g.add(mm); return mm;
+    };
     if (weapon === 'knife') {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.03 * sc, 0.16 * sc, 0.34 * sc), new THREE.MeshLambertMaterial({ color: 0xc8ccd2 }));
-      blade.position.z = -0.2 * sc;
-      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.04 * sc, 0.12 * sc, 0.12 * sc), new THREE.MeshLambertMaterial({ color: 0x3a2a1a }));
-      g.add(blade, grip);
+      add(new THREE.BoxGeometry(0.035, 0.05, 0.36), new THREE.MeshLambertMaterial({ color: 0xd6dbe2 }), 0, 0.02, -0.26);
+      add(new THREE.BoxGeometry(0.045, 0.1, 0.14), dark, 0, -0.03, -0.02);
+      add(new THREE.BoxGeometry(0.05, 0.03, 0.05), dark, 0, -0.09, -0.08);
       return g;
     }
-    let len = 0.7, h = 0.14;
-    if (weapon === 'glock' || weapon === 'usp' || weapon === 'deagle') { len = 0.34; h = 0.15; }
-    else if (weapon === 'awp') { len = 0.95; h = 0.13; }
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.07 * sc, h * sc, len * sc), mat(bodyC));
-    body.position.z = -len * sc / 2;
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06 * sc, 0.17 * sc, 0.08 * sc), mat(trimC));
-    grip.position.set(0, -0.13 * sc, -0.08 * sc);
-    g.add(body, grip);
-    if (weapon !== 'glock' && weapon !== 'usp' && weapon !== 'deagle') {
-      const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05 * sc, 0.19 * sc, 0.07 * sc), mat(trimC));
-      mag.position.set(0, -0.14 * sc, -0.32 * sc);
-      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06 * sc, 0.13 * sc, 0.2 * sc), mat(trimC));
-      stock.position.set(0, -0.02 * sc, 0.1 * sc);
-      g.add(mag, stock);
+    if (weapon === 'glock' || weapon === 'usp' || weapon === 'deagle') {
+      // затвор + рамка + рукоять + дульце
+      const L = weapon === 'deagle' ? 0.42 : 0.36;
+      add(new THREE.BoxGeometry(0.075, 0.09, L), mat(bodyC), 0, 0.03, -L / 2 + 0.05);
+      add(new THREE.BoxGeometry(0.07, 0.07, L * 0.7), dark, 0, -0.035, -L / 2 + 0.08);
+      add(new THREE.BoxGeometry(0.06, 0.18, 0.09), mat(trimC), 0, -0.11, 0.02, 0.22);
+      add(new THREE.CylinderGeometry(0.022, 0.022, 0.07, 8), dark, 0, 0.03, -L + 0.02, Math.PI / 2);
+      if (det && weapon === 'deagle') add(new THREE.BoxGeometry(0.078, 0.03, 0.12), mat(bodyC), 0, 0.085, -0.1); // характерный гребень
+      return g;
+    }
+    if (weapon === 'ak47') {
+      add(new THREE.BoxGeometry(0.08, 0.13, 0.5), mat(bodyC), 0, 0, -0.18);                 // ствольная коробка
+      add(new THREE.CylinderGeometry(0.028, 0.028, 0.34, 8), dark, 0, 0.01, -0.58, Math.PI / 2); // ствол
+      add(new THREE.BoxGeometry(0.03, 0.08, 0.04), dark, 0, 0.07, -0.7);                     // мушка
+      add(new THREE.BoxGeometry(0.07, 0.14, 0.2), wood, 0, -0.05, 0.22, -0.12);              // приклад
+      add(new THREE.BoxGeometry(0.06, 0.16, 0.09), wood, 0, -0.13, -0.12, 0.35);             // пистолетная рукоять
+      add(new THREE.BoxGeometry(0.055, 0.16, 0.1), mat(trimC), 0, -0.15, -0.28, 0.5);        // магазин (верх)
+      add(new THREE.BoxGeometry(0.055, 0.14, 0.09), mat(trimC), 0, -0.24, -0.33, 0.9);       // магазин (изгиб)
+      add(new THREE.BoxGeometry(0.05, 0.05, 0.16), wood, 0, -0.045, -0.5);                   // цевьё
+      return g;
+    }
+    if (weapon === 'm4a1') {
+      add(new THREE.BoxGeometry(0.08, 0.13, 0.52), mat(bodyC), 0, 0, -0.18);
+      add(new THREE.CylinderGeometry(0.026, 0.026, 0.3, 8), dark, 0, 0.01, -0.58, Math.PI / 2);
+      add(new THREE.BoxGeometry(0.05, 0.07, 0.3), mat(trimC), 0, 0.1, -0.2);                 // ручка переноса
+      add(new THREE.BoxGeometry(0.07, 0.13, 0.22), mat(bodyC), 0, -0.04, 0.24, -0.1);        // приклад
+      add(new THREE.BoxGeometry(0.06, 0.16, 0.09), dark, 0, -0.13, -0.1, 0.3);
+      add(new THREE.BoxGeometry(0.055, 0.18, 0.1), mat(trimC), 0, -0.15, -0.26);             // прямой магазин
+      add(new THREE.BoxGeometry(0.05, 0.06, 0.18), mat(bodyC), 0, -0.04, -0.48);             // цевьё
+      add(new THREE.BoxGeometry(0.03, 0.09, 0.04), dark, 0, 0.06, -0.72);                    // передняя мушка
+      return g;
     }
     if (weapon === 'awp') {
-      const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * sc, 0.035 * sc, 0.22 * sc, 8), new THREE.MeshLambertMaterial({ color: 0x1a1a1a }));
-      scope.rotation.x = Math.PI / 2;
-      scope.position.set(0, 0.11 * sc, -0.35 * sc);
-      g.add(scope);
+      add(new THREE.BoxGeometry(0.08, 0.13, 0.6), mat(bodyC), 0, 0, -0.15);
+      add(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), dark, 0, 0.01, -0.68, Math.PI / 2); // длинный ствол
+      add(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10), dark, 0, 0.12, -0.12, Math.PI / 2); // оптика
+      add(new THREE.BoxGeometry(0.02, 0.05, 0.06), dark, 0, 0.05, -0.02);                    // крепление прицела
+      add(new THREE.BoxGeometry(0.02, 0.05, 0.06), dark, 0, 0.05, -0.22);
+      add(new THREE.BoxGeometry(0.08, 0.16, 0.28), mat(bodyC), 0, -0.06, 0.26, -0.08);       // ложе с щекой
+      add(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 6), dark, 0.06, 0.04, 0.08, 0, 0, Math.PI / 2); // затвор
+      add(new THREE.BoxGeometry(0.06, 0.16, 0.09), wood, 0, -0.13, -0.08, 0.35);
+      add(new THREE.BoxGeometry(0.02, 0.16, 0.03), dark, -0.04, -0.12, -0.78, 0.3);          // сошка
+      add(new THREE.BoxGeometry(0.02, 0.16, 0.03), dark, 0.04, -0.12, -0.78, 0.3);
+      return g;
     }
+    // запасной вариант
+    add(new THREE.BoxGeometry(0.07, 0.14, 0.7), mat(bodyC), 0, 0, -0.3);
+    add(new THREE.BoxGeometry(0.06, 0.17, 0.08), mat(trimC), 0, -0.13, -0.08);
     return g;
   }
   function removeRemote(nick) {
@@ -949,32 +990,57 @@
   }
 
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
-  let vm = null, vmWeapon = '', vmSkin = '', vmKick = 0;
-  function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
+  let vm = null, vmWeapon = '', vmSkin = '', vmKick = 0, vmSwayX = 0, vmSwayY = 0;
+  function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
     if (vmWeapon !== current || vmSkin !== mySkin) {
       vmWeapon = current; vmSkin = mySkin;
       if (vm) camera.remove(vm);
-      vm = buildGun(current, mySkin, 2.3);
-      vm.position.set(0.33, -0.34, -0.62);
+      vm = buildGun(current, mySkin, 1.8);
+      vm.position.set(0.3, -0.3, -0.55);
       camera.add(vm);
     }
     if (!vm) return;
     const moving = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
-    vm.position.y = -0.34 + (moving ? Math.abs(Math.sin(t / 110)) * 0.016 : 0);
-    vm.position.x = 0.33 + (moving ? Math.sin(t / 220) * 0.009 : 0);
+    vm.position.y = -0.3 + (moving ? Math.abs(Math.sin(t / 110)) * 0.014 : 0);
+    vm.position.x = 0.3 + (moving ? Math.sin(t / 220) * 0.008 : 0);
+    // отводка за мышью (ствол чуть отстаёт от движения)
+    vmSwayX *= Math.max(0, 1 - dt * 7);
+    vmSwayY *= Math.max(0, 1 - dt * 7);
+    vm.rotation.y = -vmSwayX * 2.2;
     if (reloading > 0 && WEAPONS[current].reload) {
       const k = 1 - reloading / WEAPONS[current].reload;
-      vm.rotation.x = -0.7 * Math.sin(Math.min(1, k) * Math.PI);
-    } else vm.rotation.x = 0;
+      vm.rotation.x = -0.7 * Math.sin(Math.min(1, k) * Math.PI) - vmSwayY * 1.4;
+    } else vm.rotation.x = -vmSwayY * 1.4;
     vmKick = Math.max(0, vmKick - dt * 6);
-    vm.position.z = -0.62 + vmKick * 0.1;
+    vm.position.z = -0.55 + vmKick * 0.09;
     vm.visible = me.alive && !scoped;
   }
 
   // ---------- СТРЕЛЬБА ----------
   const keys = {};
+  // Слоты оружия и переключение (колесико/клавиши — как в CS)
+  let lastWeaponSlot = '';
+  function ownedSlots() {
+    const pistol = me.team === 't' ? 'glock' : 'usp';
+    const arr = [];
+    if (primary && WEAPONS[primary]) arr.push(primary);
+    arr.push(pistol, 'knife');
+    return arr;
+  }
+  function switchSlot(id) {
+    if (!WEAPONS[id] || id === current) return;
+    lastWeaponSlot = current;
+    current = id;
+    reloading = 0;
+  }
+  function cycleSlot(dir) {
+    const arr = ownedSlots();
+    let i = arr.indexOf(current);
+    if (i < 0) i = 0;
+    switchSlot(arr[(i + dir + arr.length) % arr.length]);
+  }
   function dirFromCam() {
     const cp = Math.cos(P.pitch);
     return [-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp];
@@ -1117,11 +1183,19 @@
     });
     window.addEventListener('mouseup', (e) => { if (e.button === 0) keys.fire = false; });
     canvasEl.addEventListener('contextmenu', e => e.preventDefault());
+    // 3.15.2: колесико мыши — перебор оружия как в CS 1.6
+    canvasEl.addEventListener('wheel', (e) => {
+      if (!pointerLocked || !me.alive) return;
+      e.preventDefault();
+      cycleSlot(e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
     window.addEventListener('mousemove', (e) => {
       if (!pointerLocked || !me.alive) return;
       const sens = scoped ? 0.0009 : 0.0023;
       P.yaw -= e.movementX * sens;
       P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - e.movementY * sens));
+      vmSwayX = Math.max(-0.09, Math.min(0.09, vmSwayX + e.movementX * 0.00035));
+      vmSwayY = Math.max(-0.09, Math.min(0.09, vmSwayY + e.movementY * 0.00035));
     });
     window.addEventListener('keydown', (e) => {
       if (state.phase === 'lobby' || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
@@ -1132,9 +1206,10 @@
       if (k === 'r') startReload();
       if (k === 'g') throwNade('he');
       if (k === 'f') throwNade('flash');
-      if (k === '1' && primary) current = primary;
-      if (k === '2') current = me.team === 't' ? 'glock' : 'usp';
-      if (k === '3') current = 'knife';
+      if (k === '1' && primary) switchSlot(primary);
+      if (k === '2') switchSlot(me.team === 't' ? 'glock' : 'usp');
+      if (k === '3') switchSlot('knife');
+      if (k === 'q' && lastWeaponSlot) switchSlot(lastWeaponSlot);
     });
     window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; if (e.code === 'Space') keys.space = false; });
   }

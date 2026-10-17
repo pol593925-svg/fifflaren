@@ -440,6 +440,32 @@
       instGeo(sideX, new THREE.BoxGeometry(0.4, TUNNEL_H, CELL), matRock);
       instGeo(sideZ, new THREE.BoxGeometry(CELL, TUNNEL_H, 0.4), matRock);
     }
+    // 3.15.8: чёрные граффити-указатели «A» и «B» на плентх и у входов
+    function graffiti(letter, x, y, z, ry, size) {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const g = c.getContext('2d');
+      g.font = 'bold 104px "Arial Black", Arial, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = 'rgba(8,8,8,0.93)';
+      g.fillText(letter, 64, 70);
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(size || 2.6, size || 2.6),
+        new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c), transparent: true, polygonOffset: true, polygonOffsetFactor: -2 })
+      );
+      m.position.set(x, y, z);
+      if (ry) m.rotation.y = ry;
+      scene.add(m);
+      return m;
+    }
+    // на полу плентов
+    const flA = graffiti('A', BOMB_POS.A[0], 0.03, BOMB_POS.A[2], 0, 3.6); flA.rotation.x = -Math.PI / 2;
+    const flB = graffiti('B', BOMB_POS.B[0], 0.03, BOMB_POS.B[2], 0, 3.6); flB.rotation.x = -Math.PI / 2;
+    // на стенах у входов
+    graffiti('B', 8 * CELL - 0.03, 1.7, 10 * CELL + 2, -Math.PI / 2);  // в туннелях B (у выхода к миду)
+    graffiti('B', 8 * CELL + 2, 1.8, CELL + 0.03, 0);                  // северная стена плента B
+    graffiti('A', 22 * CELL + 0.03, 1.7, 8 * CELL + 2, -Math.PI / 2);  // у шорта (мид → A)
+    graffiti('A', 39 * CELL - 0.03, 1.7, 30 * CELL, -Math.PI / 2);     // у лонг-дверей
+    graffiti('A', 32 * CELL + 2, 1.8, CELL + 0.03, 0);                 // северная стена плента A
     resize3();
   }
   function resize3() {

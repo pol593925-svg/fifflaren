@@ -100,7 +100,33 @@
     { id: 'awp',       label: '🎯 AWP',          price: 4750 },
     { id: 'hegrenade', label: '💣 HE-граната',   price: 300 },
     { id: 'flashbang', label: '✨ Флешка',       price: 200 },
+    { id: 'defuser',   label: '🧰 Набор сапёра (CT)', price: 200 },
   ];
+
+  // ---------- СКИНЫ (магазин за казино-деньги) ----------
+  const SKINS = {
+    banana:    { name: '🍌 Банан',     price: 350,  color: 0xf7d54d },
+    waves:     { name: '🌊 Волны',     price: 400,  color: 0x3d9be9 },
+    azimov:    { name: '🔥 Азимов',    price: 500,  color: 0xff7a1a },
+    radiation: { name: '☢️ Радиация',  price: 600,  color: 0x6dff4d, glow: true },
+    dragon:    { name: '🐉 Дракон',    price: 800,  color: 0xd42a2a },
+    neon:      { name: '💜 Неон',      price: 1000, color: 0xb44dff, glow: true },
+    obsidian:  { name: '🖤 Обсидиан',  price: 1200, color: 0x232323, trim: 0xff2222 },
+    gold:      { name: '⭐ Золото',    price: 1500, color: 0xffd700 },
+    prismatic: { name: '🌈 Призматик', price: 2000, color: 0xffffff, rainbow: true },
+    diamond:   { name: '💎 Алмаз',     price: 3000, color: 0x9fe8ff, glow: true },
+  };
+  let mySkin = '';             // экипированный скин ('' = стандарт)
+  let skinsBalance = 0, skinsOwned = [];
+
+  // ---------- БОМБА (пленты A и B — клетки карты) ----------
+  const SITE_A = { x1: 27, y1: 1, x2: 38, y2: 9 };
+  const SITE_B = { x1: 2, y1: 1, x2: 14, y2: 8 };
+  const BOMB_POS = { A: [32 * CELL + 2, 0.25, 4 * CELL + 2], B: [8 * CELL + 2, 0.25, 3 * CELL + 2] };
+  let bombPlanted = null;      // {site, pos, explodesAt}
+  let bombMesh = null, bombLight = null, lastBeep = -1;
+  let action = null;           // {type:'plant'|'defuse', t, need, site?}
+  let kickUntil = 0;
 
   // ---------- СОСТОЯНИЕ КЛИЕНТА ----------
   let sock = null;
@@ -174,6 +200,7 @@
     scene.background = new THREE.Color(0xcbb287);
     scene.fog = new THREE.FogExp2(0xcbb287, 0.012);
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 400);
+    scene.add(camera); // 3.15.1: к камере крепится оружие от первого лица
     const T = makeTextures();
     scene.add(new THREE.HemisphereLight(0xfff0d0, 0x7a6440, 1.05));
     const sun = new THREE.DirectionalLight(0xffe8c0, 0.9);
@@ -237,9 +264,30 @@
       const ddx = nx - bx, ddz = nz - bz;
       const d2 = ddx * ddx + ddz * ddz;
       if (d2 < r * r) {
-        const d = Math.sqrt(d2) || 0.001;
+        if (d2 < 1e-9) {
+          // центр внутри ячейки — толкаем к ближайшей грани
+          const cxm = cx * CELL + CELL / 2, czm = cy * CELL + CELL / 2;
+          const ex = CELL / 2 + r - Math.abs(nx - cxm), ez = CELL / 2 + r - Math.abs(nz - czm);
+          if (ex < ez) nx = cxm + Math.sign(nx - cxm || 1) * (CELL / 2 + r);
+          else nz = czm + Math.sign(nz - czm || 1) * (CELL / 2 + r);
+          continue;
+        }
+        const d = Math.sqrt(d2);
         const push = (r - d);
         nx += (ddx / d) * push; nz += (ddz / d) * push;
+      }
+    }
+    return [nx, nz];
+  }
+  // Коллизия с другими игроками (нельзя проходить насквозь)
+  function collidePlayers(nx, nz) {
+    for (const r of remotes.values()) {
+      if (!r.alive) continue;
+      const dx = nx - r.x, dz = nz - r.z;
+      const d2 = dx * dx + dz * dz, minD = 1.15;
+      if (d2 < minD * minD && d2 > 1e-9 && Math.abs(P.y - r.y) < 1.5) {
+        const d = Math.sqrt(d2), push = (minD - d);
+        nx += (dx / d) * push; nz += (dz / d) * push;
       }
     }
     return [nx, nz];
@@ -266,6 +314,8 @@
     let nz = P.z;
     [nx, nz] = collideAxis(nx, nz);
     nz = P.z + P.vz * dt;
+    [nx, nz] = collideAxis(nx, nz);
+    [nx, nz] = collidePlayers(nx, nz);
     [nx, nz] = collideAxis(nx, nz);
     P.x = nx; P.z = nz;
     let ny = P.y + P.vy * dt;
@@ -302,6 +352,7 @@
   }
   function sfxExplosion() { sfxNoise(0.7, 300, 0.7); }
   function sfxFlash() { const a = ac(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 3200; g.gain.value = 0.12; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.35); }
+  function sfxBeep() { const a = ac(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 1900; g.gain.value = 0.14; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.08); }
   function sfxHit() { sfxNoise(0.05, 3000, 0.2, 'highpass'); }
 
   // ---------- DOM ----------
@@ -318,12 +369,17 @@
     const r = root();
     r.style.cssText = 'position:relative; padding:0; overflow:hidden; height:calc(100vh - 210px); min-height:480px; background:#141210;';
     r.innerHTML = '';
+    // 3.15.1: дети HUD не должны перехватывать клики мыши (из-за этого не работал прицел)
+    const st = document.createElement('style');
+    st.textContent = '#tab-cs16 .cs16-hud, #tab-cs16 .cs16-hud * { pointer-events: none !important; }';
+    document.head.appendChild(st);
     ui.canvas = el('canvas', 'position:absolute; inset:0; width:100%; height:100%; display:none;', r);
     canvasEl = ui.canvas;
     // Лобби
     ui.lobby = el('div', 'position:absolute; inset:0; overflow:auto; padding:16px; background:linear-gradient(160deg,#1d1a14,#141210); color:#eee;', r);
     // HUD
     ui.hud = el('div', 'position:absolute; inset:0; pointer-events:none; display:none;', r);
+    ui.hud.className = 'cs16-hud';
     ui.topBar = el('div', 'position:absolute; top:8px; left:50%; transform:translateX(-50%); text-align:center; font:bold 15px monospace; color:#fff; text-shadow:0 1px 3px #000;', ui.hud);
     ui.scoreT = el('div', 'position:absolute; top:8px; left:14px; font:bold 15px monospace; color:#e8c34a; text-shadow:0 1px 3px #000;', ui.hud);
     ui.scoreCT = el('div', 'position:absolute; top:8px; right:14px; font:bold 15px monospace; color:#5aa2e8; text-shadow:0 1px 3px #000;', ui.hud);
@@ -343,6 +399,11 @@
     el('div', 'position:absolute; top:0; bottom:0; left:50%; width:1px; background:#000;', ui.scope);
     ui.flash = el('div', 'position:absolute; inset:0; background:#fff; opacity:0;', ui.hud);
     ui.dmgVin = el('div', 'position:absolute; inset:0; box-shadow:inset 0 0 120px rgba(255,0,0,0.7); opacity:0;', ui.hud);
+    // 3.15.1: подсказка действия (E), прогресс закладки/разминирования, таймер бомбы
+    ui.hint = el('div', 'position:absolute; bottom:26%; left:50%; transform:translateX(-50%); font:bold 15px monospace; color:#ffd76a; text-shadow:0 1px 4px #000; display:none;', ui.hud);
+    ui.actWrap = el('div', 'position:absolute; bottom:22%; left:50%; transform:translateX(-50%); width:240px; height:12px; background:rgba(0,0,0,0.6); border:1px solid #ffc107; display:none;', ui.hud);
+    ui.actFill = el('div', 'height:100%; width:0%; background:#ffc107;', ui.actWrap);
+    ui.bombTimer = el('div', 'position:absolute; top:52px; left:50%; transform:translateX(-50%); font:bold 26px monospace; color:#ff4444; text-shadow:0 2px 6px #000; display:none;', ui.hud);
     // Магазин
     ui.buy = el('div', 'position:absolute; inset:0; display:none; background:rgba(0,0,0,0.55); pointer-events:auto;', r);
     const bw = el('div', 'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#1c1a16; border:1px solid #8a6b3a; padding:14px 18px; min-width:340px; color:#eee;', ui.buy);
@@ -357,9 +418,11 @@
     if (mEl) mEl.textContent = '$' + me.money;
     for (const it of BUY_ITEMS) {
       const w = WEAPONS[it.id];
-      const dis = (w && w.team && w.team !== me.team) || me.money < it.price;
+      const teamGate = (w && w.team) || it.team;
+      let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
+      if (it.id === 'defuser' && me.kit) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
-      b.textContent = `${it.label} — $${it.price}`;
+      b.textContent = `${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
       if (dis) b.disabled = true;
       b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
     }
@@ -384,17 +447,67 @@
   }
 
   // ---------- ЛОББИ ----------
+  // ---------- МАГАЗИН СКИНОВ ----------
+  async function loadSkins() {
+    try {
+      const r = await fetch(`${SERVER}/api/cs16/skins?username=${encodeURIComponent(myNick)}`);
+      const d = await r.json();
+      if (d.success) { skinsBalance = d.balance; skinsOwned = d.owned || []; mySkin = d.equipped || ''; refreshSkinsPanel(); refreshViewmodelSkin(); }
+    } catch (e) {}
+  }
+  function refreshSkinsPanel() {
+    const p = document.getElementById('cs16SkinsPanel');
+    if (!p) return;
+    const bal = document.getElementById('cs16SkinsBalance');
+    if (bal) bal.textContent = '💰 ' + skinsBalance + '$ (казино)';
+    const list = document.getElementById('cs16SkinsList');
+    if (!list) return;
+    list.innerHTML = Object.entries(SKINS).map(([id, s]) => {
+      const owned = skinsOwned.includes(id);
+      const eq = mySkin === id;
+      return `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; margin:4px 0; background:#26221a; border-radius:4px;">
+        <span style="display:inline-block; width:26px; height:14px; border-radius:3px; background:#${s.color.toString(16).padStart(6, '0')}; ${s.glow ? 'box-shadow:0 0 8px #' + s.color.toString(16).padStart(6, '0') : ''};"></span>
+        <span style="flex:1;">${s.name}</span>
+        ${eq ? '<b style="color:#7ee08a;">НАДЕТ</b>' : owned
+          ? `<button class="cs16EquipBtn" data-s="${id}" style="padding:4px 12px; cursor:pointer; background:#2d4a22; color:#dfffcf; border:1px solid #4a8a3a;">Надеть</button>`
+          : `<button class="cs16BuySkinBtn" data-s="${id}" style="padding:4px 12px; cursor:pointer; background:#4a3a1a; color:#ffd76a; border:1px solid #8a6b3a;">Купить $${s.price}</button>`}
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.cs16BuySkinBtn').forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await fetch(`${SERVER}/api/cs16/skins/buy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: myNick, skin: b.dataset.s }) });
+        const d = await r.json();
+        if (d.success) { skinsBalance = d.balance; skinsOwned = d.owned; loadSkins(); }
+        else alert(d.message || 'Ошибка покупки');
+      } catch (e) { alert('Нет связи'); }
+    });
+    list.querySelectorAll('.cs16EquipBtn').forEach(b => b.onclick = async () => {
+      try {
+        const r = await fetch(`${SERVER}/api/cs16/skins/equip`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: myNick, skin: b.dataset.s }) });
+        const d = await r.json();
+        if (d.success) { mySkin = d.equipped; loadSkins(); }
+      } catch (e) {}
+    });
+    const un = document.getElementById('cs16SkinUnequip');
+    if (un) un.style.display = mySkin ? '' : 'none';
+  }
+
   function renderLobby() {
     const inMatch = state.phase !== 'lobby';
+    const isFiff = myNick.toLowerCase() === 'fifflaren';
     ui.lobby.style.display = 'block';
     ui.canvas.style.display = 'none';
     ui.hud.style.display = 'none';
+    const adminBtns = (p) => isFiff && p.nick.toLowerCase() !== 'fifflaren'
+      ? ` <button class="cs16HostBtn" data-n="${esc(p.nick)}" title="Сделать хостом" style="padding:0 6px; cursor:pointer;">👑</button><button class="cs16KickBtn" data-n="${esc(p.nick)}" title="Кикнуть из комнаты" style="padding:0 6px; cursor:pointer; color:#ff7777;">🥾</button>`
+      : '';
     const rows = (team) => state.players.filter(p => p.team === team)
-      .map(p => `<div style="padding:3px 8px; background:#26221a; margin:3px 0; border-radius:4px;">${esc(p.nick)} <span style="color:#888; font-size:11px;">${p.kills || 0}/${p.deaths || 0}</span></div>`).join('');
+      .map(p => `<div style="padding:3px 8px; background:#26221a; margin:3px 0; border-radius:4px;">${esc(p.nick)} <span style="color:#888; font-size:11px;">${p.kills || 0}/${p.deaths || 0}</span>${adminBtns(p)}</div>`).join('');
     const spectators = state.players.filter(p => !p.team).map(p => esc(p.nick)).join(', ');
     ui.lobby.innerHTML = `
       <div style="max-width:760px; margin:0 auto;">
-        <div style="font:bold 26px monospace; color:#e8c34a; text-align:center;">🔫 COUNTER-STRIKE 1.6 <span style="color:#999; font-size:13px;">de_dust2 · матч до 16 побед</span></div>
+        <div style="font:bold 26px monospace; color:#e8c34a; text-align:center;">🔫 COUNTER-STRIKE 1.6 <span style="color:#999; font-size:13px;">de_dust2 · матч до 16 побед · C4</span></div>
         ${inMatch ? `<div style="text-align:center; margin:10px 0; padding:8px; background:#3a2a1a; border:1px solid #8a6b3a;">⚔️ Идёт матч — раунд ${state.round}, счёт <b style="color:#e8c34a">${state.scores.t}</b> : <b style="color:#5aa2e8">${state.scores.ct}</b>. Дождись конца, в следующем матче сможешь играть.</div>` : ''}
         <div style="display:flex; gap:14px; margin-top:12px;">
           <div style="flex:1; background:#241f16; border:1px solid #6a5527; border-radius:6px; padding:10px;">
@@ -415,10 +528,20 @@
           <div style="font:12px monospace; color:#999; margin-top:6px;">Хост: <b style="color:#ffc107">${esc(state.host || '—')}</b>${state.host === myNick ? ' (это ты — жми старт, когда все распределятся)' : ''}</div>
           ${spectators ? `<div style="font:12px monospace; color:#888; margin-top:4px;">Без команды: ${spectators}</div>` : ''}
           <button id="cs16StartBtn" style="margin-top:8px; padding:10px 30px; font:bold 16px monospace; cursor:pointer; background:${state.host === myNick ? '#2d6a22' : '#333'}; color:#dfffcf; border:1px solid #4a8a3a;">▶ НАЧАТЬ МАТЧ</button>
+          <div style="margin-top:8px;">
+            <button id="cs16SkinsBtn" style="padding:8px 20px; font:bold 14px monospace; cursor:pointer; background:#3a2a4a; color:#e0c8ff; border:1px solid #7a5aa8;">🎨 МАГАЗИН СКИНОВ</button>
+          </div>
         </div>
+        <div id="cs16SkinsPanel" style="display:none; margin-top:12px; background:#191622; border:1px solid #4a3a6a; border-radius:6px; padding:12px;">
+          <div style="font:bold 15px monospace; color:#d8b8ff;">🎨 Скины оружия <span id="cs16SkinsBalance" style="float:right; color:#7ee08a;"></span></div>
+          <div style="font:11px monospace; color:#9988bb; margin:4px 0 8px;">Покупаются за деньги казино. Скин видят все игроки — и у тебя в руках, и у модельки.</div>
+          <div id="cs16SkinsList"></div>
+          <button id="cs16SkinUnequip" style="margin-top:6px; padding:5px 14px; cursor:pointer; background:#333; color:#ccc; border:1px solid #555;">Снять скин</button>
+        </div>
+        ${isFiff ? `<div style="margin-top:12px; background:#2a1515; border:1px solid #7a3a3a; border-radius:6px; padding:10px; font:12px monospace; color:#e8b8b8;">👑 Ты Fifflaren: кнопки <b>👑</b> у ника — отдать хост, <b>🥾</b> — кикнуть из комнаты (если хост афк).</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
           Управление: WASD — движение · Shift — тихий шаг · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · ПКМ (AWP) — прицел ·
-          R — перезарядка · B — магазин · G — HE-граната · F — флешка · 1/2/3 — основное/пистолет/нож
+          R — перезарядка · B — магазин · G — HE-граната · F — флешка · 1/2/3 — основное/пистолет/нож · <b style="color:#ffd76a;">E — закладка/разминирование C4</b>
         </div>
       </div>`;
     const jt = document.getElementById('cs16JoinT'), jc = document.getElementById('cs16JoinCT');
@@ -427,6 +550,23 @@
     document.querySelectorAll('.cs16ModeBtn').forEach(b => { b.onclick = () => sock && sock.emit('cs16_mode', Number(b.dataset.n)); });
     const sb = document.getElementById('cs16StartBtn');
     if (sb) sb.onclick = () => sock && sock.emit('cs16_start');
+    document.querySelectorAll('.cs16HostBtn').forEach(b => b.onclick = () => sock && sock.emit('cs16_sethost', b.dataset.n));
+    document.querySelectorAll('.cs16KickBtn').forEach(b => b.onclick = () => { if (confirm('Кикнуть ' + b.dataset.n + ' из комнаты КС?')) sock && sock.emit('cs16_kick', b.dataset.n); });
+    const sk = document.getElementById('cs16SkinsBtn');
+    if (sk) sk.onclick = () => {
+      const p = document.getElementById('cs16SkinsPanel');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+      if (p.style.display === 'block') loadSkins();
+    };
+    const un = document.getElementById('cs16SkinUnequip');
+    if (un) un.onclick = async () => {
+      try {
+        const r = await fetch(`${SERVER}/api/cs16/skins/equip`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: myNick, skin: '' }) });
+        const d = await r.json();
+        if (d.success) { mySkin = ''; loadSkins(); }
+      } catch (e) {}
+    };
+    refreshSkinsPanel();
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -447,7 +587,7 @@
       resize3();
     });
     sock.on('cs16_you', (y) => {
-      me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive;
+      me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
       if (y.weapon && y.weapon !== current && WEAPONS[y.weapon]) { primary = y.weapon; }
     });
     sock.on('cs16_err', (m) => { killfeed('⚠️ ' + esc(m)); if (ui.buy.style.display === 'block') renderBuyList(); });
@@ -456,6 +596,28 @@
       me.money = d.money;
       killfeed('🛒 Куплено: ' + esc(WEAPONS[d.item] ? WEAPONS[d.item].name : d.item));
       if (ui.buy.style.display === 'block') renderBuyList();
+    });
+    // ---------- C4 ----------
+    sock.on('cs16_bomb_planted', (d) => {
+      bombPlanted = { site: d.site, pos: d.pos, explodesAt: d.explodesAt };
+      if (d.now) clockOffset = d.now - Date.now();
+      spawnBombMesh(d.pos);
+      banner(`💣 БОМБА ЗАЛОЖЕНА НА ${d.site}`, '#ff5544', 3000);
+      killfeed(`💣 ${esc(d.planter)} заложил бомбу на ${d.site}`);
+      action = null;
+    });
+    sock.on('cs16_bomb_defused', (d) => {
+      killfeed(`🧰 ${esc(d.nick)} обезвредил бомбу`);
+      bombPlanted = null; action = null; removeBombMesh();
+    });
+    sock.on('cs16_bomb_exploded', (d) => {
+      if (d.pos) { explodeFx(d.pos, 'he'); shake = Math.max(shake, 0.8); sfxExplosion(); }
+      bombPlanted = null; action = null; removeBombMesh();
+    });
+    sock.on('cs16_kicked', () => {
+      kickUntil = Date.now() + 30000;
+      joined = false;
+      banner('🥾 Тебя выкинул из комнаты Fifflaren', '#ff7777', 5000);
     });
     sock.on('cs16_round_start', (d) => {
       state.round = d.round; state.scores = d.scores;
@@ -479,6 +641,8 @@
         const r = addRemote(pl.nick, pl.team);
         r.x = r.tx = s.pos[0]; r.y = r.ty = s.pos[1] - EYE; r.z = r.tz = s.pos[2];
       }
+      bombPlanted = null; action = null; lastBeep = -1;
+      removeBombMesh();
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
       closeBuy();
@@ -488,7 +652,7 @@
       let r = remotes.get(d.nick);
       if (!r) r = addRemote(d.nick, d.team);
       r.tx = d.pos[0]; r.ty = d.pos[1]; r.tz = d.pos[2];
-      r.tyaw = d.yaw; r.tpitch = d.pitch; r.weapon = d.weapon; r.lastSeen = performance.now();
+      r.tyaw = d.yaw; r.tpitch = d.pitch; r.weapon = d.weapon; r.skin = d.skin || ''; r.lastSeen = performance.now();
       r.moving = !!d.move;
     });
     sock.on('cs16_shoot', (d) => {
@@ -555,6 +719,7 @@
     sock.on('cs16_leave', (d) => { removeRemote(d.nick); });
   }
   function doJoin() {
+    if (Date.now() < kickUntil) return; // кик от Fifflaren — пауза 30 сек
     if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick); joined = true; }
   }
 
@@ -575,20 +740,86 @@
     return sp;
   }
   function addRemote(nick, team) {
-    const color = team === 't' ? 0xc9a13b : 0x3b7ac9;
+    const jacket = team === 't' ? 0xc9a13b : 0x3b7ac9;
+    const pants = 0x3a3f45;
+    const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 1.15, 10), new THREE.MeshLambertMaterial({ color }));
-    body.position.y = 0.85;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 10, 8), new THREE.MeshLambertMaterial({ color: 0xd8b08c }));
-    head.position.y = 1.58;
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.8), new THREE.MeshLambertMaterial({ color: 0x222222 }));
-    gun.position.set(0.28, 1.25, -0.4);
-    g.add(body); g.add(head); g.add(gun);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.4), mat(jacket));
+    torso.position.y = 1.18;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), mat(0xd8b08c));
+    head.position.y = 1.72;
+    // ноги (пивоты в бедрах — качаются при ходьбе)
+    const legL = new THREE.Group(), legR = new THREE.Group();
+    legL.position.set(-0.18, 0.86, 0); legR.position.set(0.18, 0.86, 0);
+    const legMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.82, 0.26), mat(pants));
+    legMeshL.position.y = -0.43;
+    const legMeshR = legMeshL.clone();
+    legL.add(legMeshL); legR.add(legMeshR);
+    // руки
+    const armL = new THREE.Group(), armR = new THREE.Group();
+    armL.position.set(-0.44, 1.46, 0); armR.position.set(0.44, 1.46, 0);
+    const armMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.62, 0.2), mat(jacket));
+    armMeshL.position.y = -0.28;
+    const armMeshR = armMeshL.clone();
+    armL.add(armMeshL); armR.add(armMeshR);
+    // крепление оружия в правую руку
+    const gunHolder = new THREE.Group();
+    gunHolder.position.set(0, -0.52, -0.15);
+    armR.add(gunHolder);
+    g.add(torso, head, legL, legR, armL, armR);
     g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { group: g, body, head, gun, tag: g.children[3], x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0, weapon: 'usp', team, alive: true, moving: false, muzzle: 0 };
+    const r = { group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '',
+      x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
+      weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);
     return r;
+  }
+  // Оружие в руках пересобираем при смене оружия/скина
+  function setRemoteGun(r) {
+    if (r.gunWeapon === r.weapon && r.gunSkin === r.skin) return;
+    r.gunWeapon = r.weapon; r.gunSkin = r.skin;
+    while (r.gunHolder.children.length) r.gunHolder.remove(r.gunHolder.children[0]);
+    r.gun = buildGun(r.weapon || 'usp', r.skin, 1);
+    r.gunHolder.add(r.gun);
+  }
+  // Маленькая модель оружия из примитивов (для рук и первого лица), красится скином
+  function buildGun(weapon, skin, scale) {
+    const g = new THREE.Group();
+    const s = SKINS[skin];
+    const bodyC = s ? s.color : 0x2b2b2b;
+    const trimC = s && s.trim ? s.trim : 0x141414;
+    const mat = (c) => (s && (s.glow || s.rainbow)) ? new THREE.MeshBasicMaterial({ color: c }) : new THREE.MeshLambertMaterial({ color: c });
+    const sc = scale || 1;
+    if (weapon === 'knife') {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.03 * sc, 0.16 * sc, 0.34 * sc), new THREE.MeshLambertMaterial({ color: 0xc8ccd2 }));
+      blade.position.z = -0.2 * sc;
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(0.04 * sc, 0.12 * sc, 0.12 * sc), new THREE.MeshLambertMaterial({ color: 0x3a2a1a }));
+      g.add(blade, grip);
+      return g;
+    }
+    let len = 0.7, h = 0.14;
+    if (weapon === 'glock' || weapon === 'usp' || weapon === 'deagle') { len = 0.34; h = 0.15; }
+    else if (weapon === 'awp') { len = 0.95; h = 0.13; }
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.07 * sc, h * sc, len * sc), mat(bodyC));
+    body.position.z = -len * sc / 2;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06 * sc, 0.17 * sc, 0.08 * sc), mat(trimC));
+    grip.position.set(0, -0.13 * sc, -0.08 * sc);
+    g.add(body, grip);
+    if (weapon !== 'glock' && weapon !== 'usp' && weapon !== 'deagle') {
+      const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05 * sc, 0.19 * sc, 0.07 * sc), mat(trimC));
+      mag.position.set(0, -0.14 * sc, -0.32 * sc);
+      const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06 * sc, 0.13 * sc, 0.2 * sc), mat(trimC));
+      stock.position.set(0, -0.02 * sc, 0.1 * sc);
+      g.add(mag, stock);
+    }
+    if (weapon === 'awp') {
+      const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * sc, 0.035 * sc, 0.22 * sc, 8), new THREE.MeshLambertMaterial({ color: 0x1a1a1a }));
+      scope.rotation.x = Math.PI / 2;
+      scope.position.set(0, 0.11 * sc, -0.35 * sc);
+      g.add(scope);
+    }
+    return g;
   }
   function removeRemote(nick) {
     const r = remotes.get(nick);
@@ -662,6 +893,86 @@
     })();
   }
 
+  // ---------- БОМБА C4 (мешка) ----------
+  function spawnBombMesh(pos) {
+    removeBombMesh();
+    bombMesh = new THREE.Group();
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.3), new THREE.MeshLambertMaterial({ color: 0x2a2a2a }));
+    bombMesh.add(box);
+    bombLight = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
+    bombLight.position.set(0.15, 0.15, 0);
+    bombMesh.add(bombLight);
+    bombMesh.position.set(pos[0], pos[1] + 0.11, pos[2]);
+    scene.add(bombMesh);
+  }
+  function removeBombMesh() { if (bombMesh) { scene.remove(bombMesh); bombMesh = null; bombLight = null; } }
+
+  // ---------- ДЕЙСТВИЕ ПО E (закладка / разминирование) ----------
+  function siteOf() {
+    const cx = P.x / CELL, cy = P.z / CELL;
+    const inR = (s) => cx >= s.x1 && cx <= s.x2 + 1 && cy >= s.y1 && cy <= s.y2 + 1;
+    if (inR(SITE_A)) return 'A';
+    if (inR(SITE_B)) return 'B';
+    return null;
+  }
+  function nearBomb() {
+    if (!bombPlanted || !bombPlanted.pos) return false;
+    return Math.hypot(P.x - bombPlanted.pos[0], P.z - bombPlanted.pos[2]) < 3.2 && Math.abs(P.y - bombPlanted.pos[1]) < 2.5;
+  }
+  function updateAction(dt) {
+    if (!me.alive || state.phase !== 'live' || !ui.hint) { action = null; return; }
+    let want = null;
+    if (me.team === 't' && !bombPlanted && siteOf()) want = { type: 'plant', need: 3, site: siteOf() };
+    else if (me.team === 'ct' && bombPlanted && nearBomb()) want = { type: 'defuse', need: me.kit ? 5 : 10 };
+    if (!want || !keys.e) action = null;
+    else if (!action || action.type !== want.type) action = { ...want, t: 0 };
+    else {
+      const moving = keys.w || keys.a || keys.s || keys.d || keys.space;
+      if (moving) action.t = 0;
+      else action.t += dt;
+      if (action.t >= action.need) {
+        if (action.type === 'plant') sock && sock.emit('cs16_plant', { site: action.site, pos: BOMB_POS[action.site] });
+        else sock && sock.emit('cs16_defuse');
+        action = null;
+      }
+    }
+    if (want) {
+      ui.hint.textContent = me.team === 't'
+        ? (action && action.t > 0.1 ? `💣 ЗАКЛАДКА БОМБЫ НА ${action.site}...` : `Зажми E — закладка бомбы (плент ${want.site})`)
+        : (action && action.t > 0.1 ? '🧰 ОБЕЗВРЕЖИВАНИЕ...' : `Зажми E — разминировать (${me.kit ? '5 сек — набор есть' : '10 сек — нет набора'})`);
+      ui.hint.style.display = 'block';
+    } else ui.hint.style.display = 'none';
+    if (action && action.t > 0) {
+      ui.actWrap.style.display = 'block';
+      ui.actFill.style.width = Math.min(100, action.t / action.need * 100) + '%';
+    } else ui.actWrap.style.display = 'none';
+  }
+
+  // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
+  let vm = null, vmWeapon = '', vmSkin = '', vmKick = 0;
+  function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
+  function updateViewmodel(dt, t) {
+    if (!camera) return;
+    if (vmWeapon !== current || vmSkin !== mySkin) {
+      vmWeapon = current; vmSkin = mySkin;
+      if (vm) camera.remove(vm);
+      vm = buildGun(current, mySkin, 2.3);
+      vm.position.set(0.33, -0.34, -0.62);
+      camera.add(vm);
+    }
+    if (!vm) return;
+    const moving = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
+    vm.position.y = -0.34 + (moving ? Math.abs(Math.sin(t / 110)) * 0.016 : 0);
+    vm.position.x = 0.33 + (moving ? Math.sin(t / 220) * 0.009 : 0);
+    if (reloading > 0 && WEAPONS[current].reload) {
+      const k = 1 - reloading / WEAPONS[current].reload;
+      vm.rotation.x = -0.7 * Math.sin(Math.min(1, k) * Math.PI);
+    } else vm.rotation.x = 0;
+    vmKick = Math.max(0, vmKick - dt * 6);
+    vm.position.z = -0.62 + vmKick * 0.1;
+    vm.visible = me.alive && !scoped;
+  }
+
   // ---------- СТРЕЛЬБА ----------
   const keys = {};
   function dirFromCam() {
@@ -677,6 +988,7 @@
     if (a && a.mag <= 0) { startReload(); return; }
     lastShot = now;
     if (a) a.mag--;
+    vmKick = 1; // отдача viewmodel
     sfxShot(current);
     if (w.melee) {
       // нож: короткая дистанция
@@ -765,6 +1077,7 @@
     if (id === 'hegrenade') nades.he = Math.min(1, nades.he + 1);
     else if (id === 'flashbang') nades.flash = Math.min(2, nades.flash + 1);
     else if (id === 'kevlar') me.armor = 100;
+    else if (id === 'defuser') me.kit = true;
     else if (WEAPONS[id]) { primary = id; current = id; if (!ammo[id]) ammo[id] = { mag: WEAPONS[id].mag, reserve: WEAPONS[id].reserve }; }
   }
 
@@ -781,6 +1094,9 @@
   // ---------- ВВОД ----------
   let pointerLocked = false;
   function bindInput() {
+    document.addEventListener('pointerlockerror', () => {
+      centerMsg('🖱️ Не удалось захватить мышь — кликни по игре ещё раз', 2500);
+    });
     document.addEventListener('pointerlockchange', () => {
       pointerLocked = document.pointerLockElement === canvasEl;
       if (!pointerLocked && me.alive && state.phase === 'live') {
@@ -845,6 +1161,13 @@
     ui.scope.style.display = scoped ? 'block' : 'none';
     ui.flash.style.opacity = String(Math.min(1, flashAlpha));
     if (reloading > 0) ui.ammo.textContent = 'перезарядка...';
+    // таймер бомбы
+    if (bombPlanted) {
+      const bleft = Math.max(0, bombPlanted.explodesAt - nowSrv);
+      ui.bombTimer.textContent = '💣 ' + Math.ceil(bleft / 1000);
+      ui.bombTimer.style.display = 'block';
+      ui.bombTimer.style.color = bleft < 10000 ? '#ff2222' : '#ffaa44';
+    } else ui.bombTimer.style.display = 'none';
   }
 
   // ---------- ГЛАВНЫЙ ЦИКЛ ----------
@@ -865,7 +1188,7 @@
       stepPlayer(dt, canMove ? keys : { w: 0 });
       if (keys.fire) tryShoot();
     }
-    // интерполяция удалённых
+    // интерполяция удалённых + анимация ног
     const lerp = Math.min(1, dt * 10);
     for (const r of remotes.values()) {
       r.x += (r.tx - r.x) * lerp;
@@ -877,12 +1200,37 @@
       r.pitch += (r.tpitch - r.pitch) * lerp;
       r.group.position.set(r.x, r.y, r.z);
       r.group.rotation.y = r.yaw;
-      r.group.visible = r.alive;
-      const bob = r.moving ? Math.sin(t / 120) * 0.05 : 0;
-      r.body.position.y = 0.85 + bob;
-      r.head.position.y = 1.58 + bob;
+      setRemoteGun(r);
+      if (r.alive) {
+        r.group.rotation.z = 0;
+        r.group.visible = true;
+        if (r.moving) r.walkPhase += dt * 9;
+        const sw = r.moving ? Math.sin(r.walkPhase) * 0.65 : 0;
+        r.legL.rotation.x = sw;              // ноги ходят вразножку
+        r.legR.rotation.x = -sw;
+        r.armL.rotation.x = -sw * 0.6;
+        r.armR.rotation.x = -1.15;           // правая с оружием перед собой
+        const bob = r.moving ? Math.abs(Math.sin(r.walkPhase)) * 0.05 : 0;
+        r.torso.position.y = 1.18 + bob;
+        r.head.position.y = 1.72 + bob;
+      } else {
+        r.group.visible = true;
+        r.group.rotation.z = -Math.PI / 2;   // убитый — лежит
+        r.group.position.y = r.y + 0.35;
+        r.legL.rotation.x = 0.15; r.legR.rotation.x = -0.1;
+        r.armL.rotation.x = 0.3; r.armR.rotation.x = 0.2;
+      }
     }
     stepNades(dt);
+    updateAction(dt);
+    updateViewmodel(dt, t);
+    // мигание и писк бомбы
+    if (bombMesh && bombLight && bombPlanted) {
+      const left = bombPlanted.explodesAt - (Date.now() + clockOffset);
+      bombLight.visible = Math.floor(performance.now() / (left < 10000 ? 180 : 600)) % 2 === 0;
+      const sec = Math.ceil(left / 1000);
+      if (sec !== lastBeep && left < 11000 && left > 0) { lastBeep = sec; sfxBeep(); }
+    }
     // трассеры
     for (let i = tracers.length - 1; i >= 0; i--) {
       if (performance.now() > tracers[i].die) { scene.remove(tracers[i].line); tracers.splice(i, 1); }
@@ -904,7 +1252,7 @@
     if (posAcc > 1 / 15 && sock && sock.connected && me.alive) {
       posAcc = 0;
       const moving = keys.w || keys.a || keys.s || keys.d;
-      sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving });
+      sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, skin: mySkin });
     }
     renderer3.render(scene, camera);
   }
@@ -918,6 +1266,7 @@
       initScene();
       bindInput();
       ensureSocket();
+      loadSkins();
       requestAnimationFrame(loop);
     }
     doJoin();

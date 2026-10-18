@@ -39,12 +39,18 @@
     carve(25, 2, 27, 3);    // стык CT → плент A
     carve(15, 11, 18, 13);  // CT → мид
     // 3.15.7: новые ходы
-    carve(8, 26, 17, 27);   // наземный коннектор туннели B → мид (южный ярус)
-    carve(23, 30, 32, 31);  // коннектор мид → лонг (шорт №2)
+    carve(8, 25, 17, 28);   // наземный коннектор туннели B → мид (южный ярус, широкий)
+    carve(23, 29, 32, 32);  // коннектор мид → лонг (шорт №2, широкий)
     // 3.15.7: подземные ходы (тёмные туннели с потолком)
     tunnel(8, 21, 17, 22);  // подземка туннели B → мид (под верхним ярусом)
     tunnel(29, 34, 32, 35); // подземка T-спавн → лонг
     tunnel(26, 4, 32, 5);   // крытый ход CT → лонг (под плентом A)
+    // 3.15.9: ещё подземки и двери
+    tunnel(23, 34, 24, 38); // подземка T-спавн → мид (сбоку от основного выхода)
+    tunnel(9, 6, 17, 7);    // подземка плент B → CT-спавн (под B-дверями)
+    door(12, 26, 13, 27);   // двери на коннекторе туннели → мид (обход по краям)
+    door(27, 30, 28, 31);   // двери на коннекторе мид → лонг (обход по краям)
+    door(5, 18, 6, 19);     // двери в туннелях B (обход сбоку)
     door(18, 19, 22, 20);   // двери мид
     door(8, 2, 10, 3);      // B-двери
     door(15, 12, 16, 13);   // двери CT-мид
@@ -650,6 +656,23 @@
     const menuBtn = el('button', 'padding:8px 18px; margin:0 6px; font:bold 14px monospace; cursor:pointer; background:#6a2d22; color:#ffd9cf; border:1px solid #8a4a3a;', hpRow, '🏳️ ВЫЙТИ В МЕНЮ');
     rematchBtn.onclick = () => sock && sock.emit('cs16_rematch');
     menuBtn.onclick = () => { if (confirm('Завершить матч и выйти в меню? Команды будут сброшены.')) sock && sock.emit('cs16_tomenu'); };
+    // 3.15.9: ESC-меню в матче — продолжить / рестарт и выход (хост/Fifflaren) / покинуть матч
+    ui.esc = el('div', 'position:absolute; inset:0; display:none; background:rgba(0,0,0,0.6); pointer-events:auto; z-index:30;', r);
+    const ew = el('div', 'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#1c1a16; border:1px solid #8a6b3a; border-radius:8px; padding:18px 22px; min-width:320px; color:#eee; text-align:center;', ui.esc);
+    el('div', 'font:bold 18px monospace; color:#ffc107; margin-bottom:14px;', ew, '⏸ ПАУЗА');
+    ui.escResume = el('button', 'display:block; width:100%; margin:6px 0; padding:10px; font:bold 15px monospace; cursor:pointer; background:#2d4a22; color:#dfffcf; border:1px solid #4a8a3a;', ew, '▶ Продолжить');
+    ui.escRestart = el('button', 'display:block; width:100%; margin:6px 0; padding:10px; font:bold 15px monospace; cursor:pointer; background:#2d4a66; color:#cfe4ff; border:1px solid #4a6a9a;', ew, '🔄 НАЧАТЬ ЗАНОВО (счёт 0:0)');
+    ui.escTomenu = el('button', 'display:block; width:100%; margin:6px 0; padding:10px; font:bold 15px monospace; cursor:pointer; background:#6a2d22; color:#ffd9cf; border:1px solid #8a4a3a;', ew, '🏳️ ЗАКОНЧИТЬ МАТЧ (в меню)');
+    ui.escLeave = el('button', 'display:block; width:100%; margin:6px 0; padding:10px; font:bold 15px monospace; cursor:pointer; background:#333; color:#ccc; border:1px solid #555;', ew, '🚪 Покинуть матч');
+    el('div', 'font:11px monospace; color:#999; margin-top:10px;', ew, 'ESC — закрыть меню');
+    ui.escResume.onclick = () => { closeEsc(); canvasEl.requestPointerLock(); };
+    ui.escRestart.onclick = () => { closeEsc(); sock && sock.emit('cs16_restart'); };
+    ui.escTomenu.onclick = () => { if (confirm('Завершить матч всем и выйти в меню?')) { closeEsc(); sock && sock.emit('cs16_tomenu'); } };
+    ui.escLeave.onclick = () => {
+      closeEsc();
+      if (sock) { sock.emit('cs16_leave'); joined = false; }
+      setTimeout(() => doJoin(), 400); // вернёмся в лобби зрителем
+    };
     window.addEventListener('resize', resize3);
   }
   function renderBuyList() {
@@ -748,7 +771,7 @@
     ui.lobby.innerHTML = `
       <div style="max-width:760px; margin:0 auto;">
         <div style="font:bold 26px monospace; color:#e8c34a; text-align:center;">🔫 COUNTER-STRIKE 1.6 <span style="color:#999; font-size:13px;">de_dust2 · матч до 16 побед · C4</span></div>
-        ${inMatch ? `<div style="text-align:center; margin:10px 0; padding:8px; background:#3a2a1a; border:1px solid #8a6b3a;">⚔️ Идёт матч — раунд ${state.round}, счёт <b style="color:#e8c34a">${state.scores.t}</b> : <b style="color:#5aa2e8">${state.scores.ct}</b>. Дождись конца, в следующем матче сможешь играть.</div>` : ''}
+        ${inMatch ? `<div style="text-align:center; margin:10px 0; padding:8px; background:#1a2a3a; border:1px solid #3a6a9a;">⚔️ Матч идёт — раунд ${state.round}, счёт <b style="color:#e8c34a">${state.scores.t}</b> : <b style="color:#5aa2e8">${state.scores.ct}</b>. Вступай в команду — начнёшь играть со следующего раунда!</div>` : ''}
         <div style="display:flex; gap:14px; margin-top:12px;">
           <div style="flex:1; background:#241f16; border:1px solid #6a5527; border-radius:6px; padding:10px;">
             <div style="font:bold 15px monospace; color:#e8c34a;">ТЕРРОРИСТЫ (${state.players.filter(p => p.team === 't').length}/${state.mode})</div>
@@ -949,11 +972,21 @@
     sock.on('cs16_boom', (d) => {
       explodeFx(d.pos, d.kind);
       if (d.kind === 'flash') {
-        const dist = Math.hypot(P.x - d.pos[0], (P.y + EYE) - d.pos[1], P.z - d.pos[2]);
-        if (dist < 14 && losClear(P.x, P.y + EYE, P.z, d.pos[0], d.pos[1], d.pos[2])) {
-          const a = Math.max(0, 1.25 - dist / 12);
-          flashAlpha = Math.max(flashAlpha, a);
-          sfxFlash();
+        // 3.15.9: ослепление по направлению взгляда — смотришь на флешку = полный белый экран
+        // с любого расстояния, боком — полуослепление, спиной — почти не действует
+        const eye = [P.x, P.y + EYE, P.z];
+        if (losClear(eye[0], eye[1], eye[2], d.pos[0], d.pos[1], d.pos[2])) {
+          const vx = d.pos[0] - eye[0], vy = d.pos[1] - eye[1], vz = d.pos[2] - eye[2];
+          const dist = Math.hypot(vx, vy, vz) || 1;
+          const look = dirFromCam();
+          const dot = (vx / dist) * look[0] + (vy / dist) * look[1] + (vz / dist) * look[2];
+          const dirK = Math.min(1, Math.max(0, (dot + 0.2) / 1.1)); // 0..1 по углу взгляда
+          const distK = Math.max(0.55, 1 - dist / 90);              // лёгкий спад на дистанции
+          const a = dirK * distK;
+          if (a > 0.04) {
+            flashAlpha = Math.max(flashAlpha, Math.min(1, a));
+            sfxFlash();
+          }
         }
       } else {
         const dist = Math.hypot(P.x - d.pos[0], (P.y + EYE) - d.pos[1], P.z - d.pos[2]);
@@ -1448,6 +1481,16 @@
     ui.buy.style.display = 'block';
   }
   function closeBuy() { if (ui.buy) ui.buy.style.display = 'none'; }
+  // 3.15.9: ESC-меню
+  function isBoss() { return state.host === myNick || myNick.toLowerCase() === 'fifflaren'; }
+  function escOpen() { return ui.esc && ui.esc.style.display === 'block'; }
+  function openEsc() {
+    if (state.phase === 'lobby' || state.phase === 'matchend' || !ui.esc) return;
+    ui.escRestart.style.display = isBoss() ? 'block' : 'none';
+    ui.escTomenu.style.display = isBoss() ? 'block' : 'none';
+    ui.esc.style.display = 'block';
+  }
+  function closeEsc() { if (ui.esc) ui.esc.style.display = 'none'; }
 
   // ---------- ВВОД ----------
   let pointerLocked = false;
@@ -1457,9 +1500,11 @@
     });
     document.addEventListener('pointerlockchange', () => {
       pointerLocked = document.pointerLockElement === canvasEl;
-      if (!pointerLocked && me.alive && state.phase === 'live') {
-        centerMsg('🖱️ Кликни по игре, чтобы продолжить', 0);
+      if (!pointerLocked && (state.phase === 'live' || state.phase === 'freeze' || state.phase === 'roundend')) {
+        // 3.15.9: ESC (или потеря мыши) — открываем меню паузы
+        openEsc();
       } else if (pointerLocked) {
+        closeEsc();
         ui.centerMsg.style.display = 'none';
       }
     });
@@ -1494,6 +1539,14 @@
       keys[e.key.toLowerCase()] = true;
       if (e.code === 'Space') { keys.space = true; e.preventDefault(); }
       const k = e.key.toLowerCase();
+      // 3.15.9: ESC-меню
+      if (k === 'escape') {
+        if (ui.buy.style.display === 'block') { closeBuy(); return; }
+        if (escOpen()) { closeEsc(); if (state.phase !== 'lobby') canvasEl.requestPointerLock(); }
+        else openEsc();
+        return;
+      }
+      if (escOpen()) return; // в меню паузы игровые клавиши не работают
       // 3.15.3: покупка цифрами, пока открыт магазин
       if (ui.buy.style.display === 'block') {
         const n = parseInt(k, 10);

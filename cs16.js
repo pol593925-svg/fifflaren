@@ -10,7 +10,9 @@
   // ---------- КАРТА (сетка 42x42, ячейка 4 юнита) ----------
   const MW = 42, MH = 42, CELL = 4;
   const WALL_H = 4, DOOR_H = 2.6, CRATE_H = 1.15;
-  const TUNNEL_H = 2.3; // 3.15.7: потолок подземных туннелей (тип ячейки 4)
+  // 3.16.0: подземные туннели — глубина по типу ячейки (4 самый глубокий, 6/5/7 — ступени спуска)
+  const TUN_FLOOR = { 4: -3.2, 7: -2.4, 5: -1.6, 6: -0.8 };
+  const TUN_CEIL = -1.3; // потолок глубокого туннеля (ниже уровня земли 0)
   const grid = [];
   for (let y = 0; y < MH; y++) grid.push(new Array(MW).fill(1));
   function carve(x1, y1, x2, y2) {
@@ -21,10 +23,23 @@
     for (let y = y1; y <= y2; y++) for (let x = x1; x <= x2; x++) grid[y][x] = 2;
   }
   function crate(x, y) { grid[y][x] = 3; }
-  function tunnel(x1, y1, x2, y2) { // 3.15.7: подземный ход с потолком
-    for (let y = Math.max(0, y1); y <= Math.min(MH - 1, y2); y++)
-      for (let x = Math.max(0, x1); x <= Math.min(MW - 1, x2); x++) grid[y][x] = 4;
+  function tunnel(x1, y1, x2, y2) { // 3.16.0: подземный ход с этажеркой спусков у обоих входов
+    if (x2 - x1 >= y2 - y1) { // горизонтальный
+      const len = x2 - x1 + 1;
+      for (let x = x1; x <= x2; x++) {
+        const d = Math.min(x - x1, x2 - x);
+        const t = d === 0 ? 6 : d === 1 ? 5 : d === 2 ? 7 : 4;
+        for (let y = y1; y <= y2; y++) grid[y][x] = t;
+      }
+    } else { // вертикальный
+      for (let y = y1; y <= y2; y++) {
+        const d = Math.min(y - y1, y2 - y);
+        const t = d === 0 ? 6 : d === 1 ? 5 : d === 2 ? 7 : 4;
+        for (let x = x1; x <= x2; x++) grid[y][x] = t;
+      }
+    }
   }
+  function floorAt(c) { return TUN_FLOOR[c] || 0; } // уровень пола ячейки
   function buildMap() {
     carve(16, 1, 25, 6);    // CT спавн
     carve(2, 1, 14, 8);     // плент B
@@ -85,12 +100,12 @@
       else { t = tMaxY; tMaxY += tDeltaY; cy += stepY; nx = 0; nz = -stepY; }
       if (t > maxT) return null;
       const c = (cx < 0 || cy < 0 || cx >= MW || cy >= MH) ? 1 : grid[cy][cx];
-      if (c === 4) { // 3.15.7: туннель — внутри пролетает, сверху/снизу корка
+      if (c === 4) { // 3.16.0: глубокий туннель (пол -3.2, потолок -1.3) — снаружи корка непростреливается
         const hy = oy + dy * t;
-        if (hy < TUNNEL_H && hy > -0.01) continue;
+        if (hy < TUN_CEIL && hy > TUN_FLOOR[4]) continue; // внутри туннеля — летит дальше
         return { t, nx, nz, cell: c };
       }
-      if (c !== 0) {
+      if (c !== 0 && c !== 5 && c !== 6 && c !== 7) {
         const hy = oy + dy * t;
         const h = cellH(c);
         // Попали в объём ячейки (сверху может перелететь)
@@ -298,9 +313,9 @@
   // ---------- БОМБА (пленты A и B — клетки карты) ----------
   const SITE_A = { x1: 27, y1: 1, x2: 38, y2: 9 };
   const SITE_B = { x1: 2, y1: 1, x2: 14, y2: 8 };
-  const BOMB_POS = { A: [32 * CELL + 2, 0.25, 4 * CELL + 2], B: [8 * CELL + 2, 0.25, 3 * CELL + 2] };
+  const BOMB_POS = { A: [30 * CELL + 2, -2.4 + 0.25, 4 * CELL + 2], B: [8 * CELL + 2, 0.25, 3 * CELL + 2] }; // 3.16.0: A — в подземном ходе
   let bombPlanted = null;      // {site, pos, explodesAt}
-  let bombMesh = null, bombLight = null, lastBeep = -1;
+  let bombMesh = null, bombLight = null, bombBeam = null, lastBeep = -1;
   let action = null;           // {type:'plant'|'defuse', t, need, site?}
   let kickUntil = 0;
 
@@ -382,14 +397,23 @@
     const sun = new THREE.DirectionalLight(0xffe8c0, 0.9);
     sun.position.set(60, 120, 30);
     scene.add(sun);
-    // Пол
-    T.sand.repeat.set(MW, MH);
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(MW * CELL, MH * CELL),
-      new THREE.MeshLambertMaterial({ map: T.sand })
+    // Пол — по ячейкам, с дырами в открытых шахтах туннелей (5/6/7)
+    T.sand.repeat.set(1, 1);
+    const groundCells = [];
+    for (let gy = 0; gy < MH; gy++) for (let gx = 0; gx < MW; gx++) {
+      const gc = grid[gy][gx];
+      if (gc === 5 || gc === 6 || gc === 7) continue; // открытый колодец — без пола
+      groundCells.push([gx * CELL + CELL / 2, gy * CELL + CELL / 2]);
+    }
+    const floor = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(CELL, 0.12, CELL),
+      new THREE.MeshLambertMaterial({ map: T.sand }),
+      groundCells.length
     );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(MW * CELL / 2, 0, MH * CELL / 2);
+    {
+      const FM = new THREE.Matrix4();
+      groundCells.forEach((p, i) => { FM.setPosition(p[0], -0.06, p[1]); floor.setMatrixAt(i, FM); });
+    }
     scene.add(floor);
     // Стены / двери / ящики — инстансы
     const walls = [], doors = [], crates = [];
@@ -415,23 +439,36 @@
     inst(walls, WALL_H, T.wall);
     inst(doors, DOOR_H, T.door);
     inst(crates, CRATE_H, T.crateT);
-    // 3.15.7: подземные туннели — тёмный пол, потолок и боковые стенки
+    // 3.16.0: туннели ниже уровня земли — полы ступеней, потолок глубокого хода, граничные стены и ступени
     {
-      const tunFloor = [], tunCeil = [], sideX = [], sideZ = [];
+      const isTun = c => c === 4 || c === 5 || c === 6 || c === 7;
+      const floors = [], ceils = [], wallsX = [], wallsZ = [];
       for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-        if (grid[y][x] !== 4) continue;
+        const c = grid[y][x];
+        if (!isTun(c)) continue;
         const px = x * CELL + CELL / 2, pz = y * CELL + CELL / 2;
-        tunFloor.push([px, 0.03, pz]);
-        tunCeil.push([px, TUNNEL_H + 0.14, pz]);
+        const L1 = TUN_FLOOR[c];
+        floors.push([px, L1 - 0.04, pz]);
+        if (c === 4) ceils.push([px, TUN_CEIL + 0.08, pz]);
         const nb = (dx, dy) => {
           const ax = x + dx, ay = y + dy;
           return (ax < 0 || ay < 0 || ax >= MW || ay >= MH) ? 1 : grid[ay][ax];
         };
-        if (nb(1, 0) === 1) sideX.push([x * CELL + CELL, TUNNEL_H / 2, pz]);
-        if (nb(-1, 0) === 1) sideX.push([x * CELL, TUNNEL_H / 2, pz]);
-        if (nb(0, 1) === 1) sideZ.push([px, TUNNEL_H / 2, y * CELL + CELL]);
-        if (nb(0, -1) === 1) sideZ.push([px, TUNNEL_H / 2, y * CELL]);
+        // X-границы
+        for (const [dx, edge] of [[1, x * CELL + CELL], [-1, x * CELL]]) {
+          const n = nb(dx, 0);
+          if (!isTun(n)) wallsX.push([edge, 0.05, -3.45, pz]);          // грунт: от уровня земли вниз
+          else if (TUN_FLOOR[n] > L1) wallsX.push([edge, TUN_FLOOR[n], L1, pz]); // ступень вверх (рендерим с нижней ячейки)
+        }
+        // Z-границы
+        for (const [dy, edge] of [[1, y * CELL + CELL], [-1, y * CELL]]) {
+          const n = nb(0, dy);
+          if (!isTun(n)) wallsZ.push([px, 0.05, -3.45, edge]);
+          else if (TUN_FLOOR[n] > L1) wallsZ.push([px, TUN_FLOOR[n], L1, edge]);
+        }
       }
+      const matRock = new THREE.MeshLambertMaterial({ color: 0x54483a });
+      const matDark = new THREE.MeshLambertMaterial({ color: 0x38322a });
       function instGeo(list, geo, mat) {
         if (!list.length) return;
         const m = new THREE.InstancedMesh(geo, mat, list.length);
@@ -439,12 +476,29 @@
         list.forEach((p, i) => { M.setPosition(p[0], p[1], p[2]); m.setMatrixAt(i, M); });
         scene.add(m);
       }
-      const matRock = new THREE.MeshLambertMaterial({ color: 0x54483a });
-      const matDark = new THREE.MeshLambertMaterial({ color: 0x2e2a24 });
-      instGeo(tunFloor, new THREE.BoxGeometry(CELL, 0.06, CELL), matDark);
-      instGeo(tunCeil, new THREE.BoxGeometry(CELL, 0.3, CELL), matRock);
-      instGeo(sideX, new THREE.BoxGeometry(0.4, TUNNEL_H, CELL), matRock);
-      instGeo(sideZ, new THREE.BoxGeometry(CELL, TUNNEL_H, 0.4), matRock);
+      instGeo(floors, new THREE.BoxGeometry(CELL, 0.08, CELL), matDark);
+      instGeo(ceils, new THREE.BoxGeometry(CELL, 0.16, CELL), matRock);
+      // стены: [позиция по оси, верх, низ, позиция поперёк] — высота = верх - низ, центр посередине
+      if (wallsX.length) {
+        const m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 1, CELL), matRock, wallsX.length);
+        const M = new THREE.Matrix4();
+        wallsX.forEach((w, i) => {
+          M.makeScale(1, w[1] - w[2], 1);
+          M.setPosition(w[0], (w[1] + w[2]) / 2, w[3]);
+          m.setMatrixAt(i, M);
+        });
+        scene.add(m);
+      }
+      if (wallsZ.length) {
+        const m = new THREE.InstancedMesh(new THREE.BoxGeometry(CELL, 1, 0.4), matRock, wallsZ.length);
+        const M = new THREE.Matrix4();
+        wallsZ.forEach((w, i) => {
+          M.makeScale(1, w[1] - w[2], 1);
+          M.setPosition(w[0], (w[1] + w[2]) / 2, w[3]);
+          m.setMatrixAt(i, M);
+        });
+        scene.add(m);
+      }
     }
     // 3.15.8: чёрные граффити-указатели «A» и «B» на плентх и у входов
     function graffiti(letter, x, y, z, ry, size) {
@@ -464,7 +518,7 @@
       return m;
     }
     // на полу плентов
-    const flA = graffiti('A', BOMB_POS.A[0], 0.03, BOMB_POS.A[2], 0, 3.6); flA.rotation.x = -Math.PI / 2;
+    const flA = graffiti('A', BOMB_POS.A[0], -2.4 + 0.03, BOMB_POS.A[2], 0, 3.6); flA.rotation.x = -Math.PI / 2; // A в подземном ходе
     const flB = graffiti('B', BOMB_POS.B[0], 0.03, BOMB_POS.B[2], 0, 3.6); flB.rotation.x = -Math.PI / 2;
     // на стенах у входов
     graffiti('B', 8 * CELL - 0.03, 1.7, 10 * CELL + 2, -Math.PI / 2);  // в туннелях B (у выхода к миду)
@@ -553,7 +607,8 @@
     P.x = nx; P.z = nz;
     let ny = P.y + P.vy * dt;
     P.onGround = false;
-    if (ny <= 0) { ny = 0; P.vy = 0; P.onGround = true; }
+    const flHere = floorAt(cellAt(P.x, P.z));
+    if (ny <= flHere) { ny = flHere; P.vy = 0; P.onGround = true; }
     else {
       // потолок / крышка ящика под ногами
       const cUnder = cellAt(P.x, P.z);
@@ -563,9 +618,9 @@
       }
     }
     P.y = ny;
-    // 3.15.7: потолок подземного туннеля
-    if (cellAt(P.x, P.z) === 4 && ny + HEIGHT > TUNNEL_H) {
-      P.y = TUNNEL_H - HEIGHT;
+    // 3.16.0: потолок глубокого туннеля (нельзя прыгнуть сквозь землю)
+    if (cellAt(P.x, P.z) === 4 && ny + HEIGHT > TUN_CEIL) {
+      P.y = TUN_CEIL - HEIGHT;
       if (P.vy > 0) P.vy = 0;
     }
   }
@@ -1211,13 +1266,15 @@
       // стены по осям
       if (solidFor(cellAt(nx, n.mesh.position.z), ny - 0.16)) { nx = n.mesh.position.x; n.vx = -n.vx * 0.42; }
       if (solidFor(cellAt(nx, nz), ny - 0.16)) { nz = n.mesh.position.z; n.vz = -n.vz * 0.42; }
-      // пол
-      if (ny < 0.16) { ny = 0.16; n.vy = -n.vy * 0.38; n.vx *= 0.72; n.vz *= 0.72; if (Math.abs(n.vy) < 1) n.vy = 0; }
+      // пол (уровень пола ячейки — туннели ниже уровня земли)
+      const cF = cellAt(nx, nz);
+      const flN = floorAt(cF);
+      if (ny < flN + 0.16) { ny = flN + 0.16; n.vy = -n.vy * 0.38; n.vx *= 0.72; n.vz *= 0.72; if (Math.abs(n.vy) < 1) n.vy = 0; }
       // крышка ящика
-      const cU = cellAt(nx, nz), hU = cellH(cU);
+      const cU = cF, hU = cellH(cU);
       if (hU > 0 && hU < WALL_H && ny - 0.16 < hU && n.mesh.position.y >= hU - 0.1 && n.vy <= 0) { ny = hU + 0.16; n.vy = 0; n.vx *= 0.8; n.vz *= 0.8; }
-      // 3.15.7: потолок туннеля
-      if (cU === 4 && ny > TUNNEL_H - 0.16) { ny = TUNNEL_H - 0.16; n.vy = -Math.abs(n.vy) * 0.38; }
+      // 3.16.0: потолок глубокого туннеля
+      if (cU === 4 && ny > TUN_CEIL - 0.16) { ny = TUN_CEIL - 0.16; n.vy = -Math.abs(n.vy) * 0.38; }
       n.mesh.position.set(nx, ny, nz);
       n.fuse -= dt;
       if (n.fuse <= 0) {
@@ -1264,10 +1321,18 @@
     bombLight = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
     bombLight.position.set(0.15, 0.15, 0);
     bombMesh.add(bombLight);
+    // 3.16.0: синий луч вверх — бомба видна откуда угодно
+    bombBeam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 90, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x3fa9ff, transparent: true, opacity: 0.45, depthTest: false, side: THREE.DoubleSide })
+    );
+    bombBeam.position.y = 45;
+    bombBeam.renderOrder = 999;
+    bombMesh.add(bombBeam);
     bombMesh.position.set(pos[0], pos[1] + 0.11, pos[2]);
     scene.add(bombMesh);
   }
-  function removeBombMesh() { if (bombMesh) { scene.remove(bombMesh); bombMesh = null; bombLight = null; } }
+  function removeBombMesh() { if (bombMesh) { scene.remove(bombMesh); bombMesh = null; bombLight = null; bombBeam = null; } }
 
   // ---------- ДЕЙСТВИЕ ПО E (закладка / разминирование) ----------
   function siteOf() {
@@ -1661,6 +1726,7 @@
     if (bombMesh && bombLight && bombPlanted) {
       const left = bombPlanted.explodesAt - (Date.now() + clockOffset);
       bombLight.visible = Math.floor(performance.now() / (left < 10000 ? 180 : 600)) % 2 === 0;
+      if (bombBeam) bombBeam.material.opacity = 0.32 + 0.18 * Math.sin(performance.now() / 220);
       const sec = Math.ceil(left / 1000);
       if (sec !== lastBeep && left < 11000 && left > 0) { lastBeep = sec; sfxBeep(); }
     }

@@ -2562,6 +2562,7 @@
 
   // ---------- ЛОББИ (сетевое: места, стороны Свет/Тьма, выбор героя, старт хостом) ----------
   const s2net = { sock: null, state: null, connected: false, myHero: (function () { try { return localStorage.getItem('s2hero'); } catch (e) { return null; } })() || 'silva', inLobbyUi: false };
+  let s2HealT = null; // 3.20.1: троттл самолечения регистрации в лобби
   function s2Connect() {
     if (typeof io !== 'function') return;
     if (!s2net.sock) {
@@ -2569,7 +2570,15 @@
       s2net.sock = sock;
       sock.on('connect', () => { s2net.connected = true; sock.emit('s2_join', myNick()); if (s2net.inLobbyUi) renderLobby(); });
       sock.on('disconnect', () => { s2net.connected = false; if (s2net.inLobbyUi) renderLobby(); });
-      sock.on('s2_lobby', (st) => { s2net.state = st; if (s2net.inLobbyUi) renderLobby(); });
+      sock.on('s2_lobby', (st) => {
+        s2net.state = st;
+        // 3.20.1: самолечение — меня нет в списке лобби, а я сижу в нём (потерянная сессия/залипший дубль) — перерегистрируемся
+        if (s2net.inLobbyUi && s2net.connected && st && !s2HealT) {
+          const mine = st.players.some(p => p.nick.toLowerCase() === myNick().toLowerCase());
+          if (!mine) { sock.emit('s2_join', myNick()); s2HealT = setTimeout(() => { s2HealT = null; }, 4000); }
+        }
+        if (s2net.inLobbyUi) renderLobby();
+      });
       sock.on('s2_start', ({ comp }) => {
         s2net.inLobbyUi = false;
         const old = rootWrap.querySelector('[data-lobby]'); if (old) old.remove();
@@ -2829,6 +2838,7 @@
     s2net.inLobbyUi = true;
     ui.lobbyWrap = wrap;
     if (!s2net.connected && typeof io === 'function') s2Connect();
+    else if (s2net.connected && s2net.sock) s2net.sock.emit('s2_join', myNick()); // 3.20.1: перерегистрация при каждом входе в лобби
     renderLobby();
   }
 
@@ -2890,7 +2900,7 @@
         } else {
           el('div', 'flex:1;font-size:11.5px;color:#4a5468;', seat, 'Свободное место…');
           const take = el('button', 'padding:4px 10px;background:#1f2a44;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:6px;cursor:pointer;font-size:11px;', seat, 'Сесть');
-          take.onclick = () => { if (s2net.sock) s2net.sock.emit('s2_seat', { team: side.team }); };
+          take.onclick = () => { if (s2net.sock) s2net.sock.emit('s2_seat', { team: side.team, nick: myNick() }); };
         }
       }
     }
@@ -2911,6 +2921,12 @@
     }
     const solo = el('button', 'padding:8px 18px;background:#14203a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:8px;cursor:pointer;font-weight:700;', btns, '🤖 Соло с ботами');
     solo.onclick = () => { s2net.inLobbyUi = false; wrap.remove(); showPick(); };
+    // 3.20.1: Fifflaren может в любой момент кикнуть текущего хоста (прервать чужой матч) и начать заново
+    if (myNick().toLowerCase() === 'fifflaren' && s2net.connected) {
+      const isH = isHost();
+      const kick = el('button', 'padding:8px 18px;background:#3a2a14;color:#ffcf6a;border:1px solid #8a6b3a;border-radius:8px;cursor:pointer;font-weight:800;', btns, isH ? '🔁 Закончить матч (кик всех в лобби)' : '👑 Кикнуть хоста — стать хостом');
+      kick.onclick = () => { if (s2net.sock) s2net.sock.emit('s2_take_host'); };
+    }
 
     // --- кнопка старта (только хост) ---
     const readyCnt = players.filter(p => p.team && p.hero).length;

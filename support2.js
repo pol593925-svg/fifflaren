@@ -2256,17 +2256,24 @@
   let bindingIdx = null; // индекс слота, ожидающего нажатия клавиши
   function saveKeys() { try { localStorage.setItem('s2keys', JSON.stringify(keybinds)); } catch (e) {} }
 
+  // 3.19.3: русская раскладка → латиница (q/w/e/r, a, s, p, b работают в любой раскладке)
+  const RU2EN = { 'й':'q','ц':'w','у':'e','к':'r','е':'t','н':'y','г':'u','ш':'i','щ':'o','з':'p','х':'[','ъ':']',
+    'ф':'a','ы':'s','в':'d','а':'f','п':'g','р':'h','о':'j','л':'k','д':'l','ж':';','э':"'",
+    'я':'z','ч':'x','с':'c','м':'v','и':'b','т':'n','ь':'m','б':',','ю':'.','.':'/' };
+  const normKey = k => RU2EN[k] || k;
+
   // ---------- КАМЕРА / ВВОД ----------
   const keys = {};
   let mouseSX = -999, mouseSY = -999; // экранные координаты мыши (для краевого скролла)
+  let mouseOnUI = false; // 3.19.3: курсор над панелями (HUD/магазин/миникарта) — краевой скролл не крутит камеру
   function updateCamera(dt) {
     const pan = 30 * (camZoom / 42);
     if (keys.arrowleft || keys.a2) camX -= pan * dt;
     if (keys.arrowright || keys.d2) camX += pan * dt;
     if (keys.arrowup) camZ -= pan * dt;
     if (keys.arrowdown) camZ += pan * dt;
-    // 3.18.0: краевой скролл мышью — подвёл к краю экрана, камера поехала; 3.19.2: isConnected (fixed-оверлей)
-    if (renderer && rootWrap && rootWrap.isConnected) {
+    // 3.18.0: краевой скролл мышью; 3.19.3: не крутит камеру, когда курсор над панелями HUD
+    if (renderer && rootWrap && rootWrap.isConnected && !mouseOnUI) {
       const r = renderer.domElement.getBoundingClientRect();
       const EDGE = 22;
       const pan2 = 68 * (camZoom / 42); // 3.19.1: заметно быстрее, как просили
@@ -2297,7 +2304,10 @@
   function bindInput() {
     const cv = renderer.domElement;
     cv.addEventListener('contextmenu', e => e.preventDefault());
-    window.addEventListener('mousemove', e => { mouseSX = e.clientX; mouseSY = e.clientY; });
+    window.addEventListener('mousemove', e => {
+      mouseSX = e.clientX; mouseSY = e.clientY;
+      mouseOnUI = e.target !== cv; // 3.19.3: краевой скролл только когда мышь над полем боя
+    });
     cv.addEventListener('mousemove', e => { const p = groundPoint(e); if (p) { mouseGX = p.x; mouseGZ = p.z; } });
     cv.addEventListener('mousedown', e => {
       // 3.19.2: отмена прицеливания способности правой кнопкой
@@ -2336,7 +2346,7 @@
     });
     window.addEventListener('keydown', e => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-      const k = e.key.toLowerCase();
+      const k = normKey(e.key.toLowerCase()); // 3.19.3: русская раскладка → латиница
       // захват клавиши для переназначения
       if (bindingIdx != null) {
         e.preventDefault();
@@ -2368,7 +2378,7 @@
         if (myHero) { myHero.moveTarget = null; myHero.target = null; }
       }
     });
-    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; if (e.key === ' ') keys.space = false; });
+    window.addEventListener('keyup', e => { keys[normKey(e.key.toLowerCase())] = false; if (e.key === ' ') keys.space = false; });
     cv.addEventListener('wheel', e => { camZoom = clamp(camZoom + (e.deltaY > 0 ? 4 : -4), 26, 64); }, { passive: true });
   }
 
@@ -2901,7 +2911,8 @@
 
   // ---------- ТОЧКА ВХОДА ----------
   function open(u) {
-    user = u || { nickname: 'Игрок' };
+    // 3.19.3: хаб передаёт ник СТРОКОЙ (currentUser), а не объектом — раньше все получали 'Игрок' и выталкивали друг друга из лобби
+    user = typeof u === 'string' ? { nickname: u } : (u || { nickname: 'Игрок' });
     if (!rootWrap) {
       const tab = document.getElementById('tab-support2');
       if (!tab) return;

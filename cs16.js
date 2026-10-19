@@ -1599,11 +1599,16 @@
       vmSwayX = Math.max(-0.09, Math.min(0.09, vmSwayX + e.movementX * 0.00035));
       vmSwayY = Math.max(-0.09, Math.min(0.09, vmSwayY + e.movementY * 0.00035));
     });
+    // 3.19.3: русская раскладка → латиница (ходьба WASD, покупка, оружие, гранаты — в любой раскладке)
+    const RU2EN = { 'й':'q','ц':'w','у':'e','к':'r','е':'t','н':'y','г':'u','ш':'i','щ':'o','з':'p',
+      'ф':'a','ы':'s','в':'d','а':'f','п':'g','р':'h','о':'j','л':'k','д':'l',
+      'я':'z','ч':'x','с':'c','м':'v','и':'b','т':'n','ь':'m' };
+    const normK = k => RU2EN[k] || k;
     window.addEventListener('keydown', (e) => {
       if (state.phase === 'lobby' || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
-      keys[e.key.toLowerCase()] = true;
+      keys[normK(e.key.toLowerCase())] = true;
       if (e.code === 'Space') { keys.space = true; e.preventDefault(); }
-      const k = e.key.toLowerCase();
+      const k = normK(e.key.toLowerCase());
       // 3.15.9: ESC-меню
       if (k === 'escape') {
         if (ui.buy.style.display === 'block') { closeBuy(); return; }
@@ -1632,7 +1637,7 @@
       if (k === '3') switchSlot('knife');
       if (k === 'q' && lastWeaponSlot) switchSlot(lastWeaponSlot);
     });
-    window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; if (e.code === 'Space') keys.space = false; });
+    window.addEventListener('keyup', (e) => { keys[normK(e.key.toLowerCase())] = false; if (e.code === 'Space') keys.space = false; });
   }
 
   // ---------- HUD UPDATE ----------

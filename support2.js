@@ -1012,6 +1012,7 @@
     }
     if (v.isHero) {
       v.deaths++;
+      if (v === myHero && castMode != null) cancelCastMode(); // 3.19.2: смерть отменяет прицеливание
       v._deathX = v.x; v._deathZ = v.z;
       v.respawnT = 5 + v.lvl * 1.2;
       if (v.bot) { v.ai.state = 'dead'; }
@@ -1335,6 +1336,7 @@
   let camX = 0, camZ = 0, camZoom = 42;
   let mouseGX = 0, mouseGZ = 0;
   let attackMoveMode = false;
+  let castMode = null; // 3.19.2: индекс слота способности в режиме прицеливания
   let rafId = null, lastTs = 0;
   let minimapCtx = null;
   const deadAllies = []; // {x, z, ref, t} для воскрешения
@@ -2191,57 +2193,58 @@
     refreshKeyPanel();
   }
 
+  // 3.19.2: выход из режима прицеливания способности
+  function cancelCastMode() {
+    castMode = null;
+    if (renderer) renderer.domElement.style.cursor = 'default';
+  }
   function playerCast(i) {
     if (!myHero || !myHero.alive || match.phase !== 'live') return;
     const a = myHero.abilities[i];
     if (!a || a.lvl <= 0) { feed('Способность ещё не изучена', true); return; }
-    // 3.19.0: клиент матча — отправляем команду хосту, тот кастует и вернёт визуал событием
-    if (net.mode === 'client') {
-      const t = a.def.type;
-      if (t === 'passive') { feed('Пассивная способность — работает сама', true); return; }
-      if (t === 'self') { s2Send({ k: 'ab', i }); return; }
-      if (myHero.heroDef.id === 'jin' && i === 3) { // воскрешение — цель труп союзника
-        const dead = units.find(x => x.isHero && !x.alive && x.team === myHero.team && x !== myHero &&
-          d2(x._deathX != null ? x._deathX : x.x, x._deathZ != null ? x._deathZ : x.z, myHero.x, myHero.z) < a.def.range);
-        if (!dead) { feed('Некого воскрешать рядом', true); return; }
-        s2Send({ k: 'ab', i, tid: dead.name });
-        return;
-      }
-      if (t === 'unit') {
-        const e = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, mouseGX, mouseGZ) < 4)
-          .sort((x, y) => d2(x.x, x.z, mouseGX, mouseGZ) - d2(y.x, y.z, mouseGX, mouseGZ))[0];
-        if (!e) { feed('Нет врага под курсором', true); return; }
-        if (d2(e.x, e.z, myHero.x, myHero.z) > a.def.range) { feed('Вне радиуса действия', true); return; }
-        s2Send({ k: 'ab', i, tid: e.name });
-        return;
-      }
-      if (d2(mouseGX, mouseGZ, myHero.x, myHero.z) > a.def.range + 2) { feed('Вне радиуса действия', true); return; }
-      s2Send({ k: 'ab', i, tx: Math.round(mouseGX * 10) / 10, tz: Math.round(mouseGZ * 10) / 10 });
+    const t = a.def.type;
+    if (t === 'passive') { feed('Пассивная способность — работает сама', true); return; }
+    // 3.19.2: self-каст — сразу; unit/point — режим прицеливания, цель выбирается кликом мыши
+    if (t === 'self') {
+      if (net.mode === 'client') s2Send({ k: 'ab', i });
+      else if (a.cdT <= 0 && myHero.mana >= a.def.mana) castAbility(myHero, a, null);
       return;
     }
-    if (a.cdT > 0 || myHero.mana < a.def.mana) return;
+    castMode = i;
+    if (renderer) renderer.domElement.style.cursor = 'crosshair';
+    feed('🎯 ' + a.def.name + (t === 'unit' ? ' — тыкни по цели (правая кнопка / ESC — отмена)' : ' — тыкни по месту (правая кнопка / ESC — отмена)'));
+  }
+
+  // 3.19.2: каст в режиме прицеливания — вызывается из mousedown по левой кнопке
+  function castFromMode(p) {
+    const i = castMode;
+    const a = myHero.abilities[i];
+    if (!a) { cancelCastMode(); return; }
     const t = a.def.type;
-    if (t === 'self') castAbility(myHero, a, null);
-    else if (t === 'passive') { feed('Пассивная способность — работает сама', true); return; }
-    else if (t === 'unit') {
-      // ближайший враг к курсору; для Джина R — ближайший павший союзник
+    if (t === 'unit') {
+      // Джин R — павший союзник рядом с кликом, иначе враг
+      let target = null;
       if (myHero.heroDef.id === 'jin' && i === 3) {
-        if (!deadAllies.length) { feed('Некого воскрешать', true); return; }
-        const d = deadAllies.sort((a, b) => d2(a.x, a.z, myHero.x, myHero.z) - d2(b.x, b.z, myHero.x, myHero.z))[0];
-        if (d2(d.x, d.z, myHero.x, myHero.z) > a.def.range) { feed('Слишком далеко от тела союзника', true); return; }
-        castAbility(myHero, a, d);
-        return;
+        target = deadAllies.filter(d => d2(d.x, d.z, p.x, p.z) < 3.2)
+          .sort((x, y) => d2(x.x, x.z, p.x, p.z) - d2(y.x, y.z, p.x, p.z))[0];
+        if (!target) { feed('Тыкни по телу павшего союзника', true); return; }
+        if (d2(target.x, target.z, myHero.x, myHero.z) > a.def.range) { feed('Слишком далеко от тела союзника', true); return; }
+      } else {
+        target = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.6)
+          .sort((x, y) => d2(x.x, x.z, p.x, p.z) - d2(y.x, y.z, p.x, p.z))[0];
+        if (!target) { feed('Тыкни по врагу', true); return; }
+        if (d2(target.x, target.z, myHero.x, myHero.z) > a.def.range) { feed('Вне радиуса действия', true); return; }
       }
-      const e = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, mouseGX, mouseGZ) < 4)
-        .sort((x, y) => d2(x.x, x.z, mouseGX, mouseGZ) - d2(y.x, y.z, mouseGX, mouseGZ))[0];
-      if (!e) { feed('Нет врага под курсором', true); return; }
-      if (d2(e.x, e.z, myHero.x, myHero.z) > a.def.range) { feed('Вне радиуса действия', true); return; }
-      castAbility(myHero, a, e);
+      if (net.mode === 'client') s2Send({ k: 'ab', i, tid: target.ref ? target.ref.name : target.name });
+      else if (a.cdT <= 0 && myHero.mana >= a.def.mana) castAbility(myHero, a, target);
+      cancelCastMode();
+      return;
     }
-    else if (t === 'point') {
-      if (d2(mouseGX, mouseGZ, myHero.x, myHero.z) > a.def.range + 2) { feed('Вне радиуса действия', true); return; }
-      castAbility(myHero, a, { x: mouseGX, z: mouseGZ });
-    }
+    // point
+    if (d2(p.x, p.z, myHero.x, myHero.z) > a.def.range + 2) { feed('Вне радиуса действия', true); return; }
+    if (net.mode === 'client') s2Send({ k: 'ab', i, tx: Math.round(p.x * 10) / 10, tz: Math.round(p.z * 10) / 10 });
+    else if (a.cdT <= 0 && myHero.mana >= a.def.mana) castAbility(myHero, a, { x: p.x, z: p.z });
+    cancelCastMode();
   }
 
   // ---------- КЛАВИШИ СПОСОБНОСТЕЙ (настраиваются, хранятся локально) ----------
@@ -2262,8 +2265,8 @@
     if (keys.arrowright || keys.d2) camX += pan * dt;
     if (keys.arrowup) camZ -= pan * dt;
     if (keys.arrowdown) camZ += pan * dt;
-    // 3.18.0: краевой скролл мышью — подвёл к краю экрана, камера поехала
-    if (renderer && rootWrap && rootWrap.offsetParent) {
+    // 3.18.0: краевой скролл мышью — подвёл к краю экрана, камера поехала; 3.19.2: isConnected (fixed-оверлей)
+    if (renderer && rootWrap && rootWrap.isConnected) {
       const r = renderer.domElement.getBoundingClientRect();
       const EDGE = 22;
       const pan2 = 68 * (camZoom / 42); // 3.19.1: заметно быстрее, как просили
@@ -2297,9 +2300,13 @@
     window.addEventListener('mousemove', e => { mouseSX = e.clientX; mouseSY = e.clientY; });
     cv.addEventListener('mousemove', e => { const p = groundPoint(e); if (p) { mouseGX = p.x; mouseGZ = p.z; } });
     cv.addEventListener('mousedown', e => {
+      // 3.19.2: отмена прицеливания способности правой кнопкой
+      if (castMode != null && e.button === 2) { cancelCastMode(); return; }
       if (!myHero || !myHero.alive || match.phase !== 'live') return;
       const p = groundPoint(e);
       if (!p) return;
+      // 3.19.2: каст в режиме прицеливания — левая кнопка по цели/месту
+      if (e.button === 0 && castMode != null) { castFromMode(p); return; }
       if (e.button === 0 && !attackMoveMode) {
         // 3.18.0: клик по юниту — выделение (реально «жмётся»)
         const clicked = units.filter(u2 => u2.alive && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.4)
@@ -2345,7 +2352,10 @@
         if (ui.hud) buildHud(); // перерисовать кнопки с новыми клавишами
         return;
       }
-      if (k === 'escape') { toggleEscMenu(); return; } // 3.19.1: меню по ESC
+      if (k === 'escape') { // 3.19.1: меню по ESC; 3.19.2: сначала отмена прицеливания
+        if (castMode != null) { cancelCastMode(); return; }
+        toggleEscMenu(); return;
+      }
       keys[k] = true;
       if (e.key === ' ') { keys.space = true; e.preventDefault(); }
       if (match.phase !== 'live') return;
@@ -2429,7 +2439,7 @@
       if (A.up) A.up.style.display = canLevelAbility(myHero, i) ? 'flex' : 'none';
       if (a.cdT > 0) { A.cd.style.display = 'flex'; A.cd.textContent = Math.ceil(a.cdT); }
       else A.cd.style.display = 'none';
-      A.b.style.borderColor = a.lvl > 0 ? (a.def.mana <= myHero.mana ? '#5a8f5a' : '#8a5a3a') : '#3a4358';
+      A.b.style.borderColor = castMode === i ? '#ffd34a' : (a.lvl > 0 ? (a.def.mana <= myHero.mana ? '#5a8f5a' : '#8a5a3a') : '#3a4358');
     }
     for (let i = 0; i < 6; i++) {
       const it = myHero.inventory[i];
@@ -2706,6 +2716,14 @@
     renderLobby();
   }
 
+  // 3.19.2: кнопка полного выхода из игры (в лобби, поверх всего)
+  function lobbyCloseBtn(wrap) {
+    const closeBtn = el('div', 'position:sticky;top:0;margin-left:auto;width:max-content;z-index:60;background:#3a1620;border:1px solid #a04a58;color:#f0b8c0;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:800;cursor:pointer;', wrap, '✖ Закрыть игру');
+    closeBtn.onmouseenter = () => { closeBtn.style.background = '#5a1e2c'; };
+    closeBtn.onmouseleave = () => { closeBtn.style.background = '#3a1620'; };
+    closeBtn.onclick = () => closeS2();
+  }
+
   function heroCard(h, onPick, small) {
     const card = el('div', 'position:relative;background:#141c2c;border:1px solid #3a4358;border-radius:10px;padding:8px;cursor:pointer;text-align:center;' + (small ? 'width:86px;' : ''), null);
     if (h.portrait) {
@@ -2728,6 +2746,7 @@
     const wrap = ui.lobbyWrap;
     if (!wrap || !wrap.isConnected && !wrap.parentNode) return;
     wrap.innerHTML = '';
+    lobbyCloseBtn(wrap);
     el('div', 'font-size:28px;font-weight:900;color:#e8dfc8;text-align:center;text-shadow:0 3px 12px rgba(0,0,0,0.6);', wrap, '🛡 SUPPORT 2 — ЛОББИ');
     const status = s2net.connected
       ? (s2net.state ? `На сервере: ${s2net.state.players.length}` : 'Соединено')
@@ -2828,7 +2847,7 @@
   // ---------- ГЛАВНЫЙ ЦИКЛ ----------
   function loop(ts) {
     rafId = requestAnimationFrame(loop);
-    if (!rootWrap || !rootWrap.offsetParent) { lastTs = ts; return; } // вкладка скрыта — пауза
+    if (!rootWrap || !rootWrap.isConnected) { lastTs = ts; return; } // игра закрыта — пауза
     const dt = Math.min(0.05, (ts - lastTs) / 1000 || 0.016);
     lastTs = ts;
     clockT += dt;
@@ -2865,8 +2884,8 @@
     updateCamera(dt);
     updateHud();
     updateSelPanel();
-    // полный экран пока вкладка игры открыта
-    const vis = rootWrap.offsetParent != null;
+    // полный экран пока игра открыта
+    const vis = !!(rootWrap && rootWrap.isConnected);
     if (vis !== fsActive) { fsActive = vis; if (ipcR) ipcR.send('s2-fullscreen', vis); }
     if (Math.floor(clockT * 5) !== Math.floor((clockT - dt) * 5)) drawMinimap();
     renderer.render(scene, camera);
@@ -2887,7 +2906,8 @@
       const tab = document.getElementById('tab-support2');
       if (!tab) return;
       tab.innerHTML = '';
-      rootWrap = el('div', 'position:relative;width:100%;height:calc(100vh - 210px);min-height:480px;overflow:hidden;background:#0a0e14;', tab);
+      // 3.19.2: игра — поверх ВСЕГО окна (меню хаба не видно), как полноценная Дота
+      rootWrap = el('div', 'position:fixed;inset:0;width:100vw;height:100vh;z-index:99999;overflow:hidden;background:#0a0e14;', document.body);
       buildScene();
       bindInput();
       loadS2Models();
@@ -2896,6 +2916,23 @@
     resizeS2();
     if (match.phase !== 'live') showLobby();
     if (!rafId) { lastTs = performance.now(); rafId = requestAnimationFrame(loop); }
+  }
+  // полностью закрыть игру и вернуться в меню хаба
+  function closeS2() {
+    try { if (s2net.sock && net.mode !== 'off') s2net.sock.emit('s2_leave'); } catch (e) {}
+    net.mode = 'off';
+    if (castMode != null) cancelCastMode();
+    if (escMenu) { escMenu.remove(); escMenu = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (rootWrap && rootWrap.parentNode) rootWrap.parentNode.removeChild(rootWrap);
+    rootWrap = null;
+    scene = null; camera = null; renderer = null; waterMesh = null; waterGeo = null; sunLight = null; minimapCtx = null;
+    ui = {};
+    units.length = 0; projectiles.length = 0; zones.length = 0; effects.length = 0;
+    corpses.length = 0; couriers.length = 0; obstacles.length = 0; trees.length = 0; deadAllies.length = 0;
+    myHero = null; selUnit = null; selRing = null;
+    match.phase = 'menu';
+    if (ipcR && fsActive) { fsActive = false; try { ipcR.send('s2-fullscreen', false); } catch (e) {} }
   }
   window.__s2Open = open;
 })();

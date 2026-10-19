@@ -382,6 +382,37 @@
     try { r.dispose(); } catch (e) {}
   }
 
+  // ---------- 3.21.0: цвета и иконки способностей — у каждой способности свой цвет, как в Доте ----------
+  const ABIL_HUE_SHIFT = [0, 0.07, 0.14, 0.55]; // Q W E — близкие оттенки героя, R (ульт) — фиолетовый
+  function abilColorNum(heroDef, i) {
+    const c = new THREE.Color(heroDef && heroDef.color || '#ffffff');
+    const hsl = {}; c.getHSL(hsl);
+    return new THREE.Color().setHSL((hsl.h + ABIL_HUE_SHIFT[i]) % 1, Math.min(1, hsl.s + 0.15), 0.58).getHex();
+  }
+  function makeAbilityIcon(heroDef, a, i) {
+    if (a.icon) return a.icon;
+    try {
+      const col = '#' + new THREE.Color(abilColorNum(heroDef, i)).getHexString();
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      const g = c.getContext('2d');
+      g.fillStyle = '#10131c'; g.fillRect(0, 0, 64, 64);
+      const rg = g.createRadialGradient(32, 30, 4, 32, 30, 40);
+      rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(10,12,20,0)');
+      g.globalAlpha = 0.85; g.fillStyle = rg; g.fillRect(0, 0, 64, 64); g.globalAlpha = 1;
+      g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2;
+      g.beginPath(); g.arc(32, 30, 16, 0.6, 2.4); g.stroke();
+      g.beginPath(); g.arc(32, 30, 11, 3.4, 5.6); g.stroke();
+      g.font = '900 30px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = col; g.shadowBlur = 10;
+      g.fillStyle = '#fff';
+      g.fillText(((a.name || '?')[0]).toUpperCase(), 32, 32);
+      g.shadowBlur = 0;
+      g.strokeStyle = col; g.lineWidth = 3; g.strokeRect(1.5, 1.5, 61, 61);
+      a.icon = c.toDataURL('image/png');
+    } catch (e) { a.icon = ''; }
+    return a.icon;
+  }
+
   // ---------- КАРТА ----------
   const MAP = 210;                 // 3.20.0: карта больше (была 170)
   const BASE_R = { x: -82, z: -82 };  // база Radiant (юго-запад)
@@ -438,12 +469,12 @@
 
   function buildScene() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x9fd2f0);
-    scene.fog = new THREE.Fog(0x9fd2f0, 160, 390); // 3.20.0: дальняя дымка под большую карту
+    scene.background = new THREE.Color(0xd6c9e2); // 3.21.0: сиренево-розовая дымка как на карте Доты
+    scene.fog = new THREE.Fog(0xd6c9e2, 150, 380);
     camera = new THREE.PerspectiveCamera(46, 1.6, 0.5, 600);
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    // 3.20.0: мультяшная картинка — киношная тональная компрессия и sRGB
+    // мультяшная картинка — киношная тональная компрессия и sRGB
     if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
     if (THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12; }
     renderer.shadowMap.enabled = true;
@@ -451,9 +482,9 @@
     rootWrap.insertBefore(renderer.domElement, rootWrap.firstChild);
     renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
 
-    // 3.20.0: сочнее — яркое небесное свечение + тёплое солнце
-    scene.add(new THREE.HemisphereLight(0xd8ecff, 0x4a7a3a, 1.0));
-    sunLight = new THREE.DirectionalLight(0xfff0d0, 1.45);
+    // тёплый закатный свет с розовинкой
+    scene.add(new THREE.HemisphereLight(0xeadcf2, 0x55703c, 0.95));
+    sunLight = new THREE.DirectionalLight(0xffe2c2, 1.4);
     sunLight.position.set(60, 110, 40);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(2048, 2048);
@@ -461,48 +492,65 @@
     sc.left = -150; sc.right = 150; sc.top = 150; sc.bottom = -150; sc.far = 420;
     scene.add(sunLight);
 
-    // --- земля: рисуем траву, тропы по линиям, берега реки ---
+    // --- земля: мох, каменная брусчатка на линиях, берега реки ---
     const groundTex = makeCanvas(1024, 1024, (g, w, h) => {
       const px = v => (v + MAP / 2) / MAP * w;
       // базовая трава с мягким градиентом
       const base = g.createRadialGradient(w / 2, h / 2, w * 0.1, w / 2, h / 2, w * 0.75);
-      base.addColorStop(0, '#69a04c'); base.addColorStop(1, '#4f7d3a');
-      g.fillStyle = base; g.fillRect(0, 0, w, h);
+      base.addColorStop(0, '#6f9a4c'); base.addColorStop(1, '#4f7436');
+      g.fillStyle = base; g.fillRect(0, 0, w, w);
       // пятна травы разных оттенков
       for (let i = 0; i < 1400; i++) {
-        g.fillStyle = `rgba(${60 + Math.random() * 40 | 0},${115 + Math.random() * 45 | 0},${50 + Math.random() * 30 | 0},0.28)`;
+        g.fillStyle = `rgba(${70 + Math.random() * 40 | 0},${120 + Math.random() * 45 | 0},${55 + Math.random() * 30 | 0},0.28)`;
         const r = 4 + Math.random() * 22;
         g.beginPath(); g.arc(Math.random() * w, Math.random() * h, r, 0, 7); g.fill();
       }
       // цветочки
       for (let i = 0; i < 260; i++) {
-        g.fillStyle = pick(['#ffd34a', '#ff8fb5', '#c9e6ff', '#ffffff', '#ffb066']);
+        g.fillStyle = pick(['#ffd34a', '#ff9fbe', '#e8d4ff', '#ffffff', '#ffb066']);
         g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 1.6 + Math.random() * 1.8, 0, 7); g.fill();
       }
-      // тропы по линиям: обводка + основа
+      // линии: земляная подложка + каменная брусчатка
       for (const key of ['top', 'mid', 'bot']) {
         const pts = LANES[key];
-        g.lineCap = 'round'; g.lineJoin = 'round';
-        g.strokeStyle = 'rgba(90,70,40,0.55)'; g.lineWidth = 34; g.globalAlpha = 0.9;
-        g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
-        for (let i = 1; i < pts.length; i++) g.lineTo(px(pts[i][0]), px(pts[i][1]));
-        g.stroke();
-        g.strokeStyle = '#a5855a'; g.lineWidth = 26;
-        g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
-        for (let i = 1; i < pts.length; i++) g.lineTo(px(pts[i][0]), px(pts[i][1]));
-        g.stroke();
+        const draw = (style, width, alpha) => {
+          g.globalAlpha = alpha; g.strokeStyle = style; g.lineWidth = width;
+          g.lineCap = 'round'; g.lineJoin = 'round';
+          g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
+          for (let i = 1; i < pts.length; i++) g.lineTo(px(pts[i][0]), px(pts[i][1]));
+          g.stroke(); g.globalAlpha = 1;
+        };
+        draw('rgba(96,78,52,0.9)', 36, 0.9);
+        draw('#b3a184', 28, 1);
+        // швы брусчатки: квадратные камни
+        g.strokeStyle = 'rgba(70,56,36,0.5)'; g.lineWidth = 1.4;
+        const step = 26 / MAP * w;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
+          const len = Math.hypot(bx - ax, bz - az), n = Math.floor(len / 3.4);
+          const nx = -(bz - az) / len, nz = (bx - ax) / len;
+          for (let j = 0; j <= n; j++) {
+            const t = j / Math.max(n, 1);
+            const cx = px(lerp(ax, bx, t)), cz = px(lerp(az, bz, t));
+            const hw = 13 / MAP * w;
+            // короткая поперечная черта + точки швов по краям — имитация кладки
+            g.beginPath();
+            g.moveTo(cx + nx * hw, cz + nz * hw);
+            g.lineTo(cx - nx * hw, cz - nz * hw);
+            g.stroke();
+          }
+        }
       }
-      g.globalAlpha = 1;
       // река: диагональная полоса с песчаными берегами
       g.save();
       g.translate(w / 2, h / 2); g.rotate(-Math.PI / 4);
       const rw = 5 * Math.SQRT2 / MAP * w;
-      g.fillStyle = 'rgba(190,170,110,0.85)';
+      g.fillStyle = 'rgba(196,176,116,0.85)';
       g.fillRect(-w, -rw * 1.5, w * 2, rw * 3);
       const grad = g.createLinearGradient(0, -rw, 0, rw);
-      grad.addColorStop(0, 'rgba(80,140,185,0.9)');
-      grad.addColorStop(0.5, 'rgba(95,160,205,0.95)');
-      grad.addColorStop(1, 'rgba(80,140,185,0.9)');
+      grad.addColorStop(0, 'rgba(86,146,192,0.9)');
+      grad.addColorStop(0.5, 'rgba(102,166,212,0.95)');
+      grad.addColorStop(1, 'rgba(86,146,192,0.9)');
       g.fillStyle = grad;
       g.fillRect(-w, -rw, w * 2, rw * 2);
       g.restore();
@@ -525,7 +573,7 @@
     waterMesh.position.y = 0.12;
     scene.add(waterMesh);
 
-    // --- деревья: инстансированные сосны разных оттенков в лесных массивах ---
+    // --- деревья: сакуры с розовыми кронами + зелёные круглые (как на карте Доты) ---
     const treePos = [];
     let guard = 0;
     while (treePos.length < 330 && guard++ < 6000) {
@@ -536,22 +584,26 @@
       if (treePos.some(p => d2(x, z, p[0], p[1]) < 3.4)) continue;
       treePos.push([x, z]);
     }
-    const trunkGeo = new THREE.CylinderGeometry(0.28, 0.42, 2.4, 6);
-    const crownGeo = new THREE.ConeGeometry(2.1, 5.4, 7);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2f });
+    const trunkGeo = new THREE.CylinderGeometry(0.3, 0.46, 3.0, 6);
+    const crownGeo = new THREE.IcosahedronGeometry(2.3, 1);
+    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5f4030 });
     const crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // оттенок задаём на инстанс
     const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treePos.length);
     const crowns = new THREE.InstancedMesh(crownGeo, crownMat, treePos.length);
     trunks.castShadow = crowns.castShadow = true;
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), Pv = new THREE.Vector3();
     const treeCol = new THREE.Color();
+    const sakuraCols = ['#f7cddd', '#f4b8cf', '#fceef2', '#f0a8c0', '#ffd9e4'];
     treePos.forEach((p, i) => {
       const s = rand(0.8, 1.4);
+      const sakura = Math.random() < 0.45; // почти половина — цветущая вишня
       Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(0, 6.28));
       S.set(s, s, s);
-      M.compose(Pv.set(p[0], 1.2 * s, p[1]), Q, S); trunks.setMatrixAt(i, M);
-      M.compose(Pv.set(p[0], (2.4 + 2.4) * s * 0.9, p[1]), Q, S); crowns.setMatrixAt(i, M);
-      crowns.setColorAt(i, treeCol.setHSL(0.29 + rand(-0.04, 0.05), rand(0.42, 0.55), rand(0.3, 0.42)));
+      M.compose(Pv.set(p[0], 1.5 * s, p[1]), Q, S); trunks.setMatrixAt(i, M);
+      M.compose(Pv.set(p[0], (3.0 + 1.7) * s, p[1]), Q, S); crowns.setMatrixAt(i, M);
+      if (sakura) treeCol.set(pick(sakuraCols));
+      else treeCol.setHSL(0.27 + rand(-0.03, 0.06), rand(0.42, 0.55), rand(0.3, 0.42));
+      crowns.setColorAt(i, treeCol);
       obstacles.push({ x: p[0], z: p[1], r: 0.9 * s });
       trees.push({ x: p[0], z: p[1], hp: 1 });
     });
@@ -583,6 +635,60 @@
       bushes.setColorAt(i, treeCol.setHSL(0.27 + rand(-0.03, 0.06), 0.5, rand(0.32, 0.44)));
     }
     scene.add(bushes);
+
+    // --- 3.21.0: деревянные мосты через реку (перекрёстки линий: мид, топ, бот) ---
+    const bridgeMat = new THREE.MeshLambertMaterial({ color: 0x8a6242 });
+    const railMat = new THREE.MeshLambertMaterial({ color: 0x6b4830 });
+    for (const bx of [0, 64, -64]) {
+      const bz = -bx; // река — диагональ x+z=0
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(7, 0.5, 16), bridgeMat);
+      deck.position.set(bx, 0.42, bz);
+      deck.rotation.y = Math.PI / 4;
+      deck.castShadow = deck.receiveShadow = true;
+      scene.add(deck);
+      for (const side of [-1, 1]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 16), railMat);
+        rail.position.set(bx + side * 2.6 * Math.SQRT1_2, 1.1, bz - side * 2.6 * Math.SQRT1_2);
+        rail.rotation.y = Math.PI / 4;
+        scene.add(rail);
+      }
+    }
+
+    // --- бумажные фонари вдоль линий (тёплый свет) ---
+    const lanternGlow = new THREE.MeshBasicMaterial({ color: 0xffc06a });
+    const lanternPoleMat = new THREE.MeshLambertMaterial({ color: 0x4a3524 });
+    for (const lane of ['top', 'mid', 'bot']) {
+      for (const t of [0.12, 0.26, 0.4, 0.6, 0.74, 0.88]) {
+        for (const side of [-1, 1]) {
+          if (Math.random() < 0.3) continue;
+          const pt = lanePoint(lane, t);
+          const next = lanePoint(lane, Math.min(t + 0.02, 1));
+          const dx = next.x - pt.x, dz = next.z - pt.z, l = Math.hypot(dx, dz) || 1;
+          const x = pt.x + (-dz / l) * side * 5.2, z = pt.z + (dx / l) * side * 5.2;
+          if (riverDist(x, z) < 5) continue;
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 2.6, 5), lanternPoleMat);
+          pole.position.set(x, 1.3, z);
+          scene.add(pole);
+          const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), lanternGlow);
+          lamp.position.set(x, 2.5, z);
+          lamp.scale.y = 1.25;
+          scene.add(lamp);
+        }
+      }
+    }
+
+    // --- лотосы на реке ---
+    const lotusMat = new THREE.MeshLambertMaterial({ color: 0xf29ec0 });
+    const lotusGeo = new THREE.CircleGeometry(0.55, 7);
+    for (let i = 0; i < 26; i++) {
+      const t = rand(-MAP / 2 + 10, MAP / 2 - 10);
+      const off = rand(-3.4, 3.4);
+      const lotus = new THREE.Mesh(lotusGeo, lotusMat);
+      lotus.rotation.x = -Math.PI / 2;
+      lotus.rotation.z = rand(0, 6.28);
+      lotus.position.set(t - off * Math.SQRT1_2, 0.2, -t - off * Math.SQRT1_2);
+      scene.add(lotus);
+    }
 
     // --- 3.20.0: облака-подушки в небе ---
     const cloudGeo = new THREE.SphereGeometry(1, 10, 7);
@@ -1427,7 +1533,7 @@
   }
   function feed(msg, important) {
     if (!ui.feed) return;
-    const line = el('div', 'padding:2px 8px;font-size:12px;color:' + (important ? '#ffd34a' : '#cfc8b8') + ';', ui.feed, msg);
+    const line = el('div', 'display:inline-block;margin:1px auto;padding:2px 12px;font-size:12.5px;font-weight:600;color:' + (important ? '#ffd34a' : '#e8dfc8') + ';background:rgba(10,12,18,0.55);border-radius:10px;clear:both;', ui.feed, msg);
     ui.feed.insertBefore(line, ui.feed.firstChild);
     while (ui.feed.children.length > 6) ui.feed.removeChild(ui.feed.lastChild);
     // 3.19.0: хост дублирует фид клиентам матча
@@ -1907,11 +2013,13 @@
       if (u.mesh) u.mesh.rotation.y = u.face;
     }
     a.def.exec(u, target && target.alive !== undefined ? target : pt, s);
+    const ai = u.abilities.indexOf(a);
+    const acolor = abilColorNum(u.heroDef, ai); // 3.21.0: каждая способность — свой цвет
     // 3.19.1: анимация каста — герой «взмахивает» (если у модели есть анимация атаки) + вспышка
     u.atkAnimT = 0.55;
     const castFlash = new THREE.Mesh(
       new THREE.RingGeometry(0.9, 1.5, 24),
-      new THREE.MeshBasicMaterial({ color: u.heroDef ? u.heroDef.color : 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+      new THREE.MeshBasicMaterial({ color: acolor, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
     );
     castFlash.rotation.x = -Math.PI / 2;
     castFlash.position.set(u.x, 0.15, u.z);
@@ -1920,12 +2028,12 @@
     // Космический поток Астры
     if (u.heroDef.id === 'astra') u.mana = Math.min(u.maxMana, u.mana + 4);
     if (u === myHero || d2(u.x, u.z, camX, camZ) < 55) sfxCast();
-    sparkleFx(u.x, u.z, 0xffffff);
+    sparkleFx(u.x, u.z, acolor);
     // 3.19.0: хост рассылает событие каста — клиенты повторяют визуал
     if (net.mode === 'host' && s2net.sock && s2net.connected) {
       try {
         s2net.sock.emit('s2_ev', {
-          k: 'c', nm: u.name, i: u.abilities.indexOf(a),
+          k: 'c', nm: u.name, i: ai,
           tid: target && target.alive !== undefined ? (target.name || '') : '',
           tx: Math.round(pt.x * 10) / 10, tz: Math.round(pt.z * 10) / 10,
         });
@@ -2133,33 +2241,68 @@
     syncMesh(c);
   }
 
-  // ---------- HUD ----------
+  // ---------- HUD (верстка в стиле Доты 2) ----------
   function buildHud() {
     if (ui.hud) ui.hud.remove();
     rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove()); // старые кнопки/панели верха
-    const hud = el('div', 'position:absolute;left:0;right:0;bottom:0;height:158px;display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:0 10px 8px;background:linear-gradient(transparent,rgba(10,12,18,0.92) 30%);z-index:20;pointer-events:none;', rootWrap);
+    // --- миникарта: слева внизу, как в Доте ---
+    const mm = el('canvas', 'position:absolute;left:6px;bottom:6px;width:214px;height:214px;border:2px solid #262b36;border-radius:4px;background:#151a12;z-index:25;cursor:crosshair;', rootWrap);
+    mm.dataset.s2top = '1';
+    mm.width = 214; mm.height = 214;
+    minimapCtx = mm.getContext('2d');
+    mm.onclick = (ev) => {
+      const r = mm.getBoundingClientRect();
+      const k = MAP / r.width;
+      camX = (ev.clientX - r.left - r.width / 2) * k;
+      camZ = (ev.clientY - r.top - r.height / 2) * k;
+    };
+    // --- топ-бар: портреты команд + счёт + часы (по центру сверху) ---
+    const topbar = el('div', 'position:absolute;top:0;left:50%;transform:translateX(-50%);display:flex;align-items:flex-start;gap:10px;z-index:22;pointer-events:none;', rootWrap);
+    topbar.dataset.s2top = '1';
+    ui.tbR = el('div', 'display:flex;gap:3px;padding:3px;background:linear-gradient(180deg,#233246,#141c2a);border:1px solid #33415a;border-radius:0 0 8px 0;border-left:none;', topbar);
+    const tbMid = el('div', 'display:flex;flex-direction:column;align-items:center;', topbar);
+    ui.score = el('div', 'display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900;color:#e8dfc8;background:linear-gradient(180deg,#233246,#141c2a);border:1px solid #33415a;border-top:none;border-radius:0 0 8px 8px;padding:2px 14px 4px;min-width:110px;justify-content:center;', tbMid);
+    ui.score.innerHTML = '<span style="color:#7fc4f0">0</span><span style="color:#5a6478;font-size:13px">:</span><span style="color:#f08a7a">0</span>';
+    ui.timer = el('div', 'font-size:12.5px;font-weight:700;color:#cfd6e4;background:rgba(16,20,30,0.85);border:1px solid #33415a;border-top:none;border-radius:0 0 6px 6px;padding:1px 10px 3px;margin-top:-1px;', tbMid, '0:00');
+    ui.tbD = el('div', 'display:flex;gap:3px;padding:3px;background:linear-gradient(180deg,#463026,#2a1a14);border:1px solid #5a3a34;border-radius:0 0 0 8px;border-right:none;', topbar);
+    ui.tbR.style.pointerEvents = ui.tbD.style.pointerEvents = 'auto';
+    ui.topbar = topbar;
+    // --- центральная нижняя панель ---
+    const hud = el('div', 'position:absolute;left:0;right:0;bottom:0;height:190px;display:flex;align-items:flex-end;justify-content:center;z-index:20;pointer-events:none;background:linear-gradient(transparent,rgba(8,10,14,0.9) 38%);', rootWrap);
     ui.hud = hud;
-    // панель героя
-    const left = el('div', 'width:280px;pointer-events:auto;background:rgba(16,20,30,0.9);border:1px solid #3a4358;border-radius:10px;padding:8px;', hud);
-    ui.heroName = el('div', 'font-size:13px;font-weight:700;color:#e8dfc8;', left);
-    ui.hpBar = el('div', 'height:14px;background:#26120f;border-radius:6px;margin-top:5px;overflow:hidden;', left);
-    ui.hpFill = el('div', 'height:100%;width:100%;background:linear-gradient(#6fe07a,#3fa84f);', ui.hpBar);
-    ui.hpText = el('div', 'font-size:11px;color:#cfc8b8;margin-top:2px;', left);
-    ui.mpBar = el('div', 'height:9px;background:#0f1420;border-radius:5px;margin-top:4px;overflow:hidden;', left);
-    ui.mpFill = el('div', 'height:100%;width:100%;background:linear-gradient(#6fa8ff,#3f6fd4);', ui.mpBar);
-    ui.xpText = el('div', 'font-size:11px;color:#b8a86a;margin-top:3px;', left);
-    ui.goldText = el('div', 'font-size:13px;font-weight:700;color:#ffd34a;margin-top:2px;', left);
+    const bar = el('div', 'display:flex;align-items:stretch;pointer-events:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));', hud);
+    ui.centerBar = bar; // скрывается в режиме зрителя
+    // портрет героя
+    const pWrap = el('div', 'position:relative;width:100px;height:122px;background:linear-gradient(180deg,#232b3d,#141821);border:1px solid #3a4152;border-right:none;border-radius:8px 0 0 0;overflow:visible;', bar);
+    const pIn = el('div', 'position:absolute;inset:0;overflow:hidden;border-radius:8px 0 0 0;', pWrap);
+    ui.portraitImg = el('img', 'width:100%;height:100%;object-fit:cover;object-position:top;', pIn);
+    ui.portraitImg.draggable = false;
+    ui.portraitImg.onerror = () => { ui.portraitImg.style.display = 'none'; };
+    ui.lvlBadge = el('div', 'position:absolute;left:-7px;bottom:-7px;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4a3c12,#1c1606);border:2px solid #c9a227;display:flex;align-items:center;justify-content:center;font-weight:900;color:#ffd34a;font-size:15px;z-index:5;text-shadow:0 1px 2px #000;', pWrap, '1');
+    // полоски HP/маны + статы
+    const midCol = el('div', 'width:236px;background:linear-gradient(180deg,#1a212e,#12161f);border:1px solid #3a4152;border-left:none;border-right:none;padding:5px 7px 4px;display:flex;flex-direction:column;', bar);
+    ui.heroName = el('div', 'font-size:11.5px;font-weight:800;color:#e8dfc8;letter-spacing:0.4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;', midCol);
+    const hpWrap = el('div', 'position:relative;height:17px;background:#3a0f0f;border:1px solid #1a0505;border-radius:3px;overflow:hidden;', midCol);
+    ui.hpFill = el('div', 'height:100%;width:100%;background:linear-gradient(#86e26f,#3f9a3f);transition:width 0.15s;', hpWrap);
+    ui.hpText = el('div', 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;', hpWrap, '0 / 0');
+    const mpWrap = el('div', 'position:relative;height:12px;background:#0e1a3a;border:1px solid #050a1a;border-radius:3px;overflow:hidden;margin-top:3px;', midCol);
+    ui.mpFill = el('div', 'height:100%;width:100%;background:linear-gradient(#5a96f0,#2a56b8);transition:width 0.15s;', mpWrap);
+    ui.mpText = el('div', 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;', mpWrap, '0 / 0');
+    ui.statRow = el('div', 'display:flex;gap:7px;align-items:center;font-size:10.5px;color:#b8c2d4;margin-top:4px;white-space:nowrap;', midCol);
+    ui.xpText = el('div', 'font-size:10px;color:#8a94a8;margin-top:2px;white-space:nowrap;overflow:hidden;', midCol);
     // способности
+    const abWrap = el('div', 'background:linear-gradient(180deg,#1a212e,#12161f);border:1px solid #3a4152;border-left:none;padding:10px 8px 6px;display:flex;flex-direction:column;justify-content:flex-end;', bar);
+    const mid = el('div', 'display:flex;gap:5px;position:relative;', abWrap);
     ui.abils = [];
-    const mid = el('div', 'display:flex;gap:6px;pointer-events:auto;', hud);
     for (let i = 0; i < 4; i++) {
-      const b = el('div', 'position:relative;width:62px;height:62px;background:#141a28;border:1px solid #3a4358;border-radius:8px;cursor:pointer;user-select:none;', mid);
-      const key = el('div', 'position:absolute;top:2px;left:5px;font-size:12px;font-weight:900;color:#ffd34a;', b);
-      const nm = el('div', 'position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:8.5px;color:#cfc8b8;line-height:1.1;', b);
-      const cd = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);border-radius:8px;font-size:17px;font-weight:900;color:#fff;', b);
-      const lvl = el('div', 'position:absolute;top:2px;right:5px;font-size:9px;color:#7fe08a;', b);
-      // 3.19.1: кнопка прокачки «+» — сам решаешь, что качать
-      const up = el('div', 'position:absolute;top:-9px;right:-7px;width:20px;height:20px;display:none;align-items:center;justify-content:center;background:#2a6b3f;border:1px solid #6fe0a0;border-radius:50%;font-size:14px;font-weight:900;color:#fff;cursor:pointer;z-index:5;', b, '+');
+      const b = el('div', 'position:relative;width:62px;height:62px;background:#0c0f16;border:1px solid #3a4358;border-radius:5px;cursor:pointer;user-select:none;background-size:cover;background-position:center;', mid);
+      const key = el('div', 'position:absolute;top:1px;left:4px;font-size:11px;font-weight:900;color:#ffd34a;text-shadow:0 1px 2px #000;z-index:3;', b);
+      const cd = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;border-radius:5px;font-size:17px;font-weight:900;color:#fff;z-index:2;text-shadow:0 1px 3px #000;', b);
+      const mana = el('div', 'position:absolute;bottom:5px;right:4px;font-size:10px;font-weight:800;color:#7fb4ff;text-shadow:0 1px 2px #000;z-index:3;', b);
+      const pips = el('div', 'position:absolute;bottom:2px;left:0;right:0;display:flex;gap:2px;justify-content:center;z-index:3;', b);
+      const pipEls = [];
+      for (let j = 0; j < 4; j++) { const p = el('div', 'width:9px;height:3px;background:#2a3140;border-radius:1px;', pips); pipEls.push(p); }
+      const up = el('div', 'position:absolute;top:-22px;left:50%;transform:translateX(-50%);width:21px;height:21px;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 35% 30%,#4fae62,#1e5a2c);border:1px solid #8fe8a0;border-radius:50%;font-size:15px;font-weight:900;color:#fff;cursor:pointer;z-index:6;box-shadow:0 2px 6px rgba(0,0,0,0.6);', b, '+');
       up.onclick = (ev) => {
         ev.stopPropagation();
         if (net.mode === 'client') { if (myHero && canLevelAbility(myHero, i)) s2Send({ k: 'lv', i }); }
@@ -2168,13 +2311,17 @@
       b.onclick = () => playerCast(i);
       b.onmouseenter = () => showTip(myHero && myHero.abilities[i] ? myHero.abilities[i].def : null);
       b.onmouseleave = hideTip;
-      ui.abils.push({ b, key, nm, cd, lvl, up });
+      ui.abils.push({ b, key, cd, mana, pips: pipEls, up });
     }
-    // инвентарь (клик по активному предмету = использовать)
-    const right = el('div', 'display:grid;grid-template-columns:repeat(3,44px);gap:5px;pointer-events:auto;', hud);
+    // тонкая полоска опыта под способностями (как в Доте)
+    const xpWrap = el('div', 'height:5px;background:#0a0c12;border-radius:2px;margin-top:5px;overflow:hidden;border:1px solid #232936;', abWrap);
+    ui.xpFill = el('div', 'height:100%;width:0%;background:linear-gradient(90deg,#c9a227,#ffd34a);', xpWrap);
+    // инвентарь 3x2
+    const right = el('div', 'display:grid;grid-template-columns:repeat(3,52px);gap:4px;background:linear-gradient(180deg,#1a212e,#12161f);border:1px solid #3a4152;border-left:none;padding:9px 8px;align-content:center;', bar);
     ui.inv = [];
     for (let i = 0; i < 6; i++) {
-      const s = el('div', 'position:relative;width:44px;height:44px;background:#141a28;border:1px solid #3a4358;border-radius:7px;font-size:8.5px;color:#cfc8b8;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;cursor:pointer;', right);
+      const s = el('div', 'position:relative;width:52px;height:44px;background:#0c0f16;border:1px solid #3a4358;border-radius:5px;font-size:8.5px;color:#cfc8b8;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;cursor:pointer;user-select:none;', right);
+      const kn = el('div', 'position:absolute;top:1px;left:4px;font-size:9px;font-weight:900;color:#7f8ca0;', s, String(i + 1));
       s.onclick = () => useItemSlot(i);
       s.onmouseenter = () => {
         const id = myHero && myHero.inventory[i];
@@ -2186,22 +2333,23 @@
       s.onmouseleave = hideTip;
       ui.inv.push(s);
     }
-    const shopBtn = el('button', 'grid-column:span 3;padding:6px;background:#3a2f14;color:#ffd34a;border:1px solid #8a6b3a;border-radius:7px;cursor:pointer;font-weight:700;', right, '🛒 Магазин (P)');
+    // золото + магазин
+    const goldCol = el('div', 'width:104px;background:linear-gradient(180deg,#1a212e,#12161f);border:1px solid #3a4152;border-left:none;border-radius:0 8px 0 0;padding:9px 8px;display:flex;flex-direction:column;gap:6px;justify-content:center;', bar);
+    ui.goldText = el('div', 'font-size:15px;font-weight:900;color:#ffd34a;text-shadow:0 1px 2px #000;white-space:nowrap;', goldCol, '💰 0');
+    const shopBtn = el('button', 'padding:6px 4px;background:#2c2410;color:#ffd34a;border:1px solid #8a6b3a;border-radius:6px;cursor:pointer;font-weight:800;font-size:11.5px;', goldCol, '🛒 Магазин (P)');
     shopBtn.onclick = toggleShop;
-    // тултип
-    ui.tip = el('div', 'position:absolute;bottom:170px;left:50%;transform:translateX(-50%);max-width:420px;display:none;background:rgba(10,14,22,0.95);border:1px solid #4a5468;border-radius:8px;padding:8px 12px;font-size:12px;color:#e8dfc8;z-index:40;pointer-events:none;', rootWrap);
+    // тултип над центром
+    ui.tip = el('div', 'position:absolute;bottom:196px;left:50%;transform:translateX(-50%);max-width:420px;display:none;background:rgba(10,14,22,0.97);border:1px solid #4a5468;border-radius:8px;padding:8px 12px;font-size:12px;color:#e8dfc8;z-index:40;pointer-events:none;', rootWrap);
     ui.tip.dataset.s2top = '1';
-    // фид
-    ui.feed = el('div', 'position:absolute;top:8px;left:10px;width:330px;z-index:20;pointer-events:none;background:rgba(10,12,18,0.55);border-radius:8px;padding:4px 0;', rootWrap);
+    // килфид — по центру сверху под топ-баром
+    ui.feed = el('div', 'position:absolute;top:64px;left:50%;transform:translateX(-50%);width:460px;z-index:21;pointer-events:none;text-align:center;text-shadow:0 1px 3px #000;', rootWrap);
     ui.feed.dataset.s2top = '1';
-    // таймер
-    ui.timer = el('div', 'position:absolute;top:8px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:700;color:#e8dfc8;background:rgba(10,12,18,0.6);padding:4px 14px;border-radius:8px;z-index:20;', rootWrap);
-    ui.timer.dataset.s2top = '1';
-    // счёт
-    ui.score = el('div', 'position:absolute;top:8px;right:190px;font-size:13px;font-weight:700;color:#e8dfc8;background:rgba(10,12,18,0.6);padding:4px 12px;border-radius:8px;z-index:20;', rootWrap);
-    ui.score.dataset.s2top = '1';
+    // K/D/A слева сверху
+    ui.kda = el('div', 'position:absolute;top:8px;left:10px;font-size:12px;font-weight:700;color:#e8dfc8;background:rgba(12,15,22,0.72);border:1px solid #2c3446;border-radius:7px;padding:5px 10px;z-index:22;line-height:1.5;pointer-events:none;', rootWrap);
+    ui.kda.dataset.s2top = '1';
+    ui.kda.innerHTML = 'K/D/A <b style="color:#fff">0/0/0</b><br><span style="color:#8a94a8;font-size:10.5px">LH/DN 0/0</span>';
     // панель выделенного юнита
-    ui.selPanel = el('div', 'position:absolute;top:44px;right:10px;width:210px;display:none;background:rgba(12,16,26,0.92);border:1px solid #4a5468;border-radius:9px;padding:8px 10px;font-size:12px;color:#e8dfc8;z-index:24;', rootWrap);
+    ui.selPanel = el('div', 'position:absolute;top:64px;right:10px;width:210px;display:none;background:rgba(12,16,26,0.92);border:1px solid #4a5468;border-radius:9px;padding:8px 10px;font-size:12px;color:#e8dfc8;z-index:24;', rootWrap);
     ui.selPanel.dataset.s2top = '1';
     // кнопка выхода
     const exitBtn = el('button', 'position:absolute;top:8px;right:10px;z-index:30;padding:5px 12px;background:#4a1f1f;color:#ffb0a0;border:1px solid #8a3a3a;border-radius:7px;cursor:pointer;', rootWrap, '✖ Выйти');
@@ -2214,17 +2362,6 @@
     const keysBtn = el('button', 'position:absolute;top:8px;right:96px;z-index:30;padding:5px 12px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:7px;cursor:pointer;', rootWrap, '⚙ Клавиши');
     keysBtn.dataset.s2top = '1';
     keysBtn.onclick = () => toggleKeysPanel();
-    // миникарта
-    const mm = el('canvas', 'position:absolute;right:10px;bottom:166px;width:170px;height:170px;border:1px solid #3a4358;border-radius:8px;background:#0a0e14;z-index:25;cursor:crosshair;', rootWrap);
-    mm.dataset.s2top = '1';
-    mm.width = 170; mm.height = 170;
-    minimapCtx = mm.getContext('2d');
-    mm.onclick = (ev) => {
-      const r = mm.getBoundingClientRect();
-      const k = MAP / r.width;
-      camX = (ev.clientX - r.left - r.width / 2) * k;
-      camZ = (ev.clientY - r.top - r.height / 2) * k;
-    };
     buildShop();
   }
 
@@ -2483,14 +2620,14 @@
   // ---------- МИНИКАРТА ----------
   function drawMinimap() {
     if (!minimapCtx) return;
-    const g = minimapCtx, W = 170, k = W / MAP;
+    const g = minimapCtx, W = 214, k = W / MAP;
     const px = v => (v + MAP / 2) * k;
-    g.fillStyle = '#22301c'; g.fillRect(0, 0, W, W);
+    g.fillStyle = '#1c2415'; g.fillRect(0, 0, W, W); // тёмная зелень
     // река
-    g.strokeStyle = '#3f6f9f'; g.lineWidth = 5;
+    g.strokeStyle = '#3a6a94'; g.lineWidth = 6;
     g.beginPath(); g.moveTo(px(MAP / 2), 0); g.lineTo(0, px(MAP / 2)); g.stroke(); // диагональ x+z=0
     // линии
-    g.strokeStyle = '#6b5a3f'; g.lineWidth = 3;
+    g.strokeStyle = '#5d4c33'; g.lineWidth = 3.4;
     for (const key of ['top', 'mid', 'bot']) {
       const pts = LANES[key];
       g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
@@ -2498,55 +2635,110 @@
       g.stroke();
     }
     // базы
-    g.fillStyle = '#3f9fe0'; g.beginPath(); g.arc(px(BASE_R.x), px(BASE_R.z), 7, 0, 7); g.fill();
-    g.fillStyle = '#e04a3f'; g.beginPath(); g.arc(px(BASE_D.x), px(BASE_D.z), 7, 0, 7); g.fill();
+    g.fillStyle = '#3f9fe0'; g.beginPath(); g.arc(px(BASE_R.x), px(BASE_R.z), 8, 0, 7); g.fill();
+    g.fillStyle = '#e04a3f'; g.beginPath(); g.arc(px(BASE_D.x), px(BASE_D.z), 8, 0, 7); g.fill();
     // вышки
     for (const u of units) {
       if (!u.alive) continue;
-      if (u.isTower) { g.fillStyle = u.team === 'r' ? '#7fc4f0' : '#f08a7a'; g.fillRect(px(u.x) - 2.5, px(u.z) - 2.5, 5, 5); }
-      else if (u.isAncient) { g.fillStyle = u.team === 'r' ? '#bfe4ff' : '#ffc8b8'; g.beginPath(); g.arc(px(u.x), px(u.z), 4, 0, 7); g.fill(); }
+      if (u.isTower) { g.fillStyle = u.team === 'r' ? '#7fc4f0' : '#f08a7a'; g.fillRect(px(u.x) - 3, px(u.z) - 3, 6, 6); }
+      else if (u.isAncient) { g.fillStyle = u.team === 'r' ? '#bfe4ff' : '#ffc8b8'; g.beginPath(); g.arc(px(u.x), px(u.z), 5, 0, 7); g.fill(); }
     }
     // юниты
     for (const u of units) {
       if (!u.alive || u.isTower || u.isAncient || u.isCourier) continue;
       if (u.isHero) g.fillStyle = u.team === 'r' ? '#3fd0ff' : '#ff5a4a';
       else g.fillStyle = u.team === 'r' ? '#3f8fd0' : '#d05a4a';
-      g.beginPath(); g.arc(px(u.x), px(u.z), u.isHero ? 3 : 1.6, 0, 7); g.fill();
+      g.beginPath(); g.arc(px(u.x), px(u.z), u.isHero ? 3.4 : 1.8, 0, 7); g.fill();
     }
     // камера
-    g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 1;
-    g.strokeRect(px(camX) - 14, px(camZ) - 10, 28, 20);
+    g.strokeStyle = 'rgba(255,255,255,0.65)'; g.lineWidth = 1;
+    g.strokeRect(px(camX) - 17, px(camZ) - 12, 34, 24);
   }
 
   // ---------- ОБНОВЛЕНИЕ HUD ----------
+  let tbSig = '', tbTick = 0; // 3.21.0: топ-бар с портретами команд
+  function updateTopbar() {
+    if (!ui.tbR || !ui.tbD) return;
+    const heroes = units.filter(u => u.isHero);
+    const sig = heroes.map(h => h.name + h.team).join('|');
+    if (sig !== tbSig) { // пересобираем портреты при смене состава
+      tbSig = sig;
+      ui.tbR.innerHTML = ''; ui.tbD.innerHTML = '';
+      for (const h of heroes) {
+        const box = el('div', 'position:relative;width:40px;height:44px;border:1px solid ' + (h.team === 'r' ? '#3f7ab0' : '#b05a4a') + ';border-radius:4px;overflow:hidden;background:#10141c;', h.team === 'r' ? ui.tbR : ui.tbD);
+        const img = el('img', 'width:100%;height:100%;object-fit:cover;object-position:top;', box);
+        img.draggable = false;
+        if (h.heroDef && h.heroDef.portrait) img.src = h.heroDef.portrait;
+        h._tbImg = img;
+        h._tbBox = box;
+      }
+    }
+    // состояние: мертв — ч/б + таймер возрождения
+    for (const h of heroes) {
+      if (!h._tbImg) continue;
+      h._tbImg.style.filter = h.alive ? '' : 'grayscale(1) brightness(0.55)';
+    }
+    // счёт в центре
+    const kr = heroes.filter(u => u.team === 'r').reduce((s, u) => s + u.kills, 0);
+    const kd = heroes.filter(u => u.team === 'd').reduce((s, u) => s + u.kills, 0);
+    if (ui.score) ui.score.innerHTML = `<span style="color:#7fc4f0">${kr}</span><span style="color:#5a6478;font-size:13px"> : </span><span style="color:#f08a7a">${kd}</span>`;
+  }
   function updateHud() {
     if (!ui.hud) return;
     const t = Math.floor(match.time);
     ui.timer.textContent = `${Math.floor(t / 60)}:${('0' + t % 60).slice(-2)}`;
-    const kr = units.filter(u => u.isHero && u.team === 'r').reduce((s, u) => s + u.kills, 0);
-    const kd = units.filter(u => u.isHero && u.team === 'd').reduce((s, u) => s + u.kills, 0);
-    ui.score.textContent = `Radiant ${kr} : ${kd} Dire`;
-    if (!myHero) { // 3.19.1: зритель — свободная камера, панели героя нет
-      if (ui.heroName && !ui.heroName.dataset.spec) { ui.heroName.dataset.spec = '1'; ui.heroName.textContent = '👁 ЗРИТЕЛЬ · свободная камера (стрелки / край экрана)'; ui.hpText.textContent = ''; ui.goldText.textContent = ''; ui.xpText.textContent = ''; }
+    if ((tbTick++ % 15) === 0) updateTopbar();
+    if (!myHero) { // 3.19.1: зритель — свободная камера, центральная панель скрыта
+      if (ui.centerBar && ui.centerBar.style.display !== 'none') ui.centerBar.style.display = 'none';
       return;
     }
-    ui.heroName.textContent = `${myHero.name} — ${myHero.heroDef.name} · Ур. ${myHero.lvl}` + ((myHero.skillPts || 0) > 0 ? ` · ⬆ очков: ${myHero.skillPts}` : '');
+    if (ui.centerBar) ui.centerBar.style.display = '';
+    // портрет + уровень
+    if (ui.portraitImg && myHero.heroDef) {
+      if (ui.portraitImg.dataset.for !== myHero.heroDef.id) {
+        ui.portraitImg.dataset.for = myHero.heroDef.id;
+        ui.portraitImg.style.display = '';
+        if (myHero.heroDef.portrait) ui.portraitImg.src = myHero.heroDef.portrait;
+      }
+      if (ui.lvlBadge) ui.lvlBadge.textContent = myHero.lvl;
+    }
+    ui.heroName.textContent = `${myHero.name} — ${myHero.heroDef.name}` + ((myHero.skillPts || 0) > 0 ? ` · ⬆ ${myHero.skillPts}` : '');
     ui.hpFill.style.width = clamp(myHero.hp / myHero.maxHp * 100, 0, 100) + '%';
-    ui.hpText.textContent = `${Math.ceil(myHero.hp)} / ${myHero.maxHp}` + (myHero.shieldHp > 0 ? ` (+${Math.ceil(myHero.shieldHp)} щит)` : '');
+    ui.hpText.textContent = `${Math.ceil(myHero.hp)} / ${myHero.maxHp}` + (myHero.shieldHp > 0 ? ` (+${Math.ceil(myHero.shieldHp)})` : '');
     ui.mpFill.style.width = clamp(myHero.mana / myHero.maxMana * 100, 0, 100) + '%';
+    if (ui.mpText) ui.mpText.textContent = `${Math.floor(myHero.mana)} / ${myHero.maxMana}`;
+    // полоска опыта
     const nextXp = myHero.lvl < 15 ? XP_LEVELS[myHero.lvl] : null;
-    ui.xpText.textContent = `Опыт: ${myHero.xp}` + (nextXp != null ? ` / ${nextXp} (до уровня ${myHero.lvl + 1})` : ' (МАКС)') +
-      ` · Добито: ${myHero.lh} · K/D/A: ${myHero.kills}/${myHero.deaths}/${myHero.assists || 0}`;
+    if (ui.xpFill) ui.xpFill.style.width = (nextXp != null ? clamp(myHero.xp / nextXp * 100, 0, 100) : 100) + '%';
+    ui.xpText.textContent = (nextXp != null ? `Опыт ${myHero.xp}/${nextXp}` : 'МАКС уровня');
+    if (ui.statRow) ui.statRow.innerHTML =
+      `<span title="Урон">⚔ <b style="color:#fff">${effDmg(myHero)}</b></span>` +
+      `<span title="Броня">🛡 <b style="color:#fff">${Math.round(myHero.armor || 0)}</b></span>` +
+      `<span title="Скорость">👟 <b style="color:#fff">${Math.round(moveSpeed(myHero) * 10) / 10}</b></span>` +
+      `<span title="Добито крипов">⛏ <b style="color:#fff">${myHero.lh}</b></span>`;
+    if (ui.kda) ui.kda.innerHTML = `K/D/A <b style="color:#fff">${myHero.kills}/${myHero.deaths}/${myHero.assists || 0}</b><br><span style="color:#8a94a8;font-size:10.5px">LH/DN ${myHero.lh}/${myHero.den || 0}</span>`;
     ui.goldText.textContent = `💰 ${Math.floor(myHero.gold)}`;
     for (let i = 0; i < 4; i++) {
       const A = ui.abils[i], a = myHero.abilities[i];
       if (!a) continue;
       A.key.textContent = keybinds[i].toUpperCase();
-      A.nm.textContent = a.def.name.split(' ')[0];
-      A.lvl.textContent = a.def.type === 'passive' ? 'П' : (a.lvl > 0 ? 'Ур.' + a.lvl : '—');
+      if (A.mana) A.mana.textContent = a.def.mana ? a.def.mana : '';
+      if (A.b.dataset.for !== myHero.heroDef.id + i) { // иконка способности (генерится один раз)
+        A.b.dataset.for = myHero.heroDef.id + i;
+        const ic = makeAbilityIcon(myHero.heroDef, a.def, i);
+        if (ic) A.b.style.backgroundImage = `url(${ic})`;
+      }
+      if (A.pips) for (let j = 0; j < 4; j++) A.pips[j].style.background = j < a.lvl ? '#ffd34a' : '#2a3140';
       if (A.up) A.up.style.display = canLevelAbility(myHero, i) ? 'flex' : 'none';
-      if (a.cdT > 0) { A.cd.style.display = 'flex'; A.cd.textContent = Math.ceil(a.cdT); }
-      else A.cd.style.display = 'none';
+      if (a.cdT > 0) {
+        const frac = clamp(a.cdT / (a.def.cd || 1), 0, 1);
+        A.cd.style.display = 'flex';
+        A.cd.textContent = Math.ceil(a.cdT);
+        A.cd.style.background = `conic-gradient(rgba(6,8,14,0.82) ${frac * 360}deg, rgba(6,8,14,0.25) ${frac * 360}deg)`;
+      } else {
+        A.cd.style.display = 'none';
+        A.cd.style.background = 'none';
+      }
       A.b.style.borderColor = castMode === i ? '#ffd34a' : (a.lvl > 0 ? (a.def.mana <= myHero.mana ? '#5a8f5a' : '#8a5a3a') : '#3a4358');
     }
     for (let i = 0; i < 6; i++) {
@@ -2954,6 +3146,7 @@
     net.mode = 'off';
     rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove());
     ui.hud = null; ui.shop = null; ui.feed = null; ui.timer = null; ui.score = null; ui.tip = null; minimapCtx = null;
+    ui.tbR = null; ui.tbD = null; ui.kda = null; ui.centerBar = null; ui.xpFill = null; ui.statRow = null; ui.mpText = null; ui.portraitImg = null; ui.lvlBadge = null; tbSig = '';
     rootWrap.querySelectorAll('canvas').forEach(c => { if (c !== renderer.domElement) c.remove(); });
     const old = rootWrap.querySelector('[data-pick]'); if (old) old.remove();
     const oldOv = rootWrap.querySelectorAll('div'); // чистим оверлеи по необходимости

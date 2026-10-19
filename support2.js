@@ -679,6 +679,75 @@
     scene.add(g);
   }
 
+  // 3.19.1: оружие по типу героя — прикрепляем к кости руки скелетной модели
+  const HERO_WEAPON = {
+    varg: 'staff', mord: 'maul', silva: 'bow', ksul: 'staff', jin: 'staff', kris: 'dagger',
+    freya: 'staff', torg: 'maul', zik: 'staff', gnil: 'cleaver', astra: 'staff', undina: 'trident',
+  };
+  function buildWeapon(type, color) {
+    const g = new THREE.Group();
+    const metal = new THREE.MeshPhongMaterial({ color: 0xd0d4dc, shininess: 110 });
+    const glow = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.55 });
+    const wood = new THREE.MeshLambertMaterial({ color: 0x5a4632 });
+    if (type === 'bow') {
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.045, 6, 14, Math.PI), wood);
+      arc.rotation.z = Math.PI / 2; g.add(arc);
+      const str = new THREE.Mesh(new THREE.BoxGeometry(0.02, 1.06, 0.02), glow); g.add(str);
+    } else if (type === 'staff') {
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 1.7, 6), wood));
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), glow); orb.position.y = 0.95; g.add(orb);
+    } else if (type === 'maul') {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 1.2, 6), wood); g.add(pole);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.26), metal); head.position.y = 0.62; g.add(head);
+    } else if (type === 'dagger') {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.72, 0.16), metal); blade.position.y = 0.42; g.add(blade);
+      const hilt = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), glow); g.add(hilt);
+    } else if (type === 'cleaver') {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.52, 0.06), metal); blade.position.y = 0.5; g.add(blade);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 5), wood); g.add(handle);
+    } else if (type === 'trident') {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 1.8, 6), metal); g.add(pole);
+      for (const dx of [-0.12, 0, 0.12]) {
+        const prong = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.34, 5), glow);
+        prong.position.set(dx, 1.0, 0); g.add(prong);
+      }
+    } else { // sword
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.05, 0.2), metal); blade.position.y = 0.62; g.add(blade);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.1), glow); guard.position.y = 0.1; g.add(guard);
+    }
+    return g;
+  }
+  function attachWeapon(u) {
+    if (!u.rig || !u.heroDef) return;
+    const w = buildWeapon(HERO_WEAPON[u.heroDef.id] || 'sword', u.heroDef.color);
+    let hand = null;
+    u.rig.model.traverse(o => { if (!hand && o.isBone && /right.*hand/i.test(o.name)) hand = o; });
+    if (hand) {
+      try {
+        u.rig.model.updateMatrixWorld(true);
+        const ws = new THREE.Vector3();
+        hand.getWorldScale(ws);
+        w.scale.setScalar(1 / Math.max(Math.abs(ws.x) || 1, 1e-6)); // мировый размер оружия ~1 м
+        w.rotation.set(Math.PI / 2, 0, 0);
+        hand.add(w);
+        return;
+      } catch (e) { /* fallback ниже */ }
+    }
+    w.position.set(0.42, 1.15, 0.15);
+    if (u.mesh) u.mesh.add(w);
+  }
+  // табличка с ником над героем (цвет команды)
+  function addNameplate(u) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 56;
+    const g = c.getContext('2d');
+    g.font = 'bold 30px Arial'; g.textAlign = 'center';
+    g.strokeStyle = 'rgba(0,0,0,0.9)'; g.lineWidth = 6; g.strokeText(u.name, 128, 38);
+    g.fillStyle = u.team === 'r' ? '#8fd4ff' : '#ff9a8a'; g.fillText(u.name, 128, 38);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    sp.scale.set(5.4, 1.18, 1); sp.position.y = 3.55; sp.renderOrder = 92;
+    if (u.mesh) u.mesh.add(sp);
+  }
+
   function makeUnit(opts) {
     const u = {
       id: UID++, team: opts.team, x: opts.x, z: opts.z, y: 0,
@@ -710,12 +779,15 @@
       u.atkRange = opts.heroDef.atkRange; u.atkCd = opts.heroDef.atkCd;
       u.baseMs = opts.heroDef.ms;
       u.abilities = opts.heroDef.abilities.map(a => ({ def: a, lvl: a.type === 'passive' ? 1 : 0, cdT: 0 }));
+      u.skillPts = 1; // 3.19.1: первая очка прокачки — игрок решает сам
       const hm = S2_HERO_MODEL[opts.heroDef.id] || { model: 'soldier', scale: 1 };
       attachModel(u, hm.model, opts.heroDef.color, hm.scale, () => heroMesh(opts.heroDef, opts.team), 2.9);
+      attachWeapon(u);   // 3.19.1: оружие в руке
+      addNameplate(u);   // 3.19.1: ник над героем
     } else if (opts.isCreep) {
       u.maxHp = opts.ranged ? 320 : 480; u.hp = u.maxHp;
       u.dmg = opts.ranged ? 42 : 34; u.atkRange = opts.ranged ? 16 : 2.2; u.atkCd = opts.ranged ? 1.3 : 1.2;
-      u.baseMs = 7.6; u.bounty = opts.ranged ? 46 : 40; u.xpBounty = 40;
+      u.baseMs = 7.6; u.bounty = opts.ranged ? 46 : 40; u.xpBounty = opts.ranged ? 60 : 55;
       const teamTint = opts.team === 'r' ? 0x9fd0ff : 0xffb09a;
       attachModel(u, opts.ranged ? 'xbot' : 'soldier', teamTint, opts.ranged ? 0.52 : 0.55,
         () => creepMesh(opts.team, opts.ranged), opts.ranged ? 2.1 : 1.9);
@@ -804,17 +876,37 @@
   function giveXp(u, amount) {
     if (!u.isHero) return;
     u.xp += amount;
+    if (u === myHero && amount >= 25) floatText(u.x, u.z, '+' + amount + ' XP', 0xd4c26a); // 3.19.1: видно, сколько опыта дают
+    let ups = 0;
     while (u.lvl < 15 && u.xp >= XP_LEVELS[u.lvl]) {
       u.lvl++;
+      ups++;
       recalcStats(u);
       u.hp = u.maxHp; u.mana = u.maxMana;
       ringFx(u.x, u.z, 0xffe08a, 3);
       feed(`${u.name} достиг ${u.lvl} уровня!`);
       if (u === myHero) sfxGold();
     }
-    // автоулуччение способностей
-    const pts = u.lvl - u.abilities.filter(a => a.lvl > 0 || a.def.type === 'passive').reduce((s, a) => s + a.lvl, 0);
-    if (u.bot) botLevelUp(u);
+    if (ups > 0) {
+      if (u.bot) { for (let i = 0; i < ups; i++) botLevelUp(u); } // боты качают сами
+      else u.skillPts = (u.skillPts || 0) + ups; // игрок качает сам (кнопка + на скиле)
+    }
+  }
+  // требования к прокачке: обычные скилы 1/3/5/7 уровень, ульт 6/9/12
+  function canLevelAbility(u, idx) {
+    const a = u.abilities[idx];
+    if (!a || a.def.type === 'passive' || (u.skillPts || 0) <= 0) return false;
+    const maxLvl = a.def.ult ? 3 : 4;
+    if (a.lvl >= maxLvl) return false;
+    if (a.def.ult) return u.lvl >= 6 + a.lvl * 3;
+    return u.lvl >= a.lvl * 2 + 1;
+  }
+  function levelUpAbility(u, idx) {
+    if (!canLevelAbility(u, idx)) return false;
+    u.abilities[idx].lvl++;
+    u.skillPts--;
+    if (u === myHero) { feed('⬆️ ' + u.abilities[idx].def.name + ' — уровень ' + u.abilities[idx].lvl); sfxGold(); }
+    return true;
   }
   function botLevelUp(u) {
     // приоритет: R > Q > W > E
@@ -870,6 +962,12 @@
     }
     victim.hp -= dmg;
     victim.lastAttacker = src;
+    // 3.19.1: лог урона для ассистов (кто бил врага перед смертью)
+    if (victim.isHero && src && src.isHero) {
+      victim.dmgLog = victim.dmgLog || [];
+      victim.dmgLog.push({ src, t: match.time });
+      if (victim.dmgLog.length > 24) victim.dmgLog.shift();
+    }
     // спина Криса
     if (src && src.isHero && src.heroDef.id === 'kris' && !opts.spell && victim.lastFacing != null) {
       // упрощённо: если цель замершая (стан/замедление) — считаем "в спину"
@@ -908,7 +1006,7 @@
       killer.gold += g;
       if (v.isCreep) { killer.lh++; if (killer === myHero) { sfxGold(); } }
       if (v.isHero) { killer.kills++; v.deaths++; feed(`⚔️ ${killer.name} убил ${v.name}`); sfxKill(); }
-      giveXp(killer, v.xpBounty + (v.isHero ? 120 : 0));
+      giveXp(killer, v.xpBounty + (v.isHero ? 160 + v.lvl * 25 : 0)); // 3.19.1: опыт увеличен
       // Пожиратель Ксула
       if (killer.heroDef && killer.heroDef.id === 'ksul') heal(killer, killer, 40);
     }
@@ -918,6 +1016,17 @@
       v.respawnT = 5 + v.lvl * 1.2;
       if (v.bot) { v.ai.state = 'dead'; }
       dropBacktrack(v);
+      // ассисты: союзники героя, наносившие урон за последние 15 сек
+      const lg = v.dmgLog || [];
+      if (killer && killer.isHero) {
+        for (const e of lg) {
+          if (e.src && e.src.isHero && e.src !== killer && e.src.team === killer.team && match.time - e.t < 15 && !e._a) {
+            e._a = true;
+            e.src.assists = (e.src.assists || 0) + 1;
+          }
+        }
+      }
+      v.dmgLog = [];
     }
     if (v === myHero) feed('☠️ Ты погиб! Возрождение через ' + v.respawnT.toFixed(0) + ' сек', true);
   }
@@ -1222,6 +1331,7 @@
   try { ipcR = require('electron').ipcRenderer; } catch (e) { ipcR = null; }
   const myNick = () => (user && (user.nickname || user.nick)) || 'Игрок';
   let match = { phase: 'menu', time: 0, waveT: 20, waveNum: 0 };
+  let lastComp = null; // 3.19.1: состав последнего матча — для рестарта
   let camX = 0, camZ = 0, camZoom = 42;
   let mouseGX = 0, mouseGZ = 0;
   let attackMoveMode = false;
@@ -1253,6 +1363,7 @@
   function setupMatch(compOrHeroId, onlineHost) {
     net.mode = Array.isArray(compOrHeroId) ? (onlineHost ? 'host' : 'client') : 'off';
     net.snapT = 0;
+    lastComp = compOrHeroId;
     // очистка: убираем героев/крипов/призывов/курьеров/снаряды, ВЫШКИ И ТРОНЫ СОХРАНЯЕМ и сбрасываем
     for (let i = units.length - 1; i >= 0; i--) {
       const u = units[i];
@@ -1286,7 +1397,8 @@
     }
     const mineNick = myNick().toLowerCase();
     let mine = comp.find(c => c.nick.toLowerCase() === mineNick);
-    if (!mine) { mine = comp[0]; comp = comp.slice(1); }
+    if (!mine && !Array.isArray(compOrHeroId)) { mine = comp[0]; comp = comp.slice(1); }
+    // если mine не найден в онлайн-составе — ты зритель: героя нет, свободная камера
     // до 5 на сторону, недостающих добирают боты со случайными героями
     const lanesFor = (n) => n >= 5 ? ['top', 'top', 'mid', 'bot', 'bot'] : ['top', 'mid', 'bot', 'top'];
     for (const team of ['r', 'd']) {
@@ -1312,8 +1424,8 @@
       if (isPlayer) { b.isPlayer = true; myHero = b; }
       return b;
     };
-    // мой герой — мид своей команды
-    mkHero(mine, true, 2, 'mid');
+    // мой герой — мид своей команды (зрителю — не создаём)
+    if (mine) mkHero(mine, true, 2, 'mid');
     // остальные: линии по порядку
     for (const team of ['r', 'd']) {
       const members = comp.filter(c => c.team === team && c !== mine);
@@ -1325,9 +1437,9 @@
         li++;
       }
     }
-    camX = myHero.x; camZ = myHero.z;
+    camX = myHero ? myHero.x : 0; camZ = myHero ? myHero.z : 0;
     buildHud();
-    feed('Матч начался! Добивай крипов — получай золото. Уничтожь вражеский трон!');
+    feed(myHero ? 'Матч начался! Добивай крипов — получай золото. Уничтожь вражеский трон!' : '👁 Ты зритель — свободная камера, наслаждайся матчем');
   }
 
   function spawnWave() {
@@ -1355,11 +1467,57 @@
     const win = winner === (myHero ? myHero.team : 'r');
     if (win) sfxWin(); else sfxLose();
     const ov = el('div', 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,10,16,0.82);z-index:60;', rootWrap);
-    el('div', 'font-size:52px;font-weight:900;color:' + (win ? '#7fe08a' : '#e06a5a') + ';text-shadow:0 4px 18px rgba(0,0,0,0.7);', ov, win ? '🏆 ПОБЕДА!' : '💀 ПОРАЖЕНИЕ');
+    el('div', 'font-size:52px;font-weight:900;color:' + (win ? '#7fe08a' : '#e06a5a') + ';text-shadow:0 4px 18px rgba(0,0,0,0.7);', ov,
+      myHero ? (win ? '🏆 ПОБЕДА!' : '💀 ПОРАЖЕНИЕ') : '🏁 МАТЧ ЗАВЕРШЁН');
     if (myHero) el('div', 'margin-top:14px;font-size:16px;color:#cfc8b8;', ov,
       `Убийств: ${myHero.kills} · Смертей: ${myHero.deaths} · Добито крипов: ${myHero.lh} · Золото: ${myHero.gold}`);
     const btn = el('button', 'margin-top:26px;padding:12px 34px;font-size:16px;font-weight:700;background:#2a6b3f;color:#fff;border:none;border-radius:10px;cursor:pointer;', ov, 'В меню');
     btn.onclick = () => { ov.remove(); net.mode = 'off'; showLobby(); };
+    // 3.19.1: таблица результатов K/D/A
+    const rows = units.filter(u => u.isHero).sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
+    const tbl = el('div', 'margin-top:20px;background:rgba(12,16,26,0.92);border:1px solid #3a4358;border-radius:10px;padding:10px 14px;min-width:460px;max-height:260px;overflow:auto;', ov);
+    el('div', 'font-size:13px;font-weight:800;color:#ffd34a;text-align:center;margin-bottom:6px;', tbl, '📊 ИТОГИ МАТЧА · K / D / A');
+    const head = el('div', 'display:flex;justify-content:space-between;font-size:11px;color:#8a94a8;padding:2px 6px;', tbl);
+    head.innerHTML = '<span>ИГРОК</span><span>КИЛЛЫ / СМЕРТИ / АССИСТЫ</span>';
+    for (const r of rows) {
+      const mine2 = myHero && r === myHero;
+      const row = el('div', 'display:flex;justify-content:space-between;gap:18px;font-size:12.5px;padding:3px 6px;border-radius:6px;color:' + (r.team === 'r' ? '#8fd4ff' : '#ff9a8a') + (mine2 ? ';background:rgba(111,224,160,0.14);' : ''), tbl);
+      row.innerHTML = `<span>${r.name} — ${r.heroDef.name} · Ур.${r.lvl}</span><b style="color:#e8dfc8">${r.kills} / ${r.deaths} / ${r.assists || 0}</b>`;
+    }
+  }
+
+  // ---------- 3.19.1: ESC-МЕНЮ (игра продолжается) ----------
+  let escMenu = null;
+  function toggleEscMenu() {
+    if (match.phase !== 'live') return;
+    if (escMenu) { escMenu.remove(); escMenu = null; return; }
+    escMenu = el('div', 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,10,16,0.62);z-index:55;', rootWrap);
+    const box = el('div', 'background:rgba(14,18,28,0.97);border:1px solid #4a5468;border-radius:14px;padding:22px 30px;text-align:center;min-width:300px;', escMenu);
+    el('div', 'font-size:22px;font-weight:900;color:#e8dfc8;margin-bottom:4px;', box, '⏸ МЕНЮ');
+    el('div', 'font-size:11.5px;color:#8a94a8;margin-bottom:16px;', box, 'Игра продолжается!');
+    const b1 = el('button', 'display:block;width:100%;margin-bottom:10px;padding:11px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:9px;cursor:pointer;font-weight:800;font-size:14px;', box, '▶ Продолжить (ESC)');
+    b1.onclick = () => toggleEscMenu();
+    if (net.mode !== 'client') {
+      const b2 = el('button', 'display:block;width:100%;margin-bottom:10px;padding:11px;background:#3a2f14;color:#ffd34a;border:1px solid #8a6b3a;border-radius:9px;cursor:pointer;font-weight:800;font-size:14px;', box, '🔁 Начать заново');
+      b2.onclick = () => { escMenu.remove(); escMenu = null; restartMatch(); };
+    } else {
+      el('div', 'font-size:11px;color:#8a94a8;margin-bottom:10px;', box, '«Начать заново» доступно только хосту');
+    }
+    const b3 = el('button', 'display:block;width:100%;padding:11px;background:#4a1f1f;color:#ffb0a0;border:1px solid #8a3a3a;border-radius:9px;cursor:pointer;font-weight:800;font-size:14px;', box, '✖ Выйти в лобби');
+    b3.onclick = () => {
+      escMenu.remove(); escMenu = null;
+      if (net.mode !== 'off' && s2net.sock) { try { s2net.sock.emit('s2_leave'); } catch (e) {} }
+      net.mode = 'off';
+      showLobby();
+    };
+  }
+  function restartMatch() {
+    if (lastComp == null) return;
+    if (net.mode === 'host' && s2net.sock && s2net.connected) {
+      try { s2net.sock.emit('s2_ev', { k: 'rs' }); } catch (e) {} // клиенты пересоздадут мир тем же составом
+    }
+    setupMatch(lastComp, net.mode === 'host');
+    feed('🔁 Новый матч — тот же состав!');
   }
 
   // ---------- ТИК ИГРЫ ----------
@@ -1649,6 +1807,16 @@
     const s = { dmg: abilityDmg(u, u.abilities.indexOf(a)) };
     const pt = target && target.x != null ? { x: target.x, z: target.z } : { x: u.x, z: u.z };
     a.def.exec(u, target && target.alive !== undefined ? target : pt, s);
+    // 3.19.1: анимация каста — герой «взмахивает» (если у модели есть анимация атаки) + вспышка
+    u.atkAnimT = 0.55;
+    const castFlash = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1.5, 24),
+      new THREE.MeshBasicMaterial({ color: u.heroDef ? u.heroDef.color : 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+    );
+    castFlash.rotation.x = -Math.PI / 2;
+    castFlash.position.set(u.x, 0.15, u.z);
+    scene.add(castFlash);
+    effects.push({ mesh: castFlash, ttl: 0.45, update(e, dt2, k) { e.mesh.scale.setScalar(1 + (1 - k) * 1.6); e.mesh.material.opacity = 0.9 * k; } });
     // Космический поток Астры
     if (u.heroDef.id === 'astra') u.mana = Math.min(u.maxMana, u.mana + 4);
     if (u === myHero || d2(u.x, u.z, camX, camZ) < 55) sfxCast();
@@ -1890,10 +2058,17 @@
       const nm = el('div', 'position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:8.5px;color:#cfc8b8;line-height:1.1;', b);
       const cd = el('div', 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);border-radius:8px;font-size:17px;font-weight:900;color:#fff;', b);
       const lvl = el('div', 'position:absolute;top:2px;right:5px;font-size:9px;color:#7fe08a;', b);
+      // 3.19.1: кнопка прокачки «+» — сам решаешь, что качать
+      const up = el('div', 'position:absolute;top:-9px;right:-7px;width:20px;height:20px;display:none;align-items:center;justify-content:center;background:#2a6b3f;border:1px solid #6fe0a0;border-radius:50%;font-size:14px;font-weight:900;color:#fff;cursor:pointer;z-index:5;', b, '+');
+      up.onclick = (ev) => {
+        ev.stopPropagation();
+        if (net.mode === 'client') { if (myHero && canLevelAbility(myHero, i)) s2Send({ k: 'lv', i }); }
+        else if (myHero) levelUpAbility(myHero, i);
+      };
       b.onclick = () => playerCast(i);
       b.onmouseenter = () => showTip(myHero && myHero.abilities[i] ? myHero.abilities[i].def : null);
       b.onmouseleave = hideTip;
-      ui.abils.push({ b, key, nm, cd, lvl });
+      ui.abils.push({ b, key, nm, cd, lvl, up });
     }
     // инвентарь (клик по активному предмету = использовать)
     const right = el('div', 'display:grid;grid-template-columns:repeat(3,44px);gap:5px;pointer-events:auto;', hud);
@@ -2090,8 +2265,8 @@
     // 3.18.0: краевой скролл мышью — подвёл к краю экрана, камера поехала
     if (renderer && rootWrap && rootWrap.offsetParent) {
       const r = renderer.domElement.getBoundingClientRect();
-      const EDGE = 16;
-      const pan2 = 36 * (camZoom / 42);
+      const EDGE = 22;
+      const pan2 = 68 * (camZoom / 42); // 3.19.1: заметно быстрее, как просили
       if (mouseSX >= r.left && mouseSX <= r.right && mouseSY >= r.top && mouseSY <= r.bottom) {
         if (mouseSX < r.left + EDGE) camX -= pan2 * dt;
         if (mouseSX > r.right - EDGE) camX += pan2 * dt;
@@ -2170,6 +2345,7 @@
         if (ui.hud) buildHud(); // перерисовать кнопки с новыми клавишами
         return;
       }
+      if (k === 'escape') { toggleEscMenu(); return; } // 3.19.1: меню по ESC
       keys[k] = true;
       if (e.key === ' ') { keys.space = true; e.preventDefault(); }
       if (match.phase !== 'live') return;
@@ -2226,12 +2402,23 @@
 
   // ---------- ОБНОВЛЕНИЕ HUD ----------
   function updateHud() {
-    if (!myHero || !ui.hud) return;
-    ui.heroName.textContent = `${myHero.name} — ${myHero.heroDef.name} · Ур. ${myHero.lvl}`;
+    if (!ui.hud) return;
+    const t = Math.floor(match.time);
+    ui.timer.textContent = `${Math.floor(t / 60)}:${('0' + t % 60).slice(-2)}`;
+    const kr = units.filter(u => u.isHero && u.team === 'r').reduce((s, u) => s + u.kills, 0);
+    const kd = units.filter(u => u.isHero && u.team === 'd').reduce((s, u) => s + u.kills, 0);
+    ui.score.textContent = `Radiant ${kr} : ${kd} Dire`;
+    if (!myHero) { // 3.19.1: зритель — свободная камера, панели героя нет
+      if (ui.heroName && !ui.heroName.dataset.spec) { ui.heroName.dataset.spec = '1'; ui.heroName.textContent = '👁 ЗРИТЕЛЬ · свободная камера (стрелки / край экрана)'; ui.hpText.textContent = ''; ui.goldText.textContent = ''; ui.xpText.textContent = ''; }
+      return;
+    }
+    ui.heroName.textContent = `${myHero.name} — ${myHero.heroDef.name} · Ур. ${myHero.lvl}` + ((myHero.skillPts || 0) > 0 ? ` · ⬆ очков: ${myHero.skillPts}` : '');
     ui.hpFill.style.width = clamp(myHero.hp / myHero.maxHp * 100, 0, 100) + '%';
     ui.hpText.textContent = `${Math.ceil(myHero.hp)} / ${myHero.maxHp}` + (myHero.shieldHp > 0 ? ` (+${Math.ceil(myHero.shieldHp)} щит)` : '');
     ui.mpFill.style.width = clamp(myHero.mana / myHero.maxMana * 100, 0, 100) + '%';
-    ui.xpText.textContent = `Опыт: ${myHero.xp} · Добито: ${myHero.lh} · К/D: ${myHero.kills}/${myHero.deaths}`;
+    const nextXp = myHero.lvl < 15 ? XP_LEVELS[myHero.lvl] : null;
+    ui.xpText.textContent = `Опыт: ${myHero.xp}` + (nextXp != null ? ` / ${nextXp} (до уровня ${myHero.lvl + 1})` : ' (МАКС)') +
+      ` · Добито: ${myHero.lh} · K/D/A: ${myHero.kills}/${myHero.deaths}/${myHero.assists || 0}`;
     ui.goldText.textContent = `💰 ${Math.floor(myHero.gold)}`;
     for (let i = 0; i < 4; i++) {
       const A = ui.abils[i], a = myHero.abilities[i];
@@ -2239,6 +2426,7 @@
       A.key.textContent = keybinds[i].toUpperCase();
       A.nm.textContent = a.def.name.split(' ')[0];
       A.lvl.textContent = a.def.type === 'passive' ? 'П' : (a.lvl > 0 ? 'Ур.' + a.lvl : '—');
+      if (A.up) A.up.style.display = canLevelAbility(myHero, i) ? 'flex' : 'none';
       if (a.cdT > 0) { A.cd.style.display = 'flex'; A.cd.textContent = Math.ceil(a.cdT); }
       else A.cd.style.display = 'none';
       A.b.style.borderColor = a.lvl > 0 ? (a.def.mana <= myHero.mana ? '#5a8f5a' : '#8a5a3a') : '#3a4358';
@@ -2252,11 +2440,6 @@
       slot.style.color = cd ? '#ffb060' : '#cfc8b8';
       if (cd) slot.textContent = itemById(it).name + ' · ' + cd + 'с';
     }
-    const t = Math.floor(match.time);
-    ui.timer.textContent = `${Math.floor(t / 60)}:${('0' + t % 60).slice(-2)}`;
-    const kr = units.filter(u => u.isHero && u.team === 'r').reduce((s, u) => s + u.kills, 0);
-    const kd = units.filter(u => u.isHero && u.team === 'd').reduce((s, u) => s + u.kills, 0);
-    ui.score.textContent = `Radiant ${kr} : ${kd} Dire`;
   }
 
   // ---------- ЛОББИ (сетевое: места, стороны Свет/Тьма, выбор героя, старт хостом) ----------
@@ -2281,6 +2464,9 @@
         if (net.mode !== 'client' || !ev) return;
         if (ev.k === 'f') feed(ev.m, ev.i);
         else if (ev.k === 'c') clientReplayCast(ev);
+        else if (ev.k === 'rs') { // хост перезапустил матч
+          if (lastComp != null) { setupMatch(lastComp, false); feed('🔁 Хост начал матч заново!'); }
+        }
       });
       sock.on('s2_end', (winner) => {
         if (net.mode !== 'client' || match.phase === 'over') return;
@@ -2325,7 +2511,7 @@
         u.push([0, x.name, x.team, px, pz, hp, al, x.lvl, Math.floor(x.gold), Math.round(x.mana),
           x.kills, x.deaths, x.lh, x.xp, x.inventory.join('.'),
           x.abilities.map(a => Math.round(a.cdT * 10) / 10), atk,
-          x.abilities.map(a => a.lvl)]);
+          x.abilities.map(a => a.lvl), x.assists || 0, x.skillPts || 0]);
       } else if (x.isTower) {
         u.push([1, x.team + ':' + x.lane + ':' + x.tier, x.team, px, pz, hp, al]);
       } else if (x.isAncient) {
@@ -2375,6 +2561,8 @@
         applyBasicSnap(h, e);
         h.lvl = e[7]; h.gold = e[8]; h.mana = e[9];
         h.kills = e[10]; h.deaths = e[11]; h.lh = e[12]; h.xp = e[13];
+        h.assists = e[18] || 0;
+        h.skillPts = e[19] || 0;
         const inv = String(e[14] || '').split('.').filter(Boolean);
         if (inv.join('.') !== h.inventory.join('.')) { h.inventory = inv; recalcStats(h); }
         const cds = e[15] || [];
@@ -2483,6 +2671,7 @@
     }
     else if (d.k === 'buy') heroBuyItem(h, String(d.id || '').slice(0, 24));
     else if (d.k === 'item') useItemSlot(+d.i, h, d.x != null ? +d.x : null, d.z != null ? +d.z : null);
+    else if (d.k === 'lv') levelUpAbility(h, +d.i); // 3.19.1: игрок сам качает скилы
   }
 
   // ссылка на юнита для отправки хосту: динамика — netId, структуры — ключ

@@ -31,6 +31,8 @@
   const sfxLose = () => [330, 262, 196].forEach((f, i) => setTimeout(() => sfx(f, 0.4, 0.1, 'sawtooth'), i * 200));
 
   // ---------- ПРЕДМЕТЫ (магазин у фонтана, доставка курьером) ----------
+  // mods: статы · slowOnHit/slowDur — замедление с атак · armorRed/armorRedDur — срез брони с атак
+  // active: активное действие (блинк) — клик по слоту в инвентаре или клавиша B
   const ITEMS = [
     { id: 'boots',  name: 'Сапоги ветра',       cost: 500,  desc: '+45 к скорости передвижения',            mods: { ms: 45 } },
     { id: 'blade',  name: 'Клинок ярости',      cost: 1400, desc: '+32 к урону',                            mods: { dmg: 32 } },
@@ -42,6 +44,11 @@
     { id: 'fang',   name: 'Кровавый кристалл',  cost: 1600, desc: '+18% вампиризма',                        mods: { lifesteal: 0.18 } },
     { id: 'shield', name: 'Щит Бессмертного',   cost: 1500, desc: 'Блокирует 25 урона от каждой атаки',     mods: { block: 25 } },
     { id: 'heart',  name: 'Сердце титана',      cost: 2500, desc: '+450 к здоровью, +4 регенерации',        mods: { hp: 450, hpregen: 4 } },
+    { id: 'blink',  name: 'Блинк Даггер',       cost: 2150, desc: 'Актив (B): мгновенный телепорт к курсору (до 15 м). КД 14 сек', mods: {}, active: { type: 'blink', range: 15, cd: 14 } },
+    { id: 'frost',  name: 'Морозный клинок',    cost: 1900, desc: '+20 к урону, атаки замедляют врага на 25% на 1.5 сек', mods: { dmg: 20, slowOnHit: 0.25, slowDur: 1.5 } },
+    { id: 'crusher',name: 'Молот крушителя',    cost: 2100, desc: '+28 к урону, атаки СНИЖАЮТ БРОНЮ врага на 7 на 4 сек', mods: { dmg: 28, armorRed: 7, armorRedDur: 4 } },
+    { id: 'hyper',  name: 'Гиперстоун',         cost: 2000, desc: '+55 к скорости атаки',                   mods: { aspd: 55 } },
+    { id: 'plate',  name: 'Латный доспех',      cost: 1400, desc: '+12 к броне',                            mods: { armor: 12 } },
   ];
   const itemById = id => ITEMS.find(i => i.id === id);
 
@@ -223,6 +230,29 @@
   const s2ModelWaiters = [];
   function onS2ModelsReady(fn) { if (s2ModelsReady) fn(); else s2ModelWaiters.push(fn); }
 
+  // реальный размер модели В ПОЗЕ (скелетные модели в bind-позе лежат/кривые —
+  // меряем по вершинам после прокрутки idle-анимации)
+  function posedBox(root) {
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    const v = new THREE.Vector3();
+    root.traverse(o => {
+      if (!o.isMesh && !o.isSkinnedMesh) return;
+      if (o.isSkinnedMesh && o.getVertexPosition && o.geometry && o.geometry.attributes && o.geometry.attributes.position) {
+        const pos = o.geometry.attributes.position;
+        const step = Math.max(1, Math.floor((pos.count || 0) / 150));
+        for (let i = 0; i < pos.count; i += step) {
+          o.getVertexPosition(i, v);       // локальная позиция со скиннингом
+          o.localToWorld(v);
+          box.expandByPoint(v);
+        }
+      } else {
+        box.expandByObject(o);
+      }
+    });
+    return box;
+  }
+
   function loadS2Models() {
     if (typeof THREE.GLTFLoader !== 'function') { s2ModelsReady = true; s2ModelWaiters.splice(0).forEach(f => f()); return; }
     const loader = new THREE.GLTFLoader();
@@ -233,9 +263,17 @@
       loader.load(S2_MODELS[id].url, (g) => {
         try {
           g.scene.traverse(o => { if (o.material && o.material.map) o.material.map.colorSpace = THREE.SRGBColorSpace; });
-          const bb = new THREE.Box3().setFromObject(g.scene);
+          // зонд: клон, idle-кадр, замер реальной высоты в позе
+          const probe = THREE.SkeletonUtils.clone(g.scene);
+          const pm = new THREE.AnimationMixer(probe);
+          const clips = g.animations;
+          const anims = S2_MODELS[id].anims || {};
+          const idleClip = anims.idle && clips ? THREE.AnimationClip.findByName(clips, anims.idle) : null;
+          if (idleClip) { const a = pm.clipAction(idleClip); a.play(); pm.update(0.05); }
+          const bb = posedBox(probe);
           const h = Math.max(bb.max.y - bb.min.y, 0.01);
-          s2Models[id] = { scene: g.scene, animations: g.animations, norm: (S2_MODELS[id].height || 2) / h, yOff: -bb.min.y * ((S2_MODELS[id].height || 2) / h) };
+          const norm = (S2_MODELS[id].height || 2) / h;
+          s2Models[id] = { scene: g.scene, animations: g.animations, norm, yOff: -bb.min.y * norm };
         } catch (e) { /* останется процедурная модель */ }
         done();
       }, undefined, done);
@@ -308,10 +346,11 @@
         if (!inst) continue;
         inst.model.rotation.y = 0.5;
         sc.add(inst.model);
-        const bb = new THREE.Box3().setFromObject(inst.model);
+        const bb = posedBox(inst.model);
         const hgt = Math.max(bb.max.y - bb.min.y, 0.5);
         const cy = (bb.max.y + bb.min.y) / 2;
-        cam.position.set(cy + hgt * 0.55, cy + hgt * 0.28, hgt * 1.25);
+        // 3.19.0: камера стояла в точке x=cy — модель была крошечной точкой на фоне
+        cam.position.set(hgt * 0.62, cy + hgt * 0.22, hgt * 1.35);
         cam.lookAt(0, cy, 0);
         r.render(sc, cam);
         h.portrait = r.domElement.toDataURL('image/png');
@@ -660,8 +699,10 @@
       bounty: opts.bounty != null ? opts.bounty : 40,
       xpBounty: opts.xpBounty != null ? opts.xpBounty : 40,
       brainT: 0, bot: !!opts.bot, ai: { state: 'push', retreatT: 0 },
+      itemCd: {}, // 3.19.0: кулдауны активных предметов (блинк)
       mesh: null, hpBg: null, hpFg: null,
     };
+    u.netId = u.id; // 3.19.0: сетевой идентификатор для снапшотов
     if (opts.heroDef) {
       u.maxHp = opts.heroDef.hp; u.hp = u.maxHp;
       u.maxMana = opts.heroDef.mana; u.mana = u.maxMana;
@@ -726,7 +767,11 @@
     const m = { ms: 0, dmg: 0, aspd: 0, armor: 0, mana: 0, hpregen: 0, mpregen: 0, spower: 0, lifesteal: 0, block: 0 };
     for (const it of u.inventory) { const mm = itemById(it).mods; for (const k in mm) m[k] = (m[k] || 0) + mm[k]; }
     const lvlHp = (u.lvl - 1) * 55, lvlDmg = (u.lvl - 1) * 4.2;
+    const oldMax = u.maxHp;
     u.maxHp = u.heroDef.hp + lvlHp + (m.hp || 0);
+    // предметы/уровень дают +максХП — текущее хп растёт на ту же дельту (как в Доте)
+    if (u.hp > 0 && u.maxHp > oldMax) u.hp = Math.min(u.maxHp, u.hp + (u.maxHp - oldMax));
+    u.hp = Math.min(u.hp, u.maxHp);
     u.maxMana = u.heroDef.mana + (u.lvl - 1) * 22 + (m.mana || 0);
     u.dmg = u.heroDef.dmg + lvlDmg + (m.dmg || 0);
     u.aspd = u.heroDef.aspd + (m.aspd || 0);
@@ -735,7 +780,10 @@
   }
   function moveSpeed(u) {
     let ms = u.baseMs + ((u.mods && u.mods.ms) || 0);
-    for (const b of u.buffs) if (b.mods && b.mods.msPct) ms *= 1 + b.mods.msPct;
+    for (const b of u.buffs) {
+      if (b.mods && b.mods.msPct) ms *= 1 + b.mods.msPct;
+      if (b.slowPct) ms *= 1 - b.slowPct; // 3.19.0: замедления теперь реально работают
+    }
     if (u.isHero && u.heroDef.id === 'undina' && inRiver(u.x, u.z)) ms *= 1.3;
     for (const z of zones) {
       if (z.slow && z.team !== u.team && d2(u.x, u.z, z.x, z.z) < z.r) ms *= 1 - z.slow;
@@ -785,6 +833,7 @@
   // ---------- УРОН / СМЕРТЬ ----------
   function dealDamage(src, victim, amount, opts) {
     if (!victim.alive) return 0;
+    if (net.mode === 'client') return 0; // 3.19.0: клиент матча — только визуал, урон считает хост
     opts = opts || {};
     if (victim.buffs && victim.buffs.some(b => b.mods && b.mods.invuln)) return 0;
     if (victim.isHero && victim.heroDef.id === 'zik' && victim.evadeT <= 0 && !opts.dot && !opts.spell) {
@@ -804,7 +853,14 @@
       }
       // замедление Фреи автоатаками
       if (src && src.isHero && src.heroDef.id === 'freya' && !opts.dot) slow(victim, 0.2, 1);
-      dmg = Math.max(1, amount - (victim.armor || 0));
+      // 3.19.0: модификаторы атаки с предметов — замедление и срез брони
+      if (src && src.mods && !opts.dot) {
+        if (src.mods.slowOnHit) slow(victim, src.mods.slowOnHit, src.mods.slowDur || 1.5);
+        if (src.mods.armorRed) victim.buffs.push({ mods: {}, armorRed: src.mods.armorRed, dur: src.mods.armorRedDur || 4, color: 0xd4a04a });
+      }
+      // броня с учётом среза (срез может уйти в минус — тогда урон растёт)
+      const armorRed = victim.buffs.reduce((s, b) => s + (b.armorRed || 0), 0);
+      dmg = Math.max(1, Math.round(amount - ((victim.armor || 0) - armorRed)));
       if (victim.mods && victim.mods.block) dmg = Math.max(1, dmg - victim.mods.block);
     }
     // щит
@@ -968,16 +1024,18 @@
     let c = corpses.find(k => k.team !== h.team && d2(k.x, k.z, t.x, t.z) < 10);
     const sx = c ? c.x : t.x, sz = c ? c.z : t.z;
     if (c) corpses.splice(corpses.indexOf(c), 1);
+    ringFx(sx, sz, 0x9a7fd4, 3);
+    if (net.mode === 'client') return; // юнит придёт в снапшоте
     const s = makeUnit({ team: h.team, x: sx, z: sz, isSummon: true, name: 'Скелет Ксула', hp: 300 + abilityLvl(h, 1) * 120, dmg: 38 + abilityLvl(h, 1) * 14, life: 24 });
     s.owner = h;
-    ringFx(sx, sz, 0x9a7fd4, 3);
     feed(`💀 ${h.name} поднял скелета!`);
   }
   function summonKraken(h, t) {
+    ringFx(t.x, t.z, 0x4a90c8, 8);
+    if (net.mode === 'client') { sfxTower(); return; } // юнит придёт в снапшоте
     const k = makeUnit({ team: h.team, x: t.x, z: t.z, isSummon: true, name: 'Кракен', hp: 900, dmg: 65, life: 20 });
     k.owner = h; k.radius = 1.6;
     if (k.mesh) k.mesh.scale.setScalar(2.2);
-    ringFx(t.x, t.z, 0x4a90c8, 8);
     feed(`🌊 ${h.name} призвал Кракена!`);
     sfxTower();
   }
@@ -1183,11 +1241,18 @@
     const line = el('div', 'padding:2px 8px;font-size:12px;color:' + (important ? '#ffd34a' : '#cfc8b8') + ';', ui.feed, msg);
     ui.feed.insertBefore(line, ui.feed.firstChild);
     while (ui.feed.children.length > 6) ui.feed.removeChild(ui.feed.lastChild);
+    // 3.19.0: хост дублирует фид клиентам матча
+    if (net.mode === 'host' && s2net.sock && s2net.connected) {
+      try { s2net.sock.emit('s2_ev', { k: 'f', m: String(msg).slice(0, 140), i: !!important }); } catch (e) {}
+    }
   }
 
   // ---------- СОЗДАНИЕ МАТЧА ----------
   // compOrHeroId: строка heroId (соло с ботами) ИЛИ массив [{nick, team:'r'|'d', hero}] из лобби
-  function setupMatch(compOrHeroId) {
+  // onlineHost: true — мы хост (считаем мир), false — клиент (рисуем по снапшотам)
+  function setupMatch(compOrHeroId, onlineHost) {
+    net.mode = Array.isArray(compOrHeroId) ? (onlineHost ? 'host' : 'client') : 'off';
+    net.snapT = 0;
     // очистка: убираем героев/крипов/призывов/курьеров/снаряды, ВЫШКИ И ТРОНЫ СОХРАНЯЕМ и сбрасываем
     for (let i = units.length - 1; i >= 0; i--) {
       const u = units[i];
@@ -1235,10 +1300,13 @@
     const mkHero = (c, isPlayer, laneIdx, lane) => {
       const base = c.team === 'r' ? BASE_R : BASE_D;
       const def = heroById(c.hero);
+      const online = Array.isArray(compOrHeroId);
       const b = makeUnit({
         team: c.team, x: base.x + rand(-5, 7), z: base.z + rand(-5, 7),
-        heroDef: def, name: c.nick, bot: !isPlayer, lane,
+        heroDef: def, name: c.nick, bot: !isPlayer && (!online || !!c._bot), lane,
       });
+      // живой игрок на хосте: героя ведёт удалённый ввод, а не ИИ
+      if (!isPlayer && online && !c._bot) b.remote = true;
       recalcStats(b);
       b.gold = 600;
       if (isPlayer) { b.isPlayer = true; myHero = b; }
@@ -1280,14 +1348,18 @@
 
   function endMatch(winner) {
     match.phase = 'over';
-    const win = winner === 'r';
+    // 3.19.0: хост сообщает клиентам итог
+    if (net.mode === 'host' && s2net.sock && s2net.connected) {
+      try { s2net.sock.emit('s2_end', winner); } catch (e) {}
+    }
+    const win = winner === (myHero ? myHero.team : 'r');
     if (win) sfxWin(); else sfxLose();
     const ov = el('div', 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,10,16,0.82);z-index:60;', rootWrap);
     el('div', 'font-size:52px;font-weight:900;color:' + (win ? '#7fe08a' : '#e06a5a') + ';text-shadow:0 4px 18px rgba(0,0,0,0.7);', ov, win ? '🏆 ПОБЕДА!' : '💀 ПОРАЖЕНИЕ');
     if (myHero) el('div', 'margin-top:14px;font-size:16px;color:#cfc8b8;', ov,
       `Убийств: ${myHero.kills} · Смертей: ${myHero.deaths} · Добито крипов: ${myHero.lh} · Золото: ${myHero.gold}`);
     const btn = el('button', 'margin-top:26px;padding:12px 34px;font-size:16px;font-weight:700;background:#2a6b3f;color:#fff;border:none;border-radius:10px;cursor:pointer;', ov, 'В меню');
-    btn.onclick = () => { ov.remove(); showLobby(); };
+    btn.onclick = () => { ov.remove(); net.mode = 'off'; showLobby(); };
   }
 
   // ---------- ТИК ИГРЫ ----------
@@ -1405,6 +1477,7 @@
     u.atkAnimT = Math.max(0, (u.atkAnimT || 0) - dt);
     if (u.shieldHp > 0 && u.shieldT != null) { u.shieldT -= dt; if (u.shieldT <= 0) u.shieldHp = 0; }
     for (const a of u.abilities) if (a.cdT > 0) a.cdT -= dt;
+    if (u.isHero) for (const k in u.itemCd) if (u.itemCd[k] > 0) u.itemCd[k] -= dt;
 
     // реген
     if (u.isHero) {
@@ -1520,7 +1593,7 @@
     const lowHp = u.hp / u.maxHp < 0.3;
 
     // покупки
-    const build = ['boots', 'blade', 'bow', 'armor', 'heart', 'fang'];
+    const build = ['boots', 'blade', 'bow', 'armor', 'heart', 'fang', 'frost', 'crusher', 'hyper', 'plate'];
     if (u.gold > 900 && u.inventory.length < 6) {
       const it = build.find(id => !u.inventory.includes(id) && itemById(id).cost <= u.gold);
       if (it) { u.gold -= itemById(it).cost; u.inventory.push(it); recalcStats(u); }
@@ -1566,9 +1639,13 @@
 
   // ---------- СПОСОБНОСТИ ----------
   function castAbility(u, a, target) {
-    if (!u.alive || isStunned(u) || a.lvl <= 0 || a.cdT > 0 || u.mana < a.def.mana) return false;
-    u.mana -= a.def.mana;
-    a.cdT = a.def.cd;
+    if (!u.alive || isStunned(u) || a.lvl <= 0) return false;
+    // на клиенте матча кд/мана не проверяются — повторяем каст визуально по событию хоста
+    if (net.mode !== 'client' && (a.cdT > 0 || u.mana < a.def.mana)) return false;
+    if (net.mode !== 'client') {
+      u.mana -= a.def.mana;
+      a.cdT = a.def.cd;
+    }
     const s = { dmg: abilityDmg(u, u.abilities.indexOf(a)) };
     const pt = target && target.x != null ? { x: target.x, z: target.z } : { x: u.x, z: u.z };
     a.def.exec(u, target && target.alive !== undefined ? target : pt, s);
@@ -1576,6 +1653,16 @@
     if (u.heroDef.id === 'astra') u.mana = Math.min(u.maxMana, u.mana + 4);
     if (u === myHero || d2(u.x, u.z, camX, camZ) < 55) sfxCast();
     sparkleFx(u.x, u.z, 0xffffff);
+    // 3.19.0: хост рассылает событие каста — клиенты повторяют визуал
+    if (net.mode === 'host' && s2net.sock && s2net.connected) {
+      try {
+        s2net.sock.emit('s2_ev', {
+          k: 'c', nm: u.name, i: u.abilities.indexOf(a),
+          tid: target && target.alive !== undefined ? (target.name || '') : '',
+          tx: Math.round(pt.x * 10) / 10, tz: Math.round(pt.z * 10) / 10,
+        });
+      } catch (e) {}
+    }
     return true;
   }
 
@@ -1589,13 +1676,15 @@
       if (dd < 0.8) {
         // попадание
         if (p.autoattack) {
-          if (p.target && p.target.alive) dealDamage(p.owner, p.target, p.tower ? p.owner.dmg : effDmg(p.owner), {});
+          if (net.mode !== 'client' && p.target && p.target.alive) dealDamage(p.owner, p.target, p.tower ? p.owner.dmg : effDmg(p.owner), {});
         } else {
           const victims = units.filter(u2 => u2.alive && u2.team !== p.owner.team && d2(u2.x, u2.z, tx, tz) < (p.aoe ? p.aoe : 1.6) + u2.radius);
-          for (const v of victims) {
-            dealDamage(p.owner, v, p.dmg, { spell: true });
-            if (p.slow) slow(v, p.slow, 2);
-            if (p.dot) dot(v, p.dot, p.owner);
+          if (net.mode !== 'client') {
+            for (const v of victims) {
+              dealDamage(p.owner, v, p.dmg, { spell: true });
+              if (p.slow) slow(v, p.slow, 2);
+              if (p.dot) dot(v, p.dot, p.owner);
+            }
           }
           if (!victims.length && p.dmg > 0) {
             // урон по точке
@@ -1618,7 +1707,7 @@
       z.mesh.material.opacity = 0.22 + 0.1 * Math.sin(clockT * 5);
       if (z.tick >= 0.5) {
         z.tick -= 0.5;
-        if (z.dps > 0) for (const u2 of units) if (u2.alive && u2.team !== z.team && d2(u2.x, u2.z, z.x, z.z) < z.r) dealDamage(z.owner, u2, z.dps * 0.5, { spell: true });
+        if (z.dps > 0 && net.mode !== 'client') for (const u2 of units) if (u2.alive && u2.team !== z.team && d2(u2.x, u2.z, z.x, z.z) < z.r) dealDamage(z.owner, u2, z.dps * 0.5, { spell: true });
       }
       if (z.dur <= 0) { scene.remove(z.mesh); zones.splice(i, 1); }
     }
@@ -1651,18 +1740,69 @@
   // ---------- КУРЬЕР ----------
   function myBase() { return (myHero && myHero.team === 'd') ? BASE_D : BASE_R; }
   function buyItem(itemId) {
+    if (net.mode === 'client') { // 3.19.0: заказ уходит хосту, тот списывает золото и запускает курьера
+      s2Send({ k: 'buy', id: itemId });
+      feed('🛒 Заказ отправлен — курьер летит (хост подтвердит)');
+      return;
+    }
+    heroBuyItem(myHero, itemId);
+  }
+  // 3.19.0: активные предметы — блинк даггер и далее
+  function useItemSlot(i, hero, px, pz) {
+    if (net.mode === 'client' && !hero) { // мой активный предмет — команда хосту
+      s2Send({ k: 'item', i, x: px != null ? px : Math.round(mouseGX * 10) / 10, z: pz != null ? pz : Math.round(mouseGZ * 10) / 10 });
+      return;
+    }
+    const h = hero || myHero;
+    if (!h || !h.alive || match.phase !== 'live') return;
+    const id = h.inventory[i];
+    if (!id) return;
+    const it = itemById(id);
+    if (!it || !it.active) return;
+    if ((h.itemCd[id] || 0) > 0) { if (h === myHero) feed('Предмет на перезарядке: ' + Math.ceil(h.itemCd[id]) + ' сек', true); return; }
+    if (it.active.type === 'blink') {
+      const tx = px != null ? px : mouseGX, tz = pz != null ? pz : mouseGZ;
+      const dx = tx - h.x, dz = tz - h.z;
+      const l = Math.hypot(dx, dz) || 1;
+      const r = Math.min(l, it.active.range);
+      const nx = clamp(h.x + dx / l * r, -MAP / 2 + 2, MAP / 2 - 2);
+      const nz = clamp(h.z + dz / l * r, -MAP / 2 + 2, MAP / 2 - 2);
+      blinkFx(h.x, h.z, nx, nz);
+      h.x = nx; h.z = nz;
+      collideObstacles(h);
+      syncMesh(h);
+      h.itemCd[id] = it.active.cd;
+      if (h === myHero) { feed('⚡ Блинк!'); sfxCast(); }
+    }
+  }
+  function useFirstActive() {
+    if (!myHero) return;
+    for (let i = 0; i < myHero.inventory.length; i++) {
+      const it = itemById(myHero.inventory[i]);
+      if (it && it.active) { useItemSlot(i); return; }
+    }
+    feed('Нет активных предметов (Блинк Даггер — в магазине)', true);
+  }
+
+  // покупка любым героем (себя — myHero, сетевого игрока — по событию хосту)
+  function heroBuyItem(h, itemId) {
     const it = itemById(itemId);
-    if (!myHero || !myHero.alive) return;
-    const base = myBase();
-    if (d2(myHero.x, myHero.z, base.shopZone.x, base.shopZone.z) > base.shopZone.r) { feed('Зона магазина — у фонтана (покупать можно откуда угодно — курьер привезёт)', true); }
-    if (myHero.gold < it.cost) { feed('Не хватает золота: ' + it.name, true); return; }
-    if (myHero.inventory.length >= 6) { feed('Инвентарь полон!', true); return; }
-    myHero.gold -= it.cost;
-    // курьер летит от своей базы к герою
-    const c = makeUnit({ team: myHero.team, x: base.fountain.x, z: base.fountain.z, isCourier: true, name: 'Курьер' });
+    if (!it || !h || !h.alive) return;
+    if (h.gold < it.cost) { if (h === myHero) feed('Не хватает золота: ' + it.name, true); return; }
+    if (h.inventory.length >= 6) { if (h === myHero) feed('Инвентарь полон!', true); return; }
+    h.gold -= it.cost;
+    const base = h.team === 'd' ? BASE_D : BASE_R;
+    const c = makeUnit({ team: h.team, x: base.fountain.x, z: base.fountain.z, isCourier: true, name: 'Курьер' });
     c.carry = itemId;
-    c.dest = myHero;
+    c.dest = h;
     c.homeBase = base;
+    makeCourierMesh(c);
+    couriers.push(c);
+    feed(`🦅 Курьер везёт: ${it.name} (${h.name})`);
+    if (h === myHero) sfxGold();
+  }
+
+  function makeCourierMesh(c) {
     c.mesh = new THREE.Group();
     const inst = instantiateS2Model('parrot', null, 1);
     if (inst) { c.rig = inst; c.mesh.add(inst.model); }
@@ -1676,10 +1816,8 @@
     }
     c.mesh.position.set(c.x, 0, c.z);
     scene.add(c.mesh);
-    couriers.push(c);
-    feed(`🦅 Курьер везёт: ${it.name}`);
-    sfxGold();
   }
+
   function tickCourier(c, dt) {
     c.fly = (c.fly || 0) + dt * 9;
     const home = c.homeBase || BASE_R;
@@ -1757,11 +1895,20 @@
       b.onmouseleave = hideTip;
       ui.abils.push({ b, key, nm, cd, lvl });
     }
-    // инвентарь
+    // инвентарь (клик по активному предмету = использовать)
     const right = el('div', 'display:grid;grid-template-columns:repeat(3,44px);gap:5px;pointer-events:auto;', hud);
     ui.inv = [];
     for (let i = 0; i < 6; i++) {
-      const s = el('div', 'width:44px;height:44px;background:#141a28;border:1px solid #3a4358;border-radius:7px;font-size:8.5px;color:#cfc8b8;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;cursor:default;', right);
+      const s = el('div', 'position:relative;width:44px;height:44px;background:#141a28;border:1px solid #3a4358;border-radius:7px;font-size:8.5px;color:#cfc8b8;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;cursor:pointer;', right);
+      s.onclick = () => useItemSlot(i);
+      s.onmouseenter = () => {
+        const id = myHero && myHero.inventory[i];
+        if (!id || !ui.tip) return;
+        const it = itemById(id);
+        ui.tip.style.display = 'block';
+        ui.tip.innerHTML = `<b style="color:#ffd34a">${it.name}</b>${it.active ? ' <span style="color:#6fc4ff">[АКТИВ — клик или B]</span>' : ''}<br><span style="color:#9fb0c8">${it.desc}</span>`;
+      };
+      s.onmouseleave = hideTip;
       ui.inv.push(s);
     }
     const shopBtn = el('button', 'grid-column:span 3;padding:6px;background:#3a2f14;color:#ffd34a;border:1px solid #8a6b3a;border-radius:7px;cursor:pointer;font-weight:700;', right, '🛒 Магазин (P)');
@@ -1784,7 +1931,11 @@
     // кнопка выхода
     const exitBtn = el('button', 'position:absolute;top:8px;right:10px;z-index:30;padding:5px 12px;background:#4a1f1f;color:#ffb0a0;border:1px solid #8a3a3a;border-radius:7px;cursor:pointer;', rootWrap, '✖ Выйти');
     exitBtn.dataset.s2top = '1';
-    exitBtn.onclick = () => { showPick(); };
+    exitBtn.onclick = () => {
+      if (net.mode !== 'off' && s2net.sock) { try { s2net.sock.emit('s2_leave'); } catch (e) {} }
+      net.mode = 'off';
+      showLobby();
+    };
     const keysBtn = el('button', 'position:absolute;top:8px;right:96px;z-index:30;padding:5px 12px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:7px;cursor:pointer;', rootWrap, '⚙ Клавиши');
     keysBtn.dataset.s2top = '1';
     keysBtn.onclick = () => toggleKeysPanel();
@@ -1869,6 +2020,30 @@
     if (!myHero || !myHero.alive || match.phase !== 'live') return;
     const a = myHero.abilities[i];
     if (!a || a.lvl <= 0) { feed('Способность ещё не изучена', true); return; }
+    // 3.19.0: клиент матча — отправляем команду хосту, тот кастует и вернёт визуал событием
+    if (net.mode === 'client') {
+      const t = a.def.type;
+      if (t === 'passive') { feed('Пассивная способность — работает сама', true); return; }
+      if (t === 'self') { s2Send({ k: 'ab', i }); return; }
+      if (myHero.heroDef.id === 'jin' && i === 3) { // воскрешение — цель труп союзника
+        const dead = units.find(x => x.isHero && !x.alive && x.team === myHero.team && x !== myHero &&
+          d2(x._deathX != null ? x._deathX : x.x, x._deathZ != null ? x._deathZ : x.z, myHero.x, myHero.z) < a.def.range);
+        if (!dead) { feed('Некого воскрешать рядом', true); return; }
+        s2Send({ k: 'ab', i, tid: dead.name });
+        return;
+      }
+      if (t === 'unit') {
+        const e = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, mouseGX, mouseGZ) < 4)
+          .sort((x, y) => d2(x.x, x.z, mouseGX, mouseGZ) - d2(y.x, y.z, mouseGX, mouseGZ))[0];
+        if (!e) { feed('Нет врага под курсором', true); return; }
+        if (d2(e.x, e.z, myHero.x, myHero.z) > a.def.range) { feed('Вне радиуса действия', true); return; }
+        s2Send({ k: 'ab', i, tid: e.name });
+        return;
+      }
+      if (d2(mouseGX, mouseGZ, myHero.x, myHero.z) > a.def.range + 2) { feed('Вне радиуса действия', true); return; }
+      s2Send({ k: 'ab', i, tx: Math.round(mouseGX * 10) / 10, tz: Math.round(mouseGZ * 10) / 10 });
+      return;
+    }
     if (a.cdT > 0 || myHero.mana < a.def.mana) return;
     const t = a.def.type;
     if (t === 'self') castAbility(myHero, a, null);
@@ -1962,10 +2137,17 @@
       if (e.button === 2) { // правая — движение/атака
         const enemy = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.5)
           .sort((a, b) => d2(a.x, a.z, p.x, p.z) - d2(b.x, b.z, p.x, p.z))[0];
+        if (net.mode === 'client') { // 3.19.0: команда уходит хосту
+          if (attackMoveMode) { s2Send({ k: 'am', x: p.x, z: p.z }); attackMoveMode = false; cv.style.cursor = 'default'; }
+          else if (enemy) s2Send({ k: 'at', id: unitRef(enemy) });
+          else s2Send({ k: 'mv', x: p.x, z: p.z });
+          return;
+        }
         if (enemy) myHero.target = enemy;
         else { myHero.target = null; myHero.moveTarget = { x: p.x, z: p.z }; }
         if (attackMoveMode) { myHero.target = null; myHero.moveTarget = { x: p.x, z: p.z }; myHero.attackMove = true; attackMoveMode = false; cv.style.cursor = 'default'; }
       } else if (e.button === 0 && attackMoveMode) {
+        if (net.mode === 'client') s2Send({ k: 'am', x: p.x, z: p.z });
         myHero.target = null; myHero.moveTarget = { x: p.x, z: p.z }; myHero.attackMove = true;
         attackMoveMode = false; cv.style.cursor = 'default';
       }
@@ -1993,8 +2175,10 @@
       if (match.phase !== 'live') return;
       for (let i = 0; i < 4; i++) if (k === keybinds[i]) playerCast(i);
       if (k === 'p') toggleShop();
+      if (k === 'b') useFirstActive(); // 3.19.0: активный предмет (блинк)
       if (k === 'a') { attackMoveMode = true; if (renderer) renderer.domElement.style.cursor = 'crosshair'; }
       if (k === 's') { // стоп
+        if (net.mode === 'client') s2Send({ k: 'stop' });
         if (myHero) { myHero.moveTarget = null; myHero.target = null; }
       }
     });
@@ -2061,7 +2245,12 @@
     }
     for (let i = 0; i < 6; i++) {
       const it = myHero.inventory[i];
-      ui.inv[i].textContent = it ? itemById(it).name : '';
+      const slot = ui.inv[i];
+      slot.textContent = it ? itemById(it).name : '';
+      slot.style.borderColor = it && itemById(it).active ? '#4a7ab0' : '#3a4358';
+      const cd = it && myHero.itemCd[it] > 0 ? Math.ceil(myHero.itemCd[it]) : 0;
+      slot.style.color = cd ? '#ffb060' : '#cfc8b8';
+      if (cd) slot.textContent = itemById(it).name + ' · ' + cd + 'с';
     }
     const t = Math.floor(match.time);
     ui.timer.textContent = `${Math.floor(t / 60)}:${('0' + t % 60).slice(-2)}`;
@@ -2083,7 +2272,31 @@
       sock.on('s2_start', ({ comp }) => {
         s2net.inLobbyUi = false;
         const old = rootWrap.querySelector('[data-lobby]'); if (old) old.remove();
-        setupMatch(comp);
+        setupMatch(comp, isHost()); // 3.19.0: хост считает мир, клиенты рисуют по снапшотам
+      });
+      // --- 3.19.0: синхронизация матча ---
+      sock.on('s2_in', ({ nick, data }) => { if (net.mode === 'host') hostApplyInput(nick, data); });
+      sock.on('s2_st', (snap) => { if (net.mode === 'client') applySnapshot(snap); });
+      sock.on('s2_ev', (ev) => {
+        if (net.mode !== 'client' || !ev) return;
+        if (ev.k === 'f') feed(ev.m, ev.i);
+        else if (ev.k === 'c') clientReplayCast(ev);
+      });
+      sock.on('s2_end', (winner) => {
+        if (net.mode !== 'client' || match.phase === 'over') return;
+        endMatch(winner);
+      });
+      sock.on('s2_abort', () => {
+        if (net.mode === 'off') return;
+        net.mode = 'off';
+        match.phase = 'menu';
+        feed('Матч прерван — хост вышел', true);
+        showLobby();
+      });
+      sock.on('s2_left', ({ nick }) => { // игрок вышел — хост отдаёт героя боту
+        if (net.mode !== 'host') return;
+        const h = units.find(x => x.isHero && x.name.toLowerCase() === String(nick || '').toLowerCase());
+        if (h && !h.bot) { h.bot = true; h.remote = false; feed('🤖 ' + h.name + ' вышел — героя ведёт бот'); }
       });
     }
     if (s2net.connected) s2net.sock.emit('s2_join', myNick());
@@ -2097,8 +2310,203 @@
     return !!(me && s2net.state && s2net.state.host === me.id);
   }
 
+  // ---------- 3.19.0: СЕТЕВАЯ СИНХРОНИЗАЦИЯ МАТЧА (хост — источник правды) ----------
+  // mode: 'off' соло · 'host' мы считаем мир и шлём снапшоты · 'client' рисуем чужой мир и шлём ввод
+  const net = { mode: 'off', snapT: 0 };
+  const s2Send = (o) => { if (s2net.sock && s2net.connected) { try { s2net.sock.emit('s2_in', o); } catch (e) {} } };
+
+  function packSnapshot() {
+    const u = [];
+    for (const x of units) {
+      const px = Math.round(x.x * 10) / 10, pz = Math.round(x.z * 10) / 10;
+      const hp = Math.round(x.hp), al = x.alive ? 1 : 0;
+      const atk = x.atkAnimT > 0 ? 1 : 0;
+      if (x.isHero) {
+        u.push([0, x.name, x.team, px, pz, hp, al, x.lvl, Math.floor(x.gold), Math.round(x.mana),
+          x.kills, x.deaths, x.lh, x.xp, x.inventory.join('.'),
+          x.abilities.map(a => Math.round(a.cdT * 10) / 10), atk,
+          x.abilities.map(a => a.lvl)]);
+      } else if (x.isTower) {
+        u.push([1, x.team + ':' + x.lane + ':' + x.tier, x.team, px, pz, hp, al]);
+      } else if (x.isAncient) {
+        u.push([2, x.team, x.team, px, pz, hp, al]);
+      } else if (x.isCreep) {
+        u.push([3, x.id, x.team, px, pz, hp, al, x.atkRange > 6 ? 1 : 0, atk]);
+      } else if (x.isSummon) {
+        u.push([4, x.id, x.team, px, pz, hp, al, 0, atk, x.name]);
+      } else if (x.isCourier) {
+        u.push([5, x.id, x.team, px, pz, 1, 1, Math.round((x.y || 2.4) * 10) / 10]);
+      }
+    }
+    return { t: Math.round(match.time * 10) / 10, w: Math.round(match.waveT * 10) / 10, u };
+  }
+
+  function applyBasicSnap(x, e) {
+    // возрождение/респаун — телепорт, а не бег от места смерти
+    if (e[6] && !x.alive) { x.x = e[3]; x.z = e[4]; }
+    x.netTX = e[3]; x.netTZ = e[4];
+    x.hp = e[5];
+    x.alive = !!e[6];
+    if (e[8]) x.atkAnimT = 0.35;
+  }
+
+  function createClientUnit(e) {
+    let x = null;
+    if (e[0] === 3) {
+      x = makeUnit({ team: e[2], x: e[3], z: e[4], isCreep: true, ranged: !!e[7] });
+    } else if (e[0] === 4) {
+      x = makeUnit({ team: e[2], x: e[3], z: e[4], isSummon: true, name: e[9] || 'Призыв' });
+    } else if (e[0] === 5) {
+      x = makeUnit({ team: e[2], x: e[3], z: e[4], isCourier: true, name: 'Курьер' });
+      makeCourierMesh(x);
+    }
+    if (x) x.netId = e[1];
+    return x;
+  }
+
+  function applySnapshot(snap) {
+    if (!snap || !Array.isArray(snap.u)) return;
+    match.time = snap.t; match.waveT = snap.w;
+    const seen = {};
+    for (const e of snap.u) {
+      if (e[0] === 0) {
+        const h = units.find(x => x.isHero && x.name === e[1]);
+        if (!h) continue;
+        applyBasicSnap(h, e);
+        h.lvl = e[7]; h.gold = e[8]; h.mana = e[9];
+        h.kills = e[10]; h.deaths = e[11]; h.lh = e[12]; h.xp = e[13];
+        const inv = String(e[14] || '').split('.').filter(Boolean);
+        if (inv.join('.') !== h.inventory.join('.')) { h.inventory = inv; recalcStats(h); }
+        const cds = e[15] || [];
+        for (let i = 0; i < 4; i++) {
+          if (!h.abilities[i]) continue;
+          h.abilities[i].cdT = cds[i] || 0;
+          if (e[17] && e[17][i] != null) h.abilities[i].lvl = e[17][i];
+        }
+        seen[h.id] = 1;
+      } else if (e[0] === 1) {
+        const t = units.find(x => x.isTower && (x.team + ':' + x.lane + ':' + x.tier) === e[1]);
+        if (t) { applyBasicSnap(t, e); seen[t.id] = 1; }
+      } else if (e[0] === 2) {
+        const a = units.find(x => x.isAncient && x.team === e[1]);
+        if (a) { applyBasicSnap(a, e); seen[a.id] = 1; }
+      } else {
+        let x = units.find(u2 => u2.netId === e[1]);
+        if (!x) x = createClientUnit(e);
+        if (!x) continue;
+        applyBasicSnap(x, e);
+        if (e[0] === 5) x.y = e[7] || 2.4;
+        seen[x.id] = 1;
+      }
+    }
+    // пропавшие из мира хоста (сдохшие крипы/призывы/курьеры) — убрать
+    for (const x of units.slice()) {
+      if (x.isHero || x.isTower || x.isAncient) continue;
+      if (!seen[x.id]) {
+        if (x.mesh) scene.remove(x.mesh);
+        units.splice(units.indexOf(x), 1);
+        const ci = couriers.indexOf(x);
+        if (ci >= 0) couriers.splice(ci, 1);
+      }
+    }
+  }
+
+  // лёгкий тик клиента: интерполяция к снапшоту + анимации, без игровой логики
+  function clientTick(dt) {
+    for (const x of units.slice()) {
+      if (!x.alive) {
+        if (x._wasAlive !== false) {
+          x._wasAlive = false;
+          if (x.rig && x.rig.actions.death) { x.hideAt = clockT + 1.5; playAnim(x, 'death', 0.1); }
+          else if (x.mesh) x.mesh.visible = false;
+        }
+        if (x.rig) {
+          x.rig.mixer.update(dt);
+          if (x.hideAt && clockT > x.hideAt && x.mesh) x.mesh.visible = false;
+        }
+        updateHpBar(x);
+        continue;
+      }
+      if (x._wasAlive === false) { // возродился
+        x._wasAlive = true;
+        x.x = x.netTX != null ? x.netTX : x.x;
+        x.z = x.netTZ != null ? x.netTZ : x.z;
+        if (x.mesh) x.mesh.visible = true;
+        if (x.rig) playAnim(x, 'idle', 0);
+      }
+      x.atkAnimT = Math.max(0, (x.atkAnimT || 0) - dt);
+      if (x.netTX != null) {
+        const k = Math.min(1, dt * 9);
+        const ox = x.x, oz = x.z;
+        x.x += (x.netTX - x.x) * k;
+        x.z += (x.netTZ - x.z) * k;
+        x.moving = d2(ox, oz, x.x, x.z) > 0.03;
+        if (x.moving && x.mesh) x.mesh.rotation.y = Math.atan2(x.x - ox, x.z - oz);
+      }
+      tickRig(x, dt);
+      updateHpBar(x);
+      syncMesh(x);
+    }
+  }
+
+  // хост применяет ввод удалённого игрока к его герою
+  function hostApplyInput(nick, d) {
+    if (!d || typeof d.k !== 'string') return;
+    const h = units.find(x => x.isHero && x.name.toLowerCase() === String(nick || '').toLowerCase());
+    if (!h) return;
+    if (h.bot) { h.bot = false; feed('🎮 ' + h.name + ' вернулся в матч'); }
+    h.remote = true;
+    if (d.k === 'mv') { h.target = null; h.attackMove = false; h.moveTarget = { x: +d.x || 0, z: +d.z || 0 }; }
+    else if (d.k === 'am') { h.target = null; h.attackMove = true; h.moveTarget = { x: +d.x || 0, z: +d.z || 0 }; }
+    else if (d.k === 'at') {
+      let t = null;
+      if (typeof d.id === 'string') { // 'A:r' — древний; иначе имя юнита/героя
+        if (d.id.charAt(0) === 'A') t = units.find(x => x.isAncient && x.team === d.id.slice(2));
+        else t = units.find(x => x.name === d.id);
+      } else t = units.find(x => x.id === d.id);
+      if (t && t.alive) { h.target = t; h.moveTarget = null; }
+    }
+    else if (d.k === 'stop') { h.target = null; h.moveTarget = null; }
+    else if (d.k === 'ab') {
+      const a = h.abilities[+d.i];
+      if (!a) return;
+      let tgt = null;
+      if (d.tid) {
+        tgt = units.find(x => x.name === d.tid);
+        // труп союзника (воскрешение) — упаковать ссылку как ожидает revive()
+        if (tgt && !tgt.alive && tgt.isHero) tgt = { x: tgt._deathX != null ? tgt._deathX : tgt.x, z: tgt._deathZ != null ? tgt._deathZ : tgt.z, ref: units.find(x => x.name === d.tid) };
+      } else if (d.tx != null) {
+        tgt = { x: +d.tx || 0, z: +d.tz || 0 };
+      }
+      if (a.def.type === 'self') castAbility(h, a, null);
+      else if (tgt) castAbility(h, a, tgt);
+    }
+    else if (d.k === 'buy') heroBuyItem(h, String(d.id || '').slice(0, 24));
+    else if (d.k === 'item') useItemSlot(+d.i, h, d.x != null ? +d.x : null, d.z != null ? +d.z : null);
+  }
+
+  // ссылка на юнита для отправки хосту: динамика — netId, структуры — ключ
+  function unitRef(x) {
+    if (x.isAncient) return 'A:' + x.team;
+    if (x.isTower) return 'T:' + x.team + ':' + x.lane + ':' + x.tier;
+    if (x.isHero) return x.name;
+    return x.netId != null ? x.netId : x.id;
+  }
+
+  // повтор каста на клиенте (только визуал — урон выключен dealDamage)
+  function clientReplayCast(ev) {
+    const h = units.find(x => x.isHero && x.name === ev.nm);
+    if (!h || !h.abilities[ev.i]) return;
+    let tgt = null;
+    if (ev.tid) tgt = units.find(x => x.name === ev.tid) || { x: ev.tx, z: ev.tz };
+    else if (ev.tx != null) tgt = { x: ev.tx, z: ev.tz };
+    if (h.abilities[ev.i].def.type === 'self') castAbility(h, h.abilities[ev.i], null);
+    else if (tgt) castAbility(h, h.abilities[ev.i], tgt);
+  }
+
   function showLobby() {
     match.phase = 'menu';
+    net.mode = 'off';
     rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove());
     const old = rootWrap.querySelector('[data-lobby]'); if (old) old.remove();
     const wrap = el('div', 'position:absolute;inset:0;overflow:auto;background:linear-gradient(160deg,#101826,#0a0e16);z-index:50;padding:16px;', rootWrap);
@@ -2203,6 +2611,7 @@
   // ---------- ЭКРАН ВЫБОРА ГЕРОЯ (соло) ----------
   function showPick() {
     match.phase = 'menu';
+    net.mode = 'off';
     rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove());
     ui.hud = null; ui.shop = null; ui.feed = null; ui.timer = null; ui.score = null; ui.tip = null; minimapCtx = null;
     rootWrap.querySelectorAll('canvas').forEach(c => { if (c !== renderer.domElement) c.remove(); });
@@ -2235,13 +2644,25 @@
     lastTs = ts;
     clockT += dt;
     if (match.phase === 'live') {
-      match.time += dt;
-      match.waveT -= dt;
-      if (match.waveT <= 0) { match.waveT = 30; spawnWave(); feed('⚔️ Новая волна крипов!'); }
-      for (const u of units.slice()) tickUnit(u, dt);
-      tickProjectiles(dt);
-      tickZones(dt);
-      tickCorpses(dt);
+      if (net.mode === 'client') {
+        // 3.19.0: клиент матча — интерполяция снапшотов + визуальные снаряды/зоны (без урона)
+        clientTick(dt);
+        tickProjectiles(dt);
+        tickZones(dt);
+      } else {
+        match.time += dt;
+        match.waveT -= dt;
+        if (match.waveT <= 0) { match.waveT = 30; spawnWave(); feed('⚔️ Новая волна крипов!'); }
+        for (const u of units.slice()) tickUnit(u, dt);
+        tickProjectiles(dt);
+        tickZones(dt);
+        tickCorpses(dt);
+        // 3.19.0: хост шлёт снапшот мира клиентам ~10 раз/сек
+        if (net.mode === 'host' && s2net.sock && s2net.connected) {
+          net.snapT -= dt;
+          if (net.snapT <= 0) { net.snapT = 0.1; try { s2net.sock.emit('s2_st', packSnapshot()); } catch (e) {} }
+        }
+      }
     }
     tickEffects(dt);
     // вода

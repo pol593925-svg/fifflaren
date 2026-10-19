@@ -34,7 +34,9 @@
   // mods: статы · slowOnHit/slowDur — замедление с атак · armorRed/armorRedDur — срез брони с атак
   // active: активное действие (блинк) — клик по слоту в инвентаре или клавиша B
   const ITEMS = [
-    { id: 'boots',  name: 'Сапоги ветра',       cost: 500,  desc: '+45 к скорости передвижения',            mods: { ms: 45 } },
+    { id: 'boots',  name: 'Сапоги ветра',       cost: 500,  desc: '+1.3 к скорости передвижения',           mods: { ms: 1.3 } },
+    { id: 'boots2', name: 'Сапоги ловкости',    cost: 1050, desc: '+2.1 к скорости, +10 к скорости атаки',  mods: { ms: 2.1, aspd: 10 } },
+    { id: 'boots3', name: 'Дорожные сапоги',    cost: 1750, desc: '+3.0 к скорости передвижения',           mods: { ms: 3.0 } },
     { id: 'blade',  name: 'Клинок ярости',      cost: 1400, desc: '+32 к урону',                            mods: { dmg: 32 } },
     { id: 'bow',    name: 'Ветвистый лук',      cost: 900,  desc: '+25 к скорости атаки',                   mods: { aspd: 25 } },
     { id: 'dagger', name: 'Быстрый клинок',     cost: 1000, desc: '+15 к урону, +10 к скорости атаки',      mods: { dmg: 15, aspd: 10 } },
@@ -57,7 +59,7 @@
   const HEROES = [
     {
       id: 'varg', name: 'Варг Разрядник', role: 'Маг молнии', color: 0x9fd8ff, cloth: 0x274b8f,
-      hp: 520, mana: 340, dmg: 50, aspd: 0, atkRange: 15, atkCd: 1.7, ms: 9.8,
+      hp: 520, mana: 340, dmg: 50, aspd: 0, atkRange: 15, atkCd: 1.7, ms: 8.6,
       combo: 'W замедлил → Q по цепочке → R добил',
       abilities: [
         { key: 'Q', name: 'Цепная молния', mana: 60, cd: 7,  type: 'unit', range: 26, desc: 'Урон цели, перескакивает на 2 врагов рядом', exec(h, t, s) { chain(h, t, 2, s.dmg); } },
@@ -69,7 +71,7 @@
     },
     {
       id: 'mord', name: 'Морд Тюремщик', role: 'Танк', color: 0xffb066, cloth: 0x6b3a1f,
-      hp: 780, mana: 260, dmg: 56, aspd: 0, atkRange: 4, atkCd: 1.6, ms: 9.2,
+      hp: 780, mana: 260, dmg: 56, aspd: 0, atkRange: 4, atkCd: 1.6, ms: 8.0,
       combo: 'Q притянул → W оглушил → E вернул урон',
       abilities: [
         { key: 'Q', name: 'Цепь-крюк', mana: 50, cd: 10, type: 'unit', range: 24, desc: 'Притягивает врага к себе', exec(h, t) { pull(h, t); } },
@@ -81,7 +83,7 @@
     },
     {
       id: 'silva', name: 'Сильва Лучница', role: 'Кэрри', color: 0xa8e6a1, cloth: 0x2e6b34,
-      hp: 540, mana: 280, dmg: 54, aspd: 10, atkRange: 22, atkCd: 1.5, ms: 10.2,
+      hp: 540, mana: 280, dmg: 54, aspd: 10, atkRange: 22, atkCd: 1.5, ms: 9.0,
       combo: 'W ускорилась → Q залп → R снайп с дистанции',
       abilities: [
         { key: 'Q', name: 'Залп стрел', mana: 45, cd: 8, type: 'point', range: 26, desc: 'Веер стрел: урон всем на линии', exec(h, t, s) { lineShot(h, t, 6, s.dmg, 0xcfffb0); } },
@@ -93,7 +95,7 @@
     },
     {
       id: 'ksul', name: 'Ксул Некромант', role: 'Существа', color: 0xb9a0e6, cloth: 0x3d2a63,
-      hp: 560, mana: 340, dmg: 48, aspd: 0, atkRange: 15, atkCd: 1.7, ms: 9.4,
+      hp: 560, mana: 340, dmg: 48, aspd: 0, atkRange: 15, atkCd: 1.7, ms: 8.2,
       combo: 'W скелет из трупа → Q волна → R жатва = хил',
       abilities: [
         { key: 'Q', name: 'Волна смерти', mana: 60, cd: 9, type: 'point', range: 24, desc: 'Волна урона по площади', exec(h, t, s) { aoe(h, t.x, t.z, 6.5, s.dmg, { color: 0x9a7fd4 }); } },
@@ -105,7 +107,7 @@
     },
     {
       id: 'jin', name: 'Джин Монах', role: 'Саппорт', color: 0xffe9a0, cloth: 0x8f7a2a,
-      hp: 600, mana: 360, dmg: 46, aspd: 0, atkRange: 14, atkCd: 1.6, ms: 9.8,
+      hp: 600, mana: 360, dmg: 46, aspd: 0, atkRange: 14, atkCd: 1.6, ms: 8.6,
       combo: 'W стан → Q хил союзника → R воскрешение',
       abilities: [
         { key: 'Q', name: 'Исцеление', mana: 55, cd: 8, type: 'unit', range: 22, desc: 'Лечит союзника (или себя)', exec(h, t, s) { heal(h, t, s.dmg); } },
@@ -117,7 +119,7 @@
     },
     {
       id: 'kris', name: 'Крис Разбойник', role: 'Ассасин', color: 0xe6a0b5, cloth: 0x632a3d,
-      hp: 560, mana: 300, dmg: 58, aspd: 15, atkRange: 4, atkCd: 1.4, ms: 10.6,
+      hp: 560, mana: 300, dmg: 58, aspd: 15, atkRange: 4, atkCd: 1.4, ms: 9.4,
       combo: 'W невидимость → удар в спину (E ×1.5) → R казнь',
       abilities: [
         { key: 'Q', name: 'Бросок кинжалов', mana: 45, cd: 7, type: 'point', range: 18, desc: 'Конус кинжалов по врагам', exec(h, t, s) { coneShot(h, t, 5, s.dmg, 0xffc2d4); } },
@@ -129,7 +131,7 @@
     },
     {
       id: 'freya', name: 'Фрея Ледяная', role: 'Контроль', color: 0xa0d4ff, cloth: 0x2a4d6b,
-      hp: 540, mana: 360, dmg: 48, aspd: 0, atkRange: 16, atkCd: 1.6, ms: 9.6,
+      hp: 540, mana: 360, dmg: 48, aspd: 0, atkRange: 16, atkCd: 1.6, ms: 8.4,
       combo: 'Q замедлила → W стена отрезала → R метель',
       abilities: [
         { key: 'Q', name: 'Ледяной осколок', mana: 50, cd: 7, type: 'unit', range: 24, desc: 'Урон + замедление 50% на 2 сек', exec(h, t, s) { proj(h, t, { speed: 34, dmg: s.dmg, slow: 0.5, color: 0xbfe4ff }); } },
@@ -141,7 +143,7 @@
     },
     {
       id: 'torg', name: 'Торг Огр', role: 'Бruiser', color: 0xd4c28f, cloth: 0x4d6b2a,
-      hp: 820, mana: 240, dmg: 60, aspd: 0, atkRange: 4, atkCd: 1.5, ms: 9.4,
+      hp: 820, mana: 240, dmg: 60, aspd: 0, atkRange: 4, atkCd: 1.5, ms: 8.2,
       combo: 'Q прыжок в толпу → W разбросал → R ярость',
       abilities: [
         { key: 'Q', name: 'Прыжок', mana: 55, cd: 10, type: 'point', range: 18, desc: 'Прыжок в точку: урон + стан 1 сек', exec(h, t, s) { leap(h, t, s.dmg); } },
@@ -153,7 +155,7 @@
     },
     {
       id: 'zik', name: 'Зик Часовщик', role: 'Хроно', color: 0xc9b388, cloth: 0x63512a,
-      hp: 580, mana: 340, dmg: 50, aspd: 0, atkRange: 15, atkCd: 1.6, ms: 9.8,
+      hp: 580, mana: 340, dmg: 50, aspd: 0, atkRange: 15, atkCd: 1.6, ms: 8.6,
       combo: 'Q замедлил врагов → W ускорился → R откат назад',
       abilities: [
         { key: 'Q', name: 'Ловушка времени', mana: 60, cd: 11, type: 'point', range: 22, desc: 'Зона: враги замедлены на 60% 3 сек', exec(h, t) { zone(h, t.x, t.z, 6, 3, { slow: 0.6, dps: 0, color: 0xd4c08a }); } },
@@ -165,7 +167,7 @@
     },
     {
       id: 'gnil', name: 'Гнил Падальщик', role: 'Яд', color: 0xa8cc66, cloth: 0x3d4d1f,
-      hp: 760, mana: 280, dmg: 54, aspd: 0, atkRange: 5, atkCd: 1.6, ms: 9.0,
+      hp: 760, mana: 280, dmg: 54, aspd: 0, atkRange: 5, atkCd: 1.6, ms: 7.8,
       combo: 'Q яд → W облако промахов → R взрыв в толпе',
       abilities: [
         { key: 'Q', name: 'Плевок ядом', mana: 45, cd: 8, type: 'unit', range: 18, desc: 'Урон + яд (30/сек, 4 сек)', exec(h, t, s) { proj(h, t, { speed: 28, dmg: s.dmg, dot: { dps: 30, dur: 4 }, color: 0xb8e066 }); } },
@@ -177,7 +179,7 @@
     },
     {
       id: 'astra', name: 'Астра Странница', role: 'Бёрст-маг', color: 0xffc2e6, cloth: 0x6b2a4d,
-      hp: 540, mana: 380, dmg: 52, aspd: 0, atkRange: 16, atkCd: 1.7, ms: 9.6,
+      hp: 540, mana: 380, dmg: 52, aspd: 0, atkRange: 16, atkCd: 1.7, ms: 8.4,
       combo: 'W блинк → Q звезда → R метеорит',
       abilities: [
         { key: 'Q', name: 'Звёздный снаряд', mana: 50, cd: 6, type: 'unit', range: 26, desc: 'Быстрый снаряд с уроном', exec(h, t, s) { proj(h, t, { speed: 44, dmg: s.dmg, color: 0xffc2e6 }); } },
@@ -189,7 +191,7 @@
     },
     {
       id: 'undina', name: 'Ундина Морская', role: 'Маг воды', color: 0x8fd4e6, cloth: 0x1f4d5c,
-      hp: 580, mana: 350, dmg: 50, aspd: 0, atkRange: 15, atkCd: 1.6, ms: 9.6,
+      hp: 580, mana: 350, dmg: 50, aspd: 0, atkRange: 15, atkCd: 1.6, ms: 8.4,
       combo: 'W щит на себя → Q волна по линии → R Кракен',
       abilities: [
         { key: 'Q', name: 'Волна', mana: 55, cd: 8, type: 'point', range: 24, desc: 'Волна: урон всем на линии', exec(h, t, s) { lineShot(h, t, 6.5, s.dmg, 0x9fe0f2); } },
@@ -202,28 +204,44 @@
   ];
   const heroById = id => HEROES.find(h => h.id === id);
 
-  // ---------- 3D-МОДЕЛИ ИЗ ИНТЕРНЕТА (открытые лицензии: Mixamo, CC0) ----------
+  // ---------- 3D-МОДЕЛИ (CC0: KayKit + Quaternius — мультяшные, каждый герой уникален) ----------
   const S2_SERVER = 'https://support-hub-server-v3.onrender.com';
   const S2_HERO_MODEL = {
-    varg:   { model: 'xbot',    scale: 1.0 },   // маг молнии — робот-зачарованный
-    mord:   { model: 'soldier', scale: 1.2 },   // тюремщик — бронированный солдат
-    silva:  { model: 'soldier', scale: 0.95 },  // лучница
-    ksul:   { model: 'robot',   scale: 0.95 },  // некромант — голем
-    jin:    { model: 'soldier', scale: 1.02 },  // монах
-    kris:   { model: 'xbot',    scale: 0.9 },   // разбойник
-    freya:  { model: 'xbot',    scale: 1.0 },   // ледяная
-    torg:   { model: 'robot',   scale: 1.6 },   // огр — большой голем
-    zik:    { model: 'robot',   scale: 1.0 },   // часовщик — механический голем
-    gnil:   { model: 'robot',   scale: 1.12 },  // падальщик — гнилой голем
-    astra:  { model: 'xbot',    scale: 1.0 },   // странница
-    undina: { model: 'soldier', scale: 1.0 },   // морская
+    varg:   { model: 'varg',    scale: 1.0 },   // маг молнии — Quaternius Wizard
+    mord:   { model: 'kknight', scale: 1.1 },   // тюремщик — KayKit Knight
+    silva:  { model: 'khood',   scale: 0.95 },  // лучница — KayKit Rogue Hooded
+    ksul:   { model: 'kskmage', scale: 1.0 },   // некромант — KayKit Skeleton Mage
+    jin:    { model: 'jin',     scale: 1.0 },   // монах — Quaternius Monkroose
+    kris:   { model: 'krogue',  scale: 0.95 },  // разбойник — KayKit Rogue
+    freya:  { model: 'kmage',   scale: 1.0 },   // ледяная — KayKit Mage
+    torg:   { model: 'torg',    scale: 1.3 },   // огр — Quaternius Orc (крупный)
+    zik:    { model: 'robot',   scale: 1.0 },   // часовщик — механический робот
+    gnil:   { model: 'gnil',    scale: 1.05 },  // падальщик — Mushroom King
+    astra:  { model: 'astra',   scale: 1.0 },   // странница — Quaternius Witch
+    undina: { model: 'undina',  scale: 1.05 },  // морская — Quaternius Glub (летучая)
   };
+  const QA = n => 'CharacterArmature|' + n;
   const S2_MODELS = {
-    soldier: { url: 'models/s2/soldier.glb', height: 2.1, anims: { idle: 'Idle', walk: 'Walk', run: 'Run' } },
-    xbot:    { url: 'models/s2/xbot.glb',    height: 2.3, anims: { idle: 'idle', walk: 'walk', run: 'run' } },
-    robot:   { url: 'models/s2/robot.glb',   height: 2.1, anims: { idle: 'Idle', walk: 'Walking', run: 'Running', attack: 'Punch', death: 'Death' } },
-    fox:     { url: 'models/s2/fox.glb',     height: 1.5, anims: { idle: 'Survey', walk: 'Walk', run: 'Run' } },
-    parrot:  { url: 'models/s2/parrot.glb',  height: 0.8, anims: { idle: 'parrot_A_', walk: 'parrot_A_', run: 'parrot_A_' } },
+    // KayKit (CC0) — одна библиотека анимаций на всех
+    kknight:  { url: 'models/s2/kk_Knight.glb',         height: 2.2, anims: { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', attack: '2H_Melee_Attack_Slice', death: 'Death_A' } },
+    kmage:    { url: 'models/s2/kk_Mage.glb',           height: 2.2, anims: { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', attack: 'Spellcast_Shoot', death: 'Death_A' } },
+    krogue:   { url: 'models/s2/kk_Rogue.glb',          height: 2.1, anims: { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', attack: 'Dualwield_Melee_Attack_Slice', death: 'Death_A' } },
+    khood:    { url: 'models/s2/kk_Rogue_Hooded.glb',   height: 2.1, anims: { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', attack: '1H_Ranged_Shoot', death: 'Death_A' } },
+    kskmage:  { url: 'models/s2/kk_Skeleton_Mage.glb',  height: 2.2, anims: { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', attack: 'Spellcast_Shoot', death: 'Death_A' } },
+    ksminion: { url: 'models/s2/kk_Skeleton_Minion.glb',height: 1.9, anims: { idle: 'Idle', walk: 'Walking_A', run: 'Running_A', attack: '1H_Melee_Attack_Chop', death: 'Death_A' } },
+    // Quaternius (CC0)
+    varg:   { url: 'models/s2/varg.glb',   height: 2.3, anims: { idle: QA('Idle'), walk: QA('Walk'), run: QA('Walk'), death: QA('Death') } },
+    jin:    { url: 'models/s2/jin.glb',    height: 2.2, anims: { idle: QA('Idle'), walk: QA('Walk'), run: QA('Run'), attack: QA('Punch'), death: QA('Death') } },
+    astra:  { url: 'models/s2/astra.glb',  height: 2.2, anims: { idle: QA('Idle'), walk: QA('Walk'), run: QA('Run'), attack: QA('Sword_Slash'), death: QA('Death') } },
+    torg:   { url: 'models/s2/torg.glb',   height: 2.6, anims: { idle: QA('Idle'), walk: QA('Walk'), run: QA('Run'), attack: QA('Punch'), death: QA('Death') } },
+    gnil:   { url: 'models/s2/gnil.glb',   height: 2.2, anims: { idle: QA('Idle'), walk: QA('Walk'), run: QA('Run'), attack: QA('Punch'), death: QA('Death') } },
+    undina: { url: 'models/s2/undina.glb', height: 2.4, anims: { idle: QA('Flying_Idle'), walk: QA('Fast_Flying'), run: QA('Fast_Flying'), attack: QA('Headbutt'), death: QA('Death') } },
+    demon:  { url: 'models/s2/creep_ranged.glb', height: 1.9, anims: { idle: QA('Idle'), walk: QA('Walk'), run: QA('Run'), attack: QA('Punch'), death: QA('Death') } },
+    kraken: { url: 'models/s2/kraken.glb', height: 4.2, anims: { idle: 'Tentacle_Idle', attack: 'Tentacle_Attack' } },
+    // служебные
+    robot:  { url: 'models/s2/robot.glb',   height: 2.1, anims: { idle: 'Idle', walk: 'Walking', run: 'Running', attack: 'Punch', death: 'Death' } },
+    parrot: { url: 'models/s2/parrot.glb',  height: 0.8, anims: { idle: 'parrot_A_', walk: 'parrot_A_', run: 'parrot_A_' } },
+    horse:  { url: 'models/s2/horse.glb',   height: 1.9, anims: { idle: 'horse_A_', walk: 'horse_A_', run: 'horse_A_' } },
   };
   const s2Models = {};   // id -> {scene, animations, norm, yOff}
   let s2ModelsReady = false;
@@ -300,8 +318,12 @@
     });
     const mixer = new THREE.AnimationMixer(model);
     const actions = {};
+    const clips = rec.animations || [];
     for (const k in (S2_MODELS[id].anims || {})) {
-      const clip = THREE.AnimationClip.findByName(rec.animations, S2_MODELS[id].anims[k]);
+      // точное имя, иначе поиск по вхождению (у некоторых GLB имена клипов длинные/кривые)
+      const want = S2_MODELS[id].anims[k];
+      const clip = THREE.AnimationClip.findByName(clips, want) ||
+        clips.find(c => c.name && c.name.toLowerCase().indexOf(String(want).toLowerCase()) >= 0);
       if (clip) actions[k] = mixer.clipAction(clip);
     }
     return { model, mixer, actions, current: null, modelId: id };
@@ -341,7 +363,7 @@
       sc.add(dl);
       const cam = new THREE.PerspectiveCamera(34, 200 / 230, 0.1, 60);
       for (const h of HEROES) {
-        const hm = S2_HERO_MODEL[h.id] || { model: 'soldier', scale: 1 };
+        const hm = S2_HERO_MODEL[h.id] || { model: 'kk_Knight', scale: 1 };
         const inst = instantiateS2Model(hm.model, h.color, (hm.scale || 1) * 1.05);
         if (!inst) continue;
         inst.model.rotation.y = 0.5;
@@ -361,13 +383,13 @@
   }
 
   // ---------- КАРТА ----------
-  const MAP = 170;                 // размер карты (метры)
-  const BASE_R = { x: -64, z: -64 };  // база Radiant (юго-запад)
-  const BASE_D = { x: 64, z: 64 };    // база Dire (северо-восток)
+  const MAP = 210;                 // 3.20.0: карта больше (была 170)
+  const BASE_R = { x: -82, z: -82 };  // база Radiant (юго-запад)
+  const BASE_D = { x: 82, z: 82 };    // база Dire (северо-восток)
   const LANES = {
-    top: [[-60, -60], [-60, -52], [52, -52], [52, 52], [60, 60]],
-    mid: [[-58, -58], [58, 58]],
-    bot: [[-60, -60], [-52, -60], [-52, 52], [52, 60], [60, 60]],
+    top: [[-76, -76], [-76, -64], [64, -64], [64, 64], [76, 76]],
+    mid: [[-74, -74], [74, 74]],
+    bot: [[-76, -76], [-64, -76], [-64, 64], [64, 76], [76, 76]],
   };
   const riverDist = (x, z) => Math.abs(x + z) / Math.SQRT2; // расстояние до реки (диагональ)
   const inRiver = (x, z) => riverDist(x, z) < 5;
@@ -416,59 +438,77 @@
 
   function buildScene() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x9fc7e8);
-    scene.fog = new THREE.Fog(0x9fc7e8, 120, 260);
-    camera = new THREE.PerspectiveCamera(46, 1.6, 0.5, 500);
+    scene.background = new THREE.Color(0x9fd2f0);
+    scene.fog = new THREE.Fog(0x9fd2f0, 160, 390); // 3.20.0: дальняя дымка под большую карту
+    camera = new THREE.PerspectiveCamera(46, 1.6, 0.5, 600);
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 3.20.0: мультяшная картинка — киношная тональная компрессия и sRGB
+    if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+    if (THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12; }
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rootWrap.insertBefore(renderer.domElement, rootWrap.firstChild);
     renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
 
-    scene.add(new THREE.HemisphereLight(0xd8ecff, 0x5a7a4a, 0.85));
-    sunLight = new THREE.DirectionalLight(0xfff2d8, 1.15);
+    // 3.20.0: сочнее — яркое небесное свечение + тёплое солнце
+    scene.add(new THREE.HemisphereLight(0xd8ecff, 0x4a7a3a, 1.0));
+    sunLight = new THREE.DirectionalLight(0xfff0d0, 1.45);
     sunLight.position.set(60, 110, 40);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(2048, 2048);
     const sc = sunLight.shadow.camera;
-    sc.left = -110; sc.right = 110; sc.top = 110; sc.bottom = -110; sc.far = 320;
+    sc.left = -150; sc.right = 150; sc.top = 150; sc.bottom = -150; sc.far = 420;
     scene.add(sunLight);
 
     // --- земля: рисуем траву, тропы по линиям, берега реки ---
     const groundTex = makeCanvas(1024, 1024, (g, w, h) => {
       const px = v => (v + MAP / 2) / MAP * w;
-      g.fillStyle = '#5d8a45'; g.fillRect(0, 0, w, h);
-      // пятна травы
-      for (let i = 0; i < 900; i++) {
-        g.fillStyle = `rgba(${60 + Math.random() * 40 | 0},${110 + Math.random() * 40 | 0},${50 + Math.random() * 30 | 0},0.25)`;
-        const r = 4 + Math.random() * 18;
+      // базовая трава с мягким градиентом
+      const base = g.createRadialGradient(w / 2, h / 2, w * 0.1, w / 2, h / 2, w * 0.75);
+      base.addColorStop(0, '#69a04c'); base.addColorStop(1, '#4f7d3a');
+      g.fillStyle = base; g.fillRect(0, 0, w, h);
+      // пятна травы разных оттенков
+      for (let i = 0; i < 1400; i++) {
+        g.fillStyle = `rgba(${60 + Math.random() * 40 | 0},${115 + Math.random() * 45 | 0},${50 + Math.random() * 30 | 0},0.28)`;
+        const r = 4 + Math.random() * 22;
         g.beginPath(); g.arc(Math.random() * w, Math.random() * h, r, 0, 7); g.fill();
       }
-      // тропы по линиям
-      g.strokeStyle = '#9a7f52'; g.lineCap = 'round'; g.lineJoin = 'round';
+      // цветочки
+      for (let i = 0; i < 260; i++) {
+        g.fillStyle = pick(['#ffd34a', '#ff8fb5', '#c9e6ff', '#ffffff', '#ffb066']);
+        g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 1.6 + Math.random() * 1.8, 0, 7); g.fill();
+      }
+      // тропы по линиям: обводка + основа
       for (const key of ['top', 'mid', 'bot']) {
         const pts = LANES[key];
-        g.lineWidth = 26; g.globalAlpha = 0.9;
+        g.lineCap = 'round'; g.lineJoin = 'round';
+        g.strokeStyle = 'rgba(90,70,40,0.55)'; g.lineWidth = 34; g.globalAlpha = 0.9;
+        g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
+        for (let i = 1; i < pts.length; i++) g.lineTo(px(pts[i][0]), px(pts[i][1]));
+        g.stroke();
+        g.strokeStyle = '#a5855a'; g.lineWidth = 26;
         g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
         for (let i = 1; i < pts.length; i++) g.lineTo(px(pts[i][0]), px(pts[i][1]));
         g.stroke();
       }
       g.globalAlpha = 1;
-      // река: диагональная полоса
+      // река: диагональная полоса с песчаными берегами
       g.save();
       g.translate(w / 2, h / 2); g.rotate(-Math.PI / 4);
       const rw = 5 * Math.SQRT2 / MAP * w;
+      g.fillStyle = 'rgba(190,170,110,0.85)';
+      g.fillRect(-w, -rw * 1.5, w * 2, rw * 3);
       const grad = g.createLinearGradient(0, -rw, 0, rw);
-      grad.addColorStop(0, 'rgba(70,120,160,0)');
-      grad.addColorStop(0.5, 'rgba(70,130,175,0.95)');
-      grad.addColorStop(1, 'rgba(70,120,160,0)');
+      grad.addColorStop(0, 'rgba(80,140,185,0.9)');
+      grad.addColorStop(0.5, 'rgba(95,160,205,0.95)');
+      grad.addColorStop(1, 'rgba(80,140,185,0.9)');
       g.fillStyle = grad;
       g.fillRect(-w, -rw, w * 2, rw * 2);
       g.restore();
     });
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(MAP + 60, MAP + 60),
+      new THREE.PlaneGeometry(MAP + 80, MAP + 80),
       new THREE.MeshLambertMaterial({ map: groundTex })
     );
     ground.rotation.x = -Math.PI / 2;
@@ -476,19 +516,19 @@
     scene.add(ground);
 
     // --- река: живой водный слой поверх нарисованной ---
-    waterGeo = new THREE.PlaneGeometry(MAP * 1.6, 11, 60, 4);
+    waterGeo = new THREE.PlaneGeometry(MAP * 1.5, 12, 70, 4);
     waterMesh = new THREE.Mesh(waterGeo, new THREE.MeshPhongMaterial({
-      color: 0x4a90c8, transparent: true, opacity: 0.78, shininess: 120, specular: 0xbfe8ff,
+      color: 0x55a0d8, transparent: true, opacity: 0.82, shininess: 140, specular: 0xd8f0ff,
     }));
     waterMesh.rotation.x = -Math.PI / 2;
     waterMesh.rotation.z = Math.PI / 4;
     waterMesh.position.y = 0.12;
     scene.add(waterMesh);
 
-    // --- деревья: инстансированные сосны в лесных массивах ---
+    // --- деревья: инстансированные сосны разных оттенков в лесных массивах ---
     const treePos = [];
     let guard = 0;
-    while (treePos.length < 260 && guard++ < 4000) {
+    while (treePos.length < 330 && guard++ < 6000) {
       const x = rand(-MAP / 2 + 6, MAP / 2 - 6), z = rand(-MAP / 2 + 6, MAP / 2 - 6);
       if (distToLane('top', x, z) < 9 || distToLane('mid', x, z) < 8 || distToLane('bot', x, z) < 9) continue;
       if (riverDist(x, z) < 9) continue;
@@ -499,27 +539,29 @@
     const trunkGeo = new THREE.CylinderGeometry(0.28, 0.42, 2.4, 6);
     const crownGeo = new THREE.ConeGeometry(2.1, 5.4, 7);
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2f });
-    const crownMat = new THREE.MeshLambertMaterial({ color: 0x3f7034 });
+    const crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // оттенок задаём на инстанс
     const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treePos.length);
     const crowns = new THREE.InstancedMesh(crownGeo, crownMat, treePos.length);
     trunks.castShadow = crowns.castShadow = true;
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), Pv = new THREE.Vector3();
+    const treeCol = new THREE.Color();
     treePos.forEach((p, i) => {
-      const s = rand(0.8, 1.35);
+      const s = rand(0.8, 1.4);
       Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(0, 6.28));
       S.set(s, s, s);
       M.compose(Pv.set(p[0], 1.2 * s, p[1]), Q, S); trunks.setMatrixAt(i, M);
       M.compose(Pv.set(p[0], (2.4 + 2.4) * s * 0.9, p[1]), Q, S); crowns.setMatrixAt(i, M);
+      crowns.setColorAt(i, treeCol.setHSL(0.29 + rand(-0.04, 0.05), rand(0.42, 0.55), rand(0.3, 0.42)));
       obstacles.push({ x: p[0], z: p[1], r: 0.9 * s });
       trees.push({ x: p[0], z: p[1], hp: 1 });
     });
     scene.add(trunks); scene.add(crowns);
 
-    // --- декор: камни ---
+    // --- декор: камни и кусты ---
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x8a8a85 });
-    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 40);
-    for (let i = 0; i < 40; i++) {
+    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 46);
+    for (let i = 0; i < 46; i++) {
       const x = rand(-MAP / 2 + 4, MAP / 2 - 4), z = rand(-MAP / 2 + 4, MAP / 2 - 4);
       const s = rand(0.5, 1.6);
       Q.setFromAxisAngle(new THREE.Vector3(rand(0, 1), 1, rand(0, 1)).normalize(), rand(0, 6));
@@ -528,6 +570,36 @@
     }
     rocks.castShadow = true;
     scene.add(rocks);
+    const bushGeo = new THREE.IcosahedronGeometry(1, 0);
+    const bushMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const bushes = new THREE.InstancedMesh(bushGeo, bushMat, 90);
+    for (let i = 0; i < 90; i++) {
+      const x = rand(-MAP / 2 + 4, MAP / 2 - 4), z = rand(-MAP / 2 + 4, MAP / 2 - 4);
+      if (riverDist(x, z) < 7 || distToLane('mid', x, z) < 8) { continue; }
+      const s = rand(0.5, 1.1);
+      Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(0, 6.28));
+      M.compose(Pv.set(x, s * 0.5, z), Q, S.set(s, s * 0.62, s));
+      bushes.setMatrixAt(i, M);
+      bushes.setColorAt(i, treeCol.setHSL(0.27 + rand(-0.03, 0.06), 0.5, rand(0.32, 0.44)));
+    }
+    scene.add(bushes);
+
+    // --- 3.20.0: облака-подушки в небе ---
+    const cloudGeo = new THREE.SphereGeometry(1, 10, 7);
+    const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
+    for (let i = 0; i < 14; i++) {
+      const cl = new THREE.Group();
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let j = 0; j < n; j++) {
+        const puff = new THREE.Mesh(cloudGeo, cloudMat);
+        puff.scale.set(rand(5, 10), rand(1.8, 3), rand(3.5, 6));
+        puff.position.set(j * rand(4, 6) - n * 2.5, rand(-0.5, 0.5), rand(-2, 2));
+        cl.add(puff);
+      }
+      cl.position.set(rand(-MAP, MAP), rand(55, 80), rand(-MAP, MAP));
+      scene.add(cl);
+      effects.push({ mesh: cl, ttl: Infinity, update(e, dt) { e.mesh.position.x += dt * 1.1; if (e.mesh.position.x > MAP + 60) e.mesh.position.x = -MAP - 60; } });
+    }
 
     // --- базы: фонтан + трон ---
     buildBase('r', BASE_R.x, BASE_R.z, 0x3f9fe0);
@@ -535,7 +607,6 @@
 
     // --- вышки ---
     for (const side of ['r', 'd']) {
-      const enemy = side === 'r' ? 'd' : 'r';
       for (const lane of ['top', 'mid', 'bot']) {
         makeTower(side, lanePoint(lane, side === 'r' ? 0.36 : 0.64), lane, 1);
         makeTower(side, lanePoint(lane, side === 'r' ? 0.18 : 0.82), lane, 2);
@@ -721,20 +792,23 @@
     if (!u.rig || !u.heroDef) return;
     const w = buildWeapon(HERO_WEAPON[u.heroDef.id] || 'sword', u.heroDef.color);
     let hand = null;
-    u.rig.model.traverse(o => { if (!hand && o.isBone && /right.*hand/i.test(o.name)) hand = o; });
+    // 3.20.0: разные риги называют кость руки по-разному (KayKit/Quaternius/soldier)
+    const pats = [/right.*hand/i, /hand.*right/i, /handr$/i, /^r.*hand/i, /wrist.*r$/i];
+    for (const pat of pats) {
+      u.rig.model.traverse(o => { if (!hand && o.isBone && pat.test(o.name)) hand = o; });
+      if (hand) break;
+    }
+    if (!hand) return; // кости руки нет — без оружия (парящий меч выглядел плохо)
     if (hand) {
       try {
         u.rig.model.updateMatrixWorld(true);
         const ws = new THREE.Vector3();
         hand.getWorldScale(ws);
-        w.scale.setScalar(1 / Math.max(Math.abs(ws.x) || 1, 1e-6)); // мировый размер оружия ~1 м
+        w.scale.setScalar(1 / Math.max(Math.abs(ws.x) || 1, 1e-6)); // мировой размер оружия ~1 м
         w.rotation.set(Math.PI / 2, 0, 0);
         hand.add(w);
-        return;
-      } catch (e) { /* fallback ниже */ }
+      } catch (e) { /* без оружия */ }
     }
-    w.position.set(0.42, 1.15, 0.15);
-    if (u.mesh) u.mesh.add(w);
   }
   // табличка с ником над героем (цвет команды)
   function addNameplate(u) {
@@ -759,6 +833,8 @@
       hp: 100, maxHp: 100, mana: 0, maxMana: 0,
       dmg: 20, aspd: 0, armor: 0, atkRange: 4, atkCd: 1.5, atkT: 0,
       baseMs: 8, radius: opts.isHero ? 0.9 : 0.7,
+      face: 0, // 3.20.0: направление взгляда (рад); движение и атаки идут по взгляду, как в Доте
+      tr: opts.heroDef ? (opts.heroDef.atkRange > 6 ? 9.5 : 12.5) : (opts.isTower || opts.isAncient ? 0 : 10), // скорость поворота, рад/с
       lvl: 1, xp: 0, gold: 0, lh: 0, kills: 0, deaths: 0, assists: 0,
       inventory: [], stash: [],
       abilities: [], buffs: [], shieldHp: 0,
@@ -780,7 +856,7 @@
       u.baseMs = opts.heroDef.ms;
       u.abilities = opts.heroDef.abilities.map(a => ({ def: a, lvl: a.type === 'passive' ? 1 : 0, cdT: 0 }));
       u.skillPts = 1; // 3.19.1: первая очка прокачки — игрок решает сам
-      const hm = S2_HERO_MODEL[opts.heroDef.id] || { model: 'soldier', scale: 1 };
+      const hm = S2_HERO_MODEL[opts.heroDef.id] || { model: 'kk_Knight', scale: 1 };
       attachModel(u, hm.model, opts.heroDef.color, hm.scale, () => heroMesh(opts.heroDef, opts.team), 2.9);
       attachWeapon(u);   // 3.19.1: оружие в руке
       addNameplate(u);   // 3.19.1: ник над героем
@@ -789,15 +865,16 @@
       u.dmg = opts.ranged ? 42 : 34; u.atkRange = opts.ranged ? 16 : 2.2; u.atkCd = opts.ranged ? 1.3 : 1.2;
       u.baseMs = 7.6; u.bounty = opts.ranged ? 46 : 40; u.xpBounty = opts.ranged ? 60 : 55;
       const teamTint = opts.team === 'r' ? 0x9fd0ff : 0xffb09a;
-      attachModel(u, opts.ranged ? 'xbot' : 'soldier', teamTint, opts.ranged ? 0.52 : 0.55,
-        () => creepMesh(opts.team, opts.ranged), opts.ranged ? 2.1 : 1.9);
+      // 3.20.0: мультяшные крипы — скелеты-миньоны вблизи, демоны вдали
+      attachModel(u, opts.ranged ? 'demon' : 'ksminion', teamTint, opts.ranged ? 0.62 : 0.58,
+        () => creepMesh(opts.team, opts.ranged), opts.ranged ? 2.2 : 2.0);
     } else if (opts.isSummon) {
       u.maxHp = opts.hp || 350; u.hp = u.maxHp;
       u.dmg = opts.dmg || 40; u.atkRange = 2.5; u.atkCd = 1.2; u.baseMs = 9;
       u.bounty = 20; u.xpBounty = 20; u.summonT = opts.life || 25;
       const isKraken = /Кракен/.test(opts.name || '');
-      attachModel(u, isKraken ? 'fox' : 'robot', isKraken ? 0x3f8fbf : 0xd8d0c0, isKraken ? 2.3 : 0.5,
-        () => { const m = creepMesh(opts.team, false); m.scale.setScalar(1.3); return m; }, isKraken ? 2.6 : 2.2);
+      attachModel(u, isKraken ? 'kraken' : 'ksminion', isKraken ? 0x3f8fbf : 0xd8d0c0, isKraken ? 1.6 : 0.5,
+        () => { const m = creepMesh(opts.team, false); m.scale.setScalar(1.3); return m; }, isKraken ? 3.4 : 2.2);
     }
     if (!u.mesh && opts.isTower !== true && !opts.isAncient) {
       u.mesh = new THREE.Group();
@@ -1551,12 +1628,13 @@
     const t = u.target;
     if (!t || !t.alive) { u.target = null; return; }
     const dd = d2(u.x, u.z, t.x, t.z) - t.radius;
+    // 3.20.0: сначала разворачиваемся к цели — удар только лицом к врагу
+    turnTo(u, Math.atan2(t.x - u.x, t.z - u.z), dt);
     if (dd <= u.atkRange) {
+      if (Math.abs(angDiff(u.face, Math.atan2(t.x - u.x, t.z - u.z))) > 0.45) return; // доворачиваем
       u.atkT = u.atkCd * (100 / (100 + effAspd(u)));
       u.atkCount++;
       u.atkAnimT = u.rig && u.rig.actions.attack ? 0.55 : 0.3; // анимация атаки
-      // поворот к цели
-      if (u.mesh) u.mesh.rotation.y = Math.atan2(t.x - u.x, t.z - u.z);
       // заряд Варга (работает и в ближнем, и в дальнем бою)
       if (u.isHero && u.heroDef.id === 'varg' && u.atkCount % 3 === 0) {
         dealDamage(u, t, 60 + spellPower(u), { spell: true });
@@ -1590,14 +1668,28 @@
   function isStunned(u) { return u.buffs.some(b => b.mods && b.mods.stun); }
   function isStealthed(u) { return u.buffs.some(b => b.mods && b.mods.stealth); }
 
+  // 3.20.0: дота-физика — разворот за ограниченное время (turn rate), движение по взгляду
+  function angDiff(a, b) {
+    let d = b - a;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+  function turnTo(u, ang, dt) {
+    const step = (u.tr || 10) * dt;
+    u.face += clamp(angDiff(u.face, ang), -step, step);
+    if (u.mesh) u.mesh.rotation.y = u.face;
+  }
   function moveToward(u, tx, tz, dt) {
     const dd = d2(u.x, u.z, tx, tz);
     if (dd < 0.4) return true;
+    const want = Math.atan2(tx - u.x, tz - u.z);
+    turnTo(u, want, dt);
     const ms = moveSpeed(u) * (isStunned(u) ? 0 : 1);
-    u.x += (tx - u.x) / dd * ms * dt;
-    u.z += (tz - u.z) / dd * ms * dt;
+    // идём туда, куда смотрим: резкий разворот = плавная дуга, как в Доте
+    u.x += Math.sin(u.face) * ms * dt;
+    u.z += Math.cos(u.face) * ms * dt;
     u.moving = true;
-    if (u.mesh && !u.target) u.mesh.rotation.y = Math.atan2(tx - u.x, tz - u.z);
     collideObstacles(u);
     return d2(u.x, u.z, tx, tz) < 0.5;
   }
@@ -1617,7 +1709,8 @@
           u.x = base.x + rand(-4, 4); u.z = base.z + rand(-4, 4);
           u.hp = u.maxHp; u.mana = u.maxMana;
           u.buffs.length = 0; u.shieldHp = 0;
-          if (u.mesh) u.mesh.visible = true;
+          u.face = 0;
+          if (u.mesh) { u.mesh.visible = true; u.mesh.rotation.y = 0; }
           if (u.bot) u.ai.state = 'push';
           syncMesh(u);
         }
@@ -1703,12 +1796,12 @@
         if (t) { u.target = t; u.aggroT = 3; }
         else {
           // движение по вейпоинтам линии
-          u.waypointT = Math.min(1, u.waypointT + dt * moveSpeed(u) / 160);
+          u.waypointT = Math.min(1, u.waypointT + dt * moveSpeed(u) / 200); // 3.20.0: карта больше
           if (u.waypointT >= 0.999) {
             // дошли до вражеской базы — бьём трон
             const eb = u.team === 'r' ? BASE_D : BASE_R;
             const anc = units.find(a => a.isAncient && a.team !== u.team);
-            if (anc && d2(u.x, u.z, anc.x, anc.z) < 30) u.target = anc;
+            if (anc && d2(u.x, u.z, anc.x, anc.z) < 38) u.target = anc;
           } else {
             const wp = lanePoint(u.lane, u.team === 'r' ? u.waypointT : 1 - u.waypointT);
             if (wp) moveToward(u, wp.x + (u.id % 5 - 2), wp.z + (u.id % 3 - 1), dt);
@@ -1753,7 +1846,7 @@
     const lowHp = u.hp / u.maxHp < 0.3;
 
     // покупки
-    const build = ['boots', 'blade', 'bow', 'armor', 'heart', 'fang', 'frost', 'crusher', 'hyper', 'plate'];
+    const build = ['boots', 'boots2', 'blade', 'bow', 'armor', 'boots3', 'heart', 'fang', 'frost', 'crusher', 'hyper', 'plate'];
     if (u.gold > 900 && u.inventory.length < 6) {
       const it = build.find(id => !u.inventory.includes(id) && itemById(id).cost <= u.gold);
       if (it) { u.gold -= itemById(it).cost; u.inventory.push(it); recalcStats(u); }
@@ -1808,6 +1901,11 @@
     }
     const s = { dmg: abilityDmg(u, u.abilities.indexOf(a)) };
     const pt = target && target.x != null ? { x: target.x, z: target.z } : { x: u.x, z: u.z };
+    // 3.20.0: каст разворачивает героя к цели
+    if (target && target.x != null) {
+      u.face = Math.atan2(target.x - u.x, target.z - u.z);
+      if (u.mesh) u.mesh.rotation.y = u.face;
+    }
     a.def.exec(u, target && target.alive !== undefined ? target : pt, s);
     // 3.19.1: анимация каста — герой «взмахивает» (если у модели есть анимация атаки) + вспышка
     u.atkAnimT = 0.55;
@@ -2531,15 +2629,18 @@
         u.push([0, x.name, x.team, px, pz, hp, al, x.lvl, Math.floor(x.gold), Math.round(x.mana),
           x.kills, x.deaths, x.lh, x.xp, x.inventory.join('.'),
           x.abilities.map(a => Math.round(a.cdT * 10) / 10), atk,
-          x.abilities.map(a => a.lvl), x.assists || 0, x.skillPts || 0]);
+          x.abilities.map(a => a.lvl), x.assists || 0, x.skillPts || 0,
+          Math.round((x.face || 0) * 100) / 100]); // 3.20.0: направление взгляда
       } else if (x.isTower) {
         u.push([1, x.team + ':' + x.lane + ':' + x.tier, x.team, px, pz, hp, al]);
       } else if (x.isAncient) {
         u.push([2, x.team, x.team, px, pz, hp, al]);
       } else if (x.isCreep) {
-        u.push([3, x.id, x.team, px, pz, hp, al, x.atkRange > 6 ? 1 : 0, atk]);
+        u.push([3, x.id, x.team, px, pz, hp, al, x.atkRange > 6 ? 1 : 0, atk,
+          Math.round((x.face || 0) * 100) / 100]);
       } else if (x.isSummon) {
-        u.push([4, x.id, x.team, px, pz, hp, al, 0, atk, x.name]);
+        u.push([4, x.id, x.team, px, pz, hp, al, 0, atk, x.name,
+          Math.round((x.face || 0) * 100) / 100]);
       } else if (x.isCourier) {
         u.push([5, x.id, x.team, px, pz, 1, 1, Math.round((x.y || 2.4) * 10) / 10]);
       }
@@ -2554,6 +2655,9 @@
     x.hp = e[5];
     x.alive = !!e[6];
     if (e[8]) x.atkAnimT = 0.35;
+    // 3.20.0: направление взгляда — последнее числовое поле записи
+    const last = e[e.length - 1];
+    if (typeof last === 'number') x.netFace = last;
   }
 
   function createClientUnit(e) {
@@ -2649,7 +2753,9 @@
         x.x += (x.netTX - x.x) * k;
         x.z += (x.netTZ - x.z) * k;
         x.moving = d2(ox, oz, x.x, x.z) > 0.03;
-        if (x.moving && x.mesh) x.mesh.rotation.y = Math.atan2(x.x - ox, x.z - oz);
+        // 3.20.0: плавно доворачиваем модель к направлению от хоста
+        if (x.netFace != null) turnTo(x, x.netFace, dt);
+        else if (x.moving && x.mesh) x.mesh.rotation.y = Math.atan2(x.x - ox, x.z - oz);
       }
       tickRig(x, dt);
       updateHpBar(x);

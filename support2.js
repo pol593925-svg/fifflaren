@@ -1476,6 +1476,7 @@
   // ---------- HUD ----------
   function buildHud() {
     if (ui.hud) ui.hud.remove();
+    rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove()); // старые кнопки/панели верха
     const hud = el('div', 'position:absolute;left:0;right:0;bottom:0;height:158px;display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:0 10px 8px;background:linear-gradient(transparent,rgba(10,12,18,0.92) 30%);z-index:20;pointer-events:none;', rootWrap);
     ui.hud = hud;
     // панель героя
@@ -1513,17 +1514,26 @@
     shopBtn.onclick = toggleShop;
     // тултип
     ui.tip = el('div', 'position:absolute;bottom:170px;left:50%;transform:translateX(-50%);max-width:420px;display:none;background:rgba(10,14,22,0.95);border:1px solid #4a5468;border-radius:8px;padding:8px 12px;font-size:12px;color:#e8dfc8;z-index:40;pointer-events:none;', rootWrap);
+    ui.tip.dataset.s2top = '1';
     // фид
     ui.feed = el('div', 'position:absolute;top:8px;left:10px;width:330px;z-index:20;pointer-events:none;background:rgba(10,12,18,0.55);border-radius:8px;padding:4px 0;', rootWrap);
+    ui.feed.dataset.s2top = '1';
     // таймер
     ui.timer = el('div', 'position:absolute;top:8px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:700;color:#e8dfc8;background:rgba(10,12,18,0.6);padding:4px 14px;border-radius:8px;z-index:20;', rootWrap);
+    ui.timer.dataset.s2top = '1';
     // счёт
     ui.score = el('div', 'position:absolute;top:8px;right:190px;font-size:13px;font-weight:700;color:#e8dfc8;background:rgba(10,12,18,0.6);padding:4px 12px;border-radius:8px;z-index:20;', rootWrap);
+    ui.score.dataset.s2top = '1';
     // кнопка выхода
     const exitBtn = el('button', 'position:absolute;top:8px;right:10px;z-index:30;padding:5px 12px;background:#4a1f1f;color:#ffb0a0;border:1px solid #8a3a3a;border-radius:7px;cursor:pointer;', rootWrap, '✖ Выйти');
+    exitBtn.dataset.s2top = '1';
     exitBtn.onclick = () => { showPick(); };
+    const keysBtn = el('button', 'position:absolute;top:8px;right:96px;z-index:30;padding:5px 12px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:7px;cursor:pointer;', rootWrap, '⚙ Клавиши');
+    keysBtn.dataset.s2top = '1';
+    keysBtn.onclick = () => toggleKeysPanel();
     // миникарта
     const mm = el('canvas', 'position:absolute;right:10px;bottom:166px;width:170px;height:170px;border:1px solid #3a4358;border-radius:8px;background:#0a0e14;z-index:25;cursor:crosshair;', rootWrap);
+    mm.dataset.s2top = '1';
     mm.width = 170; mm.height = 170;
     minimapCtx = mm.getContext('2d');
     mm.onclick = (ev) => {
@@ -1547,6 +1557,7 @@
   function buildShop() {
     const sh = el('div', 'position:absolute;right:10px;top:44px;width:290px;max-height:calc(100% - 230px);overflow:auto;display:none;background:rgba(12,16,26,0.96);border:1px solid #4a5468;border-radius:10px;padding:10px;z-index:35;', rootWrap);
     ui.shop = sh;
+    sh.dataset.s2top = '1';
     el('div', 'font-size:14px;font-weight:800;color:#ffd34a;margin-bottom:8px;', sh, '🛒 Магазин (у фонтана зона лечения)');
     for (const it of ITEMS) {
       const row = el('div', 'display:flex;justify-content:space-between;align-items:center;padding:6px;background:#141a28;border-radius:7px;margin-bottom:5px;cursor:pointer;', sh);
@@ -1559,6 +1570,43 @@
     el('div', 'font-size:10px;color:#8a94a8;margin-top:6px;line-height:1.4;', sh, 'Покупка доступна в любом месте — курьер привезёт предмет к герою. Зона магазина у фонтана лечит.');
   }
   function toggleShop() { if (ui.shop) ui.shop.style.display = ui.shop.style.display === 'none' ? 'block' : 'none'; }
+
+  // ---------- ПАНЕЛЬ НАСТРОЕК КЛАВИШ ----------
+  function buildKeyPanel() {
+    if (ui.keysPanel) ui.keysPanel.remove();
+    const p = el('div', 'position:absolute;top:44px;left:50%;transform:translateX(-50%);width:330px;display:none;background:rgba(12,16,26,0.97);border:1px solid #4a5468;border-radius:10px;padding:12px;z-index:45;', rootWrap);
+    ui.keysPanel = p;
+    el('div', 'font-size:14px;font-weight:800;color:#ffd34a;margin-bottom:4px;', p, '⚙ Клавиши способностей');
+    el('div', 'font-size:10.5px;color:#8a94a8;margin-bottom:8px;', p, 'Кликни по слоту и нажми новую клавишу. Escape — отмена.');
+    ui.keyRows = [];
+    ui.keyNames = [];
+    for (let i = 0; i < 4; i++) {
+      const row = el('div', 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 6px;background:#141a28;border-radius:7px;margin-bottom:5px;', p);
+      ui.keyNames[i] = el('div', 'flex:1;font-size:12px;color:#e8dfc8;', row, '');
+      ui.keyRows[i] = el('button', 'min-width:64px;padding:5px 10px;background:#2a3550;color:#fff;border:1px solid #5a6a8f;border-radius:6px;cursor:pointer;font-weight:800;font-size:13px;', row, '');
+      ui.keyRows[i].onclick = () => { bindingIdx = i; refreshKeyPanel(); };
+    }
+    const def = el('button', 'width:100%;margin-top:4px;padding:5px;background:#3a2f14;color:#ffd34a;border:1px solid #8a6b3a;border-radius:6px;cursor:pointer;', p, 'Сбросить (Q W E R)');
+    def.onclick = () => { keybinds = ['q', 'w', 'e', 'r']; saveKeys(); bindingIdx = null; refreshKeyPanel(); if (ui.hud) buildHud(); };
+    refreshKeyPanel();
+    return p;
+  }
+  function refreshKeyPanel() {
+    if (!ui.keyRows) return;
+    for (let i = 0; i < 4; i++) {
+      const label = bindingIdx === i ? '… клавиша' : keybinds[i].toUpperCase();
+      let name = 'Способность ' + (i + 1);
+      if (myHero && myHero.abilities[i]) name = myHero.abilities[i].def.key + '. ' + myHero.abilities[i].def.name;
+      ui.keyRows[i].textContent = label;
+      ui.keyNames[i].textContent = name;
+      ui.keyRows[i].style.background = bindingIdx === i ? '#5a4a1f' : '#2a3550';
+    }
+  }
+  function toggleKeysPanel() {
+    if (!ui.keysPanel) buildKeyPanel();
+    ui.keysPanel.style.display = ui.keysPanel.style.display === 'none' ? 'block' : 'none';
+    refreshKeyPanel();
+  }
 
   function playerCast(i) {
     if (!myHero || !myHero.alive || match.phase !== 'live') return;
@@ -1588,6 +1636,15 @@
       castAbility(myHero, a, { x: mouseGX, z: mouseGZ });
     }
   }
+
+  // ---------- КЛАВИШИ СПОСОБНОСТЕЙ (настраиваются, хранятся локально) ----------
+  let keybinds = ['q', 'w', 'e', 'r'];
+  try {
+    const saved = JSON.parse(localStorage.getItem('s2keys') || 'null');
+    if (Array.isArray(saved) && saved.length === 4) keybinds = saved.map(x => String(x || 'q').toLowerCase().slice(0, 1));
+  } catch (e) {}
+  let bindingIdx = null; // индекс слота, ожидающего нажатия клавиши
+  function saveKeys() { try { localStorage.setItem('s2keys', JSON.stringify(keybinds)); } catch (e) {} }
 
   // ---------- КАМЕРА / ВВОД ----------
   const keys = {};
@@ -1636,13 +1693,25 @@
     window.addEventListener('keydown', e => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
       const k = e.key.toLowerCase();
+      // захват клавиши для переназначения
+      if (bindingIdx != null) {
+        e.preventDefault();
+        if (k === 'escape') { bindingIdx = null; refreshKeyPanel(); return; }
+        if (k.length === 1) {
+          const prev = keybinds.indexOf(k);
+          if (prev >= 0 && prev !== bindingIdx) keybinds[prev] = keybinds[bindingIdx]; // меняем местами
+          keybinds[bindingIdx] = k;
+          saveKeys();
+        }
+        bindingIdx = null;
+        refreshKeyPanel();
+        if (ui.hud) buildHud(); // перерисовать кнопки с новыми клавишами
+        return;
+      }
       keys[k] = true;
       if (e.key === ' ') { keys.space = true; e.preventDefault(); }
       if (match.phase !== 'live') return;
-      if (k === 'q') playerCast(0);
-      if (k === 'w') playerCast(1);
-      if (k === 'e') playerCast(2);
-      if (k === 'r') playerCast(3);
+      for (let i = 0; i < 4; i++) if (k === keybinds[i]) playerCast(i);
       if (k === 'p') toggleShop();
       if (k === 'a') { attackMoveMode = true; if (renderer) renderer.domElement.style.cursor = 'crosshair'; }
       if (k === 's') { // стоп
@@ -1703,7 +1772,7 @@
     for (let i = 0; i < 4; i++) {
       const A = ui.abils[i], a = myHero.abilities[i];
       if (!a) continue;
-      A.key.textContent = a.def.key;
+      A.key.textContent = keybinds[i].toUpperCase();
       A.nm.textContent = a.def.name.split(' ')[0];
       A.lvl.textContent = a.def.type === 'passive' ? 'П' : (a.lvl > 0 ? 'Ур.' + a.lvl : '—');
       if (a.cdT > 0) { A.cd.style.display = 'flex'; A.cd.textContent = Math.ceil(a.cdT); }
@@ -1724,11 +1793,8 @@
   // ---------- ЭКРАН ВЫБОРА ГЕРОЯ ----------
   function showPick() {
     match.phase = 'menu';
-    if (ui.hud) { ui.hud.remove(); ui.hud = null; }
-    if (ui.shop) { ui.shop.remove(); ui.shop = null; }
-    if (ui.feed) { ui.feed.remove(); ui.feed = null; }
-    if (ui.timer) { ui.timer.remove(); ui.timer = null; }
-    if (ui.score) { ui.score.remove(); ui.score = null; }
+    rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove());
+    ui.hud = null; ui.shop = null; ui.feed = null; ui.timer = null; ui.score = null; ui.tip = null; minimapCtx = null;
     rootWrap.querySelectorAll('canvas').forEach(c => { if (c !== renderer.domElement) c.remove(); });
     const old = rootWrap.querySelector('[data-pick]'); if (old) old.remove();
     const oldOv = rootWrap.querySelectorAll('div'); // чистим оверлеи по необходимости
@@ -1749,7 +1815,10 @@
       el('div', 'font-size:9.5px;color:#b8a86a;margin-top:5px;font-style:italic;', card, 'Комбо: ' + h.combo);
       card.onclick = () => { wrap.remove(); setupMatch(h.id); };
     }
-    el('div', 'font-size:11px;color:#5a6478;margin-top:14px;', wrap, 'Правая кнопка — движение/атака · Q W E R — способности (R ульт с 6 уровня) · A — атака-в движении · P — магазин · Колесо — зум · Пробел — к герою · Стрелки — камера');
+    const keysBtn = el('button', 'position:absolute;top:12px;right:14px;padding:7px 14px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:8px;cursor:pointer;font-weight:700;z-index:55;', wrap, '⚙ Клавиши');
+    keysBtn.onclick = (ev) => { ev.stopPropagation(); toggleKeysPanel(); };
+    el('div', 'font-size:11px;color:#5a6478;margin-top:14px;', wrap,
+      `Правая кнопка — движение/атака · Способности: ${keybinds.map(k => k.toUpperCase()).join(' ')} (ульт с 6 ур., меняется в ⚙ Клавиши) · A — атака-движение · P — магазин · Колесо — зум · Пробел — к герою · Стрелки — камера`);
   }
 
   // ---------- ГЛАВНЫЙ ЦИКЛ ----------

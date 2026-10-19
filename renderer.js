@@ -181,6 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tops') loadTops();
       if (tabName === 'battleship') bsTabOpen();
       if (tabName === 'cs16' && typeof window.__cs16Open === 'function') window.__cs16Open(currentUser);
+      if (tabName === 'support2' && typeof window.__s2Open === 'function') window.__s2Open(currentUser);
     });
   });
 

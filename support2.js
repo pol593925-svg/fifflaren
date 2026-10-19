@@ -195,6 +195,132 @@
   ];
   const heroById = id => HEROES.find(h => h.id === id);
 
+  // ---------- 3D-МОДЕЛИ ИЗ ИНТЕРНЕТА (открытые лицензии: Mixamo, CC0) ----------
+  const S2_SERVER = 'https://support-hub-server-v3.onrender.com';
+  const S2_HERO_MODEL = {
+    varg:   { model: 'xbot',    scale: 1.0 },   // маг молнии — робот-зачарованный
+    mord:   { model: 'soldier', scale: 1.2 },   // тюремщик — бронированный солдат
+    silva:  { model: 'soldier', scale: 0.95 },  // лучница
+    ksul:   { model: 'robot',   scale: 0.95 },  // некромант — голем
+    jin:    { model: 'soldier', scale: 1.02 },  // монах
+    kris:   { model: 'xbot',    scale: 0.9 },   // разбойник
+    freya:  { model: 'xbot',    scale: 1.0 },   // ледяная
+    torg:   { model: 'robot',   scale: 1.6 },   // огр — большой голем
+    zik:    { model: 'robot',   scale: 1.0 },   // часовщик — механический голем
+    gnil:   { model: 'robot',   scale: 1.12 },  // падальщик — гнилой голем
+    astra:  { model: 'xbot',    scale: 1.0 },   // странница
+    undina: { model: 'soldier', scale: 1.0 },   // морская
+  };
+  const S2_MODELS = {
+    soldier: { url: 'models/s2/soldier.glb', height: 2.1, anims: { idle: 'Idle', walk: 'Walk', run: 'Run' } },
+    xbot:    { url: 'models/s2/xbot.glb',    height: 2.3, anims: { idle: 'idle', walk: 'walk', run: 'run' } },
+    robot:   { url: 'models/s2/robot.glb',   height: 2.1, anims: { idle: 'Idle', walk: 'Walking', run: 'Running', attack: 'Punch', death: 'Death' } },
+    fox:     { url: 'models/s2/fox.glb',     height: 1.5, anims: { idle: 'Survey', walk: 'Walk', run: 'Run' } },
+    parrot:  { url: 'models/s2/parrot.glb',  height: 0.8, anims: { idle: 'parrot_A_', walk: 'parrot_A_', run: 'parrot_A_' } },
+  };
+  const s2Models = {};   // id -> {scene, animations, norm, yOff}
+  let s2ModelsReady = false;
+  const s2ModelWaiters = [];
+  function onS2ModelsReady(fn) { if (s2ModelsReady) fn(); else s2ModelWaiters.push(fn); }
+
+  function loadS2Models() {
+    if (typeof THREE.GLTFLoader !== 'function') { s2ModelsReady = true; s2ModelWaiters.splice(0).forEach(f => f()); return; }
+    const loader = new THREE.GLTFLoader();
+    const ids = Object.keys(S2_MODELS);
+    let left = ids.length;
+    const done = () => { if (--left <= 0) { s2ModelsReady = true; makePortraits(); s2ModelWaiters.splice(0).forEach(f => f()); } };
+    for (const id of ids) {
+      loader.load(S2_MODELS[id].url, (g) => {
+        try {
+          g.scene.traverse(o => { if (o.material && o.material.map) o.material.map.colorSpace = THREE.SRGBColorSpace; });
+          const bb = new THREE.Box3().setFromObject(g.scene);
+          const h = Math.max(bb.max.y - bb.min.y, 0.01);
+          s2Models[id] = { scene: g.scene, animations: g.animations, norm: (S2_MODELS[id].height || 2) / h, yOff: -bb.min.y * ((S2_MODELS[id].height || 2) / h) };
+        } catch (e) { /* останется процедурная модель */ }
+        done();
+      }, undefined, done);
+    }
+  }
+
+  // клон скелетной модели + анимации + перекраска
+  function instantiateS2Model(id, tint, scale) {
+    const rec = s2Models[id];
+    if (!rec) return null;
+    const model = THREE.SkeletonUtils.clone(rec.scene);
+    const s = rec.norm * (scale || 1);
+    model.scale.setScalar(s);
+    model.position.y = rec.yOff;
+    model.traverse(o => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        if (o.material) {
+          o.material = o.material.clone();
+          if (o.material.map) o.material.map.colorSpace = THREE.SRGBColorSpace;
+          if (tint) o.material.color = new THREE.Color(tint);
+        }
+      }
+    });
+    const mixer = new THREE.AnimationMixer(model);
+    const actions = {};
+    for (const k in (S2_MODELS[id].anims || {})) {
+      const clip = THREE.AnimationClip.findByName(rec.animations, S2_MODELS[id].anims[k]);
+      if (clip) actions[k] = mixer.clipAction(clip);
+    }
+    return { model, mixer, actions, current: null, modelId: id };
+  }
+  function playAnim(u, name, fade) {
+    const rig = u.rig;
+    if (!rig || !rig.actions[name] || rig.current === name) return;
+    const next = rig.actions[name];
+    const prev = rig.current ? rig.actions[rig.current] : null;
+    next.reset();
+    if (name === 'death') { next.setLoop(THREE.LoopOnce, 1); next.clampWhenFinished = true; }
+    if (prev && prev !== next) next.crossFadeFrom(prev, fade != null ? fade : 0.18, false);
+    next.play();
+    rig.current = name;
+  }
+  function tickRig(u, dt) {
+    if (!u.rig) return;
+    let st = 'idle';
+    if (!u.alive) st = 'death';
+    else if (u.atkAnimT > 0) st = 'attack';
+    else if (u.moving) st = 'run';
+    playAnim(u, st, 0.15);
+    u.rig.mixer.update(dt);
+  }
+
+  // ---------- ПОРТРЕТЫ ГЕРОЕВ (рендер 3D-модели в картинку) ----------
+  function makePortraits() {
+    let r;
+    try { r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); } catch (e) { return; }
+    try {
+      r.setSize(200, 230);
+      const sc = new THREE.Scene();
+      sc.background = new THREE.Color(0x18223a);
+      sc.add(new THREE.HemisphereLight(0xffffff, 0x3a4a66, 1.5));
+      const dl = new THREE.DirectionalLight(0xfff2d8, 1.5);
+      dl.position.set(2, 5, 3);
+      sc.add(dl);
+      const cam = new THREE.PerspectiveCamera(34, 200 / 230, 0.1, 60);
+      for (const h of HEROES) {
+        const hm = S2_HERO_MODEL[h.id] || { model: 'soldier', scale: 1 };
+        const inst = instantiateS2Model(hm.model, h.color, (hm.scale || 1) * 1.05);
+        if (!inst) continue;
+        inst.model.rotation.y = 0.5;
+        sc.add(inst.model);
+        const bb = new THREE.Box3().setFromObject(inst.model);
+        const hgt = Math.max(bb.max.y - bb.min.y, 0.5);
+        const cy = (bb.max.y + bb.min.y) / 2;
+        cam.position.set(cy + hgt * 0.55, cy + hgt * 0.28, hgt * 1.25);
+        cam.lookAt(0, cy, 0);
+        r.render(sc, cam);
+        h.portrait = r.domElement.toDataURL('image/png');
+        sc.remove(inst.model);
+      }
+    } catch (e) { /* портреты необязательны */ }
+    try { r.dispose(); } catch (e) {}
+  }
+
   // ---------- КАРТА ----------
   const MAP = 170;                 // размер карты (метры)
   const BASE_R = { x: -64, z: -64 };  // база Radiant (юго-запад)
@@ -487,6 +613,33 @@
     return g;
   }
 
+  // обёртка: GLB-модель (или процедурная заглушка) + командный диск под ногами
+  function attachModel(u, modelId, tint, scale, fallbackFn, barY) {
+    const g = new THREE.Group();
+    let inst = null;
+    if (modelId) inst = instantiateS2Model(modelId, tint, scale);
+    if (inst) {
+      u.rig = inst;
+      g.add(inst.model);
+    } else {
+      const fb = fallbackFn();
+      if (fb) g.add(fb);
+    }
+    // командный диск
+    const disc = new THREE.Mesh(
+      new THREE.RingGeometry(0.75, 1.05, 24),
+      new THREE.MeshBasicMaterial({ color: u.team === 'r' ? 0x3f9fe0 : 0xe04a3f, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.y = 0.06;
+    g.add(disc);
+    u.teamDisc = disc;
+    u.mesh = g;
+    addHpBar(u, barY);
+    g.position.set(u.x, 0, u.z);
+    scene.add(g);
+  }
+
   function makeUnit(opts) {
     const u = {
       id: UID++, team: opts.team, x: opts.x, z: opts.z, y: 0,
@@ -516,23 +669,32 @@
       u.atkRange = opts.heroDef.atkRange; u.atkCd = opts.heroDef.atkCd;
       u.baseMs = opts.heroDef.ms;
       u.abilities = opts.heroDef.abilities.map(a => ({ def: a, lvl: a.type === 'passive' ? 1 : 0, cdT: 0 }));
-      u.mesh = heroMesh(opts.heroDef, opts.team);
-      addHpBar(u, 3.1);
+      const hm = S2_HERO_MODEL[opts.heroDef.id] || { model: 'soldier', scale: 1 };
+      attachModel(u, hm.model, opts.heroDef.color, hm.scale, () => heroMesh(opts.heroDef, opts.team), 2.9);
     } else if (opts.isCreep) {
       u.maxHp = opts.ranged ? 320 : 480; u.hp = u.maxHp;
       u.dmg = opts.ranged ? 42 : 34; u.atkRange = opts.ranged ? 16 : 2.2; u.atkCd = opts.ranged ? 1.3 : 1.2;
       u.baseMs = 7.6; u.bounty = opts.ranged ? 46 : 40; u.xpBounty = 40;
-      u.mesh = creepMesh(opts.team, opts.ranged);
-      addHpBar(u, opts.ranged ? 2.2 : 1.9);
+      const teamTint = opts.team === 'r' ? 0x9fd0ff : 0xffb09a;
+      attachModel(u, opts.ranged ? 'xbot' : 'soldier', teamTint, opts.ranged ? 0.52 : 0.55,
+        () => creepMesh(opts.team, opts.ranged), opts.ranged ? 2.1 : 1.9);
     } else if (opts.isSummon) {
       u.maxHp = opts.hp || 350; u.hp = u.maxHp;
       u.dmg = opts.dmg || 40; u.atkRange = 2.5; u.atkCd = 1.2; u.baseMs = 9;
       u.bounty = 20; u.xpBounty = 20; u.summonT = opts.life || 25;
-      u.mesh = creepMesh(opts.team, false);
-      u.mesh.scale.setScalar(1.3);
-      addHpBar(u, 2.3);
+      const isKraken = /Кракен/.test(opts.name || '');
+      attachModel(u, isKraken ? 'fox' : 'robot', isKraken ? 0x3f8fbf : 0xd8d0c0, isKraken ? 2.3 : 0.5,
+        () => { const m = creepMesh(opts.team, false); m.scale.setScalar(1.3); return m; }, isKraken ? 2.6 : 2.2);
     }
-    if (u.mesh) { u.mesh.position.set(u.x, 0, u.z); scene.add(u.mesh); }
+    if (!u.mesh && opts.isTower !== true && !opts.isAncient) {
+      u.mesh = new THREE.Group();
+      u.mesh.position.set(u.x, 0, u.z);
+      scene.add(u.mesh);
+    }
+    if (u.mesh && !u.teamDisc && !opts.isTower && !opts.isAncient && !opts.isCourier) {
+      u.mesh.position.set(u.x, 0, u.z);
+      scene.add(u.mesh);
+    }
     units.push(u);
     return u;
   }
@@ -671,7 +833,9 @@
     v.alive = false;
     v.hp = 0;
     v.deadT = 0;
-    if (v.mesh) v.mesh.visible = false;
+    // скелетные модели: сначала анимация смерти, скрытие через hideAt
+    if (v.rig && v.rig.actions.death) { v.hideAt = clockT + 1.5; playAnim(v, 'death', 0.1); }
+    else if (v.mesh) v.mesh.visible = false;
     if (!v.isTower && !v.isAncient && !v.isCourier) corpses.push({ x: v.x, z: v.z, team: v.team, t: 12 });
     if (v.isTower) {
       feed(`💥 ${v.name} разрушена!`);
@@ -945,9 +1109,60 @@
     effects.push({ mesh: sp, ttl: 0.9, update(e, dt, k) { e.mesh.position.y += dt * 2.2; e.mesh.material.opacity = k; } });
   }
 
+  // ---------- ВЫДЕЛЕНИЕ ЮНИТОВ (клик) ----------
+  let selUnit = null;
+  let selRing = null;
+  function rippleFx(x, z) {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.3, 0.55, 24),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.12, z);
+    scene.add(m);
+    effects.push({ mesh: m, ttl: 0.4, update(e, dt, k) { e.mesh.scale.setScalar(1 + (1 - k) * 3); e.mesh.material.opacity = 0.8 * k; } });
+  }
+  function selectUnit(u) {
+    selUnit = u || null;
+    if (selUnit && !selRing) {
+      selRing = new THREE.Mesh(
+        new THREE.RingGeometry(1.15, 1.4, 28),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthTest: false })
+      );
+      selRing.rotation.x = -Math.PI / 2;
+      selRing.renderOrder = 80;
+      scene.add(selRing);
+    }
+    if (selRing) selRing.visible = !!selUnit;
+    if (ui.selPanel) ui.selPanel.style.display = selUnit ? 'block' : 'none';
+  }
+  function updateSelPanel() {
+    if (!selRing) return;
+    if (selUnit && selUnit.alive) {
+      selRing.visible = true;
+      selRing.position.set(selUnit.x, 0.1, selUnit.z);
+      selRing.material.color.setHex(selUnit.team === 'r' ? 0x5fd0ff : 0xff7a6a);
+      const s = Math.max(selUnit.radius * 1.6, 1);
+      selRing.scale.setScalar(s);
+    } else selRing.visible = false;
+    if (ui.selPanel) {
+      if (selUnit && selUnit.alive) {
+        ui.selPanel.style.display = 'block';
+        ui.selPanel.innerHTML = `<b style="color:${selUnit.team === 'r' ? '#7fc4f0' : '#f08a7a'}">${selUnit.name}</b>` +
+          (selUnit.isHero ? ` · Ур. ${selUnit.lvl} ${selUnit.heroDef.name}` : '') +
+          `<div style="height:8px;background:#26120f;border-radius:4px;margin-top:5px;overflow:hidden;"><div style="height:100%;width:${clamp(selUnit.hp / selUnit.maxHp * 100, 0, 100)}%;background:#4fc84f;"></div></div>` +
+          `<div style="font-size:11px;color:#cfc8b8;margin-top:3px;">${Math.ceil(selUnit.hp)} / ${selUnit.maxHp} HP` +
+          (selUnit.isHero ? ` · Урон ${Math.round(effDmg(selUnit))}` : '') + '</div>';
+      } else ui.selPanel.style.display = 'none';
+    }
+  }
+
   // ---------- СОСТОЯНИЕ МАТЧА ----------
   let user = null, rootWrap = null, ui = {};
   let myHero = null;
+  let ipcR = null, fsActive = false;
+  try { ipcR = require('electron').ipcRenderer; } catch (e) { ipcR = null; }
+  const myNick = () => (user && (user.nickname || user.nick)) || 'Игрок';
   let match = { phase: 'menu', time: 0, waveT: 20, waveNum: 0 };
   let camX = 0, camZ = 0, camZoom = 42;
   let mouseGX = 0, mouseGZ = 0;
@@ -971,7 +1186,8 @@
   }
 
   // ---------- СОЗДАНИЕ МАТЧА ----------
-  function setupMatch(myHeroId) {
+  // compOrHeroId: строка heroId (соло с ботами) ИЛИ массив [{nick, team:'r'|'d', hero}] из лобби
+  function setupMatch(compOrHeroId) {
     // очистка: убираем героев/крипов/призывов/курьеров/снаряды, ВЫШКИ И ТРОНЫ СОХРАНЯЕМ и сбрасываем
     for (let i = units.length - 1; i >= 0; i--) {
       const u = units[i];
@@ -992,34 +1208,55 @@
     obstacles.push(...keepObst); // временные стены ледяной стены убраны
     match = { phase: 'live', time: 0, waveT: 8, waveNum: 0 };
     myHero = null;
+    selectUnit(null);
 
-    // герой игрока — мид
-    const def = heroById(myHeroId);
-    myHero = makeUnit({ team: 'r', x: BASE_R.x + 6, z: BASE_R.z + 6, heroDef: def, name: user ? user.nickname || def.name : def.name });
-    myHero.isPlayer = true;
-    recalcStats(myHero); myHero.hp = myHero.maxHp;
-
-    // боты: распределение по линиям top/mid/bot
-    const pool = HEROES.filter(h => h.id !== myHeroId);
-    const lanesR = ['top', 'top', 'mid', 'bot']; // игрок занимает mid? нет — игрок мид, боты: 2 топ, 1 мид, 1 бот
-    // Radiant: 2 top, 1 mid, 1 bot; Dire: 2 top, 1 mid, 2 bot
-    const dLanes = ['top', 'top', 'mid', 'bot', 'bot'];
-    const rLanes = ['top', 'top', 'mid', 'bot'];
-    const pickedD = [];
-    for (const lane of rLanes) {
-      const hd = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-      const b = makeUnit({ team: 'r', x: BASE_R.x + rand(-6, 8), z: BASE_R.z + rand(-6, 8), heroDef: hd, name: hd.name.split(' ')[0], bot: true, lane });
+    // состав: соло (строка) или лобби (массив)
+    let comp;
+    if (Array.isArray(compOrHeroId)) {
+      comp = compOrHeroId.filter(c => c && c.hero && heroById(c.hero) && (c.team === 'r' || c.team === 'd'))
+        .map(c => ({ nick: String(c.nick || 'Игрок').slice(0, 24), team: c.team, hero: c.hero }));
+      if (!comp.length) comp = [{ nick: myNick(), team: 'r', hero: 'silva' }];
+    } else {
+      comp = [{ nick: myNick(), team: 'r', hero: String(compOrHeroId || 'silva') }];
+    }
+    const mineNick = myNick().toLowerCase();
+    let mine = comp.find(c => c.nick.toLowerCase() === mineNick);
+    if (!mine) { mine = comp[0]; comp = comp.slice(1); }
+    // до 5 на сторону, недостающих добирают боты со случайными героями
+    const lanesFor = (n) => n >= 5 ? ['top', 'top', 'mid', 'bot', 'bot'] : ['top', 'mid', 'bot', 'top'];
+    for (const team of ['r', 'd']) {
+      const have = comp.filter(c => c.team === team);
+      while (have.length < 5) {
+        const hd = pick(HEROES);
+        have.push({ nick: hd.name.split(' ')[0], team, hero: hd.id, _bot: true });
+        comp.push(have[have.length - 1]);
+      }
+    }
+    const mkHero = (c, isPlayer, laneIdx, lane) => {
+      const base = c.team === 'r' ? BASE_R : BASE_D;
+      const def = heroById(c.hero);
+      const b = makeUnit({
+        team: c.team, x: base.x + rand(-5, 7), z: base.z + rand(-5, 7),
+        heroDef: def, name: c.nick, bot: !isPlayer, lane,
+      });
       recalcStats(b);
       b.gold = 600;
+      if (isPlayer) { b.isPlayer = true; myHero = b; }
+      return b;
+    };
+    // мой герой — мид своей команды
+    mkHero(mine, true, 2, 'mid');
+    // остальные: линии по порядку
+    for (const team of ['r', 'd']) {
+      const members = comp.filter(c => c.team === team && c !== mine);
+      const lanes = lanesFor(members.length + 1);
+      let li = 0;
+      for (const c of members) {
+        if (c === mine) continue;
+        mkHero(c, false, li, lanes[li + 1] || 'bot');
+        li++;
+      }
     }
-    for (const lane of dLanes) {
-      const hd = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : pick(HEROES);
-      const b = makeUnit({ team: 'd', x: BASE_D.x + rand(-8, 6), z: BASE_D.z + rand(-8, 6), heroDef: hd, name: hd.name.split(' ')[0], bot: true, lane });
-      recalcStats(b);
-      b.gold = 600;
-      pickedD.push(b);
-    }
-    myHero.gold = 600;
     camX = myHero.x; camZ = myHero.z;
     buildHud();
     feed('Матч начался! Добивай крипов — получай золото. Уничтожь вражеский трон!');
@@ -1050,7 +1287,7 @@
     if (myHero) el('div', 'margin-top:14px;font-size:16px;color:#cfc8b8;', ov,
       `Убийств: ${myHero.kills} · Смертей: ${myHero.deaths} · Добито крипов: ${myHero.lh} · Золото: ${myHero.gold}`);
     const btn = el('button', 'margin-top:26px;padding:12px 34px;font-size:16px;font-weight:700;background:#2a6b3f;color:#fff;border:none;border-radius:10px;cursor:pointer;', ov, 'В меню');
-    btn.onclick = () => { ov.remove(); showPick(); };
+    btn.onclick = () => { ov.remove(); showLobby(); };
   }
 
   // ---------- ТИК ИГРЫ ----------
@@ -1085,6 +1322,7 @@
     if (dd <= u.atkRange) {
       u.atkT = u.atkCd * (100 / (100 + effAspd(u)));
       u.atkCount++;
+      u.atkAnimT = u.rig && u.rig.actions.attack ? 0.55 : 0.3; // анимация атаки
       // поворот к цели
       if (u.mesh) u.mesh.rotation.y = Math.atan2(t.x - u.x, t.z - u.z);
       // заряд Варга (работает и в ближнем, и в дальнем бою)
@@ -1126,6 +1364,7 @@
     const ms = moveSpeed(u) * (isStunned(u) ? 0 : 1);
     u.x += (tx - u.x) / dd * ms * dt;
     u.z += (tz - u.z) / dd * ms * dt;
+    u.moving = true;
     if (u.mesh && !u.target) u.mesh.rotation.y = Math.atan2(tx - u.x, tz - u.z);
     collideObstacles(u);
     return d2(u.x, u.z, tx, tz) < 0.5;
@@ -1133,6 +1372,11 @@
 
   function tickUnit(u, dt) {
     if (!u.alive) {
+      if (u.rig) {
+        playAnim(u, 'death', 0.1);
+        u.rig.mixer.update(dt);
+        if (u.hideAt && clockT > u.hideAt && u.mesh) u.mesh.visible = false;
+      }
       if (u.isHero && match.phase === 'live') {
         u.respawnT -= dt;
         if (u.respawnT <= 0) {
@@ -1157,6 +1401,8 @@
     }
     if (u.evadeT > 0) u.evadeT -= dt;
     if (u.atkT > 0) u.atkT -= dt;
+    u.moving = false;
+    u.atkAnimT = Math.max(0, (u.atkAnimT || 0) - dt);
     if (u.shieldHp > 0 && u.shieldT != null) { u.shieldT -= dt; if (u.shieldT <= 0) u.shieldHp = 0; }
     for (const a of u.abilities) if (a.cdT > 0) a.cdT -= dt;
 
@@ -1179,7 +1425,7 @@
       }
     }
 
-    if (isStunned(u)) { syncMesh(u); updateHpBar(u); return; }
+    if (isStunned(u)) { syncMesh(u); updateHpBar(u); tickRig(u, dt); return; }
 
     if (u.isTower) {
       // вышка: сначала крипы, потом герои
@@ -1213,7 +1459,7 @@
       const t = findTarget(u, 14);
       if (t) { u.target = t; tryAttack(u, dt); }
       else if (u.owner && u.owner.alive && d2(u.x, u.z, u.owner.x, u.owner.z) > 5) moveToward(u, u.owner.x, u.owner.z, dt);
-      syncMesh(u); updateHpBar(u);
+      syncMesh(u); updateHpBar(u); tickRig(u, dt);
       return;
     }
 
@@ -1239,7 +1485,7 @@
         u.aggroT -= dt;
         tryAttack(u, dt);
       }
-      syncMesh(u); updateHpBar(u);
+      syncMesh(u); updateHpBar(u); tickRig(u, dt);
       return;
     }
 
@@ -1253,7 +1499,7 @@
         if (!u.target.alive) u.target = null;
         else tryAttack(u, dt);
       }
-      syncMesh(u); updateHpBar(u);
+      syncMesh(u); updateHpBar(u); tickRig(u, dt);
       // невидимость: полупрозрачный
       if (u.mesh) {
         const st = isStealthed(u);
@@ -1403,25 +1649,31 @@
   }
 
   // ---------- КУРЬЕР ----------
+  function myBase() { return (myHero && myHero.team === 'd') ? BASE_D : BASE_R; }
   function buyItem(itemId) {
     const it = itemById(itemId);
     if (!myHero || !myHero.alive) return;
-    const base = BASE_R;
-    if (d2(myHero.x, myHero.z, base.shopZone.x, base.shopZone.z) > base.shopZone.r) { feed('Магазин доступен только у фонтана (курьер доставит покупку к тебе, стой где угодно — просто купи)', true); }
+    const base = myBase();
+    if (d2(myHero.x, myHero.z, base.shopZone.x, base.shopZone.z) > base.shopZone.r) { feed('Зона магазина — у фонтана (покупать можно откуда угодно — курьер привезёт)', true); }
     if (myHero.gold < it.cost) { feed('Не хватает золота: ' + it.name, true); return; }
     if (myHero.inventory.length >= 6) { feed('Инвентарь полон!', true); return; }
     myHero.gold -= it.cost;
-    // курьер летит от базы к герою
-    const c = makeUnit({ team: 'r', x: BASE_R.fountain.x, z: BASE_R.fountain.z, isCourier: true, name: 'Курьер' });
+    // курьер летит от своей базы к герою
+    const c = makeUnit({ team: myHero.team, x: base.fountain.x, z: base.fountain.z, isCourier: true, name: 'Курьер' });
     c.carry = itemId;
     c.dest = myHero;
+    c.homeBase = base;
     c.mesh = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd8b24a }));
-    body.position.y = 2.6; body.castShadow = true;
-    const wings = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.5), new THREE.MeshLambertMaterial({ color: 0xf0e0b0 }));
-    wings.position.y = 2.8;
-    c.mesh.add(body); c.mesh.add(wings);
-    c.wings = wings;
+    const inst = instantiateS2Model('parrot', null, 1);
+    if (inst) { c.rig = inst; c.mesh.add(inst.model); }
+    else {
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd8b24a }));
+      body.position.y = 2.6; body.castShadow = true;
+      const wings = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.5), new THREE.MeshLambertMaterial({ color: 0xf0e0b0 }));
+      wings.position.y = 2.8;
+      c.mesh.add(body); c.mesh.add(wings);
+      c.wings = wings;
+    }
     c.mesh.position.set(c.x, 0, c.z);
     scene.add(c.mesh);
     couriers.push(c);
@@ -1430,9 +1682,10 @@
   }
   function tickCourier(c, dt) {
     c.fly = (c.fly || 0) + dt * 9;
+    const home = c.homeBase || BASE_R;
     const d = c.dest && c.dest.alive ? c.dest : null;
     if (!d) { // герой умер — ждём у базы
-      c.x = BASE_R.fountain.x; c.z = BASE_R.fountain.z; c.y = Math.sin(c.fly) * 0.4 + 2.6;
+      c.x = home.fountain.x; c.z = home.fountain.z; c.y = Math.sin(c.fly) * 0.4 + 2.6;
       syncMesh(c); return;
     }
     const dd = d2(c.x, c.z, d.x, d.z);
@@ -1457,7 +1710,7 @@
         c.carry = null;
       }
       // возвращаемся на базу
-      const bx = BASE_R.fountain.x, bz = BASE_R.fountain.z;
+      const bx = home.fountain.x, bz = home.fountain.z;
       const db = d2(c.x, c.z, bx, bz);
       if (db > 2) {
         c.x += (bx - c.x) / db * 16 * dt;
@@ -1470,6 +1723,7 @@
         couriers.splice(couriers.indexOf(c), 1);
       }
     }
+    if (c.rig) c.rig.mixer.update(dt);
     syncMesh(c);
   }
 
@@ -1524,6 +1778,9 @@
     // счёт
     ui.score = el('div', 'position:absolute;top:8px;right:190px;font-size:13px;font-weight:700;color:#e8dfc8;background:rgba(10,12,18,0.6);padding:4px 12px;border-radius:8px;z-index:20;', rootWrap);
     ui.score.dataset.s2top = '1';
+    // панель выделенного юнита
+    ui.selPanel = el('div', 'position:absolute;top:44px;right:10px;width:210px;display:none;background:rgba(12,16,26,0.92);border:1px solid #4a5468;border-radius:9px;padding:8px 10px;font-size:12px;color:#e8dfc8;z-index:24;', rootWrap);
+    ui.selPanel.dataset.s2top = '1';
     // кнопка выхода
     const exitBtn = el('button', 'position:absolute;top:8px;right:10px;z-index:30;padding:5px 12px;background:#4a1f1f;color:#ffb0a0;border:1px solid #8a3a3a;border-radius:7px;cursor:pointer;', rootWrap, '✖ Выйти');
     exitBtn.dataset.s2top = '1';
@@ -1648,12 +1905,25 @@
 
   // ---------- КАМЕРА / ВВОД ----------
   const keys = {};
+  let mouseSX = -999, mouseSY = -999; // экранные координаты мыши (для краевого скролла)
   function updateCamera(dt) {
     const pan = 30 * (camZoom / 42);
     if (keys.arrowleft || keys.a2) camX -= pan * dt;
     if (keys.arrowright || keys.d2) camX += pan * dt;
     if (keys.arrowup) camZ -= pan * dt;
     if (keys.arrowdown) camZ += pan * dt;
+    // 3.18.0: краевой скролл мышью — подвёл к краю экрана, камера поехала
+    if (renderer && rootWrap && rootWrap.offsetParent) {
+      const r = renderer.domElement.getBoundingClientRect();
+      const EDGE = 16;
+      const pan2 = 36 * (camZoom / 42);
+      if (mouseSX >= r.left && mouseSX <= r.right && mouseSY >= r.top && mouseSY <= r.bottom) {
+        if (mouseSX < r.left + EDGE) camX -= pan2 * dt;
+        if (mouseSX > r.right - EDGE) camX += pan2 * dt;
+        if (mouseSY < r.top + EDGE) camZ -= pan2 * dt;
+        if (mouseSY > r.bottom - EDGE) camZ += pan2 * dt;
+      }
+    }
     if (myHero && keys.space) { camX = myHero.x; camZ = myHero.z; }
     camX = clamp(camX, -MAP / 2, MAP / 2);
     camZ = clamp(camZ, -MAP / 2, MAP / 2);
@@ -1674,11 +1944,21 @@
   function bindInput() {
     const cv = renderer.domElement;
     cv.addEventListener('contextmenu', e => e.preventDefault());
+    window.addEventListener('mousemove', e => { mouseSX = e.clientX; mouseSY = e.clientY; });
     cv.addEventListener('mousemove', e => { const p = groundPoint(e); if (p) { mouseGX = p.x; mouseGZ = p.z; } });
     cv.addEventListener('mousedown', e => {
       if (!myHero || !myHero.alive || match.phase !== 'live') return;
       const p = groundPoint(e);
       if (!p) return;
+      if (e.button === 0 && !attackMoveMode) {
+        // 3.18.0: клик по юниту — выделение (реально «жмётся»)
+        const clicked = units.filter(u2 => u2.alive && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.4)
+          .sort((a, b) => d2(a.x, a.z, p.x, p.z) - d2(b.x, b.z, p.x, p.z))[0];
+        if (clicked) { selectUnit(clicked); sfx(700, 0.05, 0.04, 'sine'); }
+        else { selectUnit(null); }
+        rippleFx(p.x, p.z);
+        return;
+      }
       if (e.button === 2) { // правая — движение/атака
         const enemy = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.5)
           .sort((a, b) => d2(a.x, a.z, p.x, p.z) - d2(b.x, b.z, p.x, p.z))[0];
@@ -1790,7 +2070,137 @@
     ui.score.textContent = `Radiant ${kr} : ${kd} Dire`;
   }
 
-  // ---------- ЭКРАН ВЫБОРА ГЕРОЯ ----------
+  // ---------- ЛОББИ (сетевое: места, стороны Свет/Тьма, выбор героя, старт хостом) ----------
+  const s2net = { sock: null, state: null, connected: false, myHero: (function () { try { return localStorage.getItem('s2hero'); } catch (e) { return null; } })() || 'silva', inLobbyUi: false };
+  function s2Connect() {
+    if (typeof io !== 'function') return;
+    if (!s2net.sock) {
+      const sock = io(S2_SERVER, { reconnectionAttempts: Infinity });
+      s2net.sock = sock;
+      sock.on('connect', () => { s2net.connected = true; sock.emit('s2_join', myNick()); if (s2net.inLobbyUi) renderLobby(); });
+      sock.on('disconnect', () => { s2net.connected = false; if (s2net.inLobbyUi) renderLobby(); });
+      sock.on('s2_lobby', (st) => { s2net.state = st; if (s2net.inLobbyUi) renderLobby(); });
+      sock.on('s2_start', ({ comp }) => {
+        s2net.inLobbyUi = false;
+        const old = rootWrap.querySelector('[data-lobby]'); if (old) old.remove();
+        setupMatch(comp);
+      });
+    }
+    if (s2net.connected) s2net.sock.emit('s2_join', myNick());
+  }
+  function myLobbyEntry() {
+    if (!s2net.state) return null;
+    return s2net.state.players.find(p => p.nick.toLowerCase() === myNick().toLowerCase()) || null;
+  }
+  function isHost() {
+    const me = myLobbyEntry();
+    return !!(me && s2net.state && s2net.state.host === me.id);
+  }
+
+  function showLobby() {
+    match.phase = 'menu';
+    rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove());
+    const old = rootWrap.querySelector('[data-lobby]'); if (old) old.remove();
+    const wrap = el('div', 'position:absolute;inset:0;overflow:auto;background:linear-gradient(160deg,#101826,#0a0e16);z-index:50;padding:16px;', rootWrap);
+    wrap.dataset.lobby = '1';
+    s2net.inLobbyUi = true;
+    ui.lobbyWrap = wrap;
+    if (!s2net.connected && typeof io === 'function') s2Connect();
+    renderLobby();
+  }
+
+  function heroCard(h, onPick, small) {
+    const card = el('div', 'position:relative;background:#141c2c;border:1px solid #3a4358;border-radius:10px;padding:8px;cursor:pointer;text-align:center;' + (small ? 'width:86px;' : ''), null);
+    if (h.portrait) {
+      const img = el('img', 'width:100%;border-radius:8px;display:block;background:#18223a;', card);
+      img.src = h.portrait;
+      img.draggable = false;
+    } else {
+      el('div', 'height:64px;border-radius:8px;background:linear-gradient(160deg,#22304a,#141c2c);display:flex;align-items:center;justify-content:center;font-size:26px;', card, h.name.split(' ').map(w => w[0]).join(''));
+    }
+    el('div', 'font-size:' + (small ? '10px' : '12px') + ';font-weight:800;color:#e8dfc8;margin-top:5px;', card, h.name);
+    if (!small) el('div', 'font-size:10px;color:#7f9fc8;', card, h.role);
+    card.onmouseenter = () => { card.style.borderColor = '#6fe0a0'; card.style.transform = 'scale(1.05)'; };
+    card.onmouseleave = () => { card.style.borderColor = s2net.myHero === h.id ? '#6fe0a0' : '#3a4358'; card.style.transform = ''; };
+    if (s2net.myHero === h.id) card.style.borderColor = '#6fe0a0';
+    card.onclick = () => onPick(h.id);
+    return card;
+  }
+
+  function renderLobby() {
+    const wrap = ui.lobbyWrap;
+    if (!wrap || !wrap.isConnected && !wrap.parentNode) return;
+    wrap.innerHTML = '';
+    el('div', 'font-size:28px;font-weight:900;color:#e8dfc8;text-align:center;text-shadow:0 3px 12px rgba(0,0,0,0.6);', wrap, '🛡 SUPPORT 2 — ЛОББИ');
+    const status = s2net.connected
+      ? (s2net.state ? `На сервере: ${s2net.state.players.length}` : 'Соединено')
+      : (typeof io === 'function' ? 'Подключение к серверу…' : 'Нет подключения (соло-режим)');
+    el('div', 'font-size:12px;color:' + (s2net.connected ? '#7fe08a' : '#e0a05a') + ';text-align:center;margin:2px 0 10px;', wrap, '● ' + status);
+
+    const me = myLobbyEntry();
+    const players = (s2net.state && s2net.state.players) || [];
+
+    // --- две стороны: СВЕТ и ТЬМА ---
+    const sides = el('div', 'display:flex;gap:14px;justify-content:center;flex-wrap:wrap;', wrap);
+    for (const side of [{ team: 'r', title: '☀️ СВЕТ (Radiant)', color: '#7fc4f0' }, { team: 'd', title: '🌑 ТЬМА (Dire)', color: '#f08a7a' }]) {
+      const col = el('div', 'width:300px;background:#101624;border:1px solid #2a3550;border-radius:12px;padding:10px;', sides);
+      el('div', 'font-size:15px;font-weight:900;text-align:center;color:' + side.color + ';margin-bottom:8px;', col, side.title);
+      const members = players.filter(p => p.team === side.team);
+      for (let i = 0; i < 5; i++) {
+        const p = members[i];
+        const seat = el('div', 'display:flex;align-items:center;gap:8px;background:#141c2c;border:1px solid #2a3550;border-radius:8px;padding:6px 8px;margin-bottom:6px;min-height:40px;', col);
+        if (p) {
+          const hd = heroById(p.hero);
+          if (hd && hd.portrait) { const im = el('img', 'width:30px;height:34px;border-radius:5px;background:#18223a;', seat); im.src = hd.portrait; im.draggable = false; }
+          const isMe2 = p.nick.toLowerCase() === myNick().toLowerCase();
+          el('div', 'flex:1;font-size:12.5px;font-weight:700;color:' + (isMe2 ? '#6fe0a0' : '#e8dfc8') + ';', seat, p.nick + (isMe2 ? ' (ты)' : ''));
+          el('div', 'font-size:10.5px;color:#8a94a8;', seat, hd ? hd.name.split(' ')[0] : '—');
+        } else {
+          el('div', 'flex:1;font-size:11.5px;color:#4a5468;', seat, 'Свободное место…');
+          const take = el('button', 'padding:4px 10px;background:#1f2a44;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:6px;cursor:pointer;font-size:11px;', seat, 'Сесть');
+          take.onclick = () => { if (s2net.sock) s2net.sock.emit('s2_seat', { team: side.team }); };
+        }
+      }
+    }
+
+    // --- зрители без стороны ---
+    const noTeam = players.filter(p => !p.team);
+    if (noTeam.length) {
+      const row = el('div', 'margin:8px auto 0;max-width:640px;background:#101624;border:1px solid #2a3550;border-radius:10px;padding:8px 12px;text-align:center;', wrap);
+      el('span', 'font-size:12px;color:#8a94a8;', row, 'Без стороны: ');
+      noTeam.forEach((p, i) => el('span', 'font-size:12px;color:' + (p.nick.toLowerCase() === myNick().toLowerCase() ? '#6fe0a0' : '#e8dfc8') + ';', row, (i ? ', ' : '') + p.nick));
+    }
+
+    // --- мои кнопки ---
+    const btns = el('div', 'display:flex;gap:10px;justify-content:center;margin:12px 0;flex-wrap:wrap;', wrap);
+    if (me && me.team) {
+      const leave = el('button', 'padding:8px 18px;background:#3a2f14;color:#ffd34a;border:1px solid #8a6b3a;border-radius:8px;cursor:pointer;font-weight:700;', btns, 'Встать с места');
+      leave.onclick = () => { if (s2net.sock) s2net.sock.emit('s2_seat', { team: null }); };
+    }
+    const solo = el('button', 'padding:8px 18px;background:#14203a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:8px;cursor:pointer;font-weight:700;', btns, '🤖 Соло с ботами');
+    solo.onclick = () => { s2net.inLobbyUi = false; wrap.remove(); showPick(); };
+
+    // --- кнопка старта (только хост) ---
+    const readyCnt = players.filter(p => p.team && p.hero).length;
+    if (isHost()) {
+      const start = el('button', 'padding:12px 40px;background:#2a6b3f;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:900;font-size:16px;display:block;margin:0 auto;', wrap, `▶ НАЧАТЬ МАТЧ (${readyCnt} готовы)`);
+      start.onclick = () => { if (s2net.sock) s2net.sock.emit('s2_start'); };
+    } else if (s2net.connected) {
+      el('div', 'font-size:12.5px;color:#8a94a8;text-align:center;margin:4px 0;', wrap, s2net.state && s2net.state.host ? 'Ожидание хоста… (начинает Fifflaren или первый зашедший)' : 'Ожидание игроков…');
+    }
+
+    // --- выбор героя с портретами ---
+    el('div', 'font-size:14px;font-weight:800;color:#e8dfc8;text-align:center;margin:10px 0 6px;', wrap, 'Твой герой (клик — выбрать, в матче играешь за него):');
+    const grid = el('div', 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap;max-width:900px;margin:0 auto;', wrap);
+    for (const h of HEROES) grid.appendChild(heroCard(h, (id) => {
+      s2net.myHero = id;
+      try { localStorage.setItem('s2hero', id); } catch (e) {}
+      if (s2net.sock && s2net.connected) s2net.sock.emit('s2_pick', id);
+      renderLobby();
+    }, true));
+  }
+
+  // ---------- ЭКРАН ВЫБОРА ГЕРОЯ (соло) ----------
   function showPick() {
     match.phase = 'menu';
     rootWrap.querySelectorAll('[data-s2top]').forEach(e => e.remove());
@@ -1802,19 +2212,15 @@
     wrap.dataset.pick = '1';
     el('div', 'font-size:30px;font-weight:900;color:#e8dfc8;text-shadow:0 3px 12px rgba(0,0,0,0.6);', wrap, '🛡 SUPPORT 2');
     el('div', 'font-size:13px;color:#8a94a8;margin:4px 0 14px;', wrap, 'Выбери героя · 3 линии · крипы каждые 30 сек · добивай крипов для золота · сломай трон врага');
-    const grid = el('div', 'display:grid;grid-template-columns:repeat(4,200px);gap:10px;justify-content:center;max-width:900px;', wrap);
+    const grid = el('div', 'display:grid;grid-template-columns:repeat(6,120px);gap:10px;justify-content:center;max-width:900px;', wrap);
     for (const h of HEROES) {
-      const card = el('div', 'background:#141c2c;border:1px solid #3a4358;border-radius:10px;padding:10px;cursor:pointer;transition:transform .12s;', grid);
-      card.onmouseenter = () => { card.style.transform = 'scale(1.04)'; card.style.borderColor = '#6f9fd0'; };
-      card.onmouseleave = () => { card.style.transform = ''; card.style.borderColor = '#3a4358'; };
-      const sw = el('div', 'width:100%;height:6px;border-radius:3px;margin-bottom:7px;', card);
-      sw.style.background = '#' + new THREE.Color(h.color).getHexString();
-      el('div', 'font-size:14px;font-weight:800;color:#e8dfc8;', card, h.name);
-      el('div', 'font-size:10.5px;color:#7f9fc8;margin-bottom:6px;', card, h.role + ' · HP ' + h.hp + ' · Урон ' + h.dmg);
-      el('div', 'font-size:10px;color:#8a94a8;line-height:1.5;', card, h.abilities.map(a => `${a.key}: ${a.name}`).join(' · '));
-      el('div', 'font-size:9.5px;color:#b8a86a;margin-top:5px;font-style:italic;', card, 'Комбо: ' + h.combo);
-      card.onclick = () => { wrap.remove(); setupMatch(h.id); };
+      const card = heroCard(h, () => { wrap.remove(); setupMatch(h.id); });
+      el('div', 'font-size:10px;color:#8a94a8;margin-top:6px;line-height:1.45;', card,
+        h.role + ' · HP ' + h.hp + ' · Урон ' + h.dmg + '\n' + h.abilities.map(a => `${a.key}: ${a.name}`).join(' · ') + '\nКомбо: ' + h.combo).style.whiteSpace = 'pre-line';
+      grid.appendChild(card);
     }
+    const backBtn = el('button', 'position:absolute;top:12px;left:14px;padding:7px 14px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:8px;cursor:pointer;font-weight:700;z-index:55;', wrap, '← В лобби');
+    backBtn.onclick = (ev) => { ev.stopPropagation(); wrap.remove(); showLobby(); };
     const keysBtn = el('button', 'position:absolute;top:12px;right:14px;padding:7px 14px;background:#1f2a4a;color:#a0c0ff;border:1px solid #3a5a8a;border-radius:8px;cursor:pointer;font-weight:700;z-index:55;', wrap, '⚙ Клавиши');
     keysBtn.onclick = (ev) => { ev.stopPropagation(); toggleKeysPanel(); };
     el('div', 'font-size:11px;color:#5a6478;margin-top:14px;', wrap,
@@ -1848,6 +2254,10 @@
     }
     updateCamera(dt);
     updateHud();
+    updateSelPanel();
+    // полный экран пока вкладка игры открыта
+    const vis = rootWrap.offsetParent != null;
+    if (vis !== fsActive) { fsActive = vis; if (ipcR) ipcR.send('s2-fullscreen', vis); }
     if (Math.floor(clockT * 5) !== Math.floor((clockT - dt) * 5)) drawMinimap();
     renderer.render(scene, camera);
   }
@@ -1870,10 +2280,11 @@
       rootWrap = el('div', 'position:relative;width:100%;height:calc(100vh - 210px);min-height:480px;overflow:hidden;background:#0a0e14;', tab);
       buildScene();
       bindInput();
+      loadS2Models();
       window.addEventListener('resize', resizeS2);
     }
     resizeS2();
-    if (match.phase !== 'live') showPick();
+    if (match.phase !== 'live') showLobby();
     if (!rafId) { lastTs = performance.now(); rafId = requestAnimationFrame(loop); }
   }
   window.__s2Open = open;

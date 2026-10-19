@@ -218,6 +218,12 @@ ipcMain.on('set-muted', (event, m) => {
   muted = !!m;
 });
 
+// Support2: полный экран при входе в игру
+ipcMain.on('s2-fullscreen', (event, on) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) win.setFullScreen(!!on);
+});
+
 // Разрешение на закрытие приложения: true — админ/ТЛ, false — сотрудник
 ipcMain.on('set-can-quit', (event, can) => {
   allowQuit = !!can;

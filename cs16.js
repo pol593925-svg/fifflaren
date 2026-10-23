@@ -124,6 +124,7 @@
   let SITE_A = MAP_META.dust2.sites.A, SITE_B = MAP_META.dust2.sites.B;
   const stairsDir = new Map(); // "x,y" -> [dx,dy] направление лестницы вверх к мосту
   let beaconTunMat = null, beaconVentMat = null; // 3.24.2: материалы маяков-фонариков (пульсация в loop)
+  const dmgNums = []; // 3.24.3: летящие числа урона (спрайты)
   function loadMap(name) {
     if (!MAP_ROWS[name]) name = 'dust2';
     curMap = name;
@@ -688,7 +689,7 @@
   function rebuildWorld(name) {
     loadMap(name);
     remotesClear();
-    tracers.length = 0; nadesList.length = 0; shotFlashes.length = 0; smokes.length = 0;
+    tracers.length = 0; nadesList.length = 0; shotFlashes.length = 0; smokes.length = 0; dmgNums.length = 0;
     bombPlanted = null; removeBombMesh();
     buildWorld();
   }
@@ -1567,6 +1568,14 @@
       if (dist < 16) sfxStep(d.surf, Math.max(0, 1 - dist / 16) * 0.8);
     });
     sock.on('cs16_hit', (d) => {
+      // 3.24.3: мой урон по врагу — число над ним + красный хитмаркер ✕
+      if (d.target !== myNick && d.by === myNick && d.dmg > 0) {
+        const t = remotes.get(d.target);
+        if (t) spawnDmgNum(t.x, t.y, t.z, d.dmg, d.head);
+        ui.hitmark.style.display = 'block';
+        clearTimeout(ui.hitmark._t);
+        ui.hitmark._t = setTimeout(() => { ui.hitmark.style.display = 'none'; }, 90);
+      }
       if (d.target === myNick) {
         me.hp = d.hp;
         ui.dmgVin.style.opacity = '1';
@@ -1982,6 +1991,25 @@
     const fo = isRemote ? o.clone() : o.clone().addScaledVector(d, 0.75).add(new THREE.Vector3(0.15, -0.17, 0));
     flashAt(fo);
   }
+  // 3.24.3: летящее число урона над врагом (как в примере: белое, хедшот — жёлтое)
+  function spawnDmgNum(x, y, z, dmg, head) {
+    if (!scene || dmgNums.length > 24) return;
+    const c = document.createElement('canvas'); c.width = 160; c.height = 80;
+    const g2 = c.getContext('2d');
+    const txt = '-' + dmg;
+    g2.font = '900 46px "Arial Black", Arial, sans-serif';
+    g2.textAlign = 'center'; g2.textBaseline = 'middle';
+    g2.lineWidth = 10; g2.strokeStyle = 'rgba(10,10,10,0.9)';
+    g2.strokeText(txt, 80, 42);
+    g2.fillStyle = head ? '#ffd21a' : '#ffffff';
+    g2.fillText(txt, 80, 42);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    sp.position.set(x + (Math.random() - 0.5) * 0.5, y + 2.0, z + (Math.random() - 0.5) * 0.5);
+    sp.scale.set(2.0, 1.0, 1);
+    sp.renderOrder = 999;
+    scene.add(sp);
+    dmgNums.push({ sp, born: performance.now() });
+  }
   const nadesList = [];
   const smokes = []; // дымовые завесы: {mesh, until}
   let flashUntil = 0; // флешка держит белый экран 3 сек
@@ -2304,24 +2332,27 @@
     let best = null;
     for (const [nick, r] of remotes) {
       if (!r.alive || (state.gm !== 'gg' && r.team === me.team)) continue;
-      // тело — вертикальный цилиндр
-      const rx = r.x - ox, rz = r.z - oz;
+      // 3.24.2: экстраполяция — стреляем туда, где враг есть на сервере СЕЙЧАС, а не где его рисует интерполяция
+      const LAGK = 1.5;
+      const ex = r.x + (r.tx - r.x) * LAGK, ey2 = r.y + (r.ty - r.y), ez = r.z + (r.tz - r.z) * LAGK;
+      // тело — вертикальный цилиндр (чуть шире, регистрация чётче)
+      const rx = ex - ox, rz = ez - oz;
       const a = d[0] * d[0] + d[2] * d[2];
       let tBody = null;
       if (a > 1e-8) {
         const b = -(rx * d[0] + rz * d[2]);
-        const c = rx * rx + rz * rz - 0.62 * 0.62;
+        const c = rx * rx + rz * rz - 0.66 * 0.66;
         const disc = b * b - a * c;
         if (disc >= 0) {
           const t = (-b - Math.sqrt(disc)) / a;
           if (t > 0 && t < maxT) {
             const hy = oy + d[1] * t;
-            if (hy >= r.y && hy <= r.y + 1.85) tBody = t;
+            if (hy >= ey2 && hy <= ey2 + 1.85) tBody = t;
           }
         }
       }
       // голова — сфера
-      const hx = r.x - ox, hy = r.y + 1.58 - oy, hz = r.z - oz;
+      const hx = ex - ox, hy = ey2 + 1.58 - oy, hz = ez - oz;
       const bb = -(hx * d[0] + hy * d[1] + hz * d[2]);
       const cc = hx * hx + hy * hy + hz * hz - 0.34 * 0.34;
       const dd = bb * bb - cc;
@@ -2333,7 +2364,7 @@
       const t = tHead != null ? tHead : tBody;
       if (t != null && (!best || t < best.t)) {
         const hy = oy + d[1] * t;
-        const zone = tHead != null && (tBody == null || tHead <= tBody) ? 'head' : (hy < r.y + 0.85 ? 'leg' : 'body');
+        const zone = tHead != null && (tBody == null || tHead <= tBody) ? 'head' : (hy < ey2 + 0.85 ? 'leg' : 'body');
         best = { t, nick, head: zone === 'head', zone };
       }
     }
@@ -2674,6 +2705,13 @@
       } else stepAcc = 0.2; // при отпускании Shift звук сразу, без задержки
     }
     drawRadar();
+    // 3.24.3: числа урона — взлетают и гаснут
+    for (let i = dmgNums.length - 1; i >= 0; i--) {
+      const dn = dmgNums[i], age = (performance.now() - dn.born) / 1000;
+      if (age > 1.0) { scene.remove(dn.sp); if (dn.sp.material.map) dn.sp.material.map.dispose(); dn.sp.material.dispose(); dmgNums.splice(i, 1); continue; }
+      dn.sp.position.y += dt * 1.4;
+      dn.sp.material.opacity = age < 0.35 ? 1 : Math.max(0, 1 - (age - 0.35) / 0.65);
+    }
     // трассеры
     for (let i = tracers.length - 1; i >= 0; i--) {
       if (performance.now() > tracers[i].die) { scene.remove(tracers[i].line); tracers.splice(i, 1); }

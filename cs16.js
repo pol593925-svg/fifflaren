@@ -352,51 +352,107 @@
   }
   function makeTextures() {
     const sand = texCanvas((g, s) => {
-      g.fillStyle = '#c9a86b'; g.fillRect(0, 0, s, s);
-      for (let i = 0; i < 900; i++) {
-        g.fillStyle = `rgba(${120 + Math.random() * 90 | 0},${95 + Math.random() * 60 | 0},${50 + Math.random() * 40 | 0},0.25)`;
-        g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
+      g.fillStyle = '#c2a067'; g.fillRect(0, 0, s, s);
+      // крупные мягкие пятна (неровный песок)
+      for (let i = 0; i < 60; i++) {
+        g.fillStyle = `rgba(${150 + Math.random() * 60 | 0},${120 + Math.random() * 45 | 0},${70 + Math.random() * 35 | 0},0.16)`;
+        g.beginPath(); g.arc(Math.random() * s, Math.random() * s, 6 + Math.random() * 22, 0, 7); g.fill();
+      }
+      // мелкий гравий
+      for (let i = 0; i < 1600; i++) {
+        g.fillStyle = `rgba(${105 + Math.random() * 110 | 0},${88 + Math.random() * 80 | 0},${52 + Math.random() * 48 | 0},${0.12 + Math.random() * 0.22})`;
+        g.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 2, 1 + Math.random() * 2);
+      }
+      // редкие трещины-линии
+      g.strokeStyle = 'rgba(96,76,44,0.35)'; g.lineWidth = 1;
+      for (let i = 0; i < 14; i++) {
+        g.beginPath();
+        let x = Math.random() * s, y = Math.random() * s;
+        g.moveTo(x, y);
+        for (let j = 0; j < 5; j++) { x += (Math.random() - 0.5) * 26; y += (Math.random() - 0.5) * 26; g.lineTo(x, y); }
+        g.stroke();
       }
     });
     const wall = texCanvas((g, s) => {
-      g.fillStyle = '#b09468'; g.fillRect(0, 0, s, s);
-      const bh = s / 4;
-      for (let r = 0; r < 4; r++) {
-        for (let cix = 0; cix < 2; cix++) {
-          const off = (r % 2) * s / 4;
-          g.fillStyle = (r + cix) % 2 ? '#ab8f63' : '#b89c70';
-          g.fillRect(off + cix * s / 2 + 2, r * bh + 2, s / 2 - 4, bh - 4);
+      g.fillStyle = '#a8905f'; g.fillRect(0, 0, s, s);
+      const bh = s / 5;
+      for (let r = 0; r < 5; r++) {
+        const cols = 3, off = (r % 2) * (s / cols / 2);
+        for (let cix = -1; cix < cols; cix++) {
+          const shade = 158 + Math.random() * 26 | 0;
+          g.fillStyle = `rgb(${shade},${shade - 26 | 0},${shade - 62 | 0})`;
+          g.fillRect(off + cix * s / cols + 2, r * bh + 2, s / cols - 4, bh - 4);
         }
       }
-      g.fillStyle = 'rgba(60,45,25,0.35)';
-      for (let i = 0; i < 300; i++) g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
+      // швы и загрязнения
+      g.fillStyle = 'rgba(60,45,25,0.4)';
+      for (let i = 0; i < 500; i++) g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
+      g.fillStyle = 'rgba(70,52,28,0.28)';
+      for (let i = 0; i < 8; i++) { const x = Math.random() * s; g.fillRect(x, Math.random() * s * 0.5, 3 + Math.random() * 5, 20 + Math.random() * 50); }
     });
     const crateT = texCanvas((g, s) => {
       g.fillStyle = '#8a5a2b'; g.fillRect(0, 0, s, s);
       g.strokeStyle = '#5f3c1a'; g.lineWidth = 6; g.strokeRect(3, 3, s - 6, s - 6);
       g.beginPath(); g.moveTo(3, 3); g.lineTo(s - 3, s - 3); g.moveTo(s - 3, 3); g.lineTo(3, s - 3); g.stroke();
       for (let i = 1; i < 4; i++) { g.strokeStyle = 'rgba(70,42,15,0.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, i * s / 4); g.lineTo(s, i * s / 4); g.stroke(); }
+      // металлические уголки
+      g.fillStyle = '#6a6a70';
+      for (const [cx2, cy2] of [[8, 8], [s - 14, 8], [8, s - 14], [s - 14, s - 14]]) g.fillRect(cx2, cy2, 6, 6);
     });
     const door = texCanvas((g, s) => {
       g.fillStyle = '#6b4a26'; g.fillRect(0, 0, s, s);
       for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? '#63431f' : '#74522c'; g.fillRect(i * s / 6 + 1, 0, s / 6 - 2, s); }
       g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, s * 0.42, s, s * 0.16);
+      g.fillStyle = '#3f3f45'; g.fillRect(s * 0.44, s * 0.42, s * 0.12, s * 0.1); // ручка
     });
     return { sand, wall, crateT, door };
   }
+  let sun3 = null; // 3.22.0: солнце с тенями следует за камерой (чёткие тени CS:GO)
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
-    renderer3.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer3.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 3.22.0: картинка уровня CS:GO — sRGB + кинематографичный тонмаппинг + мягкие тени
+    if ('outputColorSpace' in renderer3 && THREE.SRGBColorSpace) renderer3.outputColorSpace = THREE.SRGBColorSpace;
+    if (THREE.ACESFilmicToneMapping) { renderer3.toneMapping = THREE.ACESFilmicToneMapping; renderer3.toneMappingExposure = 1.18; }
+    renderer3.shadowMap.enabled = true;
+    renderer3.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xcbb287);
-    scene.fog = new THREE.FogExp2(0xcbb287, 0.012);
+    scene.fog = new THREE.FogExp2(0xd8c6a2, 0.0058);
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 400);
     scene.add(camera); // 3.15.1: к камере крепится оружие от первого лица
+    // небо-купол: градиент даст2 (голубое сверху, песчаная дымка у горизонта) + солнечное свечение
+    const skyTex = texCanvas((g, s) => {
+      const gr = g.createLinearGradient(0, 0, 0, s);
+      gr.addColorStop(0, '#5f9fd8');
+      gr.addColorStop(0.45, '#9fc2e4');
+      gr.addColorStop(0.72, '#d8cfae');
+      gr.addColorStop(1, '#e8d2a0');
+      g.fillStyle = gr; g.fillRect(0, 0, s, s);
+      const rg = g.createRadialGradient(s * 0.72, s * 0.3, 6, s * 0.72, s * 0.3, s * 0.3);
+      rg.addColorStop(0, 'rgba(255,244,214,0.95)');
+      rg.addColorStop(0.25, 'rgba(255,232,180,0.4)');
+      rg.addColorStop(1, 'rgba(255,232,180,0)');
+      g.fillStyle = rg; g.fillRect(0, 0, s, s);
+    }, 512);
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(340, 24, 14),
+      new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false })
+    );
+    sky.rotation.y = 2.2; // солнечное пятно совпадает с направлением света
+    scene.add(sky);
     const T = makeTextures();
-    scene.add(new THREE.HemisphereLight(0xfff0d0, 0x7a6440, 1.05));
-    const sun = new THREE.DirectionalLight(0xffe8c0, 0.9);
-    sun.position.set(60, 120, 30);
-    scene.add(sun);
+    for (const k in T) if (T[k] && 'colorSpace' in T[k] && THREE.SRGBColorSpace) T[k].colorSpace = THREE.SRGBColorSpace;
+    scene.add(new THREE.HemisphereLight(0xdfeaf6, 0x8a7350, 0.85));
+    sun3 = new THREE.DirectionalLight(0xffeccc, 1.6);
+    sun3.position.set(60, 120, 30);
+    sun3.castShadow = true;
+    sun3.shadow.mapSize.set(2048, 2048);
+    const scc = sun3.shadow.camera;
+    scc.left = -55; scc.right = 55; scc.top = 55; scc.bottom = -55;
+    scc.near = 1; scc.far = 300;
+    sun3.shadow.bias = -0.0004;
+    scene.add(sun3);
+    scene.add(sun3.target);
     // Пол — по ячейкам, с дырами в открытых шахтах туннелей (5/6/7)
     T.sand.repeat.set(1, 1);
     const groundCells = [];
@@ -414,7 +470,27 @@
       const FM = new THREE.Matrix4();
       groundCells.forEach((p, i) => { FM.setPosition(p[0], -0.06, p[1]); floor.setMatrixAt(i, FM); });
     }
+    floor.receiveShadow = true; // 3.22.0: пол принимает тени
     scene.add(floor);
+    // 3.22.0: мелкие камешки на песке — детализация как в CS:GO
+    {
+      const pebGeo = new THREE.DodecahedronGeometry(0.09, 0);
+      const pebMat = new THREE.MeshLambertMaterial({ color: 0x9a8a72 });
+      const peb = new THREE.InstancedMesh(pebGeo, pebMat, 160);
+      const PM = new THREE.Matrix4(), PQ = new THREE.Quaternion(), PS = new THREE.Vector3(), PP = new THREE.Vector3();
+      let placed = 0, pguard = 0;
+      while (placed < 160 && pguard++ < 3000) {
+        const gx = Math.floor(Math.random() * MW), gy = Math.floor(Math.random() * MH);
+        if (grid[gy][gx] !== 0) continue; // только открытый пол
+        const s = 0.5 + Math.random() * 1.3;
+        PQ.setFromAxisAngle(new THREE.Vector3(Math.random(), 1, Math.random()).normalize(), Math.random() * 6);
+        PM.compose(PP.set(gx * CELL + Math.random() * CELL, 0.02, gy * CELL + Math.random() * CELL), PQ, PS.set(s, s * 0.6, s));
+        peb.setMatrixAt(placed++, PM);
+      }
+      peb.count = placed;
+      peb.receiveShadow = true;
+      scene.add(peb);
+    }
     // Стены / двери / ящики — инстансы
     const walls = [], doors = [], crates = [];
     for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
@@ -434,6 +510,7 @@
       );
       const M = new THREE.Matrix4();
       list.forEach((p, i) => { M.setPosition(p[0], p[1], p[2]); m.setMatrixAt(i, M); });
+      m.castShadow = true; m.receiveShadow = true; // 3.22.0: тени от стен/ящиков
       scene.add(m);
     }
     inst(walls, WALL_H, T.wall);
@@ -474,6 +551,7 @@
         const m = new THREE.InstancedMesh(geo, mat, list.length);
         const M = new THREE.Matrix4();
         list.forEach((p, i) => { M.setPosition(p[0], p[1], p[2]); m.setMatrixAt(i, M); });
+        m.castShadow = true; m.receiveShadow = true;
         scene.add(m);
       }
       instGeo(floors, new THREE.BoxGeometry(CELL, 0.08, CELL), matDark);
@@ -487,6 +565,7 @@
           M.setPosition(w[0], (w[1] + w[2]) / 2, w[3]);
           m.setMatrixAt(i, M);
         });
+        m.castShadow = true; m.receiveShadow = true;
         scene.add(m);
       }
       if (wallsZ.length) {
@@ -497,6 +576,7 @@
           M.setPosition(w[0], (w[1] + w[2]) / 2, w[3]);
           m.setMatrixAt(i, M);
         });
+        m.castShadow = true; m.receiveShadow = true;
         scene.add(m);
       }
     }
@@ -979,6 +1059,8 @@
       nadesList.length = 0;
       for (const tr of tracers) scene.remove(tr.line);
       tracers.length = 0;
+      for (const sf of shotFlashes) scene.remove(sf.sp);
+      shotFlashes.length = 0;
       flashAlpha = 0; shake = 0;
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
@@ -1119,11 +1201,19 @@
     const gunHolder = new THREE.Group();
     gunHolder.position.set(0, -0.52, -0.15);
     armR.add(gunHolder);
+    // 3.22.0: вспышка на дуле чужого стрелка (видна всем)
+    const muzzleFx = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
+    muzzleFx.scale.set(0.5, 0.5, 1);
+    muzzleFx.position.set(0, 0, -0.85);
+    muzzleFx.visible = false;
+    gunHolder.add(muzzleFx);
+    // 3.22.0: игроки отбрасывают тени
+    g.traverse(o2 => { if (o2.isMesh) { o2.castShadow = true; } });
     g.add(torso, head, legL, legR, armL, armR);
     // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
     if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '',
+    const r = { group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);
@@ -1228,14 +1318,60 @@
   function remotesClear() { for (const n of [...remotes.keys()]) removeRemote(n); for (const n of nadesList) scene.remove(n.mesh); nadesList.length = 0; }
 
   // ---------- ЭФФЕКТЫ ----------
+  // 3.22.0: вспышка выстрела — аддитивная звезда + точечный свет, видны ВСЕМ (и на стенах)
+  let muzzleTexCache = null, shotLight = null;
+  const shotFlashes = [];
+  function muzzleTex() {
+    if (muzzleTexCache) return muzzleTexCache;
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const rg = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+    rg.addColorStop(0, 'rgba(255,255,240,1)');
+    rg.addColorStop(0.35, 'rgba(255,214,120,0.85)');
+    rg.addColorStop(1, 'rgba(255,170,60,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+    g.strokeStyle = 'rgba(255,236,180,0.9)'; g.lineWidth = 3;
+    for (let i = 0; i < 4; i++) { // лучи звезды
+      const a = i * Math.PI / 4 + 0.4;
+      g.beginPath();
+      g.moveTo(32 + Math.cos(a) * 6, 32 + Math.sin(a) * 6);
+      g.lineTo(32 + Math.cos(a) * 26, 32 + Math.sin(a) * 26);
+      g.stroke();
+    }
+    muzzleTexCache = new THREE.CanvasTexture(c);
+    return muzzleTexCache;
+  }
+  function flashAt(pos) {
+    if (!shotLight) { shotLight = new THREE.PointLight(0xffc46a, 0, 10, 2); scene.add(shotLight); }
+    shotLight.position.copy(pos);
+    shotLight.intensity = 2.8;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
+    sp.scale.set(0.6, 0.6, 1);
+    sp.position.copy(pos);
+    scene.add(sp);
+    shotFlashes.push({ sp, die: performance.now() + 55 });
+  }
+  // 3.22.0: пуля-трассер как в CS:GO — светящийся стержень + яркая голова
   function spawnTracer(origin, dir, len, isRemote) {
     const o = new THREE.Vector3(origin[0], origin[1], origin[2]);
     const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    const end = o.clone().add(d.multiplyScalar(len));
-    const geo = new THREE.BufferGeometry().setFromPoints([o, end]);
-    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.85 }));
-    scene.add(line);
-    tracers.push({ line, die: performance.now() + 70 });
+    const group = new THREE.Group();
+    const core = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.018, 0.018, Math.max(len, 0.4), 5, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    core.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+    core.position.copy(o).addScaledVector(d, len / 2);
+    group.add(core);
+    const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
+    head.scale.set(0.34, 0.34, 1);
+    head.position.copy(o).addScaledVector(d, len);
+    group.add(head);
+    scene.add(group);
+    tracers.push({ line: group, die: performance.now() + (isRemote ? 95 : 75) });
+    // вспышка на дуле — у себя чуть ниже-правее камеры (видно и стены рядом), у врагов — на дуле
+    const fo = isRemote ? o.clone() : o.clone().addScaledVector(d, 0.75).add(new THREE.Vector3(0.15, -0.17, 0));
+    flashAt(fo);
   }
   const nadesList = [];
   let flashAlpha = 0, shake = 0;
@@ -1704,6 +1840,7 @@
       r.group.position.set(r.x, r.y, r.z);
       r.group.rotation.y = r.yaw;
       setRemoteGun(r);
+      if (r.muzzleFx) r.muzzleFx.visible = r.alive && (performance.now() - r.muzzle) < 55; // 3.22.0: вспышка на дуле
       if (r.alive) {
         r.group.rotation.z = 0;
         r.group.visible = true;
@@ -1738,6 +1875,16 @@
     // трассеры
     for (let i = tracers.length - 1; i >= 0; i--) {
       if (performance.now() > tracers[i].die) { scene.remove(tracers[i].line); tracers.splice(i, 1); }
+    }
+    // 3.22.0: вспышки выстрелов гаснут + солнце с тенями следует за камерой
+    for (let i = shotFlashes.length - 1; i >= 0; i--) {
+      if (performance.now() > shotFlashes[i].die) { scene.remove(shotFlashes[i].sp); shotFlashes.splice(i, 1); }
+    }
+    if (shotLight) shotLight.intensity = Math.max(0, shotLight.intensity - dt * 34);
+    if (sun3) {
+      sun3.position.set(camera.position.x + 55, camera.position.y + 110, camera.position.z + 28);
+      sun3.target.position.set(camera.position.x, 0, camera.position.z);
+      sun3.target.updateMatrixWorld();
     }
     // камера
     camera.position.set(P.x, P.y + EYE, P.z);

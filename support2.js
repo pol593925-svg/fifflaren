@@ -469,6 +469,7 @@
 
   function buildScene() {
     scene = new THREE.Scene();
+    fogMesh = null; fogGrid.fill(0); fogT = 0; // 3.21.1: сброс тумана войны при новой сцене
     scene.background = new THREE.Color(0xd6c9e2); // 3.21.0: сиренево-розовая дымка как на карте Доты
     scene.fog = new THREE.Fog(0xd6c9e2, 150, 380);
     camera = new THREE.PerspectiveCamera(46, 1.6, 0.5, 600);
@@ -1522,6 +1523,87 @@
   let castMode = null; // 3.19.2: индекс слота способности в режиме прицеливания
   let rafId = null, lastTs = 0;
   let minimapCtx = null;
+
+  // ---------- 3.21.1: ТУМАН ВОЙНЫ как в Доте: неразведано — чёрное, нет своих рядом — темно, враги в тумане скрыты ----------
+  const FOG_N = 128; // сетка тумана
+  const fogGrid = new Uint8Array(FOG_N * FOG_N); // 0 неразведано · 1 было видно (темно) · 2 видно сейчас
+  let fogCanvas = null, fogMini = null, fogTex = null, fogMesh = null, fogT = 0;
+  function fogCellIdx(x, z) {
+    const cx = clamp(Math.floor((x + MAP / 2) / MAP * FOG_N), 0, FOG_N - 1);
+    const cz = clamp(Math.floor((z + MAP / 2) / MAP * FOG_N), 0, FOG_N - 1);
+    return cz * FOG_N + cx;
+  }
+  function fogVisionR(u) {
+    if (u.isHero) return 26;
+    if (u.isTower) return 32;
+    if (u.isAncient) return 28;
+    if (u.isCourier) return 10;
+    if (u.isSummon) return 16;
+    return 14; // крипы
+  }
+  function fogVisibleAt(x, z) { return fogGrid[fogCellIdx(x, z)] === 2; }
+  function tickFog(dt) {
+    if (!scene) return;
+    if (!fogMesh) { // оверлей-туман над землёй
+      fogCanvas = document.createElement('canvas'); fogCanvas.width = FOG_N; fogCanvas.height = FOG_N;
+      fogTex = new THREE.CanvasTexture(fogCanvas);
+      fogMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(MAP + 80, MAP + 80),
+        new THREE.MeshBasicMaterial({ map: fogTex, transparent: true, depthWrite: false })
+      );
+      fogMesh.rotation.x = -Math.PI / 2;
+      fogMesh.position.y = 0.55;
+      fogMesh.renderOrder = 5;
+      scene.add(fogMesh);
+      fogMini = document.createElement('canvas'); fogMini.width = FOG_N; fogMini.height = FOG_N; // копия для миникарты
+    }
+    const myTeam = myHero ? myHero.team : null;
+    if (!myTeam) { // зритель видит всё
+      if (fogMesh.visible) {
+        fogMesh.visible = false;
+        for (const u of units) if (u.mesh && !u.mesh.visible) u.mesh.visible = true;
+        for (const z of zones) if (z.mesh) z.mesh.visible = true;
+      }
+      return;
+    }
+    fogMesh.visible = true;
+    fogT -= dt;
+    if (fogT > 0) return;
+    fogT = 0.12; // ~8 обновлений в секунду
+    for (let i = 0; i < fogGrid.length; i++) if (fogGrid[i] === 2) fogGrid[i] = 1;
+    // круги видимости вокруг своих юнитов
+    for (const u of units) {
+      if (!u.alive || u.team !== myTeam) continue;
+      const r = fogVisionR(u);
+      const cells = Math.ceil(r / MAP * FOG_N);
+      const cx = Math.floor((u.x + MAP / 2) / MAP * FOG_N), cz = Math.floor((u.z + MAP / 2) / MAP * FOG_N);
+      for (let dz = -cells; dz <= cells; dz++) for (let dx = -cells; dx <= cells; dx++) {
+        if (dx * dx + dz * dz > cells * cells) continue;
+        const X = cx + dx, Z = cz + dz;
+        if (X < 0 || Z < 0 || X >= FOG_N || Z >= FOG_N) continue;
+        fogGrid[Z * FOG_N + X] = 2;
+      }
+    }
+    // перерисовка текстуры тумана (чёрное / тёмная вуаль / прозрачно)
+    const g = fogCanvas.getContext('2d');
+    const img = g.createImageData(FOG_N, FOG_N);
+    const gm = fogMini.getContext('2d');
+    const imgM = gm.createImageData(FOG_N, FOG_N);
+    for (let i = 0, p = 0; i < fogGrid.length; i++, p += 4) {
+      const v = fogGrid[i];
+      const a = v === 2 ? 0 : v === 1 ? 140 : 255;
+      img.data[p + 3] = a;
+      imgM.data[p] = 6; imgM.data[p + 1] = 8; imgM.data[p + 2] = 12; imgM.data[p + 3] = v === 2 ? 0 : v === 1 ? 150 : 255;
+    }
+    g.putImageData(img, 0, 0);
+    gm.putImageData(imgM, 0, 0);
+    fogTex.needsUpdate = true;
+    // прячем врагов в тумане (вышки/троны видны всегда — как в Доте)
+    for (const u of units) {
+      if (!u.mesh || u.isTower || u.isAncient) continue;
+      u.mesh.visible = u.team === myTeam || fogVisibleAt(u.x, u.z);
+    }
+  }
   const deadAllies = []; // {x, z, ref, t} для воскрешения
 
   function el(tag, css, parent, txt) {
@@ -3177,6 +3259,7 @@
     lastTs = ts;
     clockT += dt;
     if (match.phase === 'live') {
+      tickFog(dt); // 3.21.1: туман войны
       if (net.mode === 'client') {
         // 3.19.0: клиент матча — интерполяция снапшотов + визуальные снаряды/зоны (без урона)
         clientTick(dt);

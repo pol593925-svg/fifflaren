@@ -13,6 +13,13 @@ let allowQuit = true;  // может ли пользователь закрыт�
 let forceQuit = false; // служебное принудительное закрытие (обновление и т.п.)
 let rebuildTrayMenuFn = null; // перестроить меню трея (скрыть/показать «Выход»)
 
+// --- ЗАЩИТА ОТ ВЫЛЕТОВ 3.24.2: лог крашей + авто-перезагрузка рендера ---
+function crashLog(msg) {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'crash.log'), `[${new Date().toISOString()}] ${msg}\n`); } catch (_) {}
+}
+process.on('uncaughtException', (e) => crashLog('uncaughtException: ' + (e && e.stack ? e.stack : e)));
+process.on('unhandledRejection', (r) => crashLog('unhandledRejection: ' + (r && r.stack ? r.stack : r)));
+
 // --- ГЛАВНОЕ ОКНО ---
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -28,6 +35,14 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
   mainWindow.maximize();
+  // 3.24.2: рендер убит (GPU/OOM/краш) — не вылетаем, а перезагружаем окно (сессия переподключится сама)
+  mainWindow.webContents.on('render-process-gone', (e, details) => {
+    crashLog('render-process-gone: reason=' + (details && details.reason) + ' exitCode=' + (details && details.exitCode));
+    if (!forceQuit && mainWindow && !mainWindow.isDestroyed()) {
+      try { mainWindow.reload(); } catch (err) { crashLog('reload failed: ' + err); }
+    }
+  });
+  mainWindow.webContents.on('unresponsive', () => crashLog('unresponsive: окно зависло >3с'));
 
   mainWindow.on('close', (e) => {
     // Сворачиваем в трей вместо закрытия

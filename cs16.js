@@ -15,7 +15,9 @@
   const TUN_CEIL = -1.3;   // потолок глубокого туннеля (ниже уровня земли 0)
   // 3.24.0: вентиляция (пол 0, потолок низкий — только сидя) и наземные мосты с лестницами
   const VENT_CEIL = 1.35, BRIDGE_H = 2.3;
-  const CH2C = { '#': 1, '.': 0, 'D': 2, 'C': 3, '4': 4, '5': 5, '6': 6, '7': 7, 'V': 8, 'B': 9, 'S': 10 };
+  // 3.24.2: снайперская вышка (TOWER_H — выше стены, с лестницей только со стороны лестницы)
+  const TOWER_H = 4.2;
+  const CH2C = { '#': 1, '.': 0, 'D': 2, 'C': 3, '4': 4, '5': 5, '6': 6, '7': 7, 'V': 8, 'B': 9, 'S': 10, 'T': 11 };
   // СТРОКИ КАРТ СИНХРОНИЗИРОВАНЫ С СЕРВЕРОМ (server.js CS16_MAP_ROWS) — править через genmap.js!
   const MAP_ROWS = {
     dust2: [
@@ -121,6 +123,7 @@
   let grid = [];
   let SITE_A = MAP_META.dust2.sites.A, SITE_B = MAP_META.dust2.sites.B;
   const stairsDir = new Map(); // "x,y" -> [dx,dy] направление лестницы вверх к мосту
+  let beaconTunMat = null, beaconVentMat = null; // 3.24.2: материалы маяков-фонариков (пульсация в loop)
   function loadMap(name) {
     if (!MAP_ROWS[name]) name = 'dust2';
     curMap = name;
@@ -137,7 +140,7 @@
       if (grid[y][x] !== 10) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, ny = y + dy;
-        if (nx >= 0 && ny >= 0 && nx < MW && ny < MH && grid[ny][nx] === 9) { stairsDir.set(x + ',' + y, [dx, dy]); break; }
+        if (nx >= 0 && ny >= 0 && nx < MW && ny < MH && (grid[ny][nx] === 9 || grid[ny][nx] === 11)) { stairsDir.set(x + ',' + y, [dx, dy]); break; }
       }
     }
     SITE_A = MAP_META[name].sites.A; SITE_B = MAP_META[name].sites.B;
@@ -148,16 +151,20 @@
     if (cx < 0 || cy < 0 || cx >= MW || cy >= MH) return 1;
     return grid[cy][cx];
   }
-  function cellH(c) { return c === 1 ? WALL_H : c === 2 ? DOOR_H : c === 3 ? CRATE_H : 0; }
+  function cellH(c) { return c === 1 ? WALL_H : c === 2 ? DOOR_H : c === 3 ? CRATE_H : c === 11 ? TOWER_H : 0; }
   // Уровень пола ячейки (wx/wz нужны для интерполяции лестниц)
   function floorAt(c, wx, wz) {
     if (c === 9) return BRIDGE_H;
+    if (c === 11) return TOWER_H;
     if (c === 10) {
       const d = stairsDir.get(Math.floor((wx || 0) / CELL) + ',' + Math.floor((wz || 0) / CELL));
       if (!d) return 0;
+      // 3.24.2: лестница к вышке выше, чем к мосту
+      const sx = Math.floor((wx || 0) / CELL), sy = Math.floor((wz || 0) / CELL);
+      const topH = ((grid[sy] && (grid[sy][sx - 1] === 11 || grid[sy][sx + 1] === 11)) || (grid[sy - 1] && grid[sy - 1][sx] === 11) || (grid[sy + 1] && grid[sy + 1][sx] === 11)) ? TOWER_H : BRIDGE_H;
       const lx = (wx - Math.floor(wx / CELL) * CELL), lz = (wz - Math.floor(wz / CELL) * CELL);
       const prog = d[0] > 0 ? (CELL - lx) / CELL : d[0] < 0 ? lx / CELL : d[1] > 0 ? (CELL - lz) / CELL : lz / CELL;
-      return Math.max(0, Math.min(1, prog)) * BRIDGE_H;
+      return Math.max(0, Math.min(1, prog)) * topH;
     }
     return TUN_FLOOR[c] || 0;
   }
@@ -761,13 +768,14 @@
       scene.add(peb);
     }
     // Стены / двери / ящики — инстансы
-    const walls = [], doors = [], crates = [];
+    const walls = [], doors = [], crates = [], towers = [];
     for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
       const c = grid[y][x];
       const px = x * CELL + CELL / 2, pz = y * CELL + CELL / 2;
       if (c === 1) walls.push([px, WALL_H / 2, pz]);
       else if (c === 2) doors.push([px, DOOR_H / 2, pz]);
       else if (c === 3) crates.push([px, CRATE_H / 2, pz]);
+      else if (c === 11) towers.push([px, TOWER_H / 2, pz]);
     }
     function inst(list, h, tex) {
       if (!list.length) return;
@@ -785,6 +793,8 @@
     inst(walls, WALL_H, T.wall);
     inst(doors, DOOR_H, T.door);
     inst(crates, CRATE_H, T.crateT);
+    inst(towers, TOWER_H, T.wall); // 3.24.2: снайперские вышки (сплошные колонны)
+    const beaconPts = []; // 3.24.2: точки фонариков-маяков (входы в туннели и лазы)
     // 3.16.0: туннели ниже уровня земли — полы ступеней, потолок глубокого хода, граничные стены и ступени
     {
       const isTun = c => c === 4 || c === 5 || c === 6 || c === 7;
@@ -805,14 +815,14 @@
         for (const [dx, edge] of [[1, x * CELL + CELL], [-1, x * CELL]]) {
           const n = nb(dx, 0);
           // 3.24.0: портал-обрамление ТОЛЬКО у входа-ступени (тип 5/6/7) на открытый пол — без леса стоек
-          if (!isTun(n)) { wallsX.push([edge, 0.05, -3.45, pz]); if ((c === 5 || c === 6 || c === 7) && n === 0) portalsX.push([edge, pz, L1]); }
+          if (!isTun(n)) { wallsX.push([edge, 0.05, -3.45, pz]); if ((c === 5 || c === 6 || c === 7) && n === 0) { portalsX.push([edge, pz, L1]); beaconPts.push([edge, pz, 'tun']); } }
           else if (TUN_FLOOR[n] > L1) wallsX.push([edge, TUN_FLOOR[n], L1, pz]); // ступень вверх (рендерим с нижней ячейки)
           else if (TUN_FLOOR[n] < L1) ramps.push([edge - dx * CELL * 0.12, pz, 'x', dx, L1, TUN_FLOOR[n]]); // плавный спуск вниз
         }
         // Z-границы
         for (const [dy, edge] of [[1, y * CELL + CELL], [-1, y * CELL]]) {
           const n = nb(0, dy);
-          if (!isTun(n)) { wallsZ.push([px, 0.05, -3.45, edge]); if ((c === 5 || c === 6 || c === 7) && n === 0) portalsZ.push([px, edge, L1]); }
+          if (!isTun(n)) { wallsZ.push([px, 0.05, -3.45, edge]); if ((c === 5 || c === 6 || c === 7) && n === 0) { portalsZ.push([px, edge, L1]); beaconPts.push([px, edge, 'tun']); } }
           else if (TUN_FLOOR[n] > L1) wallsZ.push([px, TUN_FLOOR[n], L1, edge]);
           else if (TUN_FLOOR[n] < L1) ramps.push([px, edge - dy * CELL * 0.12, 'z', dy, L1, TUN_FLOOR[n]]);
         }
@@ -922,10 +932,14 @@
             vF.push([px, -0.04, pz]);
             vC.push([px, VENT_CEIL + 0.06, pz]);
             const nb2 = (dx, dy) => { const ax = x + dx, ay = y + dy; return (ax < 0 || ay < 0 || ax >= MW || ay >= MH) ? 1 : grid[ay][ax]; };
-            for (const [dx, edge] of [[1, x * CELL + CELL], [-1, x * CELL]]) if (nb2(dx, 0) !== 8) vWX.push([edge, VENT_CEIL + 0.25, pz]);
-            for (const [dy, edge] of [[1, y * CELL + CELL], [-1, y * CELL]]) if (nb2(0, dy) !== 8) vWZ.push([px, VENT_CEIL + 0.25, edge]);
+            for (const [dx, edge] of [[1, x * CELL + CELL], [-1, x * CELL]]) { const nn = nb2(dx, 0); if (nn !== 8) { vWX.push([edge, VENT_CEIL + 0.25, pz]); if (nn === 0 || nn === 2) beaconPts.push([edge, pz, 'vent']); } }
+            for (const [dy, edge] of [[1, y * CELL + CELL], [-1, y * CELL]]) { const nn = nb2(0, dy); if (nn !== 8) { vWZ.push([px, VENT_CEIL + 0.25, edge]); if (nn === 0 || nn === 2) beaconPts.push([px, edge, 'vent']); } }
           } else if (c === 9) brg.push([px, pz]);
-          else if (c === 10) st.push([px, pz, stairsDir.get(x + ',' + y) || [0, -1]]);
+          else if (c === 10) {
+            const dS = stairsDir.get(x + ',' + y) || [0, -1];
+            const hS = ((grid[y][x-1] === 11 || grid[y][x+1] === 11 || (grid[y-1] && grid[y-1][x] === 11) || (grid[y+1] && grid[y+1][x] === 11)) ? TOWER_H : BRIDGE_H); // 3.24.2: лестница к вышке выше
+            st.push([px, pz, dS, hS]);
+          }
         }
         instGeo(vF, new THREE.BoxGeometry(CELL, 0.08, CELL), matMetal);
         instGeo(vC, new THREE.BoxGeometry(CELL, 0.12, CELL), matMetal);
@@ -950,15 +964,15 @@
         // мосты: толстая каменная плита на высоте BRIDGE_H
         const matBrg = new THREE.MeshLambertMaterial({ map: T.wall });
         instGeo(brg.map(p => [p[0], BRIDGE_H - 0.15, p[1]]), new THREE.BoxGeometry(CELL, 0.3, CELL), matBrg);
-        // лестницы: наклонные плиты по направлению stairsDir
+        // лестницы: наклонные плиты по направлению stairsDir (высота зависит от моста/вышки)
         {
           const matSt = new THREE.MeshLambertMaterial({ color: 0x8a7a5e });
-          const len = Math.hypot(CELL, BRIDGE_H) + 0.3, ang = Math.atan2(BRIDGE_H, CELL);
-          for (const [sx2, sz2, d] of st) {
+          for (const [sx2, sz2, d, hS] of st) {
+            const len = Math.hypot(CELL, hS) + 0.3, ang = Math.atan2(hS, CELL);
             const geo = d[0] !== 0 ? new THREE.BoxGeometry(len, 0.14, CELL * 0.94) : new THREE.BoxGeometry(CELL * 0.94, 0.14, len);
             const ramp = new THREE.Mesh(geo, matSt);
             const off = CELL * 0.5 - 0.3;
-            ramp.position.set(sx2 + d[0] * off, BRIDGE_H / 2 - 0.03, sz2 + d[1] * off);
+            ramp.position.set(sx2 + d[0] * off, hS / 2 - 0.03, sz2 + d[1] * off);
             // d указывает к мосту: высота растёт к мосту
             if (d[0] > 0) ramp.rotation.z = ang; else if (d[0] < 0) ramp.rotation.z = -ang;
             else if (d[1] > 0) ramp.rotation.x = -ang; else ramp.rotation.x = ang;
@@ -966,6 +980,20 @@
             scene.add(ramp);
           }
         }
+      }
+    }
+    // 3.24.2: фонарики-маяки над входами в туннели (янтарные) и лазами вентиляции (зелёные)
+    if (beaconPts.length) {
+      beaconTunMat = new THREE.MeshBasicMaterial({ color: 0xffb52e, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+      beaconVentMat = new THREE.MeshBasicMaterial({ color: 0x3dff7a, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+      const geoB = new THREE.CylinderGeometry(0.3, 0.55, 7, 8, 1, true);
+      const seen = new Set();
+      for (const [bx2, bz2, kind] of beaconPts) {
+        const key = Math.round(bx2) + ',' + Math.round(bz2) + ',' + kind;
+        if (seen.has(key)) continue; seen.add(key);
+        const beam = new THREE.Mesh(geoB, kind === 'vent' ? beaconVentMat : beaconTunMat);
+        beam.position.set(bx2, 3.5, bz2);
+        scene.add(beam);
       }
     }
     // 3.15.8: чёрные граффити-указатели «A» и «B» на плентх и у входов
@@ -2523,6 +2551,7 @@
       const c = grid[y][x];
       if (c === 1 || c === 2) { g.fillStyle = c === 1 ? 'rgba(200,200,200,0.5)' : 'rgba(160,140,90,0.5)'; g.fillRect(x * CELL * k, y * CELL * k, CELL * k + 0.5, CELL * k + 0.5); }
       else if (c === 9 || c === 10) { g.fillStyle = 'rgba(140,110,70,0.6)'; g.fillRect(x * CELL * k, y * CELL * k, CELL * k + 0.5, CELL * k + 0.5); }
+      else if (c === 11) { g.fillStyle = 'rgba(255,181,46,0.75)'; g.fillRect(x * CELL * k, y * CELL * k, CELL * k + 0.5, CELL * k + 0.5); } // 3.24.2: вышки на радаре
     }
     // сайты
     for (const [S, col] of [[SITE_A, '#e8c34a'], [SITE_B, '#5aa2e8']]) {
@@ -2570,10 +2599,13 @@
   function loop(t) {
     requestAnimationFrame(loop);
     if (!renderer3 || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
+    try {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
     lastT = t;
     // таймеры клиента
     bloom = Math.max(0, bloom - dt * 3);
+    // 3.24.2: пульсация фонариков-маяков
+    if (beaconTunMat) { const bp = 0.22 + 0.12 * Math.sin(performance.now() * 0.004); beaconTunMat.opacity = bp; beaconVentMat.opacity = bp; }
     // 3.24.0: флешка — 3 секунды полный белый экран, потом гаснет
     if (performance.now() < flashUntil) flashAlpha = Math.max(flashAlpha, 1);
     else flashAlpha = Math.max(0, flashAlpha - dt * 1.2);
@@ -2695,6 +2727,11 @@
       sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, skin: mySkin });
     }
     renderer3.render(scene, camera);
+    } catch (err) {
+      // 3.24.2: ошибка кадра не должна ронять рендер-процесс — логируем и идём дальше
+      window.__cs16Err = (window.__cs16Err || 0) + 1;
+      if (window.__cs16Err < 5) console.error('cs16 loop error:', err);
+    }
   }
 
   // ---------- ВХОД ВО ВКЛАДКУ ----------

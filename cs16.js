@@ -37,9 +37,9 @@
       "#4##.V..##########.....##########......###",
       "#4##.V..##########.....##########......###",
       "#4##.V..##########.....##########......###",
-      "#4##.DD.##########.....##########......###",
-      "#4##.DD.##########DDDDD##########......###",
-      "#4##.VC.##########DDDDD##########...C..###",
+      "#4##.DD.###.....C#.....##########......###",
+      "#4##.DD.###.C.....DDDDD##########......###",
+      "#4##.VC.###......#DDDDD##########...C..###",
       "#4##....6574444756.....##########......###",
       "#4##....6574444756.....##########......###",
       "#4##....##########.....##########......###",
@@ -55,12 +55,12 @@
       "#6......##########.....##########......###",
       "####...................66....6556......###",
       "####...................55....6556......###",
-      "####...................77.....############",
-      "#########..............55.....############",
-      "#########..............66.....############",
-      "#########.....................############",
+      "####...................77.....########...#",
+      "#########..............55.....########...#",
+      "#########..............66.....########...#",
+      "#########.....................65744444756#",
       "##########################################",
-      "##########################################"
+      "##########################################",
     ],
     inferno: [
       "##########################################",
@@ -70,41 +70,41 @@
       "##..................................C....#",
       "##.....C.........................C.......#",
       "##..........C..#............C..C.........#",
-      "##.C...........#...#######........C....C.#",
-      "##.............#...#######.........VVVC..#",
+      "##.C...........#...#####656.......C....C.#",
+      "##.............#...#####656........VVVC..#",
       "##.......#######...###############.......#",
       "##.......#######.......###########.......#",
       "##.......#########.....###########.......#",
       "##.......#########.....###########.SBBBS.#",
       "##.......#########.....###########.......#",
-      "##.......#########..C..###########D......#",
-      "##..DDD..#########.....###########D......#",
-      "##..DDD..#########.....###########D......#",
-      "##.......#########.....###########.......#",
-      "##.......#########DDDDD###########..C....#",
-      "##.S.....#########DDDDD###########.......#",
-      "##.BBB...#########.....###########.......#",
-      "##...S...#########.....###########.......#",
-      "##.......#########.....###########.......#",
-      "##.......#########.....###################",
-      "##...C...#########.66..###################",
+      "##.......#....####..C..###########D......#",
+      "##..DDD.CV....####.....###########D......#",
+      "##..DDD..#....####.....###########D......#",
+      "##.......###.#####.....###########.......#",
+      "##.......###.#####DDDDD###########..C....#",
+      "##.S.....###.#####DDDDD###########.......#",
+      "##.BBB...###.#####.....###########.......#",
+      "##...S...###.#####.....###########.......#",
+      "##.......###.#####.....###########.......#",
+      "##.......###.#####.....###################",
+      "##...C...###.#####.66..###################",
       "##.................55..###################",
       "##.................77..###################",
-      "##.................44..###################",
-      "##.................4C..###################",
-      "##.......657444756.44..###################",
+      "##.S...............44..###################",
+      "##.BBB.............4C..###################",
+      "##...S...657444756.44..###################",
       "##.......657444756.44..#C#################",
       "##.......#########.77..###################",
       "##.......#########.55............#########",
       "##.......#########.66............#########",
-      "######V#######...............#############",
+      "##....V......................#############",
       "######V#######.............C.#############",
       "######V#######...............#############",
       "##############...............#############",
       "##############...............#############",
       "##############...............#############",
       "##########################################",
-      "##########################################"
+      "##########################################",
     ]
   };
   const MAP_META = {
@@ -209,26 +209,26 @@
 
   // ---------- ОРУЖИЕ ----------
   const WEAPONS = {
-    knife:  { name: 'Нож',            dmg: 40,  rpm: 80,  mag: Infinity, reserve: Infinity, reload: 0,   spread: 0,   auto: false, melee: true, price: 0 },
-    glock:  { name: 'Glock-18',       dmg: 25,  rpm: 352, mag: 20, reserve: 120, reload: 2.0, spread: 1.7, auto: false, price: 0 },
-    usp:    { name: 'USP',            dmg: 34,  rpm: 352, mag: 12, reserve: 100, reload: 2.2, spread: 1.2, auto: false, price: 0 },
-    deagle: { name: 'Desert Eagle',   dmg: 53,  rpm: 266, mag: 7,  reserve: 35,  reload: 2.0, spread: 0.9, auto: false, price: 650 },
-    ak47:   { name: 'AK-47',          dmg: 33,  rpm: 600, mag: 30, reserve: 90,  reload: 2.5, spread: 1.9, auto: true,  price: 2500, team: 't' },
-    m4a1:   { name: 'M4A1',           dmg: 33,  rpm: 666, mag: 30, reserve: 90,  reload: 2.3, spread: 1.5, auto: true,  price: 3100, team: 'ct' },
-    awp:    { name: 'AWP',            dmg: 115, rpm: 41,  mag: 10, reserve: 30,  reload: 3.0, spread: 3.2, spreadScoped: 0.04, auto: false, price: 4750, scope: true },
+    knife:  { name: 'Нож',            dmg: 40,  rpm: 80,  mag: Infinity, reserve: Infinity, reload: 0,   spread: 0,   auto: false, melee: true, price: 0, move: 1.2, heavy: 55 },
+    glock:  { name: 'Glock-18',       dmg: 25,  rpm: 352, mag: 20, reserve: 120, reload: 2.0, spread: 1.7, auto: false, price: 0, move: 1.1, burst: true },
+    usp:  { name: 'USP',            dmg: 34,  rpm: 352, mag: 12, reserve: 100, reload: 2.2, spread: 1.2, auto: false, price: 0, move: 1.08 },
+    deagle:  { name: 'Desert Eagle',   dmg: 53,  rpm: 266, mag: 7,  reserve: 35,  reload: 2.0, spread: 0.9, auto: false, price: 650, move: 1.05 },
+    ak47:  { name: 'AK-47',          dmg: 33,  rpm: 600, mag: 30, reserve: 90,  reload: 2.5, spread: 1.9, auto: true,  price: 2500, team: 't', move: 0.95 },
+    m4a1:  { name: 'M4A1',           dmg: 33,  rpm: 666, mag: 30, reserve: 90,  reload: 2.3, spread: 1.5, auto: true,  price: 3100, team: 'ct', move: 0.95 },
+    awp:  { name: 'AWP',            dmg: 115, rpm: 41,  mag: 10, reserve: 30,  reload: 3.0, spread: 3.2, spreadScoped: 0.04, auto: false, price: 4750, scope: true, move: 0.85 },
     // 3.24.0: новые стволы
-    mp5:      { name: 'MP5',        dmg: 26, rpm: 750, mag: 30, reserve: 120, reload: 2.3, spread: 1.3, auto: true,  price: 1500 },
-    p90:      { name: 'P90',        dmg: 26, rpm: 900, mag: 50, reserve: 100, reload: 2.6, spread: 1.9, auto: true,  price: 2350 },
-    ump45:    { name: 'UMP-45',     dmg: 30, rpm: 666, mag: 25, reserve: 100, reload: 2.2, spread: 1.5, auto: true,  price: 1200 },
-    galil:    { name: 'Galil',      dmg: 30, rpm: 675, mag: 35, reserve: 90,  reload: 2.3, spread: 1.8, auto: true,  price: 2000, team: 't' },
-    famas:    { name: 'FAMAS',      dmg: 30, rpm: 675, mag: 25, reserve: 90,  reload: 2.1, spread: 1.6, auto: true,  price: 2250, team: 'ct' },
-    scout:    { name: 'Scout',      dmg: 70, rpm: 48,  mag: 10, reserve: 60,  reload: 2.6, spread: 2.8, spreadScoped: 0.06, auto: false, price: 1700, scope: true },
-    sg552:    { name: 'SG-552',     dmg: 33, rpm: 666, mag: 30, reserve: 90,  reload: 2.4, spread: 1.7, auto: true,  price: 3500, team: 't', scope: true, spreadScoped: 0.15 },
-    aug:      { name: 'AUG',        dmg: 33, rpm: 666, mag: 30, reserve: 90,  reload: 2.4, spread: 1.6, auto: true,  price: 3500, team: 'ct', scope: true, spreadScoped: 0.15 },
-    m249:     { name: 'M249',       dmg: 31, rpm: 750, mag: 100, reserve: 200, reload: 4.5, spread: 2.4, auto: true, price: 5200 },
-    fiveseven:{ name: 'Five-Seven', dmg: 25, rpm: 400, mag: 20, reserve: 100, reload: 2.0, spread: 1.4, auto: false, price: 500, team: 'ct' },
-    tec9:     { name: 'Tec-9',      dmg: 24, rpm: 500, mag: 24, reserve: 120, reload: 2.0, spread: 1.6, auto: false, price: 500, team: 't' },
-    elite:    { name: 'Dual Elites', dmg: 26, rpm: 750, mag: 30, reserve: 120, reload: 2.6, spread: 1.7, auto: false, price: 800 },
+    mp5:  { name: 'MP5',        dmg: 26, rpm: 750, mag: 30, reserve: 120, reload: 2.3, spread: 1.3, auto: true,  price: 1500, move: 1.03 },
+    p90:  { name: 'P90',        dmg: 26, rpm: 900, mag: 50, reserve: 100, reload: 2.6, spread: 1.9, auto: true,  price: 2350, move: 1.02 },
+    ump45:  { name: 'UMP-45',     dmg: 30, rpm: 666, mag: 25, reserve: 100, reload: 2.2, spread: 1.5, auto: true,  price: 1200, move: 1.03 },
+    galil:  { name: 'Galil',      dmg: 30, rpm: 675, mag: 35, reserve: 90,  reload: 2.3, spread: 1.8, auto: true,  price: 2000, team: 't', move: 0.97 },
+    famas:  { name: 'FAMAS',      dmg: 30, rpm: 675, mag: 25, reserve: 90,  reload: 2.1, spread: 1.6, auto: true,  price: 2250, team: 'ct', move: 0.97, burst: true },
+    scout:  { name: 'Scout',      dmg: 70, rpm: 48,  mag: 10, reserve: 60,  reload: 2.6, spread: 2.8, spreadScoped: 0.06, auto: false, price: 1700, scope: true, move: 0.9 },
+    sg552:  { name: 'SG-552',     dmg: 33, rpm: 666, mag: 30, reserve: 90,  reload: 2.4, spread: 1.7, auto: true,  price: 3500, team: 't', scope: true, spreadScoped: 0.15, move: 0.94 },
+    aug:  { name: 'AUG',        dmg: 33, rpm: 666, mag: 30, reserve: 90,  reload: 2.4, spread: 1.6, auto: true,  price: 3500, team: 'ct', scope: true, spreadScoped: 0.15, move: 0.94 },
+    m249:  { name: 'M249',       dmg: 31, rpm: 750, mag: 100, reserve: 200, reload: 4.5, spread: 2.4, auto: true, price: 5200, move: 0.78 },
+    fiveseven:  { name: 'Five-Seven', dmg: 25, rpm: 400, mag: 20, reserve: 100, reload: 2.0, spread: 1.4, auto: false, price: 500, team: 'ct', move: 1.08 },
+    tec9:  { name: 'Tec-9',      dmg: 24, rpm: 500, mag: 24, reserve: 120, reload: 2.0, spread: 1.6, auto: false, price: 500, team: 't', move: 1.08 },
+    elite:  { name: 'Dual Elites', dmg: 26, rpm: 750, mag: 30, reserve: 120, reload: 2.6, spread: 1.7, auto: false, price: 800, move: 1.06 },
     smokegrenade: { name: 'Дымовая', dmg: 0, rpm: 0, mag: 1, reserve: 0, reload: 0, spread: 0, auto: false, price: 300, nade: 'smoke' },
   };
   const BUY_ITEMS = [
@@ -274,13 +274,13 @@
   // ---------- 3.15.3: НАСТОЯЩИЕ 3D-МОДЕЛИ ОРУЖИЯ (GLB) ----------
   // Конфиг: поворот (чтобы ствол смотрел в -Z, верх +Y) и длина в мирах.
   const GLB_MODELS = {
-    ak47:    { url: 'models/ak47.glb',    rotY: -Math.PI / 2, len: 0.85 },
-    awp:     { url: 'models/awp.glb',     rotY: -Math.PI / 2, len: 1.1 },
-    m4a1:    { url: 'models/m4a4.glb',    rotY:  Math.PI / 2, len: 0.8 },
+    ak47:  { url: 'models/ak47.glb',    rotY: -Math.PI / 2, len: 0.85 },
+    awp:  { url: 'models/awp.glb',     rotY: -Math.PI / 2, len: 1.1 },
+    m4a1:  { url: 'models/m4a4.glb',    rotY:  Math.PI / 2, len: 0.8 },
     deagle:  { url: 'models/deagle.glb',  rotY:  Math.PI / 2, len: 0.38 },
-    usp:     { url: 'models/pistol.glb',                  len: 0.36 },
-    glock:   { url: 'models/pistol.glb',                  len: 0.34 },
-    knife:   { url: 'models/bayonet.glb', rotY:  Math.PI / 2, len: 0.55 },
+    usp:  { url: 'models/pistol.glb',                  len: 0.36 },
+    glock:  { url: 'models/pistol.glb',                  len: 0.34 },
+    knife:  { url: 'models/bayonet.glb', rotY:  Math.PI / 2, len: 0.55 },
     c4:      { url: 'models/c4.glb',      rotX: -Math.PI / 2, len: 0.42 },
     grenade: { url: 'models/grenade.glb',                  len: 0.3 },
   };
@@ -1058,7 +1058,8 @@
   function stepPlayer(dt, keys) {
     // 3.24.0: приседание на Ctrl (медленнее, ниже обзор — зато пролезаешь в вентиляцию)
     P.crouched = !!keys.ctrl;
-    const speed = (keys.shift ? 2.9 : 5.4) * (scoped ? 0.45 : 1) * (current === 'awp' ? 0.85 : 1) * (P.crouched ? 0.52 : 1);
+    // 3.24.1: скорость зависит от оружия (нож — быстрый, AWP/пулемёт — тяжёлые), как в CS 1.6
+    const speed = (keys.shift ? 2.9 : 5.4) * (scoped ? 0.45 : 1) * (WEAPONS[current].move || 1) * (P.crouched ? 0.52 : 1);
     const sin = Math.sin(P.yaw), cos = Math.cos(P.yaw);
     let wx = 0, wz = 0;
     if (keys.w) { wx -= sin; wz -= cos; }
@@ -2178,6 +2179,8 @@
   const keys = {};
   // Слоты оружия и переключение (колесико/клавиши — как в CS)
   let lastWeaponSlot = '';
+  let burstOn = false; // очередь Glock/FAMAS (ПКМ)
+  let burstTimers = [];
   function ownedSlots() {
     const pistol = secondary && WEAPONS[secondary] ? secondary : (me.team === 't' ? 'glock' : 'usp');
     const arr = [];
@@ -2201,14 +2204,38 @@
     const cp = Math.cos(P.pitch);
     return [-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp];
   }
+  // 3.24.1: механика оружия — тяжёлый удар ножа (ПКМ): дальше и больнее, но медленнее
+  function heavySlash() {
+    if (!me.alive || state.phase !== 'live') return;
+    const now = performance.now();
+    if (reloading > 0 || now - lastShot < 900) return;
+    lastShot = now;
+    sfxShot('knife');
+    const d = dirFromCam();
+    const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, 2.8);
+    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t, heavy: true });
+    spawnTracer([P.x, P.y + eyeH(), P.z], d, 2.8, false);
+  }
   function tryShoot() {
     if (!me.alive || state.phase !== 'live') return;
     const w = WEAPONS[current];
     const now = performance.now();
     if (reloading > 0 || now - lastShot < 60000 / w.rpm) return;
+    // 3.24.1: Glock/FAMAS — режим очереди (ПКМ переключает): 3 выстрела за один клик
+    if (w.burst && burstOn) {
+      if (burstTimers.length) return; // очередь уже идёт
+      lastShot = now;
+      for (let i = 0; i < 3; i++) burstTimers.push(setTimeout(() => { burstTimers.shift(); fireOne(); }, i * 75));
+      return;
+    }
+    fireOne();
+  }
+  function fireOne() {
+    const w = WEAPONS[current];
+    if (reloading > 0) return;
     const a = ammo[current];
-    if (a && a.mag <= 0) { startReload(); return; }
-    lastShot = now;
+    if (a && a.mag <= 0) { if (!burstTimers.length) startReload(); return; }
+    if (!burstTimers.length) lastShot = performance.now();
     if (a) a.mag--;
     vmKick = 1; // отдача viewmodel
     sfxShot(current);
@@ -2248,7 +2275,7 @@
   function rayPlayers(ox, oy, oz, d, maxT) {
     let best = null;
     for (const [nick, r] of remotes) {
-      if (!r.alive || r.team === me.team) continue;
+      if (!r.alive || (state.gm !== 'gg' && r.team === me.team)) continue;
       // тело — вертикальный цилиндр
       const rx = r.x - ox, rz = r.z - oz;
       const a = d[0] * d[0] + d[2] * d[2];
@@ -2329,8 +2356,18 @@
     if (!ok || !me.alive) { killfeed('🛒 Сейчас купить нельзя'); return; }
     renderBuyList();
     ui.buy.style.display = 'block';
+    // 3.24.1: покупка мышкой — отпускаем курсор, чтобы кликать по товарам
+    unlockForShop = true;
+    if (document.pointerLockElement) document.exitPointerLock();
   }
-  function closeBuy() { if (ui.buy) ui.buy.style.display = 'none'; }
+  function closeBuy() {
+    if (!ui.buy) return;
+    ui.buy.style.display = 'none';
+    if (unlockForShop) {
+      unlockForShop = false;
+      if (state.phase !== 'lobby' && me.alive && !escOpen()) canvasEl.requestPointerLock();
+    }
+  }
   // 3.15.9: ESC-меню
   function isBoss() { return state.host === myNick || myNick.toLowerCase() === 'fifflaren'; }
   function escOpen() { return ui.esc && ui.esc.style.display === 'block'; }
@@ -2344,13 +2381,14 @@
 
   // ---------- ВВОД ----------
   let pointerLocked = false;
+  let unlockForShop = false; // 3.24.1: мышь отпущена специально для магазина — не открывать ESC-меню
   function bindInput() {
     document.addEventListener('pointerlockerror', () => {
       centerMsg('🖱️ Не удалось захватить мышь — кликни по игре ещё раз', 2500);
     });
     document.addEventListener('pointerlockchange', () => {
       pointerLocked = document.pointerLockElement === canvasEl;
-      if (!pointerLocked && (state.phase === 'live' || state.phase === 'freeze' || state.phase === 'roundend')) {
+      if (!pointerLocked && !unlockForShop && (state.phase === 'live' || state.phase === 'freeze' || state.phase === 'roundend')) {
         // 3.15.9: ESC (или потеря мыши) — открываем меню паузы
         openEsc();
       } else if (pointerLocked) {
@@ -2364,8 +2402,12 @@
       if (e.button === 0) {
         const w = WEAPONS[current];
         if (w.auto) { keys.fire = true; tryShoot(); } else tryShoot();
-      } else if (e.button === 2 && WEAPONS[current].scope) {
-        scoped = !scoped;
+      } else if (e.button === 2) {
+        const w = WEAPONS[current];
+        // 3.24.1: механика каждого оружия — нож: тяжёлый удар; Glock/FAMAS: очередь/авто; снайперки: прицел
+        if (w.melee) heavySlash();
+        else if (w.burst) { burstOn = !burstOn; killfeed(burstOn ? '🔥 Режим очереди ВКЛ' : '🔥 Режим очереди ВЫКЛ'); }
+        else if (w.scope) scoped = !scoped;
       }
     });
     window.addEventListener('mouseup', (e) => { if (e.button === 0) keys.fire = false; });
@@ -2592,10 +2634,12 @@
       const interval = left < 3000 ? 280 : left < 8000 ? 600 : 1000;
       if (nowMs - lastBeep > interval && left > 0) { lastBeep = nowMs; sfxBeep(vol); }
     }
-    // 3.24.0: свои шаги — по таймеру от скорости
+    // 3.24.0: свои шаги — по таймеру от скорости; 3.24.1: Shift — тихая ходьба (без звука и без отправки шагов)
     if (me.alive && state.phase !== 'freeze' && P.onGround && (keys.w || keys.a || keys.s || keys.d)) {
-      stepAcc += dt;
-      if (stepAcc > (P.crouched ? 0.62 : 0.42)) { stepAcc = 0; const sf = cellAt(P.x, P.z); sfxStep(sf >= 4 && sf <= 8 ? 'tun' : 'sand'); sock && sock.emit('cs16_step', { pos: [P.x, P.y, P.z], surf: (sf >= 4 && sf <= 8) ? 'tun' : 'sand' }); }
+      if (!keys.shift) {
+        stepAcc += dt;
+        if (stepAcc > (P.crouched ? 0.62 : 0.42)) { stepAcc = 0; const sf = cellAt(P.x, P.z); sfxStep(sf >= 4 && sf <= 8 ? 'tun' : 'sand'); sock && sock.emit('cs16_step', { pos: [P.x, P.y, P.z], surf: (sf >= 4 && sf <= 8) ? 'tun' : 'sand' }); }
+      } else stepAcc = 0.2; // при отпускании Shift звук сразу, без задержки
     }
     drawRadar();
     // трассеры

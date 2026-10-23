@@ -302,9 +302,10 @@
     const m = entry.model.clone();
     const s = SKINS[skin];
     if (s) {
-      const tint = s.rainbow ? 0xffffff : s.color;
+      // 3.23.0: рисованный узор скина вместо плоского цвета
+      const map = skinTex(skin);
       m.traverse(o => {
-        if (o.isMesh) o.material = (s.glow || s.rainbow) ? new THREE.MeshBasicMaterial({ color: tint }) : new THREE.MeshLambertMaterial({ color: tint });
+        if (o.isMesh) o.material = (s.glow || s.rainbow) ? new THREE.MeshBasicMaterial({ map }) : new THREE.MeshLambertMaterial({ map });
       });
     }
     return m;
@@ -331,6 +332,7 @@
   let ammo = {};                // weapon -> {mag, reserve}
   let nades = { he: 0, flash: 0 };
   let scoped = false, reloading = 0, lastShot = 0, bloom = 0;
+  let sprayN = 0, sprayTimer = null; // 3.23.0: нарастание разброса при зажиме (спрей-паттерн)
   let freezeLeft = 0;
 
   // Игрок (физическое тело)
@@ -374,21 +376,35 @@
       }
     });
     const wall = texCanvas((g, s) => {
-      g.fillStyle = '#a8905f'; g.fillRect(0, 0, s, s);
+      // 3.23.0: чистый светлый песчаник даст2 — ровные блоки, едва заметная грязь
+      g.fillStyle = '#c9b088'; g.fillRect(0, 0, s, s);
       const bh = s / 5;
       for (let r = 0; r < 5; r++) {
         const cols = 3, off = (r % 2) * (s / cols / 2);
         for (let cix = -1; cix < cols; cix++) {
-          const shade = 158 + Math.random() * 26 | 0;
-          g.fillStyle = `rgb(${shade},${shade - 26 | 0},${shade - 62 | 0})`;
-          g.fillRect(off + cix * s / cols + 2, r * bh + 2, s / cols - 4, bh - 4);
+          const shade = 190 + Math.random() * 16 | 0;
+          g.fillStyle = `rgb(${shade},${shade - 30 | 0},${shade - 78 | 0})`;
+          g.fillRect(off + cix * s / cols + 1.5, r * bh + 1.5, s / cols - 3, bh - 3);
         }
       }
-      // швы и загрязнения
-      g.fillStyle = 'rgba(60,45,25,0.4)';
-      for (let i = 0; i < 500; i++) g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
-      g.fillStyle = 'rgba(70,52,28,0.28)';
-      for (let i = 0; i < 8; i++) { const x = Math.random() * s; g.fillRect(x, Math.random() * s * 0.5, 3 + Math.random() * 5, 20 + Math.random() * 50); }
+      // тонкие швы между блоками
+      g.fillStyle = 'rgba(110,88,52,0.45)';
+      for (let r = 1; r < 5; r++) g.fillRect(0, r * bh - 1, s, 2);
+      // лёгкая грязь у основания (внизу текстуры)
+      for (let i = 0; i < 40; i++) {
+        g.fillStyle = `rgba(96,74,42,${0.06 + Math.random() * 0.07})`;
+        g.fillRect(Math.random() * s, s - Math.random() * s * 0.25, 2 + Math.random() * 3, 2 + Math.random() * 3);
+      }
+      for (let i = 0; i < 3; i++) { const x = Math.random() * s; g.fillStyle = 'rgba(96,74,42,0.1)'; g.fillRect(x, s * 0.55, 3, 18 + Math.random() * 26); }
+      // едва заметные трещинки
+      g.strokeStyle = 'rgba(120,96,58,0.3)'; g.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        g.beginPath();
+        let x = Math.random() * s, y = Math.random() * s;
+        g.moveTo(x, y);
+        for (let j = 0; j < 4; j++) { x += (Math.random() - 0.5) * 18; y += (Math.random() - 0.5) * 18; g.lineTo(x, y); }
+        g.stroke();
+      }
     });
     const crateT = texCanvas((g, s) => {
       g.fillStyle = '#8a5a2b'; g.fillRect(0, 0, s, s);
@@ -407,13 +423,140 @@
     });
     return { sand, wall, crateT, door };
   }
+  // ---------- 3.23.0: СКИНЫ-РИСУНКИ (как настоящие скины CS:GO, а не заливка цветом) ----------
+  const skinTexCache = {};
+  function skinTex(id) {
+    if (skinTexCache[id] !== undefined) return skinTexCache[id];
+    const s = SKINS[id];
+    const hex = h => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
+    const [r, g, b] = s ? hex(s.color) : [116, 118, 128];
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const x = c.getContext('2d');
+    const cl = (v, d) => Math.max(0, Math.min(255, v + d));
+    // база — вертикальный градиент даёт объём металлу
+    const grad = x.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, `rgb(${cl(r, 30)},${cl(g, 30)},${cl(b, 30)})`);
+    grad.addColorStop(0.55, `rgb(${r},${g},${b})`);
+    grad.addColorStop(1, `rgb(${cl(r, -36)},${cl(g, -36)},${cl(b, -36)})`);
+    x.fillStyle = grad; x.fillRect(0, 0, 256, 256);
+    const rnd = (a, b2) => a + Math.random() * (b2 - a);
+    if (!s) {
+      // стандарт: серый металл с шумом и панельными швами
+      for (let i = 0; i < 500; i++) { x.fillStyle = `rgba(${Math.random() > 0.5 ? 255 : 20},${20 + Math.random() * 30 | 0},${30},${rnd(0.02, 0.07)})`; x.fillRect(Math.random() * 256, Math.random() * 256, rnd(1, 3), rnd(1, 3)); }
+      x.strokeStyle = 'rgba(30,30,36,0.5)'; x.lineWidth = 2;
+      for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(0, i * 64); x.lineTo(256, i * 64); x.stroke(); }
+      x.fillStyle = 'rgba(20,20,26,0.8)';
+      for (let i = 0; i < 12; i++) x.fillRect(Math.random() * 250, Math.random() * 250, 3, 3); // болты
+    } else if (id === 'banana') {
+      for (let i = 0; i < 90; i++) { x.fillStyle = `rgba(120,72,20,${rnd(0.15, 0.5)})`; x.beginPath(); x.arc(Math.random() * 256, Math.random() * 256, rnd(1.5, 5), 0, 7); x.fill(); }
+      x.strokeStyle = 'rgba(90,50,10,0.35)'; x.lineWidth = 3;
+      for (let i = 0; i < 6; i++) { x.beginPath(); x.moveTo(Math.random() * 256, 0); x.quadraticCurveTo(Math.random() * 256, 128, Math.random() * 256, 256); x.stroke(); }
+    } else if (id === 'waves') {
+      const gr2 = x.createLinearGradient(0, 0, 0, 256);
+      gr2.addColorStop(0, '#2f7fd0'); gr2.addColorStop(1, '#123a6e');
+      x.fillStyle = gr2; x.fillRect(0, 0, 256, 256);
+      for (let row = 0; row < 6; row++) {
+        x.strokeStyle = `rgba(235,248,255,${0.85 - row * 0.08})`; x.lineWidth = 4 - row * 0.4;
+        x.beginPath();
+        for (let px2 = 0; px2 <= 256; px2 += 4) x.lineTo(px2, 30 + row * 38 + Math.sin(px2 / 18 + row) * 10);
+        x.stroke();
+      }
+      x.fillStyle = 'rgba(255,255,255,0.5)';
+      for (let i = 0; i < 40; i++) x.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+    } else if (id === 'azimov') {
+      // оранжево-бело-чёрные угловые полосы
+      x.fillStyle = '#e8e4dc'; x.fillRect(0, 0, 256, 256);
+      const poly = (pts, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) x.lineTo(pts[i], pts[i + 1]); x.closePath(); x.fill(); };
+      poly([0, 256, 256, 60, 256, 150, 90, 256], '#1a1a1e');
+      poly([0, 90, 170, 0, 256, 0, 0, 190], '#ff7a1a');
+      poly([0, 150, 256, 0, 256, 26, 0, 186], '#ffffff');
+      poly([40, 256, 256, 110, 256, 132, 70, 256], '#ff7a1a');
+      x.fillStyle = 'rgba(20,20,24,0.9)';
+      for (let i = 0; i < 10; i++) x.fillRect(Math.random() * 250, Math.random() * 250, 4, 4);
+    } else if (id === 'radiation') {
+      // жёлто-чёрные полосы опасности + символ
+      x.save(); x.translate(128, 128); x.rotate(-0.5);
+      for (let i = -6; i < 6; i++) { x.fillStyle = i % 2 ? '#151515' : '#e8d21f'; x.fillRect(i * 32, -200, 32, 400); }
+      x.restore();
+      x.fillStyle = 'rgba(40,60,30,0.55)'; x.fillRect(0, 0, 256, 256);
+      x.fillStyle = '#d8ff4a';
+      x.beginPath(); x.arc(128, 128, 46, 0, 7); x.fill();
+      x.fillStyle = '#151515';
+      for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(128, 128); x.arc(128, 128, 44, i * 2.09 + 0.5, i * 2.09 + 1.6); x.closePath(); x.fill(); }
+      x.beginPath(); x.arc(128, 128, 10, 0, 7); x.fill();
+    } else if (id === 'dragon') {
+      // тёмно-красная чешуя
+      for (let row = 0; row < 8; row++) for (let cix = 0; cix < 8; cix++) {
+        const sx = cix * 32 + (row % 2) * 16, sy = row * 32;
+        x.fillStyle = `rgb(${140 + Math.random() * 60 | 0},${20 + Math.random() * 20 | 0},${18 + Math.random() * 16 | 0})`;
+        x.beginPath(); x.arc(sx, sy, 17, 0, Math.PI, false); x.fill();
+        x.strokeStyle = 'rgba(40,6,6,0.8)'; x.lineWidth = 2; x.stroke();
+      }
+      x.fillStyle = 'rgba(255,140,60,0.25)'; x.fillRect(0, 100, 256, 40); // свечение живота
+    } else if (id === 'neon') {
+      x.fillStyle = '#170a24'; x.fillRect(0, 0, 256, 256);
+      x.shadowColor = '#c86bff'; x.shadowBlur = 14;
+      x.strokeStyle = '#b44dff'; x.lineWidth = 4;
+      for (let i = 0; i < 8; i++) {
+        x.beginPath();
+        let px2 = Math.random() * 256, py2 = Math.random() * 256;
+        x.moveTo(px2, py2);
+        for (let j = 0; j < 4; j++) { px2 += rnd(-70, 70); py2 += rnd(-70, 70); x.lineTo(px2, py2); }
+        x.stroke();
+      }
+      x.strokeStyle = '#e9ccff'; x.lineWidth = 1.6; x.shadowBlur = 8;
+      for (let i = 0; i < 8; i++) { x.beginPath(); x.moveTo(Math.random() * 256, Math.random() * 256); x.lineTo(Math.random() * 256, Math.random() * 256); x.stroke(); }
+      x.shadowBlur = 0;
+    } else if (id === 'obsidian') {
+      x.fillStyle = '#101014'; x.fillRect(0, 0, 256, 256);
+      x.strokeStyle = '#ff2222'; x.lineWidth = 2; x.shadowColor = '#ff2222'; x.shadowBlur = 10;
+      for (let i = 0; i < 10; i++) {
+        x.beginPath();
+        let px2 = Math.random() * 256, py2 = Math.random() * 256;
+        x.moveTo(px2, py2);
+        for (let j = 0; j < 6; j++) { px2 += rnd(-40, 40); py2 += rnd(-40, 40); x.lineTo(px2, py2); }
+        x.stroke();
+      }
+      x.shadowBlur = 0;
+    } else if (id === 'gold') {
+      const gg = x.createLinearGradient(0, 0, 256, 256);
+      gg.addColorStop(0, '#fff0b0'); gg.addColorStop(0.4, '#ffd700'); gg.addColorStop(0.7, '#b8860b'); gg.addColorStop(1, '#ffdf40');
+      x.fillStyle = gg; x.fillRect(0, 0, 256, 256);
+      x.fillStyle = 'rgba(255,255,255,0.35)';
+      x.beginPath(); x.moveTo(0, 60); x.lineTo(256, 0); x.lineTo(256, 26); x.lineTo(0, 100); x.closePath(); x.fill(); // блик
+      x.strokeStyle = 'rgba(120,80,10,0.4)'; x.lineWidth = 1;
+      for (let i = 0; i < 24; i++) { x.beginPath(); x.moveTo(Math.random() * 256, Math.random() * 256); x.lineTo(Math.random() * 256, Math.random() * 256); x.stroke(); }
+    } else if (id === 'prismatic') {
+      const pg = x.createLinearGradient(0, 0, 256, 256);
+      ['#ff5252', '#ffb142', '#ffee58', '#69f0ae', '#40c4ff', '#7c4dff', '#e040fb'].forEach((col, i, arr) => pg.addColorStop(i / (arr.length - 1), col));
+      x.fillStyle = pg; x.fillRect(0, 0, 256, 256);
+      x.fillStyle = 'rgba(255,255,255,0.85)';
+      for (let i = 0; i < 26; i++) { const sx = Math.random() * 256, sy = Math.random() * 256; x.fillRect(sx, sy, 2, 2); x.fillRect(sx - 3, sy + 1, 8, 1); x.fillRect(sx + 1, sy - 3, 1, 8); }
+    } else if (id === 'diamond') {
+      x.fillStyle = '#bfeaff'; x.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 26; i++) {
+        const sx = Math.random() * 256, sy = Math.random() * 256, sz = rnd(14, 42);
+        x.fillStyle = `rgba(255,255,255,${rnd(0.15, 0.45)})`;
+        x.beginPath(); x.moveTo(sx, sy - sz / 2); x.lineTo(sx + sz / 2, sy + sz / 2); x.lineTo(sx - sz / 2, sy + sz / 2); x.closePath(); x.fill();
+        x.strokeStyle = 'rgba(120,190,235,0.6)'; x.lineWidth = 1; x.stroke();
+      }
+      x.fillStyle = 'rgba(255,255,255,0.9)';
+      for (let i = 0; i < 10; i++) { const sx = Math.random() * 250, sy = Math.random() * 250; x.fillRect(sx, sy, 3, 3); }
+    }
+    // лёгкая металлическая зернистость поверх любого скина
+    for (let i = 0; i < 350; i++) { x.fillStyle = `rgba(255,255,255,${rnd(0.02, 0.06)})`; x.fillRect(Math.random() * 256, Math.random() * 256, 1, 2); }
+    const t = new THREE.CanvasTexture(c);
+    if ('colorSpace' in t && THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    skinTexCache[id] = t;
+    return t;
+  }
   let sun3 = null; // 3.22.0: солнце с тенями следует за камерой (чёткие тени CS:GO)
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
     renderer3.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     // 3.22.0: картинка уровня CS:GO — sRGB + кинематографичный тонмаппинг + мягкие тени
     if ('outputColorSpace' in renderer3 && THREE.SRGBColorSpace) renderer3.outputColorSpace = THREE.SRGBColorSpace;
-    if (THREE.ACESFilmicToneMapping) { renderer3.toneMapping = THREE.ACESFilmicToneMapping; renderer3.toneMappingExposure = 1.18; }
+    if (THREE.ACESFilmicToneMapping) { renderer3.toneMapping = THREE.ACESFilmicToneMapping; renderer3.toneMappingExposure = 1.06; } // 3.23.0: небо/стены не выбеливает
     renderer3.shadowMap.enabled = true;
     renderer3.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = new THREE.Scene();
@@ -442,8 +585,8 @@
     scene.add(sky);
     const T = makeTextures();
     for (const k in T) if (T[k] && 'colorSpace' in T[k] && THREE.SRGBColorSpace) T[k].colorSpace = THREE.SRGBColorSpace;
-    scene.add(new THREE.HemisphereLight(0xdfeaf6, 0x8a7350, 0.85));
-    sun3 = new THREE.DirectionalLight(0xffeccc, 1.6);
+    scene.add(new THREE.HemisphereLight(0xdfeaf6, 0x8a7350, 0.72)); // 3.23.0: мягче, без выбеливания
+    sun3 = new THREE.DirectionalLight(0xffeccc, 1.45);
     sun3.position.set(60, 120, 30);
     sun3.castShadow = true;
     sun3.shadow.mapSize.set(2048, 2048);
@@ -520,6 +663,7 @@
     {
       const isTun = c => c === 4 || c === 5 || c === 6 || c === 7;
       const floors = [], ceils = [], wallsX = [], wallsZ = [];
+      const portalsX = [], portalsZ = [], ramps = []; // 3.23.0: обрамления входов и плавные спуски
       for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
         const c = grid[y][x];
         if (!isTun(c)) continue;
@@ -534,18 +678,20 @@
         // X-границы
         for (const [dx, edge] of [[1, x * CELL + CELL], [-1, x * CELL]]) {
           const n = nb(dx, 0);
-          if (!isTun(n)) wallsX.push([edge, 0.05, -3.45, pz]);          // грунт: от уровня земли вниз
+          if (!isTun(n)) { wallsX.push([edge, 0.05, -3.45, pz]); portalsX.push([edge, pz, L1]); } // грунт + обрамление входа
           else if (TUN_FLOOR[n] > L1) wallsX.push([edge, TUN_FLOOR[n], L1, pz]); // ступень вверх (рендерим с нижней ячейки)
+          else if (TUN_FLOOR[n] < L1) ramps.push([edge - dx * CELL * 0.12, pz, 'x', dx, L1, TUN_FLOOR[n]]); // плавный спуск вниз
         }
         // Z-границы
         for (const [dy, edge] of [[1, y * CELL + CELL], [-1, y * CELL]]) {
           const n = nb(0, dy);
-          if (!isTun(n)) wallsZ.push([px, 0.05, -3.45, edge]);
+          if (!isTun(n)) { wallsZ.push([px, 0.05, -3.45, edge]); portalsZ.push([px, edge, L1]); }
           else if (TUN_FLOOR[n] > L1) wallsZ.push([px, TUN_FLOOR[n], L1, edge]);
+          else if (TUN_FLOOR[n] < L1) ramps.push([px, edge - dy * CELL * 0.12, 'z', dy, L1, TUN_FLOOR[n]]);
         }
       }
-      const matRock = new THREE.MeshLambertMaterial({ color: 0x54483a });
-      const matDark = new THREE.MeshLambertMaterial({ color: 0x38322a });
+      const matRock = new THREE.MeshLambertMaterial({ color: 0x6a5c48 }); // 3.23.0: светлее, туннели не чёрные
+      const matDark = new THREE.MeshLambertMaterial({ color: 0x453d32 });
       function instGeo(list, geo, mat) {
         if (!list.length) return;
         const m = new THREE.InstancedMesh(geo, mat, list.length);
@@ -578,6 +724,58 @@
         });
         m.castShadow = true; m.receiveShadow = true;
         scene.add(m);
+      }
+      // 3.23.0: каменные порталы-обрамления на входах в туннели (вместо чёрных дыр)
+      {
+        const matFrame = new THREE.MeshLambertMaterial({ map: T.wall });
+        const postGeo = new THREE.BoxGeometry(0.5, 1, 0.5);
+        const lintelGeoX = new THREE.BoxGeometry(0.5, 0.45, CELL + 0.5);
+        const lintelGeoZ = new THREE.BoxGeometry(CELL + 0.5, 0.45, 0.5);
+        const addPortal = (px2, pz2, axis, L1) => {
+          const h = Math.max(0.6, -L1 + 0.1);
+          for (const side of [-1, 1]) {
+            const post = new THREE.Mesh(postGeo, matFrame);
+            if (axis === 'x') post.position.set(px2, L1 + h / 2 - 0.05, pz2 + side * (CELL / 2 - 0.2));
+            else post.position.set(px2 + side * (CELL / 2 - 0.2), L1 + h / 2 - 0.05, pz2);
+            post.scale.y = h;
+            post.castShadow = true;
+            scene.add(post);
+          }
+          const lin = new THREE.Mesh(axis === 'x' ? lintelGeoX : lintelGeoZ, matFrame);
+          lin.position.set(px2, L1 + h + 0.18, pz2);
+          lin.castShadow = true;
+          scene.add(lin);
+        };
+        for (const p of portalsX) addPortal(p[0], p[1], 'x', p[2]);
+        for (const p of portalsZ) addPortal(p[0], p[1], 'z', p[2]);
+      }
+      // 3.23.0: плавные рампы поверх ступеней — спуск как по наклонной, а не плиты
+      {
+        const matRamp = new THREE.MeshLambertMaterial({ color: 0x7a6a52 });
+        for (const rp of ramps) {
+          const [rx, rz, axis, dir, top, bot] = rp;
+          const dh = top - bot, ang = Math.atan2(dh, CELL);
+          const len = Math.hypot(CELL, dh) + 0.35;
+          const geo = axis === 'x' ? new THREE.BoxGeometry(len, 0.12, CELL * 0.96) : new THREE.BoxGeometry(CELL * 0.96, 0.12, len);
+          const ramp = new THREE.Mesh(geo, matRamp);
+          ramp.position.set(rx, (top + bot) / 2 - 0.02, rz);
+          if (axis === 'x') ramp.rotation.z = dir > 0 ? -ang : ang;
+          else ramp.rotation.x = dir > 0 ? ang : -ang;
+          ramp.receiveShadow = true;
+          scene.add(ramp);
+        }
+      }
+      // 3.23.0: тёплые факелы-лампы в глубоком ходе — не темнота
+      {
+        let li = 0;
+        for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+          if (grid[y][x] !== 4) continue;
+          if ((x + y) % 3 !== 0) continue; // через ячейку, чтобы не перегружать
+          const pl = new THREE.PointLight(0xffb46a, 1.5, 11, 1.8);
+          pl.position.set(x * CELL + CELL / 2, TUN_CEIL + 0.5, y * CELL + CELL / 2);
+          scene.add(pl);
+          li++;
+        }
       }
     }
     // 3.15.8: чёрные граффити-указатели «A» и «B» на плентх и у входов
@@ -1232,22 +1430,40 @@
   // красится скином. scale>1.5 — вид от первого лица (более детально).
   function buildGun(weapon, skin, scale) {
     const g = new THREE.Group();
+    const sc = scale || 1;
+    const det = sc > 1.5; // детализация для первого лица
+    // 3.23.0: вторая (левая) рука держит цевье — видно от первого лица
+    function fg(gg) {
+      if (det && weapon !== 'knife') {
+        const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.3), new THREE.MeshLambertMaterial({ color: 0x39404a }));
+        sleeve.position.set(0.01 * sc, -0.1 * sc, -0.36 * sc);
+        sleeve.rotation.set(0.45, 0, 0.12);
+        const palm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.1), new THREE.MeshLambertMaterial({ color: 0xd8a878 }));
+        palm.position.set(0, -0.055 * sc, -0.5 * sc);
+        palm.rotation.x = 0.45;
+        gg.add(sleeve, palm);
+      }
+      return gg;
+    }
     // 3.15.3: настоящая GLB-модель, если уже загрузилась
     const glb = glbGunClone(weapon, skin);
     if (glb) {
-      glb.scale.multiplyScalar((scale || 1) * 0.9);
+      glb.scale.multiplyScalar(sc * 0.9);
       g.add(glb);
-      return g;
+      return fg(g);
     }
     const s = SKINS[skin];
     const bodyC = s ? s.color : 0x6a6a74;
     const trimC = s && s.trim ? s.trim : 0x33333a;
     const woodC = 0x8a5a28;
-    const mat = (c) => (s && (s.glow || s.rainbow)) ? new THREE.MeshBasicMaterial({ color: c }) : new THREE.MeshLambertMaterial({ color: c });
+    // 3.23.0: тело оружия — с рисунком скина (или металл по умолчанию)
+    const bodyMap = skinTex(skin || '');
+    const mat = (c, isBody) => {
+      if (isBody) return (s && (s.glow || s.rainbow)) ? new THREE.MeshBasicMaterial({ map: bodyMap }) : new THREE.MeshLambertMaterial({ map: bodyMap });
+      return (s && (s.glow || s.rainbow)) ? new THREE.MeshBasicMaterial({ color: c }) : new THREE.MeshLambertMaterial({ color: c });
+    };
     const dark = new THREE.MeshLambertMaterial({ color: 0x232327 });
     const wood = new THREE.MeshLambertMaterial({ color: woodC });
-    const sc = scale || 1;
-    const det = sc > 1.5; // детализация для первого лица
     const add = (geo, m, x, y, z, rx, ry, rz) => {
       const mm = new THREE.Mesh(geo, m);
       mm.scale.setScalar(sc); // размеры умножаем на масштаб, позиции — отдельно
@@ -1259,20 +1475,20 @@
       add(new THREE.BoxGeometry(0.035, 0.05, 0.36), new THREE.MeshLambertMaterial({ color: 0xd6dbe2 }), 0, 0.02, -0.26);
       add(new THREE.BoxGeometry(0.045, 0.1, 0.14), dark, 0, -0.03, -0.02);
       add(new THREE.BoxGeometry(0.05, 0.03, 0.05), dark, 0, -0.09, -0.08);
-      return g;
+      return fg(g);
     }
     if (weapon === 'glock' || weapon === 'usp' || weapon === 'deagle') {
       // затвор + рамка + рукоять + дульце
       const L = weapon === 'deagle' ? 0.42 : 0.36;
-      add(new THREE.BoxGeometry(0.075, 0.09, L), mat(bodyC), 0, 0.03, -L / 2 + 0.05);
+      add(new THREE.BoxGeometry(0.075, 0.09, L), mat(bodyC, true), 0, 0.03, -L / 2 + 0.05);
       add(new THREE.BoxGeometry(0.07, 0.07, L * 0.7), dark, 0, -0.035, -L / 2 + 0.08);
       add(new THREE.BoxGeometry(0.06, 0.18, 0.09), mat(trimC), 0, -0.11, 0.02, 0.22);
       add(new THREE.CylinderGeometry(0.022, 0.022, 0.07, 8), dark, 0, 0.03, -L + 0.02, Math.PI / 2);
-      if (det && weapon === 'deagle') add(new THREE.BoxGeometry(0.078, 0.03, 0.12), mat(bodyC), 0, 0.085, -0.1); // характерный гребень
-      return g;
+      if (det && weapon === 'deagle') add(new THREE.BoxGeometry(0.078, 0.03, 0.12), mat(bodyC, true), 0, 0.085, -0.1); // характерный гребень
+      return fg(g);
     }
     if (weapon === 'ak47') {
-      add(new THREE.BoxGeometry(0.08, 0.13, 0.5), mat(bodyC), 0, 0, -0.18);                 // ствольная коробка
+      add(new THREE.BoxGeometry(0.08, 0.13, 0.5), mat(bodyC, true), 0, 0, -0.18);                 // ствольная коробка
       add(new THREE.CylinderGeometry(0.028, 0.028, 0.34, 8), dark, 0, 0.01, -0.58, Math.PI / 2); // ствол
       add(new THREE.BoxGeometry(0.03, 0.08, 0.04), dark, 0, 0.07, -0.7);                     // мушка
       add(new THREE.BoxGeometry(0.07, 0.14, 0.2), wood, 0, -0.05, 0.22, -0.12);              // приклад
@@ -1280,36 +1496,36 @@
       add(new THREE.BoxGeometry(0.055, 0.16, 0.1), mat(trimC), 0, -0.15, -0.28, 0.5);        // магазин (верх)
       add(new THREE.BoxGeometry(0.055, 0.14, 0.09), mat(trimC), 0, -0.24, -0.33, 0.9);       // магазин (изгиб)
       add(new THREE.BoxGeometry(0.05, 0.05, 0.16), wood, 0, -0.045, -0.5);                   // цевьё
-      return g;
+      return fg(g);
     }
     if (weapon === 'm4a1') {
-      add(new THREE.BoxGeometry(0.08, 0.13, 0.52), mat(bodyC), 0, 0, -0.18);
+      add(new THREE.BoxGeometry(0.08, 0.13, 0.52), mat(bodyC, true), 0, 0, -0.18);
       add(new THREE.CylinderGeometry(0.026, 0.026, 0.3, 8), dark, 0, 0.01, -0.58, Math.PI / 2);
       add(new THREE.BoxGeometry(0.05, 0.07, 0.3), mat(trimC), 0, 0.1, -0.2);                 // ручка переноса
-      add(new THREE.BoxGeometry(0.07, 0.13, 0.22), mat(bodyC), 0, -0.04, 0.24, -0.1);        // приклад
+      add(new THREE.BoxGeometry(0.07, 0.13, 0.22), mat(bodyC, true), 0, -0.04, 0.24, -0.1);        // приклад
       add(new THREE.BoxGeometry(0.06, 0.16, 0.09), dark, 0, -0.13, -0.1, 0.3);
       add(new THREE.BoxGeometry(0.055, 0.18, 0.1), mat(trimC), 0, -0.15, -0.26);             // прямой магазин
-      add(new THREE.BoxGeometry(0.05, 0.06, 0.18), mat(bodyC), 0, -0.04, -0.48);             // цевьё
+      add(new THREE.BoxGeometry(0.05, 0.06, 0.18), mat(bodyC, true), 0, -0.04, -0.48);             // цевьё
       add(new THREE.BoxGeometry(0.03, 0.09, 0.04), dark, 0, 0.06, -0.72);                    // передняя мушка
-      return g;
+      return fg(g);
     }
     if (weapon === 'awp') {
-      add(new THREE.BoxGeometry(0.08, 0.13, 0.6), mat(bodyC), 0, 0, -0.15);
+      add(new THREE.BoxGeometry(0.08, 0.13, 0.6), mat(bodyC, true), 0, 0, -0.15);
       add(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), dark, 0, 0.01, -0.68, Math.PI / 2); // длинный ствол
       add(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10), dark, 0, 0.12, -0.12, Math.PI / 2); // оптика
       add(new THREE.BoxGeometry(0.02, 0.05, 0.06), dark, 0, 0.05, -0.02);                    // крепление прицела
       add(new THREE.BoxGeometry(0.02, 0.05, 0.06), dark, 0, 0.05, -0.22);
-      add(new THREE.BoxGeometry(0.08, 0.16, 0.28), mat(bodyC), 0, -0.06, 0.26, -0.08);       // ложе с щекой
+      add(new THREE.BoxGeometry(0.08, 0.16, 0.28), mat(bodyC, true), 0, -0.06, 0.26, -0.08);       // ложе с щекой
       add(new THREE.CylinderGeometry(0.015, 0.015, 0.1, 6), dark, 0.06, 0.04, 0.08, 0, 0, Math.PI / 2); // затвор
       add(new THREE.BoxGeometry(0.06, 0.16, 0.09), wood, 0, -0.13, -0.08, 0.35);
       add(new THREE.BoxGeometry(0.02, 0.16, 0.03), dark, -0.04, -0.12, -0.78, 0.3);          // сошка
       add(new THREE.BoxGeometry(0.02, 0.16, 0.03), dark, 0.04, -0.12, -0.78, 0.3);
-      return g;
+      return fg(g);
     }
     // запасной вариант
-    add(new THREE.BoxGeometry(0.07, 0.14, 0.7), mat(bodyC), 0, 0, -0.3);
+    add(new THREE.BoxGeometry(0.07, 0.14, 0.7), mat(bodyC, true), 0, 0, -0.3);
     add(new THREE.BoxGeometry(0.06, 0.17, 0.08), mat(trimC), 0, -0.13, -0.08);
-    return g;
+    return fg(g);
   }
   function removeRemote(nick) {
     const r = remotes.get(nick);
@@ -1582,13 +1798,19 @@
       // нож: короткая дистанция
       const d = dirFromCam();
       const hit = rayPlayers(P.x, P.y + EYE, P.z, d, 2.4);
-      if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body' });
+      if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t });
       spawnTracer([P.x, P.y + EYE, P.z], d, 2, false);
       return;
     }
-    // разброс
+    // 3.23.0: спрей-паттерн — разброс растёт с каждым выстрелом в зажиме, сброс при паузе
+    sprayN = Math.min(14, sprayN + 1);
+    if (sprayTimer) clearTimeout(sprayTimer);
+    sprayTimer = setTimeout(() => { sprayN = 0; }, 300);
+    // разброс: база + цветение + спрей + штраф за движение/воздух (как в CS:GO)
     bloom = Math.min(bloom + (w.auto ? 0.35 : 0.8), 2.5);
-    const spreadDeg = (scoped && w.scope ? w.spreadScoped : w.spread) + bloom * 0.35;
+    const moving2 = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
+    const movePenalty = !P.onGround ? 2.6 : (moving2 ? 1.15 : 0);
+    const spreadDeg = (scoped && w.scope ? w.spreadScoped : w.spread) + bloom * 0.35 + sprayN * 0.22 + movePenalty;
     const sr = spreadDeg * Math.PI / 180;
     let d = dirFromCam();
     d = [d[0] + (Math.random() - 0.5) * sr, d[1] + (Math.random() - 0.5) * sr, d[2] + (Math.random() - 0.5) * sr];
@@ -1598,10 +1820,10 @@
     const wallT = wall ? wall.t : MAXT;
     const hit = rayPlayers(P.x, P.y + EYE, P.z, d, wallT);
     spawnTracer([P.x, P.y + EYE - 0.1, P.z], d, hit ? hit.t : wallT, false);
-    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head, zone: hit.zone });
-    // отдача
-    P.pitch = Math.min(1.45, P.pitch + (current === 'awp' ? 0.035 : 0.008 + Math.random() * 0.006));
-    P.yaw += (Math.random() - 0.5) * 0.004;
+    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head, zone: hit.zone, dist: hit.t });
+    // отдача: вертикальный паттерн растёт со спреем (кликанье — точно, зажим — вверх)
+    P.pitch = Math.min(1.45, P.pitch + (current === 'awp' ? 0.035 : 0.005 + sprayN * 0.0018 + Math.random() * 0.004));
+    P.yaw += (Math.random() - 0.5) * (0.003 + sprayN * 0.0006);
   }
   function rayPlayers(ox, oy, oz, d, maxT) {
     let best = null;

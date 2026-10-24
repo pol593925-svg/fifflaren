@@ -988,11 +988,11 @@
     ui.canvas.style.display = 'none';
     ui.hud.style.display = 'none';
     const adminBtns = (p) => isFiff && p.nick.toLowerCase() !== 'fifflaren'
-      ? ` <button class="cs16HostBtn" data-n="${esc(p.nick)}" title="Сделать хостом" style="padding:0 6px; cursor:pointer;">👑</button><button class="cs16KickBtn" data-n="${esc(p.nick)}" title="Кикнуть из комнаты" style="padding:0 6px; cursor:pointer; color:#ff7777;">🥾</button>`
+      ? `<span class="cs16-playerActions"><button class="cs16HostBtn" data-n="${esc(p.nick)}" title="Сделать хостом">Хост</button><button class="cs16KickBtn" data-n="${esc(p.nick)}" title="Кикнуть из комнаты">Кик</button></span>`
       : '';
     const rows = (team) => state.players.filter(p => p.team === team)
       .map(p => `<div style="padding:3px 8px; background:#26221a; margin:3px 0; border-radius:4px;">${esc(p.nick)}${p.bot ? ' 🤖' : ''} ${p.lvl ? `<span style="color:#ffc107; font-size:11px;" title="Уровень">⭐${p.lvl}</span>` : ''} <span style="color:#888; font-size:11px;">${p.kills || 0}/${p.deaths || 0}</span>${adminBtns(p)}</div>`).join('');
-    const spectators = state.players.filter(p => !p.team).map(p => esc(p.nick)).join(', ');
+    const spectators = state.players.filter(p => !p.team).map(p => `<div class="cs16-spectator"><span>${esc(p.nick)}${p.nick === state.host ? ' <small>ХОСТ</small>' : ''}</span>${adminBtns(p)}</div>`).join('');
     const mapName = curMap === 'inferno' ? 'de_inferno' : 'de_dust2';
     const gmName = state.gm === 'gg' ? 'Gun-Game' : 'Классика (C4)';
     ui.lobby.innerHTML = `
@@ -1013,7 +1013,7 @@
           </span>
         </div>
         ${inMatch ? `<div style="text-align:center; margin:10px 0; padding:8px; background:#1a2a3a; border:1px solid #3a6a9a;">⚔️ Матч идёт — раунд ${state.round}, счёт <b style="color:#e8c34a">${state.scores.t}</b> : <b style="color:#5aa2e8">${state.scores.ct}</b>. Вступай в команду — начнёшь играть со следующего раунда!</div>` : ''}
-        <div style="display:flex; gap:14px; margin-top:12px;">
+        <div class="cs16-teamCards" style="display:flex; gap:14px; margin-top:12px;">
           <div style="flex:1; background:#241f16; border:1px solid #6a5527; border-radius:6px; padding:10px;">
             <div style="font:bold 15px monospace; color:#e8c34a;">ТЕРРОРИСТЫ (${state.players.filter(p => p.team === 't').length}/${state.mode})</div>
             <div id="cs16TList">${rows('t')}</div>
@@ -1025,12 +1025,15 @@
             <button id="cs16JoinCT" style="margin-top:6px; width:100%; padding:7px; background:#274a72; border:none; color:#cfe8ff; font:bold 13px monospace; cursor:pointer;">Вступить в CT</button>
           </div>
         </div>
-        <div style="margin-top:12px; background:#201c15; border-radius:6px; padding:10px; text-align:center;">
+        <div class="cs16-matchControls" style="margin-top:12px; background:#201c15; border-radius:6px; padding:10px; text-align:center;">
           <div style="font:13px monospace; color:#ccc;">Размер команд:
             ${[1,2,3,4,5].map(n => `<button class="cs16ModeBtn" data-n="${n}" style="padding:4px 12px; margin:0 3px; cursor:pointer; background:${state.mode === n ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555; font:bold 13px monospace;">${n}v${n}</button>`).join('')}
           </div>
-          <div style="font:12px monospace; color:#999; margin-top:6px;">Хост: <b style="color:#ffc107">${esc(state.host || '—')}</b>${state.host === myNick ? ' (это ты — жми старт, когда все распределятся)' : ''}</div>
-          ${spectators ? `<div style="font:12px monospace; color:#888; margin-top:4px;">Без команды: ${spectators}</div>` : ''}
+          <div class="cs16-hostStatus"><span>Хост: <b>${esc(state.host || '—')}</b>${state.host === myNick ? ' · это ты' : ''}</span>
+            ${isFiff && state.host !== myNick ? `<button class="cs16HostBtn cs16-takeHost" data-n="${esc(myNick)}">Забрать хост себе</button>` : ''}
+            ${isFiff && state.host && state.host.toLowerCase() !== myNick.toLowerCase() ? `<button class="cs16KickBtn" data-n="${esc(state.host)}">Кикнуть хоста</button>` : ''}
+          </div>
+          ${spectators ? `<div class="cs16-spectators"><div class="cs16-sectionLabel">БЕЗ КОМАНДЫ</div>${spectators}</div>` : ''}
           <button id="cs16StartBtn" style="margin-top:8px; padding:10px 30px; font:bold 16px monospace; cursor:pointer; background:${state.host === myNick ? '#2d6a22' : '#333'}; color:#dfffcf; border:1px solid #4a8a3a;">▶ НАЧАТЬ МАТЧ</button>
           <div style="margin-top:8px;">
             <button id="cs16SkinsBtn" style="padding:8px 20px; font:bold 14px monospace; cursor:pointer; background:#3a2a4a; color:#e0c8ff; border:1px solid #7a5aa8;">🎨 МАГАЗИН СКИНОВ</button>
@@ -1042,7 +1045,7 @@
           <div id="cs16SkinsList"></div>
           <button id="cs16SkinUnequip" style="margin-top:6px; padding:5px 14px; cursor:pointer; background:#333; color:#ccc; border:1px solid #555;">Снять скин</button>
         </div>
-        ${isFiff ? `<div style="margin-top:12px; background:#2a1515; border:1px solid #7a3a3a; border-radius:6px; padding:10px; font:12px monospace; color:#e8b8b8;">👑 Ты Fifflaren: кнопки <b>👑</b> у ника — отдать хост, <b>🥾</b> — кикнуть из комнаты (если хост афк).</div>` : ''}
+        ${isFiff ? `<div class="cs16-adminHint">Управление комнатой: назначай хоста или исключай игроков, в том числе без команды.</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
           Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть (вентиляции) · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · ПКМ (AWP) — прицел ·
           R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить

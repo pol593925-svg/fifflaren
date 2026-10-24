@@ -40,6 +40,25 @@
 #tab-cs16 .cs16-lobby > div > div:first-child { text-align:left!important; color:#f1eee1!important; font:700 30px/1.4 'Segoe UI',Arial,sans-serif!important; letter-spacing:3px; margin-bottom:18px; }
 #tab-cs16 .cs16-lobby > div > div:first-child span { display:block; font:400 12px/1.8 'Segoe UI',Arial,sans-serif!important; color:#a8bdca!important; letter-spacing:1px; }
 #tab-cs16 .cs16-lobby button { font-family:'Segoe UI',Arial,sans-serif!important; border-radius:2px; }
+#tab-cs16 .cs16-lobby button { border-radius:6px; min-height:32px; }
+#tab-cs16 .cs16-teamCards > div { padding:18px!important; border-radius:12px!important; background:linear-gradient(145deg,#263644,#18232e)!important; box-shadow:0 8px 24px #0002; }
+#tab-cs16 .cs16-teamCards > div:first-child { border-color:#9c814955!important; background:linear-gradient(145deg,#38372b,#232a2d)!important; }
+#tab-cs16 .cs16-teamCards > div > div:first-child { margin-bottom:12px; font-family:'Segoe UI',Arial,sans-serif!important; letter-spacing:1px; }
+#tab-cs16 #cs16TList > div,#tab-cs16 #cs16CTList > div { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 10px!important; background:#0d17224d!important; }
+#tab-cs16 .cs16-matchControls { background:#101e2bc4!important; border:1px solid #8aabba30; border-radius:12px!important; padding:18px!important; }
+#tab-cs16 .cs16-hostStatus { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:10px; margin:16px 0; color:#afc3d0; font-size:13px; }
+#tab-cs16 .cs16-hostStatus b { color:#eed49b; }
+#tab-cs16 .cs16HostBtn,#tab-cs16 .cs16KickBtn { padding:5px 10px; border:1px solid #667e9166; background:#263c4c; color:#dfebf2; cursor:pointer; }
+#tab-cs16 .cs16KickBtn { color:#ffb6b6; border-color:#bc686855; background:#55303966; }
+#tab-cs16 .cs16-takeHost { color:#f5dfad; border-color:#bda36d88; background:#69573555; }
+#tab-cs16 .cs16-playerActions { display:inline-flex; gap:6px; margin-left:auto; }
+#tab-cs16 .cs16-spectators { max-width:620px; margin:0 auto 16px; text-align:left; }
+#tab-cs16 .cs16-sectionLabel { font-size:10px; letter-spacing:2px; color:#8da6b8; margin-bottom:8px; }
+#tab-cs16 .cs16-spectator { display:flex; align-items:center; gap:10px; padding:9px 12px; margin-top:4px; border:1px solid #7e9eb51f; background:#23374880; border-radius:7px; color:#dbe6ed; overflow-wrap:anywhere; }
+#tab-cs16 .cs16-spectator small { font-size:9px; color:#e6cb8d; border:1px solid #bca26955; border-radius:3px; padding:2px 5px; margin-left:8px; }
+#tab-cs16 #cs16StartBtn { border-radius:8px; padding:12px 36px!important; box-shadow:0 4px 18px #0003; letter-spacing:1px; }
+#tab-cs16 .cs16-adminHint { margin-top:12px; color:#97adbd; font-size:12px; text-align:center; }
+@media(max-width:620px) { #tab-cs16 .cs16-teamCards { flex-direction:column; } #tab-cs16 .cs16-lobby { padding:20px 12px!important; } #tab-cs16 .cs16ModeBtn { margin:3px!important; } }
 #tab-cs16 .cs16-loading { position:absolute; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px; background:radial-gradient(ellipse at 70% 40%,#344c5c,#101b24 70%); color:#eee9d8; font-size:22px; }
 #tab-cs16 .cs16-loading-label { font-size:11px; letter-spacing:4px; color:#b6ad91; }
 #tab-cs16 .cs16-loading button { padding:10px 24px; border:1px solid #a99a78; background:#243846; color:#eee9d8; cursor:pointer; }

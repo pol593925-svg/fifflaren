@@ -12,6 +12,7 @@ window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handler
 </script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ lobby:(nick,players,host)=>{myNick=nick;state={...state,phase:'lobby',players,host};renderLobby();},
  snapshot:()=>({map:curMap,ready:worldReady,errors:window.__cs16Err||0,players:remotes.size,calls:renderer3.info.render.calls,triangles:renderer3.info.render.triangles,memory:{...renderer3.info.memory},position:[P.x,P.y,P.z],weapons:Object.keys(WEAPONS)}),
  aim:(x,y,z,yaw,pitch=0)=>{P.x=x;P.y=y;P.z=z;P.yaw=yaw;P.pitch=pitch;},
  weapon:(id)=>{current=id;primary=id;ammo[id]={mag:WEAPONS[id].mag,reserve:WEAPONS[id].reserve};},
@@ -71,6 +72,30 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
+  if(process.env.LOBBY_ONLY){
+   const players=[{nick:'knyaz',team:null},{nick:'Fifflaren',team:null},{nick:'Alpha',team:'t'},{nick:'Bravo',team:'ct'}];
+   await page.evaluate(p=>__qa.lobby('Fifflaren',p,'knyaz'),players);
+   await page.getByRole('button',{name:'Забрать хост себе',exact:true}).click();
+   assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_sethost',d:'Fifflaren'});
+   page.once('dialog',d=>d.accept());
+   await page.getByRole('button',{name:'Кикнуть хоста',exact:true}).click();
+   assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_kick',d:'knyaz'});
+   const spectator=page.locator('.cs16-spectator').filter({hasText:'knyaz'});
+   await spectator.getByRole('button',{name:'Хост',exact:true}).click();
+   assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_sethost',d:'knyaz'});
+   page.once('dialog',d=>d.accept());
+   await spectator.getByRole('button',{name:'Кик',exact:true}).click();
+   assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_kick',d:'knyaz'});
+   await page.screenshot({path:path.join(outputs,'cs16-lobby-preview.png')});
+   await page.setViewportSize({width:550,height:850});
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   await page.evaluate(p=>__qa.lobby('Fifflaren',p,'Fifflaren'),players);
+   assert.equal(await page.locator('.cs16-takeHost').count(),0);
+   await page.evaluate(p=>__qa.lobby('knyaz',p,'knyaz'),players);
+   assert.equal(await page.locator('.cs16HostBtn,.cs16KickBtn').count(),0);
+   assert.equal(errors.length,0,errors.join('\n'));
+   console.log('LOBBY PASS: take host, kick host, spectator controls, ordinary player permissions, narrow layout');return;
+  }
   await page.evaluate(s=>window.__nextState=s,state());await page.evaluate(begin);
   await page.waitForTimeout(1500);
   await page.evaluate(()=>{__qa.weapon('ak47');__qa.aim(28,0,28,-.65,-.02);__qa.addRemote('Patrol','ct',36,18);__qa.hideMessages();});

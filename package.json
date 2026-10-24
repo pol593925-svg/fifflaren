@@ -1,11 +1,13 @@
 {
   "name": "support-hub-desktop",
-  "version": "3.24.3",
+  "version": "3.25.0",
   "description": "Support Hub Tool",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-builder --win"
+    "pack": "electron-builder --win",
+    "test:graphics": "node tools/validate-graphics.cjs",
+    "test:graphics:browser": "node tools/graphics-smoke.cjs"
   },
   "build": {
     "appId": "com.supporthub.app",
@@ -20,7 +22,14 @@
       "provider": "github",
       "owner": "pol593925-svg",
       "repo": "fifflaren"
-    }
+    },
+    "artifactName": "Support-Hub-Setup-${version}.${ext}",
+    "files": [
+      "**/*",
+      "!tools/**",
+      "!models/csgo/textures/**",
+      "!graphics-qa/**"
+    ]
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -28,6 +37,7 @@
   },
   "devDependencies": {
     "electron": "^44.4.3",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "playwright": "^1.64.1"
   }
 }

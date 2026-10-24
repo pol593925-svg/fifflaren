@@ -1,0 +1,105 @@
+{
+  "generator": "tools/blender/build_weapons.py",
+  "assets": [
+    {
+      "file": "knife.glb",
+      "triangles": 1522,
+      "bytes": 406096
+    },
+    {
+      "file": "glock.glb",
+      "triangles": 3988,
+      "bytes": 843900
+    },
+    {
+      "file": "usp.glb",
+      "triangles": 3988,
+      "bytes": 843900
+    },
+    {
+      "file": "deagle.glb",
+      "triangles": 3988,
+      "bytes": 843904
+    },
+    {
+      "file": "ak47.glb",
+      "triangles": 12772,
+      "bytes": 1433008
+    },
+    {
+      "file": "m4a1.glb",
+      "triangles": 14368,
+      "bytes": 1118548
+    },
+    {
+      "file": "awp.glb",
+      "triangles": 17300,
+      "bytes": 1202276
+    },
+    {
+      "file": "mp5.glb",
+      "triangles": 14368,
+      "bytes": 1118544
+    },
+    {
+      "file": "p90.glb",
+      "triangles": 11172,
+      "bytes": 1036260
+    },
+    {
+      "file": "ump45.glb",
+      "triangles": 14368,
+      "bytes": 1118548
+    },
+    {
+      "file": "galil.glb",
+      "triangles": 12772,
+      "bytes": 1433008
+    },
+    {
+      "file": "famas.glb",
+      "triangles": 14368,
+      "bytes": 1118548
+    },
+    {
+      "file": "scout.glb",
+      "triangles": 17300,
+      "bytes": 1202280
+    },
+    {
+      "file": "sg552.glb",
+      "triangles": 17300,
+      "bytes": 1201172
+    },
+    {
+      "file": "aug.glb",
+      "triangles": 17300,
+      "bytes": 1201168
+    },
+    {
+      "file": "m249.glb",
+      "triangles": 11172,
+      "bytes": 1037360
+    },
+    {
+      "file": "fiveseven.glb",
+      "triangles": 3988,
+      "bytes": 843904
+    },
+    {
+      "file": "tec9.glb",
+      "triangles": 3988,
+      "bytes": 843900
+    },
+    {
+      "file": "elite.glb",
+      "triangles": 3988,
+      "bytes": 843900
+    },
+    {
+      "file": "hands.glb",
+      "triangles": 12248,
+      "bytes": 554140
+    }
+  ]
+}

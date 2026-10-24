@@ -1,3 +1,5 @@
 node_modules/
 dist/
 dist2/
+graphics-qa/
+tools/blender/__pycache__/

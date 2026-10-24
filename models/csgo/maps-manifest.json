@@ -1,0 +1,1406 @@
+{
+  "format": 1,
+  "maps": {
+    "dust2": {
+      "file": "dust2.glb",
+      "bytes": 26838060,
+      "triangles": 120187,
+      "meshBatches": 57,
+      "materials": 15,
+      "textureImages": 50,
+      "layoutSha256": "9f0efb7fc792d27af43b950e5650216f349a809c62910fd8b5bcdc890dc94ec2",
+      "cellCounts": {
+        "#": 754,
+        ".": 820,
+        "S": 2,
+        "T": 8,
+        "D": 39,
+        "C": 22,
+        "6": 24,
+        "5": 24,
+        "7": 17,
+        "4": 44,
+        "V": 10
+      },
+      "lights": [
+        {
+          "position": [
+            118,
+            -1.5,
+            18
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            50,
+            -1.5,
+            26
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            58,
+            -1.5,
+            30
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            34
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            22,
+            1.1,
+            42
+          ],
+          "color": 10477802,
+          "intensity": 0.7,
+          "distance": 6
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            46
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            22,
+            1.1,
+            54
+          ],
+          "color": 10477802,
+          "intensity": 0.7,
+          "distance": 6
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            58
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            22,
+            1.1,
+            66
+          ],
+          "color": 10477802,
+          "intensity": 0.7,
+          "distance": 6
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            70
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            82
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            50,
+            -1.5,
+            86
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            46,
+            -1.5,
+            90
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            58,
+            -1.5,
+            90
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            94
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            106
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            6,
+            -1.5,
+            118
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            134,
+            -1.5,
+            158
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            146,
+            -1.5,
+            158
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        }
+      ],
+      "beacons": [
+        {
+          "position": [
+            104,
+            0.3,
+            18
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            106,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            110,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            114,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            126,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            132,
+            0.3,
+            18
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            130,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            8,
+            0.3,
+            22
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            104,
+            0.3,
+            22
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            106,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            110,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            114,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            122,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            126,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            132,
+            0.3,
+            22
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            130,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            8,
+            0.3,
+            26
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            36,
+            0.3,
+            26
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            38,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            42,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            62,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            66,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            72,
+            0.3,
+            26
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            70,
+            0.3,
+            24
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            8,
+            0.3,
+            30
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            36,
+            0.3,
+            30
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            38,
+            0.3,
+            32
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            42,
+            0.3,
+            32
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            46,
+            0.3,
+            32
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            38
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            38
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            22,
+            1.55,
+            36
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            42
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            42
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            46
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            46
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            50
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            50
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            54
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            54
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            58
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            58
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            62
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            62
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            66
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            66
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            70
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            70
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            22,
+            1.55,
+            72
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            82
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            20,
+            1.55,
+            82
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            22,
+            1.55,
+            84
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            22,
+            1.55,
+            80
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            32,
+            0.3,
+            86
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            62,
+            0.3,
+            84
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            66,
+            0.3,
+            84
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            72,
+            0.3,
+            86
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            32,
+            0.3,
+            90
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            72,
+            0.3,
+            90
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            8,
+            0.3,
+            130
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            8,
+            0.3,
+            134
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            92,
+            0.3,
+            138
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            100,
+            0.3,
+            138
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            116,
+            0.3,
+            138
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            132,
+            0.3,
+            138
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            92,
+            0.3,
+            142
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            116,
+            0.3,
+            142
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            118,
+            0.3,
+            144
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            132,
+            0.3,
+            142
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            92,
+            0.3,
+            146
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            100,
+            0.3,
+            146
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            92,
+            0.3,
+            150
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            100,
+            0.3,
+            150
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            92,
+            0.3,
+            154
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            94,
+            0.3,
+            156
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            100,
+            0.3,
+            154
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            98,
+            0.3,
+            156
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            120,
+            0.3,
+            158
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            154,
+            0.3,
+            156
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            158,
+            0.3,
+            156
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            162,
+            0.3,
+            156
+          ],
+          "kind": "tunnel"
+        }
+      ],
+      "sourceBlend": "dust2.blend"
+    },
+    "inferno": {
+      "file": "inferno.glb",
+      "bytes": 22394044,
+      "triangles": 95683,
+      "meshBatches": 57,
+      "materials": 15,
+      "textureImages": 49,
+      "layoutSha256": "39c44165a1526fc0046438b8c4e7ac0f1242063aebd927b7e5bbb69b6b4ad54d",
+      "cellCounts": {
+        "#": 868,
+        ".": 770,
+        "S": 8,
+        "T": 8,
+        "D": 25,
+        "6": 16,
+        "5": 13,
+        "C": 19,
+        "V": 7,
+        "B": 9,
+        "7": 8,
+        "4": 13
+      },
+      "lights": [
+        {
+          "position": [
+            150,
+            1.1,
+            34
+          ],
+          "color": 10477802,
+          "intensity": 0.7,
+          "distance": 6
+        },
+        {
+          "position": [
+            38,
+            1.1,
+            62
+          ],
+          "color": 10477802,
+          "intensity": 0.7,
+          "distance": 6
+        },
+        {
+          "position": [
+            54,
+            -1.5,
+            118
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            78,
+            -1.5,
+            118
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            50,
+            -1.5,
+            122
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            26,
+            1.1,
+            146
+          ],
+          "color": 10477802,
+          "intensity": 0.7,
+          "distance": 6
+        }
+      ],
+      "beacons": [
+        {
+          "position": [
+            112,
+            0.3,
+            10
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            114,
+            0.3,
+            8
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            118,
+            0.3,
+            8
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            122,
+            0.3,
+            8
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            128,
+            0.3,
+            10
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            126,
+            0.3,
+            8
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            112,
+            0.3,
+            14
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            114,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            118,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            128,
+            0.3,
+            14
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            126,
+            0.3,
+            16
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            98,
+            0.3,
+            28
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            102,
+            0.3,
+            28
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            108,
+            0.3,
+            30
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            106,
+            0.3,
+            28
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            108,
+            0.3,
+            34
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            140,
+            1.55,
+            34
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            142,
+            1.55,
+            36
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            142,
+            1.55,
+            32
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            146,
+            1.55,
+            36
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            146,
+            1.55,
+            32
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            152,
+            1.55,
+            34
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            150,
+            1.55,
+            36
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            150,
+            1.55,
+            32
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            40,
+            1.55,
+            62
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            36,
+            1.55,
+            62
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            76,
+            0.3,
+            98
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            78,
+            0.3,
+            96
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            84,
+            0.3,
+            98
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            82,
+            0.3,
+            96
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            76,
+            0.3,
+            102
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            84,
+            0.3,
+            102
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            76,
+            0.3,
+            106
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            84,
+            0.3,
+            106
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            36,
+            0.3,
+            118
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            38,
+            0.3,
+            116
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            42,
+            0.3,
+            116
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            46,
+            0.3,
+            116
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            62,
+            0.3,
+            116
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            66,
+            0.3,
+            116
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            72,
+            0.3,
+            118
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            70,
+            0.3,
+            116
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            36,
+            0.3,
+            122
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            72,
+            0.3,
+            122
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            76,
+            0.3,
+            126
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            84,
+            0.3,
+            126
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            76,
+            0.3,
+            130
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            84,
+            0.3,
+            130
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            76,
+            0.3,
+            134
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            78,
+            0.3,
+            136
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            84,
+            0.3,
+            134
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            82,
+            0.3,
+            136
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            28,
+            1.55,
+            138
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            24,
+            1.55,
+            138
+          ],
+          "kind": "vent"
+        },
+        {
+          "position": [
+            26,
+            1.55,
+            136
+          ],
+          "kind": "vent"
+        }
+      ],
+      "sourceBlend": "inferno.blend"
+    }
+  },
+  "authoring": "Blender 4.5.9 LTS",
+  "generator": "tools/blender/build_maps.py",
+  "artwork": "Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.",
+  "coordinateSystem": "glTF Y-up, game x/y/z unchanged",
+  "cellSize": 4,
+  "gridSize": 42,
+  "layoutSource": "cs16.js MAP_ROWS",
+  "stairsContract": "Matches floorAt(): elevation increases toward the adjacent bridge or tower."
+}

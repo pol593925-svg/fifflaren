@@ -1,0 +1,46 @@
+/* Local, resolution-independent HUD. Gameplay and bindings stay in cs16.js. */
+#tab-cs16 { --cs-ink:#edf1ed; --cs-gold:#d4b777; --cs-blue:#91b8d4; font-family:'Segoe UI',Arial,sans-serif; }
+#tab-cs16 .cs16-hud { color:var(--cs-ink); text-shadow:0 2px 3px #0009; }
+#tab-cs16 .cs16-hud > div { font-family:'Segoe UI',Arial,sans-serif!important; }
+#tab-cs16 .cs16-topBar { top:12px!important; min-width:180px; padding:9px 15px 12px; background:linear-gradient(#111c25d9,#111c258c); border-top:2px solid #e9e9df99; font-size:14px!important; letter-spacing:1px; font-weight:600!important; }
+#tab-cs16 .cs16-scoreT,#tab-cs16 .cs16-scoreCT { top:12px!important; padding:8px 14px; font-size:22px!important; font-weight:700!important; line-height:28px; background:#15212ab8; min-width:54px; text-align:center; }
+#tab-cs16 .cs16-scoreT { left:calc(50% - 198px)!important; color:var(--cs-gold)!important; border-top:2px solid var(--cs-gold); }
+#tab-cs16 .cs16-scoreCT { right:calc(50% - 198px)!important; color:var(--cs-blue)!important; border-top:2px solid var(--cs-blue); }
+#tab-cs16 .cs16-radar { top:46px!important; left:22px!important; width:164px!important; height:164px!important; opacity:.92; border:1px solid #ddd9b45e; box-shadow:0 3px 22px #0005!important; }
+#tab-cs16 .cs16-location { position:absolute; top:20px; left:26px; font-size:12px; letter-spacing:2px; font-weight:700; color:#e4d3ac; }
+#tab-cs16 .cs16-hpBar { left:26px!important; bottom:20px!important; width:230px!important; display:flex; align-items:baseline; gap:20px; padding:8px 12px; background:linear-gradient(90deg,#101c25c9,transparent); border-left:2px solid #c7d8d0; }
+#tab-cs16 .cs16-hpTxt { font:600 35px/1.1 'Segoe UI',Arial,sans-serif!important; color:#f2eee2!important; }
+#tab-cs16 .cs16-armorTxt { font:600 12px/1.4 'Segoe UI',Arial,sans-serif!important; color:#c9d4d7!important; letter-spacing:1px; }
+#tab-cs16 .cs16-money { top:222px!important; bottom:auto!important; left:27px!important; right:auto!important; color:#e5dfaa!important; font-size:25px!important; font-weight:500!important; }
+#tab-cs16 .cs16-ammo { bottom:22px!important; right:30px!important; font-size:34px!important; font-weight:500!important; letter-spacing:2px; padding:3px 10px; background:linear-gradient(270deg,#101c25c9,transparent); border-right:2px solid #c7d8d0; }
+#tab-cs16 .cs16-weaponName { position:absolute; right:33px; bottom:75px; font-size:15px; font-weight:600; letter-spacing:2px; text-transform:uppercase; }
+#tab-cs16 .cs16-nadeTxt { right:33px!important; bottom:103px!important; font-size:10px!important; letter-spacing:1px; color:#d2d5ca!important; }
+#tab-cs16 .cs16-killfeed { top:86px!important; right:22px!important; font-size:12px!important; line-height:1.8; }
+#tab-cs16 .cs16-killfeed > div { background:#15212ac7; border-right:2px solid #b2c6cf; padding:3px 10px; margin:3px 0; }
+#tab-cs16 .cs16-crosshair { width:18px; height:18px; filter:drop-shadow(0 0 1px #000); }
+#tab-cs16 .cs16-crosshair::before,#tab-cs16 .cs16-crosshair::after { content:''; position:absolute; background:#b2f295; }
+#tab-cs16 .cs16-crosshair::before { width:6px; height:2px; top:8px; left:0; box-shadow:12px 0 #b2f295; }
+#tab-cs16 .cs16-crosshair::after { height:6px; width:2px; top:0; left:8px; box-shadow:0 12px #b2f295; }
+#tab-cs16 .cs16-banner { top:20%!important; padding:16px 35px; border-top:1px solid #e5dfbd55; border-bottom:1px solid #e5dfbd55; background:linear-gradient(90deg,transparent,#13212cda,transparent); font-size:25px!important; letter-spacing:3px; width:70%; }
+#tab-cs16 .cs16-centerMsg { font-size:16px!important; }
+#tab-cs16 .cs16-bombTimer { top:68px!important; font-size:22px!important; }
+#tab-cs16 .cs16-hint { padding:10px 15px; background:#121e26cc; border-bottom:1px solid #d4b77780; font-size:13px!important; }
+#tab-cs16 .cs16-actWrap { height:5px!important; border:0!important; background:#0d1825bb!important; }
+#tab-cs16 .cs16-actFill { background:#d4b777!important; }
+#tab-cs16 .cs16-buy,#tab-cs16 .cs16-esc { background:#0d1925a8!important; backdrop-filter:blur(7px); }
+#tab-cs16 .cs16-buy > div,#tab-cs16 .cs16-esc > div,#tab-cs16 .cs16-hostPanel,#tab-cs16 .cs16-scoreboard { background:#16232ded!important; border:1px solid #8a9fabad!important; border-radius:2px!important; box-shadow:0 20px 80px #0006; }
+#tab-cs16 .cs16-buy button,#tab-cs16 .cs16-esc button { border-radius:2px; font-family:'Segoe UI',Arial,sans-serif!important; }
+#tab-cs16 button { transition:filter .15s,background-color .15s; }
+#tab-cs16 button:hover { filter:brightness(1.23); }
+#tab-cs16 button:focus-visible,#tab-cs16 select:focus-visible { outline:2px solid #d4b777; outline-offset:3px; }
+#tab-cs16 .cs16-quality { display:flex; justify-content:space-between; align-items:center; margin-top:18px; font-size:12px; color:#b5c6d0; }
+#tab-cs16 .cs16-quality select { border:1px solid #617381; padding:6px; color:#e4ecee; background:#0e1b24; }
+#tab-cs16 .cs16-lobby { background:radial-gradient(ellipse at 80% 0,#40576c66,transparent 55%),linear-gradient(125deg,#101b24,#192e3b)!important; padding:30px 24px!important; }
+#tab-cs16 .cs16-lobby > div { max-width:1000px!important; }
+#tab-cs16 .cs16-lobby > div > div:first-child { text-align:left!important; color:#f1eee1!important; font:700 30px/1.4 'Segoe UI',Arial,sans-serif!important; letter-spacing:3px; margin-bottom:18px; }
+#tab-cs16 .cs16-lobby > div > div:first-child span { display:block; font:400 12px/1.8 'Segoe UI',Arial,sans-serif!important; color:#a8bdca!important; letter-spacing:1px; }
+#tab-cs16 .cs16-lobby button { font-family:'Segoe UI',Arial,sans-serif!important; border-radius:2px; }
+#tab-cs16 .cs16-loading { position:absolute; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:20px; background:radial-gradient(ellipse at 70% 40%,#344c5c,#101b24 70%); color:#eee9d8; font-size:22px; }
+#tab-cs16 .cs16-loading-label { font-size:11px; letter-spacing:4px; color:#b6ad91; }
+#tab-cs16 .cs16-loading button { padding:10px 24px; border:1px solid #a99a78; background:#243846; color:#eee9d8; cursor:pointer; }
+@media(max-width:1000px) { #tab-cs16 .cs16-radar { width:130px!important;height:130px!important; } #tab-cs16 .cs16-money { top:185px!important; } #tab-cs16 .cs16-topBar { min-width:130px;font-size:11px!important; } #tab-cs16 .cs16-scoreT { left:calc(50% - 171px)!important; } #tab-cs16 .cs16-scoreCT { right:calc(50% - 171px)!important; } }

@@ -1,0 +1,36 @@
+{
+  "generator": "tools/blender/build_characters.py",
+  "blender": "4.5.9 LTS",
+  "license": "Original project artwork; no third-party assets",
+  "coordinateSystem": "glTF Y-up, front -Z",
+  "assets": [
+    {
+      "file": "operator-ct.glb",
+      "triangles": 28192,
+      "meshes": 38,
+      "bytes": 1577452,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "operator-t.glb",
+      "triangles": 26736,
+      "meshes": 34,
+      "bytes": 1543120,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    }
+  ]
+}

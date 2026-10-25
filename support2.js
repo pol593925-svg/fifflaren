@@ -202,11 +202,41 @@
       scale: () => ({ q: [110, 180, 250, 320], w: [200, 300, 400, 500], r: [0, 0, 0] }),
     },
   ];
+  HEROES.push(
+    {id:'cinder', name:'Каэр Хранитель горна', role:'Инициатор · огонь', color:0xff9944, cloth:0x652e22,
+      hp:740,mana:320,dmg:57,aspd:0,atkRange:4,atkCd:1.65,ms:8.2,
+      combo:'Q врыв → W горящая земля → R удар горна',
+      abilities:[
+        {key:'Q',name:'Падение угля',mana:65,cd:12,type:'point',range:16,desc:'Прыжок: урон и оглушение на 1 секунду',exec(h,t,s){leap(h,t,s.dmg);}},
+        {key:'W',name:'Горящая земля',mana:70,cd:15,type:'point',range:20,desc:'Огонь на 4 секунды; замедляет на 25%',exec(h,t,s){zone(h,t.x,t.z,6,4,{dps:s.dmg/4,slow:.25,color:0xff7722});}},
+        {key:'E',name:'Закалка',mana:45,cd:18,type:'self',desc:'Щит на себя, поглощает урон',exec(h,t,s){shield(h,h,s.dmg);}},
+        {key:'R',name:'Сердце горна',mana:140,cd:55,type:'self',ult:true,desc:'Взрыв вокруг героя: урон и оглушение на 1.6 сек',exec(h,t,s){aoe(h,h.x,h.z,8,s.dmg,{stun:1.6,color:0xffb34f});}}
+      ],scale:()=>({q:[100,150,200,250],w:[160,240,320,400],e:[120,180,240,300],r:[280,400,520]})},
+    {id:'vesper',name:'Веспера Ткачиха сумерек',role:'Контроль · звёзды',color:0xbda1ff,cloth:0x35265f,
+      hp:510,mana:400,dmg:47,aspd:0,atkRange:17,atkCd:1.7,ms:8.5,
+      combo:'W ловушка → Q луч → R сумеречный разлом',
+      abilities:[
+        {key:'Q',name:'Сумеречная нить',mana:55,cd:8,type:'point',range:24,desc:'Луч наносит урон врагам на линии',exec(h,t,s){lineShot(h,t,4,s.dmg,0xc4a2ff);}},
+        {key:'W',name:'Звёздная сеть',mana:70,cd:14,type:'point',range:23,desc:'Зона на 3 секунды: замедление 50% и урон',exec(h,t,s){zone(h,t.x,t.z,6,3,{slow:.5,dps:s.dmg/3,color:0x9373ff});}},
+        {key:'E',name:'Шёлк ночи',mana:45,cd:13,type:'self',desc:'Невидимость на 2 секунды и ускорение на 25%',exec(h){buff(h,{stealth:1,msPct:.25,dur:2,color:0xc6a7ff});}},
+        {key:'R',name:'Сумеречный разлом',mana:150,cd:60,type:'point',range:26,ult:true,desc:'Взрыв в области и оглушение на 2 секунды',exec(h,t,s){aoe(h,t.x,t.z,8,s.dmg,{stun:2,color:0xd4baff});}}
+      ],scale:()=>({q:[100,160,220,280],w:[90,150,210,270],e:[0,0,0,0],r:[260,380,500]})},
+    {id:'briar',name:'Терн Страж рощи',role:'Поддержка · природа',color:0x8ce8af,cloth:0x285340,
+      hp:650,mana:350,dmg:49,aspd:0,atkRange:13,atkCd:1.7,ms:8.3,
+      combo:'Q удержать врага → W восстановиться → R защитить команду',
+      abilities:[
+        {key:'Q',name:'Корни рощи',mana:60,cd:11,type:'point',range:21,desc:'Урон в области и оглушение на 1 секунду',exec(h,t,s){aoe(h,t.x,t.z,4,s.dmg,{stun:1,color:0x90d89d});}},
+        {key:'W',name:'Живая кора',mana:65,cd:13,type:'self',desc:'Восстанавливает здоровье героя',exec(h,t,s){heal(h,h,s.dmg);}},
+        {key:'E',name:'Лесная тропа',mana:40,cd:12,type:'self',desc:'Скорость передвижения +40% на 4 секунды',exec(h){buff(h,{msPct:.4,dur:4,color:0xaceab6});}},
+        {key:'R',name:'Пробуждение рощи',mana:140,cd:60,type:'self',ult:true,desc:'Лечение живых союзников в радиусе 12 метров',exec(h,t,s){for(const ally of units)if(ally.alive&&ally.team===h.team&&!ally.isTower&&!ally.isAncient&&d2(h.x,h.z,ally.x,ally.z)<=12)heal(h,ally,s.dmg);}}
+      ],scale:()=>({q:[80,130,180,230],w:[100,160,220,280],e:[0,0,0,0],r:[200,300,400]})}
+  );
   const heroById = id => HEROES.find(h => h.id === id);
 
   // ---------- 3D-МОДЕЛИ (CC0: KayKit + Quaternius — мультяшные, каждый герой уникален) ----------
   const S2_SERVER = 'https://support-hub-server-v3.onrender.com';
   const S2_HERO_MODEL = {
+    cinder: {model:'kknight',scale:1.18}, vesper:{model:'astra',scale:1.05}, briar:{model:'jin',scale:1.12},
     varg:   { model: 'varg',    scale: 1.0 },   // маг молнии — Quaternius Wizard
     mord:   { model: 'kknight', scale: 1.1 },   // тюремщик — KayKit Knight
     silva:  { model: 'khood',   scale: 0.95 },  // лучница — KayKit Rogue Hooded
@@ -366,9 +396,11 @@
         const hm = S2_HERO_MODEL[h.id] || { model: 'kk_Knight', scale: 1 };
         const inst = instantiateS2Model(hm.model, h.color, (hm.scale || 1) * 1.05);
         if (!inst) continue;
-        inst.model.rotation.y = 0.5;
-        sc.add(inst.model);
-        const bb = posedBox(inst.model);
+        const portraitRoot = new THREE.Group();portraitRoot.add(inst.model);
+        window.S2Effects?.decorate(portraitRoot,h);
+        portraitRoot.rotation.y = 0.5;
+        sc.add(portraitRoot);
+        const bb = posedBox(portraitRoot);
         const hgt = Math.max(bb.max.y - bb.min.y, 0.5);
         const cy = (bb.max.y + bb.min.y) / 2;
         // 3.19.0: камера стояла в точке x=cy — модель была крошечной точкой на фоне
@@ -376,7 +408,7 @@
         cam.lookAt(0, cy, 0);
         r.render(sc, cam);
         h.portrait = r.domElement.toDataURL('image/png');
-        sc.remove(inst.model);
+        sc.remove(portraitRoot);
       }
     } catch (e) { /* портреты необязательны */ }
     try { r.dispose(); } catch (e) {}
@@ -484,8 +516,8 @@
     renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
 
     // тёплый закатный свет с розовинкой
-    scene.add(new THREE.HemisphereLight(0xeadcf2, 0x55703c, 0.95));
-    sunLight = new THREE.DirectionalLight(0xffe2c2, 1.4);
+    scene.add(new THREE.HemisphereLight(0xb7d3e8, 0x344733, 0.8));
+    sunLight = new THREE.DirectionalLight(0xffe2b7, 1.6);
     sunLight.position.set(60, 110, 40);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(2048, 2048);
@@ -586,7 +618,7 @@
       treePos.push([x, z]);
     }
     const trunkGeo = new THREE.CylinderGeometry(0.3, 0.46, 3.0, 6);
-    const crownGeo = new THREE.IcosahedronGeometry(2.3, 1);
+    const crownGeo = new THREE.IcosahedronGeometry(2.3, 2);
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5f4030 });
     const crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // оттенок задаём на инстанс
     const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treePos.length);
@@ -597,18 +629,26 @@
     const sakuraCols = ['#f7cddd', '#f4b8cf', '#fceef2', '#f0a8c0', '#ffd9e4'];
     treePos.forEach((p, i) => {
       const s = rand(0.8, 1.4);
-      const sakura = Math.random() < 0.45; // почти половина — цветущая вишня
+      const sakura = p[0]+p[1]<0 && Math.random() < 0.22;
       Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(0, 6.28));
       S.set(s, s, s);
       M.compose(Pv.set(p[0], 1.5 * s, p[1]), Q, S); trunks.setMatrixAt(i, M);
       M.compose(Pv.set(p[0], (3.0 + 1.7) * s, p[1]), Q, S); crowns.setMatrixAt(i, M);
       if (sakura) treeCol.set(pick(sakuraCols));
-      else treeCol.setHSL(0.27 + rand(-0.03, 0.06), rand(0.42, 0.55), rand(0.3, 0.42));
+      else if(p[0]+p[1]>25) treeCol.setHSL(.05+rand(0,.04),.18,rand(.22,.34));
+      else treeCol.setHSL(0.29 + rand(-0.03, 0.06), rand(0.35, 0.5), rand(0.24, 0.38));
       crowns.setColorAt(i, treeCol);
       obstacles.push({ x: p[0], z: p[1], r: 0.9 * s });
       trees.push({ x: p[0], z: p[1], hp: 1 });
     });
     scene.add(trunks); scene.add(crowns);
+    // Low-cost second canopy layer adds depth to the forest using one draw call.
+    const upperCrowns = new THREE.InstancedMesh(crownGeo,crownMat,treePos.length);
+    treePos.forEach((p,i)=>{
+      crowns.getMatrixAt(i,M); M.decompose(Pv,Q,S); Pv.y+=1.3; S.multiplyScalar(.72);
+      M.compose(Pv,Q,S);upperCrowns.setMatrixAt(i,M);
+      crowns.getColorAt(i,treeCol);treeCol.multiplyScalar(1.12);upperCrowns.setColorAt(i,treeCol);
+    });upperCrowns.castShadow=true;scene.add(upperCrowns);
 
     // --- декор: камни и кусты ---
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
@@ -852,6 +892,7 @@
     g.add(disc);
     u.teamDisc = disc;
     u.mesh = g;
+    if(u.heroDef) window.S2Effects?.decorate(g,u.heroDef);
     addHpBar(u, barY);
     g.position.set(u.x, 0, u.z);
     scene.add(g);
@@ -859,6 +900,7 @@
 
   // 3.19.1: оружие по типу героя — прикрепляем к кости руки скелетной модели
   const HERO_WEAPON = {
+    cinder:'maul', vesper:'staff', briar:'trident',
     varg: 'staff', mord: 'maul', silva: 'bow', ksul: 'staff', jin: 'staff', kris: 'dagger',
     freya: 'staff', torg: 'maul', zik: 'staff', gnil: 'cleaver', astra: 'staff', undina: 'trident',
   };
@@ -1051,7 +1093,7 @@
   function abilityDmg(u, idx) {
     const a = u.abilities[idx]; if (!a || a.def.type === 'passive') return 0;
     const s = u.heroDef.scale();
-    const arr = a.def.key === 'Q' ? s.q : a.def.key === 'W' ? (s.w && s.w.length ? s.w : s.q) : (s.r && s.r.length ? s.r : s.q);
+    const arr = s[a.def.key.toLowerCase()] || s.q;
     const v = arr[clamp(a.lvl - 1, 0, arr.length - 1)];
     return (v || 0) + (a.def.key !== 'W' || u.heroDef.id === 'undina' ? spellPower(u) : 0);
   }
@@ -2097,6 +2139,7 @@
     a.def.exec(u, target && target.alive !== undefined ? target : pt, s);
     const ai = u.abilities.indexOf(a);
     const acolor = abilColorNum(u.heroDef, ai); // 3.21.0: каждая способность — свой цвет
+    window.S2Effects?.cast(scene, u, a.def.type === 'self' ? u : pt, acolor, !!a.def.ult, a.def.key);
     // 3.19.1: анимация каста — герой «взмахивает» (если у модели есть анимация атаки) + вспышка
     u.atkAnimT = 0.55;
     const castFlash = new THREE.Mesh(
@@ -2354,6 +2397,7 @@
     ui.hud = hud;
     const bar = el('div', 'display:flex;align-items:stretch;pointer-events:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));', hud);
     ui.centerBar = bar; // скрывается в режиме зрителя
+    bar.classList.add('s2-hudBar');
     // портрет героя
     const pWrap = el('div', 'position:relative;width:100px;height:122px;background:linear-gradient(180deg,#232b3d,#141821);border:1px solid #3a4152;border-right:none;border-radius:8px 0 0 0;overflow:visible;', bar);
     const pIn = el('div', 'position:absolute;inset:0;overflow:hidden;border-radius:8px 0 0 0;', pWrap);
@@ -2774,7 +2818,7 @@
       if (ui.centerBar && ui.centerBar.style.display !== 'none') ui.centerBar.style.display = 'none';
       return;
     }
-    if (ui.centerBar) ui.centerBar.style.display = '';
+    if (ui.centerBar) ui.centerBar.style.display = 'flex';
     // портрет + уровень
     if (ui.portraitImg && myHero.heroDef) {
       if (ui.portraitImg.dataset.for !== myHero.heroDef.id) {
@@ -3126,6 +3170,11 @@
 
   function heroCard(h, onPick, small) {
     const card = el('div', 'position:relative;background:#141c2c;border:1px solid #3a4358;border-radius:10px;padding:8px;cursor:pointer;text-align:center;' + (small ? 'width:86px;' : ''), null);
+    card.classList.add('s2-heroCard');
+    card.dataset.hero = h.id;
+    card.style.setProperty('--hero-color','#'+h.color.toString(16).padStart(6,'0'));
+    card.title = h.combo;
+    if (['cinder','vesper','briar'].includes(h.id)) el('span','position:absolute;top:8px;right:8px;z-index:1;font-size:9px;color:#ffe1a3;background:#312418;padding:3px 6px;border-radius:4px;',card,'НОВЫЙ');
     if (h.portrait) {
       const img = el('img', 'width:100%;border-radius:8px;display:block;background:#18223a;', card);
       img.src = h.portrait;
@@ -3147,7 +3196,8 @@
     if (!wrap || !wrap.isConnected && !wrap.parentNode) return;
     wrap.innerHTML = '';
     lobbyCloseBtn(wrap);
-    el('div', 'font-size:28px;font-weight:900;color:#e8dfc8;text-align:center;text-shadow:0 3px 12px rgba(0,0,0,0.6);', wrap, '🛡 SUPPORT 2 — ЛОББИ');
+    el('div', 'font-size:12px;letter-spacing:6px;color:#b7a782;text-align:center;margin:8px;', wrap, 'ВЫБЕРИ СВОЮ ЛЕГЕНДУ');
+    el('div', 'font-size:42px;font-weight:900;letter-spacing:5px;color:#e8dfc8;text-align:center;text-shadow:0 3px 12px rgba(0,0,0,0.6);', wrap, 'SUPPORT 2');
     const status = s2net.connected
       ? (s2net.state ? `На сервере: ${s2net.state.players.length}` : 'Соединено')
       : (typeof io === 'function' ? 'Подключение к серверу…' : 'Нет подключения (соло-режим)');
@@ -3237,6 +3287,7 @@
     el('div', 'font-size:30px;font-weight:900;color:#e8dfc8;text-shadow:0 3px 12px rgba(0,0,0,0.6);', wrap, '🛡 SUPPORT 2');
     el('div', 'font-size:13px;color:#8a94a8;margin:4px 0 14px;', wrap, 'Выбери героя · 3 линии · крипы каждые 30 сек · добивай крипов для золота · сломай трон врага');
     const grid = el('div', 'display:grid;grid-template-columns:repeat(6,120px);gap:10px;justify-content:center;max-width:900px;', wrap);
+    grid.classList.add('s2-pickGrid');
     for (const h of HEROES) {
       const card = heroCard(h, () => { wrap.remove(); setupMatch(h.id); });
       el('div', 'font-size:10px;color:#8a94a8;margin-top:6px;line-height:1.45;', card,
@@ -3281,6 +3332,7 @@
       }
     }
     tickEffects(dt);
+    window.S2Effects?.update(dt);
     // вода
     if (waterGeo) {
       const pos = waterGeo.attributes.position;
@@ -3317,6 +3369,7 @@
       tab.innerHTML = '';
       // 3.19.2: игра — поверх ВСЕГО окна (меню хаба не видно), как полноценная Дота
       rootWrap = el('div', 'position:fixed;inset:0;width:100vw;height:100vh;z-index:99999;overflow:hidden;background:#0a0e14;', document.body);
+      rootWrap.classList.add('s2-shell');
       buildScene();
       bindInput();
       loadS2Models();
@@ -3335,6 +3388,9 @@
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     if (rootWrap && rootWrap.parentNode) rootWrap.parentNode.removeChild(rootWrap);
     rootWrap = null;
+    window.S2Effects?.clear();
+    renderer?.dispose();
+    window.removeEventListener('resize', resizeS2);
     scene = null; camera = null; renderer = null; waterMesh = null; waterGeo = null; sunLight = null; minimapCtx = null;
     ui = {};
     units.length = 0; projectiles.length = 0; zones.length = 0; effects.length = 0;

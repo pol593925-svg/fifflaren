@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const nav = document.querySelector('.tabs');
   const sections = {
-    hq:['Штаб','Команда и люди, с которыми ты работаешь'], support:['Поддержка','Всё для решения рабочих вопросов'],
+    mycalls:['Колы команды','Личная сводка Fifflaren · каждый день к 19:00'], hq:['Штаб','Команда и люди, с которыми ты работаешь'], support:['Поддержка','Всё для решения рабочих вопросов'],
     shift:['Моя смена','Рабочее время, логи и результаты дня'], cols:['Колы','Фиксируй звонки и сохраняй важные детали'],
     leave:['Отпроситься','Укажи время и причину отсутствия'], crypto:['Крипто','Обозреватели сетей и проверка транзакций'],
     notes:['Заметки','Твоё пространство для мыслей и рабочих записей'], exchanges:['Биржи','Справочник условий и доступных направлений'],
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const brand=document.createElement('div');brand.className='hub-brand';
   brand.innerHTML='<span class="hub-mark">S</span><div>Support Hub<small>РАБОЧЕЕ ПРОСТРАНСТВО</small></div>';
   nav.prepend(brand);
-  const groups=[['РАБОТА',['hq','support','shift','cols','leave','notes','tasks','crypto','exchanges','approve','salary']],['ОБЩЕНИЕ',['feed','chat','pm']],['ДОСУГ',['swipe','casino','tops','battleship','cs16','support2']],['УПРАВЛЕНИЕ',['tlpanel','admin']]];
+  const groups=[['РАБОТА',['hq','support','shift','cols','mycalls','leave','notes','tasks','crypto','exchanges']],['ОБЩЕНИЕ',['feed','chat','pm']],['ДОСУГ',['swipe','casino','tops','battleship','cs16','support2']],['УПРАВЛЕНИЕ',['tlpanel','admin']]];
   for(const [label,ids] of groups){
     const group=document.createElement('div');group.className='hub-navGroup';
     const caption=document.createElement('div');caption.className='hub-navLabel';caption.textContent=label;group.append(caption);

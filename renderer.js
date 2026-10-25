@@ -8,12 +8,15 @@ const fs = require('fs');
 const path = require('path');
 const { ipcRenderer, desktopCapturer } = require('electron');
 const { io } = require("socket.io-client");
+ipcRenderer.on('open-calls',(_event,date)=>HubCalls.open(date));
+ipcRenderer.on('calls-tick',()=>HubCalls.checkDigest());
 
 const notesFilePath = path.join(process.cwd(), 'notes.txt');
 
 let socket = null;
 let currentUser = "";      // ник текущего пользователя
 let currentRole = "user";  // 'admin' или 'user'
+let exchangeEntries = null;
 let onlineNicks = [];      // кто онлайн в чате (для точек в Штабе)
 let tlTeam = "";           // название команды, если текущий пользователь — ТЛ
 const tlSound = new Audio('alert.wav');
@@ -128,6 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         currentUser = data.username;
         currentRole = data.role || 'user';
+        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
         localStorage.setItem('global_worker_nick', data.username);
         localStorage.setItem('support_hub_user', data.username);
         // 3.12.0: «Оставаться в системе»
@@ -174,6 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
+      if (tabName === 'mycalls') HubCalls.load();
       if (tabName === 'casino') casinoEnter();
       if (tabName === 'feed') loadFeed();
       if (tabName === 'pm') { loadPmInbox(); loadPmChat(); }
@@ -196,6 +201,10 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error("Ошибка чтения файла заметок:", err);
   }
 
+  HubExchanges.configure({isAdmin:()=>currentRole==='admin',save:async(row,website,logo)=>{
+    const res=await fetch(SERVER_API_URL+'/api/admin/exchanges/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminUsername:currentUser,section:row.section,name:row.name,condition:row.condition||'',website,logo})});
+    const data=await res.json();if(!res.ok||!data.success)throw Error(data.message||'Не удалось сохранить сайт');
+  }});
   loadShiftState();
   initChatUI();
   loadExchangesFromServer(); // подменяет статику справочника данными с сервера
@@ -393,6 +402,7 @@ async function loadExchangesFromServer() {
     const data = await res.json();
     if (!data.success || !data.exchanges || !data.exchanges.length) return; // оставляем статику
 
+    exchangeEntries = data.exchanges;
     exchangesYes = data.exchanges.filter(e => e.section === 'yes').map(e => e.name);
     exchangesCondition = data.exchanges.filter(e => e.section === 'condition').map(e => ({ name: e.name, condition: e.condition }));
     exchangesNo = data.exchanges.filter(e => e.section === 'no').map(e => e.name);
@@ -411,6 +421,7 @@ function initSocketConnection(username) {
   socket.on('connect', () => {
     console.log("Подключено к серверу чата");
     socket.emit('join_chat', username);
+    HubCalls.subscribe(socket);
 
   });
 
@@ -2238,53 +2249,9 @@ window.toggleUserBan = async (username, isBanned) => {
 
 // ==================== СПРАВОЧНИК БИРЖ (РЕНДЕР И ПОИСК) ====================
 function renderExchangeLists() {
-  const colYes = document.getElementById("colYes");
-  const colCondition = document.getElementById("colCondition");
-  const colNo = document.getElementById("colNo");
-
-  if (colYes) colYes.innerHTML = exchangesYes.map(i => `<li>• ${escapeHtml(i)}</li>`).join('');
-  if (colCondition) colCondition.innerHTML = exchangesCondition.map(i => `<li>• ${escapeHtml(i.name)}</li>`).join('');
-  if (colNo) colNo.innerHTML = exchangesNo.map(i => `<li>• ${escapeHtml(i)}</li>`).join('');
+  HubExchanges.set(exchangeEntries || [...exchangesYes.map(name=>({name,section:'yes'})),...exchangesCondition.map(r=>({...r,section:'condition'})),...exchangesNo.map(name=>({name,section:'no'}))]);
 }
-
-function handleExchangeSearch(e) {
-  const query = e.target.value.trim().toLowerCase();
-  const statusDot = document.getElementById("statusDot");
-  const statusText = document.getElementById("statusText");
-  const conditionBox = document.getElementById("conditionNoteBox");
-
-  if (!query) {
-    if (statusDot) statusDot.style.background = "#666";
-    if (statusText) statusText.textContent = "Введите запрос";
-    if (conditionBox) conditionBox.style.display = "none";
-    return;
-  }
-
-  const inYes = exchangesYes.some(i => i.toLowerCase().includes(query));
-  const foundCond = exchangesCondition.find(i => i.name.toLowerCase().includes(query));
-  const inNo = exchangesNo.some(i => i.toLowerCase().includes(query));
-
-  if (inYes) {
-    if (statusDot) statusDot.style.background = "#28a745";
-    if (statusText) statusText.textContent = "Точно да";
-    if (conditionBox) conditionBox.style.display = "none";
-  } else if (foundCond) {
-    if (statusDot) statusDot.style.background = "#ffc107";
-    if (statusText) statusText.textContent = "Есть условия";
-    if (conditionBox) {
-      conditionBox.style.display = "block";
-      conditionBox.textContent = `⚠️ Условия для ${foundCond.name}:\n${foundCond.condition}`;
-    }
-  } else if (inNo) {
-    if (statusDot) statusDot.style.background = "#dc3545";
-    if (statusText) statusText.textContent = "Точно нет";
-    if (conditionBox) conditionBox.style.display = "none";
-  } else {
-    if (statusDot) statusDot.style.background = "#666";
-    if (statusText) statusText.textContent = "Не найдено";
-    if (conditionBox) conditionBox.style.display = "none";
-  }
-}
+function handleExchangeSearch() { HubExchanges.render(); }
 
 // ==================== ЗАРПЛАТА (3.3.0) ====================
 // Вкладка «💰 ЗП»: сотрудник видит только своё. Вносит ТЛ через ТЛ-панель.
@@ -4872,6 +4839,7 @@ document.addEventListener('keydown', (e) => {
       }
       currentUser = data.username;
       currentRole = data.role || 'user';
+      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
       localStorage.setItem('global_worker_nick', data.username);
       localStorage.setItem('support_hub_user', data.username);
       if (authScreen) authScreen.style.display = 'none';

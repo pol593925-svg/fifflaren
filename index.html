@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="cs16-graphics.css">
   <link rel="stylesheet" href="app-theme.css">
+  <link rel="stylesheet" href="hub-features.css">
 </head>
 <body>
 
@@ -44,7 +45,7 @@
     <button class="tab-btn" data-tab="exchanges">🏛️ Биржи</button>
     <button class="tab-btn" data-tab="tasks">✅ Задачи</button>
     <button class="tab-btn" data-tab="feed">🖼️ Лента</button>
-    <button class="tab-btn" data-tab="approve" style="background: #2a1b1b; color: #ff6b6b; border: 1px dashed #ff6b6b;">🐵 Найти апрув</button>
+    <button class="tab-btn" data-tab="mycalls" id="callsTabBtn" style="display:none;">📋 Колы команды</button>
     <button class="tab-btn" data-tab="chat">💬 Чат</button>
     <button class="tab-btn" data-tab="pm" id="pmTabBtn">✉️ ЛС <span id="pmUnreadBadge" style="display:none; background:#dc3545; border-radius:8px; padding:0 5px; font-size:9px;">0</span></button>
     <button class="tab-btn" data-tab="swipe">🎲 Дайсерчвинчик</button>
@@ -53,7 +54,6 @@
     <button class="tab-btn" data-tab="battleship" style="background: #0d1b2a; color: #4da6ff; border: 1px dashed #4da6ff;">🚢 Морской бой</button>
     <button class="tab-btn" data-tab="cs16" style="background: #221c10; color: #e8c34a; border: 1px dashed #8a6b3a;">🔫 КС 1.6</button>
     <button class="tab-btn" data-tab="support2" style="background: #0d1b14; color: #6fe0a0; border: 1px dashed #2a6b4a;">🛡 Support2</button>
-    <button class="tab-btn" data-tab="salary">💰 ЗП</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
     <button id="logoutBtn" title="Выйти из аккаунта (3.12.0)">🚪</button>
@@ -233,41 +233,15 @@
   </div>
 
   <!-- 7. ВКЛАДКА: Биржи -->
-  <div id="tab-exchanges" class="content" style="display: none;">
-    <div class="card">
-      <h3>🔍 Проверка биржи</h3>
-      <div class="exchange-search-row">
-        <input type="text" id="exchangeSearchInput" placeholder="Введите название биржи для проверки...">
-        <div id="exchangeStatusIndicator" class="exchange-indicator">
-          <span id="statusDot" class="big-status-dot" style="background: #666;"></span>
-          <span id="statusText" style="color: #ccc;">Введите запрос</span>
-        </div>
-      </div>
-      <div id="conditionNoteBox" class="condition-note" style="display: none;"></div>
-
-      <div class="exchange-cols">
-        <div class="exchange-col col-yes-bg">
-          <h4>🟢 Точно да</h4>
-          <ul id="colYes" class="exchange-list"></ul>
-        </div>
-        <div class="exchange-col col-cond-bg">
-          <h4>🟡 С условием</h4>
-          <ul id="colCondition" class="exchange-list"></ul>
-        </div>
-        <div class="exchange-col col-no-bg">
-          <h4>🔴 Точно нет</h4>
-          <ul id="colNo" class="exchange-list"></ul>
-        </div>
-      </div>
-    </div>
+  <div id="tab-mycalls" class="content" style="display:none;">
+    <div class="card calls-overview"><div><div class="hub-eyebrow">ЛИЧНО ДЛЯ FIFFLAREN</div><h3>Все колы твоей команды</h3><p>Сводка каждый день к 19:00 · Симферополь, UTC+3</p></div><div class="calls-total"><b id="callsCount">0</b><span>колов за день</span></div></div>
+    <div class="card"><div class="calls-toolbar"><label for="callsDate">Дата отчёта</label><input id="callsDate" type="date"><button id="callsRefresh" class="template-btn">Обновить</button><button id="callsCopy" class="template-btn">Скопировать список</button></div><p id="callsStatus" role="status"></p><div id="callsList"></div></div>
   </div>
-
-  <!-- 8. ШУТОЧНАЯ ВКЛАДКА: Найти апрув -->
-  <div id="tab-approve" class="content" style="display: none; text-align: center; padding: 20px;">
-    <div class="card" style="display: inline-block; padding: 20px;">
-      <h3 style="color: #ff6b6b; margin-bottom: 15px;">🔍 Поиск заветного апрува...</h3>
-      <img src="approve.jpg" alt="Иди работай" style="max-width: 350px; width: 100%; border-radius: 8px;">
-    </div>
+  <div id="tab-exchanges" class="content" style="display:none;">
+    <div class="card exchange-hero"><div class="hub-eyebrow">РАБОЧИЙ СПРАВОЧНИК</div><h3>Найди нужную площадку</h3><p>Название или ссылка — все совпадения, статусы и условия в одном месте.</p>
+      <div class="exchange-search-row"><input id="exchangeSearchInput" type="search" placeholder="Название или ссылка, например binance.com" aria-label="Поиск площадки"><button id="exchangeClear" class="template-btn">Сбросить</button></div>
+      <div class="exchange-filters"><button data-exchange-filter="all" class="active">Все</button><button data-exchange-filter="yes">Можно</button><button data-exchange-filter="condition">С условиями</button><button data-exchange-filter="no">Нельзя</button><span id="exchangeResultsCount" role="status"></span></div>
+    </div><div id="exchangeGrid" class="exchange-grid"></div><button id="exchangeMore" class="template-btn">Показать ещё</button>
   </div>
 
   <!-- ВКЛАДКА: Живой чат -->
@@ -1005,19 +979,6 @@
     </div>
   </div>
 
-  <!-- 8.10. ВКЛАДКА: Личное инфо — ЗП (3.3.0) -->
-  <div id="tab-salary" class="content" style="display: none;">
-    <div class="card">
-      <h3>💰 Личное инфо — ЗП</h3>
-      <p style="font-size:11px; color:#888; margin-top:2px;">Видишь только свои данные. Суммы вносит ТЛ своей команды.</p>
-      <div class="row-group" style="margin-top:8px;">
-        <input type="month" id="salaryMonth" style="flex:1;">
-        <button id="salaryLoadBtn" class="template-btn" style="background:#0d6efd;">Показать</button>
-      </div>
-      <div id="salaryBox" style="margin-top:12px;"><p style="color:#777;">Выбери месяц и нажми «Показать»</p></div>
-    </div>
-  </div>
-
   <!-- Мини-профиль (модалка по клику на ник) -->
   <div id="profileModal" class="profile-modal">
     <div class="profile-card">
@@ -1072,8 +1033,12 @@
   <script src="SkeletonUtils.js"></script>
   <script src="cs16-graphics.js"></script>
   <script src="cs16.js"></script>
+  <script src="support2-effects.js"></script>
   <script src="support2.js"></script>
+  <script src="calls-inbox.js"></script>
+  <script src="exchange-catalog.js"></script>
   <script src="renderer.js"></script>
+  <script src="casino-design.js"></script>
   <script src="app-ui.js"></script>
 </body>
 </html>

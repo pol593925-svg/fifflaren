@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -456,6 +456,11 @@ ipcMain.on('restart_to_update', () => {
   forceQuit = true; // обновление должно иметь возможность перезапустить приложение
   autoUpdater.quitAndInstall();
 });
+ipcMain.on('call-notification',(_event,payload={})=>{
+  const notice=new Notification({title:String(payload.title||'Колы команды').slice(0,150),body:String(payload.text||'').slice(0,600),silent:muted});
+  notice.on('click',()=>{if(mainWindow&&!mainWindow.isDestroyed()){mainWindow.show();mainWindow.focus();mainWindow.webContents.send('open-calls',String(payload.date||''));}});
+  notice.show();
+});
 
 // Принудительный перезапуск по команде админа (3.13.1)
 let updateReady = false;
@@ -486,6 +491,7 @@ app.whenReady().then(() => {
   createNotifyWindow();
   createImageWindow();
   createTray();
+  setInterval(()=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('calls-tick');},10000).unref();
 
   // Разрешаем микрофон (голосовые в ЛС) и медиа; pointerLock — для прицела в КС 1.6
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {

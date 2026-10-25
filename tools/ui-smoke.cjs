@@ -31,7 +31,7 @@ async function run(){
   const req=route.request(),url=req.url();if(url.startsWith(origin)||url.startsWith('blob:'))return route.continue();
   if(req.method()==='POST')posts.push({url,body:req.postData()});
   if(req.resourceType()==='document')return route.fulfill({contentType:'text/html',body:'<body style="background:#191c26;color:#9ba4bc;font:14px Segoe UI;padding:30px">Чат поддержки · локальная проверка интерфейса</body>'});
-  const data={success:true,username:'fifflaren',role:'admin',isTL:true,team:'fifflaren',teams:[{name:'fifflaren',users:['fifflaren','Alex','Mira']}],users:[],events:[],tasks:[],items:[],posts:[],messages:[],dialogs:[],queue:[],tops:[],totals:[],stats:[],rows:[],balance:1500,owned:[],equipped:'',exchanges:{yes:[],no:[],conditional:[]}};
+ const data={success:true,username:'fifflaren',callsToken:'t'.repeat(43),calls:[{id:'1',user:'Alex',createdAt:'2026-10-25T10:00:00Z',service:'Binance',kind:'Проверка',link:'https://example.com/call',note:'Тест команды'}],hasMore:false,role:'admin',isTL:true,team:'fifflaren',teams:[{name:'fifflaren',users:['fifflaren','Alex','Mira']}],users:[],events:[],tasks:[],items:[],posts:[],messages:[],dialogs:[],queue:[],tops:[],totals:[],stats:[],rows:[],balance:1500,owned:[],equipped:'',exchanges:{yes:[],no:[],conditional:[]}};
   return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
  });
  const tab=async id=>{await page.locator('.tabs [data-tab="'+id+'"]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#tab-'+id).evaluate(e=>getComputedStyle(e).display==='none'),false,id+' hidden');};
@@ -53,9 +53,25 @@ async function run(){
   assert((await page.evaluate(()=>Object.values(__writes)))[0].includes('План на день'));
   await page.screenshot({path:path.join(out,'hub-notes.png')});
   const visited=[];
-  for(const id of ['hq','support','shift','cols','leave','crypto','notes','exchanges','tasks','feed','approve','chat','pm','swipe','casino','tops','battleship','salary','tlpanel','admin']){
+  for(const id of ['hq','support','shift','cols','mycalls','leave','crypto','notes','exchanges','tasks','feed','chat','pm','swipe','casino','tops','battleship','tlpanel','admin']){
    if(await page.locator('.tabs [data-tab="'+id+'"]').isVisible()){await tab(id);visited.push(id);}
   }
+  await tab('mycalls');await page.waitForSelector('.call-entry');assert.equal(await page.locator('.call-entry a').getAttribute('href'),'https://example.com/call');
+  await page.screenshot({path:path.join(out,'hub-personal-calls.png')});
+  await page.evaluate(async()=>{
+   const handlers={};HubCalls.subscribe({emit(){},on:(n,f)=>handlers[n]=f});
+   handlers.fifflaren_call({id:'push1',user:'Alex',service:'QA',link:'https://example.com/call'});
+   handlers.fifflaren_call({id:'push1',user:'Alex',service:'QA',link:'https://example.com/call'});
+  });
+  assert.equal((await page.evaluate(()=>__ipc)).filter(a=>a[0]==='call-notification'&&a[1].title==='Новый колл · Alex').length,1);
+  await tab('exchanges');assert(await page.locator('.exchange-card').count()>0);
+  await page.fill('#exchangeSearchInput','https://www.deribit.com/options/BTC');assert(await page.locator('.exchange-card').count()>0);
+  await page.click('#exchangeClear');await page.locator('[data-exchange-filter="condition"]').click();assert.equal(await page.locator('.exchange-card:not([data-section="condition"])').count(),0);
+  await page.screenshot({path:path.join(out,'hub-exchanges.png')});
+  await tab('casino');await page.evaluate(()=>casinoSkipSplash());await page.screenshot({path:path.join(out,'hub-casino.png')});
+  await page.locator('.casino-room-btn').first().click();await page.locator('.slot-theme-btn[data-theme="zeus"]').click();assert.equal(await page.locator('#room-slot').getAttribute('data-art'),'zeus');
+  await page.waitForTimeout(350);await page.screenshot({path:path.join(out,'hub-slots.png')});
+  assert.equal(await page.locator('.tabs [data-tab="approve"],.tabs [data-tab="salary"]').count(),0);
   await tab('shift');await page.click('#themeToggleBtn');assert(await page.locator('body').evaluate(e=>e.classList.contains('light')));
   await page.screenshot({path:path.join(out,'hub-light.png')});
   await page.setViewportSize({width:900,height:650});await tab('cols');

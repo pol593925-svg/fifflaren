@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Tray, Menu, nativeImage, screen, shell, session, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -27,6 +27,8 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    autoHideMenuBar: true,
+    backgroundColor: '#101219',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -450,67 +452,6 @@ ipcMain.on('close-scare', () => {
   scareWindow = null;
 });
 
-// --- ПИТОМЕЦ-ПАНЕЛЬ БЫСТРОГО ДОСТУПА (3.14.0): всегда поверх окон ---
-let toolbarWindow = null;
-let quickWindow = null;
-let toolbarCollapsed = false;
-
-function createToolbarWindow() {
-  if (toolbarWindow && !toolbarWindow.isDestroyed()) return;
-  const display = screen.getPrimaryDisplay();
-  toolbarWindow = new BrowserWindow({
-    width: 224, height: 224,
-    x: display.workArea.x + display.workArea.width - 232,
-    y: display.workArea.y + Math.round(display.workArea.height / 2 - 112),
-    frame: false, resizable: false, maximizable: false, minimizable: false,
-    alwaysOnTop: true, skipTaskbar: true, transparent: true, backgroundColor: '#00000000',
-    webPreferences: { nodeIntegration: true, contextIsolation: false }
-  });
-  toolbarWindow.setAlwaysOnTop(true, 'screen-saver');
-  toolbarWindow.setVisibleOnAllWorkspaces(true);
-  toolbarWindow.loadFile('toolbar.html');
-  toolbarWindow.on('closed', () => { toolbarWindow = null; });
-}
-
-function createQuickWindow(mode) {
-  if (!quickWindow || quickWindow.isDestroyed()) {
-    quickWindow = new BrowserWindow({
-      width: 460, height: 580, frame: false, resizable: false, maximizable: false,
-      alwaysOnTop: true, skipTaskbar: true, show: false, backgroundColor: '#16181d',
-      webPreferences: { nodeIntegration: true, contextIsolation: false }
-    });
-    quickWindow.setAlwaysOnTop(true, 'screen-saver');
-    quickWindow.on('closed', () => { quickWindow = null; });
-  }
-  const display = screen.getPrimaryDisplay();
-  quickWindow.setBounds({
-    x: display.workArea.x + Math.round(display.workArea.width / 2 - 230),
-    y: display.workArea.y + Math.round(display.workArea.height / 2 - 290),
-    width: 460, height: 580
-  });
-  const q = new URLSearchParams({ mode: mode || '' });
-  quickWindow.loadFile('quick.html', { query: Object.fromEntries(q) });
-  quickWindow.once('ready-to-show', () => { if (quickWindow) { quickWindow.show(); quickWindow.focus(); } });
-}
-
-ipcMain.on('show-toolbar', () => createToolbarWindow());
-ipcMain.on('open-quick', (e, mode) => createQuickWindow(mode));
-// 3.14.3: кнопка казино из меню питомца — открываем вкладку казино в главном окне
-ipcMain.on('open-casino', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.show();
-    mainWindow.focus();
-    mainWindow.webContents.send('open-casino');
-  }
-});
-ipcMain.on('close-quick', () => { if (quickWindow) quickWindow.close(); });
-ipcMain.on('toggle-toolbar', () => {
-  // 3.14.2: сворачивание убрано — меню открывается кругом по клику на морду; оставлено как пустышка для совместимости
-});
-// Формы питомца отправляем в главное окно (там сокет и авторизация)
-ipcMain.on('quick-submit', (e, data) => { if (mainWindow && mainWindow.webContents) mainWindow.webContents.send('quick-submit', data); });
-ipcMain.on('quick-result', (e, r) => { if (quickWindow && !quickWindow.isDestroyed()) quickWindow.webContents.send('quick-result', r); });
-
 ipcMain.on('restart_to_update', () => {
   forceQuit = true; // обновление должно иметь возможность перезапустить приложение
   autoUpdater.quitAndInstall();
@@ -545,18 +486,6 @@ app.whenReady().then(() => {
   createNotifyWindow();
   createImageWindow();
   createTray();
-
-  // 3.14.3: Ctrl+5 — показать/скрыть питомца Ебобию поверх всех окон
-  globalShortcut.register('Control+5', () => {
-    if (!toolbarWindow || toolbarWindow.isDestroyed()) {
-      createToolbarWindow();
-    } else if (toolbarWindow.isVisible()) {
-      toolbarWindow.hide();
-    } else {
-      toolbarWindow.show();
-      toolbarWindow.focus();
-    }
-  });
 
   // Разрешаем микрофон (голосовые в ЛС) и медиа; pointerLock — для прицела в КС 1.6
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
@@ -630,8 +559,4 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
-});
-
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
 });

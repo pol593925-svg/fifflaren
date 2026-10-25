@@ -1,12 +1,13 @@
 {
   "name": "support-hub-desktop",
-  "version": "3.25.1",
+  "version": "3.26.0",
   "description": "Support Hub Tool",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --win",
     "test:graphics": "node tools/validate-graphics.cjs",
+    "test:ui": "node tools/ui-smoke.cjs",
     "test:graphics:browser": "node tools/graphics-smoke.cjs"
   },
   "build": {

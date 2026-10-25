@@ -4,9 +4,11 @@ const root=path.resolve(__dirname,'..'),dist=path.join(root,'dist');
 const archive=path.join(dist,'win-unpacked/resources/app.asar');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json')));
 assert.equal(JSON.parse(asar.extractFile(archive,'package.json')).version,pkg.version);
-for(const file of ['cs16.js','cs16-graphics.js','cs16-graphics.css','index.html',...fs.readdirSync(path.join(root,'models/csgo')).filter(n=>n.endsWith('.glb')).map(n=>'models/csgo/'+n)]){
+for(const file of ['main.js','renderer.js','app-ui.js','app-theme.css','notification.html','image.html','cs16.js','cs16-graphics.js','cs16-graphics.css','index.html',...fs.readdirSync(path.join(root,'models/csgo')).filter(n=>n.endsWith('.glb')).map(n=>'models/csgo/'+n)]){
  assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),'Packaged source differs: '+file);
 }
+const entries=asar.listPackage(archive).map(n=>n.replace(/\\/g,'/'));
+assert(!entries.includes('/toolbar.html')&&!entries.includes('/quick.html'),'Pet windows must not be packaged');
 const updater=yaml.load(fs.readFileSync(path.join(dist,'win-unpacked/resources/app-update.yml'),'utf8'));
 assert.equal(updater.provider,'github');assert.equal(updater.owner,'pol593925-svg');assert.equal(updater.repo,'fifflaren');
 const latest=yaml.load(fs.readFileSync(path.join(dist,'latest.yml'),'utf8'));

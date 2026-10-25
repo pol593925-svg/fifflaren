@@ -612,7 +612,7 @@
   function rebuildWorld(name) {
     loadMap(name);
     remotesClear();
-    tracers.length = 0; nadesList.length = 0; shotFlashes.length = 0; smokes.length = 0; dmgNums.length = 0;
+    clearShotEffects(); nadesList.length = 0; smokes.length = 0; dmgNums.length = 0;
     bombPlanted = null; removeBombMesh();
     buildWorld();
   }
@@ -1173,10 +1173,7 @@
       // 3.15.7: полная очистка поля — летящие гранаты и трассеры прошлого раунда
       for (const n of nadesList) scene.remove(n.mesh);
       nadesList.length = 0;
-      for (const tr of tracers) scene.remove(tr.line);
-      tracers.length = 0;
-      for (const sf of shotFlashes) scene.remove(sf.sp);
-      shotFlashes.length = 0;
+      clearShotEffects();
       flashAlpha = 0; shake = 0;
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
@@ -1192,8 +1189,8 @@
     });
     sock.on('cs16_shoot', (d) => {
       const r = remotes.get(d.nick);
-      if (r) { r.muzzle = performance.now(); }
-      spawnTracer(d.origin, d.dir, WEAPONS[d.weapon] ? Math.min(120, WEAPONS[d.weapon].dmg * 3) : 60, true);
+      if (r) { r.muzzle = WEAPONS[d.weapon]?.melee ? 0 : performance.now(); }
+      if (!WEAPONS[d.weapon]?.melee) spawnTracer(d.origin, d.dir, WEAPONS[d.weapon] ? Math.min(120, WEAPONS[d.weapon].dmg * 3) : 60, true);
       sfxShot(d.weapon);
       // 3.24.0: враг, который стрелял, 2.5 сек виден на радаре всем
       if (r && r.team !== me.team) enemyBlips.set(d.nick, performance.now());
@@ -1421,26 +1418,28 @@
     rg.addColorStop(0.35, 'rgba(255,214,120,0.85)');
     rg.addColorStop(1, 'rgba(255,170,60,0)');
     g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
-    g.strokeStyle = 'rgba(255,236,180,0.9)'; g.lineWidth = 3;
-    for (let i = 0; i < 4; i++) { // лучи звезды
-      const a = i * Math.PI / 4 + 0.4;
-      g.beginPath();
-      g.moveTo(32 + Math.cos(a) * 6, 32 + Math.sin(a) * 6);
-      g.lineTo(32 + Math.cos(a) * 26, 32 + Math.sin(a) * 26);
-      g.stroke();
+    g.fillStyle = 'rgba(255,242,202,.8)';
+    for (let i = 0; i < 7; i++) {
+      const a = i * Math.PI * 2 / 7, radius = i % 2 ? 19 : 29;
+      g.beginPath();g.moveTo(32,32);
+      g.lineTo(32+Math.cos(a-.15)*radius,32+Math.sin(a-.15)*radius);
+      g.lineTo(32+Math.cos(a+.12)*radius*.75,32+Math.sin(a+.12)*radius*.75);
+      g.fill();
     }
     muzzleTexCache = new THREE.CanvasTexture(c);
     return muzzleTexCache;
   }
   function flashAt(pos) {
-    if (!shotLight) { shotLight = new THREE.PointLight(0xffc46a, 0, 10, 2); scene.add(shotLight); }
+    if (!shotLight) shotLight = new THREE.PointLight(0xffc46a, 0, 6, 2);
+    if (shotLight.parent !== scene) scene.add(shotLight);
     shotLight.position.copy(pos);
-    shotLight.intensity = 2.8;
+    shotLight.intensity = 1.7;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
-    sp.scale.set(0.6, 0.6, 1);
+    const size = .18 + Math.random() * .12;
+    sp.scale.set(size,size,1);sp.material.rotation=Math.random()*Math.PI;
     sp.position.copy(pos);
     scene.add(sp);
-    shotFlashes.push({ sp, die: performance.now() + 55 });
+    shotFlashes.push({ sp, size, born:performance.now(), die: performance.now() + 65 });
   }
   // 3.22.0: пуля-трассер как в CS:GO — светящийся стержень + яркая голова
   function spawnTracer(origin, dir, len, isRemote) {
@@ -1448,21 +1447,32 @@
     const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
     const group = new THREE.Group();
     const core = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.018, 0.018, Math.max(len, 0.4), 5, 1, true),
+      new THREE.CylinderGeometry(0.007, 0.009, 1, 5, 1, true),
       new THREE.MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     core.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
-    core.position.copy(o).addScaledVector(d, len / 2);
+    core.position.copy(o);core.scale.y=.01;
     group.add(core);
     const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
-    head.scale.set(0.34, 0.34, 1);
-    head.position.copy(o).addScaledVector(d, len);
+    head.scale.set(0.065, 0.065, 1);
+    head.position.copy(o);
     group.add(head);
     scene.add(group);
-    tracers.push({ line: group, die: performance.now() + (isRemote ? 95 : 75) });
+    tracers.push({ line:group,core,head,o,d,len:Math.max(.05,len),born:performance.now(),die:performance.now()+len/1.2+25 });
     // вспышка на дуле — у себя чуть ниже-правее камеры (видно и стены рядом), у врагов — на дуле
     const fo = isRemote ? o.clone() : o.clone().addScaledVector(d, 0.75).add(new THREE.Vector3(0.15, -0.17, 0));
     flashAt(fo);
+  }
+  function disposeShot(object) {
+    object.removeFromParent();
+    object.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
+  }
+  function clearShotEffects() {
+    for(const tr of tracers)disposeShot(tr.line);
+    for(const sf of shotFlashes)disposeShot(sf.sp);
+    tracers.length=0;shotFlashes.length=0;
+    if(shotLight)shotLight.intensity=0;
+    vmKick=0;vmKickVelocity=0;
   }
   // 3.24.3: летящее число урона над врагом (как в примере: белое, хедшот — жёлтое)
   function spawnDmgNum(x, y, z, dmg, head) {
@@ -1676,7 +1686,7 @@
   }
 
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
-  let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmSwayX = 0, vmSwayY = 0;
+  let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmKickVelocity = 0, vmSwayX = 0, vmSwayY = 0;
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
@@ -1684,6 +1694,7 @@
       vmWeapon = current; vmSkin = mySkin; vmGlb = !!(glbCache[current] && glbCache[current].model);
       if (vm) { disposeGun(vm); camera.remove(vm); }
       vm = buildGun(current, mySkin, 1.8);
+      vmKick=0;vmKickVelocity=0;
       vm.position.set(0.24, -0.25, -0.55);
       camera.add(vm);
     }
@@ -1699,8 +1710,15 @@
       const k = 1 - reloading / WEAPONS[current].reload;
       vm.rotation.x = -0.7 * Math.sin(Math.min(1, k) * Math.PI) - vmSwayY * 1.4;
     } else vm.rotation.x = -vmSwayY * 1.4;
-    vmKick = Math.max(0, vmKick - dt * 6);
-    vm.position.z = -0.55 + vmKick * 0.09;
+    // Critically damped spring: smooth recovery independent of frame rate.
+    const decay=Math.exp(-22*dt), impulse=vmKickVelocity+22*vmKick;
+    vmKick=(vmKick+impulse*dt)*decay;
+    vmKickVelocity=(vmKickVelocity-22*impulse*dt)*decay;
+    const melee=WEAPONS[current].melee;
+    vm.position.z = -0.55 + vmKick * (melee ? -.25 : .16);
+    vm.position.y += vmKick*.035;
+    vm.rotation.x += vmKick*(melee ? -.7 : .23);
+    vm.rotation.z = vmKick*(melee ? -.9 : -.06);
     vm.visible = me.alive && !scoped;
   }
 
@@ -1739,11 +1757,11 @@
     const now = performance.now();
     if (reloading > 0 || now - lastShot < 900) return;
     lastShot = now;
+    vmKickVelocity=18;
     sfxShot('knife');
     const d = dirFromCam();
     const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, 2.8);
     if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t, heavy: true });
-    spawnTracer([P.x, P.y + eyeH(), P.z], d, 2.8, false);
   }
   function tryShoot() {
     if (!me.alive || state.phase !== 'live') return;
@@ -1766,14 +1784,13 @@
     if (a && a.mag <= 0) { if (!burstTimers.length) startReload(); return; }
     if (!burstTimers.length) lastShot = performance.now();
     if (a) a.mag--;
-    vmKick = 1; // отдача viewmodel
+    vmKickVelocity = Math.min(24,vmKickVelocity + (w.scope ? 16 : w.melee ? 18 : w.auto ? 10 : 13));
     sfxShot(current);
     if (w.melee) {
       // нож: короткая дистанция
       const d = dirFromCam();
       const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, 2.4);
       if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t });
-      spawnTracer([P.x, P.y + eyeH(), P.z], d, 2, false);
       return;
     }
     // 3.23.0: спрей-паттерн — разброс растёт с каждым выстрелом в зажиме, сброс при паузе
@@ -2143,7 +2160,7 @@
         r.legL.rotation.x = sw;              // ноги ходят вразножку
         r.legR.rotation.x = -sw;
         r.armL.rotation.x = -sw * 0.6;
-        r.armR.rotation.x = -1.15;           // правая с оружием перед собой
+        r.armR.rotation.x = -1.15 - Math.max(0,1-(performance.now()-r.muzzle)/160)*.15;
         const bob = r.moving ? Math.abs(Math.sin(r.walkPhase)) * 0.05 : 0;
         r.torso.position.y = 1.18 + bob;
         r.head.position.y = 1.72 + bob;
@@ -2187,11 +2204,20 @@
     }
     // трассеры
     for (let i = tracers.length - 1; i >= 0; i--) {
-      if (performance.now() > tracers[i].die) { scene.remove(tracers[i].line); tracers.splice(i, 1); }
+      const tr=tracers[i],now=performance.now();
+      if (now > tr.die) { disposeShot(tr.line); tracers.splice(i, 1);continue; }
+      const front=Math.min(tr.len,(now-tr.born)*1.2),tail=Math.max(0,front-3.6);
+      tr.core.scale.y=Math.max(.01,front-tail);
+      tr.core.position.copy(tr.o).addScaledVector(tr.d,(front+tail)/2);
+      tr.head.position.copy(tr.o).addScaledVector(tr.d,front);
+      tr.core.material.opacity=tr.head.material.opacity=Math.min(.8,Math.max(0,(tr.die-now)/25));
     }
     // 3.22.0: вспышки выстрелов гаснут + солнце с тенями следует за камерой
     for (let i = shotFlashes.length - 1; i >= 0; i--) {
-      if (performance.now() > shotFlashes[i].die) { scene.remove(shotFlashes[i].sp); shotFlashes.splice(i, 1); }
+      const sf=shotFlashes[i],age=(performance.now()-sf.born)/65;
+      if (age>=1) { disposeShot(sf.sp); shotFlashes.splice(i, 1);continue; }
+      sf.sp.material.opacity=(1-age)*.9;
+      sf.sp.scale.setScalar(sf.size*(1+age*.7));
     }
     if (shotLight) shotLight.intensity = Math.max(0, shotLight.intensity - dt * 34);
     // 3.24.0: спектр — после смерти камера следует за живым teammates

@@ -297,7 +297,7 @@
     if (!MAP_ROWS[name]) name = 'dust2';
     curMap = name;
     grid = [];
-    stairsDir.clear();
+    stairsDir.clear();stairsTop.clear();
     const rows = MAP_ROWS[name];
     for (let y = 0; y < MH; y++) {
       const row = [];
@@ -885,7 +885,7 @@
   }
   function stepPlayer(dt, keys) {
     // 3.24.0: приседание на Ctrl (медленнее, ниже обзор — зато пролезаешь в вентиляцию)
-    P.crouched = !!keys.ctrl;
+    P.crouched = !!keys.ctrl || (cellAt(P.x,P.z)===8 && P.y<VENT_CEIL);
     // 3.24.1: скорость зависит от оружия (нож — быстрый, AWP/пулемёт — тяжёлые), как в CS 1.6
     const speed = (keys.shift ? 4.3 : 8.1) * (scoped ? 0.45 : 1) * (WEAPONS[current].move || 1) * (P.crouched ? 0.52 : 1);
     const sin = Math.sin(P.yaw), cos = Math.cos(P.yaw);
@@ -911,33 +911,32 @@
     [nx, nz] = collideAxis(nx, nz);
     [nx, nz] = collidePlayers(nx, nz);
     [nx, nz] = collideAxis(nx, nz);
+    // Underground side walls cannot teleport the player to the surface.
+    const nextCell=cellAt(nx,nz);
+    if(P.y<-.4 && floorAt(nextCell,nx,nz)-P.y>.85 && nextCell!==4){nx=P.x;nz=P.z;P.vx=P.vz=0;}
     P.x = nx; P.z = nz;
+    if(nextCell===8&&P.y<VENT_CEIL)P.crouched=true;
     let ny = P.y + P.vy * dt;
     P.onGround = false;
     const cHere2 = cellAt(P.x, P.z);
-    let flHere = floorAt(cHere2, P.x, P.z);
-    // 3.24.0: под мостом/лестницей — пол как обычно (уровень 0), а не верх моста
-    if ((cHere2 === 9 || cHere2 === 10) && P.y + HEIGHT < flHere) flHere = 0;
-    if (ny <= flHere) { ny = flHere; P.vy = 0; P.onGround = true; }
-    else {
-      // потолок / крышка ящика под ногами
-      const cUnder = cellAt(P.x, P.z);
-      const hUnder = cellH(cUnder);
-      if (hUnder > 0 && hUnder < WALL_H && ny > hUnder - 0.01 && P.y >= hUnder - 0.25 && P.vy <= 0) {
-        ny = hUnder; P.vy = 0; P.onGround = true;
-      }
+    const previousY=P.y, height=P.crouched?1.28:HEIGHT;
+    let flHere=floorAt(cHere2,P.x,P.z),ceiling=Infinity;
+    if(cHere2===4){
+      // One solid roof: its upper surface supports players above ground.
+      if(previousY>=TUN_CEIL+.16)flHere=0;
+      else ceiling=TUN_CEIL;
+    }else if(cHere2===8){
+      if(previousY>=VENT_CEIL+.06)flHere=VENT_CEIL+.08;
+      else{flHere=0;ceiling=VENT_CEIL;}
+    }else if(cHere2===9){
+      if(previousY>=BRIDGE_H-.25)flHere=BRIDGE_H;
+      else{flHere=0;ceiling=BRIDGE_H-.3;}
     }
-    P.y = ny;
-    // 3.16.0: потолок глубокого туннеля (нельзя прыгнуть сквозь землю)
-    if (cellAt(P.x, P.z) === 4 && ny + HEIGHT > TUN_CEIL) {
-      P.y = TUN_CEIL - HEIGHT;
-      if (P.vy > 0) P.vy = 0;
-    }
-    // 3.24.0: потолок вентиляции — стоя не пролезешь, только сидя (Ctrl)
-    if (cellAt(P.x, P.z) === 8) {
-      const hEff = P.crouched ? 1.28 : HEIGHT;
-      if (P.y + hEff > VENT_CEIL) { P.y = VENT_CEIL - hEff; if (P.vy > 0) P.vy = 0; }
-    }
+    const solidTop=cellH(cHere2);
+    if(solidTop>0&&previousY>=solidTop-.3)flHere=Math.max(flHere,solidTop);
+    if(ny<=flHere){ny=flHere;P.vy=0;P.onGround=true;}
+    if(ny+height>ceiling){ny=Math.max(flHere,ceiling-height);if(P.vy>0)P.vy=0;}
+    P.y=ny;
   }
   // высота глаз с учётом приседания
   function eyeH() { return P.crouched ? 1.02 : EYE; }
@@ -1795,13 +1794,13 @@
       if (solidFor(cellAt(nx, nz), ny - 0.16)) { nz = n.mesh.position.z; n.vz = -n.vz * 0.42; }
       // пол (уровень пола ячейки — туннели ниже уровня земли)
       const cF = cellAt(nx, nz);
-      const flN = floorAt(cF);
+      const flN = cF===4&&n.mesh.position.y>=TUN_CEIL+.16?0:floorAt(cF,nx,nz);
       if (ny < flN + 0.16) { ny = flN + 0.16; n.vy = -n.vy * 0.38; n.vx *= 0.72; n.vz *= 0.72; if (Math.abs(n.vy) < 1) n.vy = 0; }
       // крышка ящика
       const cU = cF, hU = cellH(cU);
       if (hU > 0 && hU < WALL_H && ny - 0.16 < hU && n.mesh.position.y >= hU - 0.1 && n.vy <= 0) { ny = hU + 0.16; n.vy = 0; n.vx *= 0.8; n.vz *= 0.8; }
       // 3.16.0: потолок глубокого туннеля
-      if (cU === 4 && ny > TUN_CEIL - 0.16) { ny = TUN_CEIL - 0.16; n.vy = -Math.abs(n.vy) * 0.38; }
+      if (cU === 4 && n.mesh.position.y<TUN_CEIL && ny > TUN_CEIL - 0.16) { ny = TUN_CEIL - 0.16; n.vy = -Math.abs(n.vy) * 0.38; }
       n.mesh.position.set(nx, ny, nz);
       n.fuse -= dt;
       if (n.fuse <= 0) {

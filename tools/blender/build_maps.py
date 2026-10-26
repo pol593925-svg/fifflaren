@@ -474,7 +474,7 @@ def build_map(theme,rows):
     for z in range(SIZE):
         for x in range(SIZE):
             ch=rows[z][x];px,pz=x*4+2,z*4+2
-            if ch not in ('5','6','7'):
+            if ch not in ('4','5','6','7','V'):
                 face('ground',[(x*4,0,z*4+4),(x*4+4,0,z*4+4),(x*4+4,0,z*4),(x*4,0,z*4)])
             if ch=='#':
                 # Only visible wall skins; interior mass does not consume draw calls.
@@ -496,7 +496,7 @@ def build_map(theme,rows):
                 level=FLOORS[ch]
                 face('tunnel',[(x*4,level,z*4+4),(x*4+4,level,z*4+4),(x*4+4,level,z*4),(x*4,level,z*4)])
                 if ch=='4':
-                    box('tunnel',px,TUN_CEIL+.08,pz,4,.16,4)
+                    box('tunnel',px,TUN_CEIL/2,pz,4,-TUN_CEIL,4)
                     # Ceiling ribs and visible cages with runtime point-light metadata.
                     if (x+z)%3==0:
                         box('steel',px,TUN_CEIL-.035,pz,1.20,.07,.38)
@@ -515,7 +515,7 @@ def build_map(theme,rows):
                         box('lamp_warm',xx,.29,zz,.22,.18,.22)
             elif ch=='V':
                 box('duct',px,VENT_CEIL+.04,pz,4,.08,4)
-                face('duct',[(x*4,.004,z*4+4),(x*4+4,.004,z*4+4),(x*4+4,.004,z*4),(x*4,.004,z*4)])
+                face('duct',[(x*4,0,z*4+4),(x*4+4,0,z*4+4),(x*4+4,0,z*4),(x*4,0,z*4)])
                 for dx,dz in ((1,0),(-1,0),(0,1),(0,-1)):
                     nb=cell(rows,x+dx,z+dz)
                     xx,zz=px+dx*2,pz+dz*2

@@ -19,7 +19,7 @@ import numpy as np
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
-CELL, SIZE = 4.0, 42
+CELL, SIZE = 4.0, 126
 FLOORS = {'4': -3.2, '7': -2.4, '5': -1.6, '6': -.8}
 TUN_CEIL, VENT_CEIL, BRIDGE_H, TOWER_H = -1.3, 1.35, 2.3, 4.2
 OUT = ROOT / 'models' / 'csgo'
@@ -226,7 +226,7 @@ class Batch:
 
 
 def bucket(mat,x,z,backdrop=False):
-    qx=0 if x<84 else 1; qz=0 if z<84 else 1
+    qx=0 if x<252 else 1; qz=0 if z<252 else 1
     key=(mat, 'backdrop' if backdrop else f'{qx}_{qz}')
     if key not in BATCHES: BATCHES[key]=Batch()
     return BATCHES[key]
@@ -381,7 +381,7 @@ def glyph(text,x,y,z,size=2,mat='paint'):
 
 
 def site_markers(theme,rows):
-    sites={'A':(132,22 if theme=='dust2' else 20),'B':(34,20)}
+    sites={'A':(396,66 if theme=='dust2' else 60),'B':(102,60)}
     for letter,(x,z) in sites.items():
         c=cell(rows,int(x/4),int(z/4));h=FLOORS.get(c,0)+.009
         glyph(letter,x,h,z,3.1)
@@ -397,8 +397,8 @@ def skyline(theme):
     rng=np.random.default_rng(610 if theme=='dust2' else 753)
     for side in range(4):
         for n in range(7):
-            along=7+n*25
-            x,z=(along,-11) if side==0 else (179,along) if side==1 else (along,179) if side==2 else (-11,along)
+            along=21+n*75
+            x,z=(along,-33) if side==0 else (507,along) if side==1 else (along,507) if side==2 else (-33,along)
             h=float(rng.uniform(8,18));w=float(rng.uniform(12,19));d=float(rng.uniform(9,16))
             mat='plaster' if (n+side)%3 else 'plaster_light'
             box(mat,x,h/2,z,w,h,d,backdrop=True)
@@ -419,7 +419,7 @@ def skyline(theme):
                         box('shutter',x+col*w*.27,row*2.8,z+facez*(d/2+.012),1.15,1.55,.024,backdrop=True)
                         box('trim',x+col*w*.27,row*2.8-.85,z+facez*(d/2+.025),1.35,.10,.05,backdrop=True)
     # Distinctive regional landmark beyond the playable boundary.
-    x,z=(82,-20)
+    x,z=(246,-60)
     cylinder('plaster_light',x,14,z,3.3,28,12,True)
     cylinder('trim',x,25.5,z,3.8,.55,12,True)
     if theme=='dust2':
@@ -524,7 +524,7 @@ def main():
     layouts=read_layouts()
     manifest_path=OUT/'maps-manifest.json'
     manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {'format':1,'maps':{}}
-    manifest.update({'authoring':'Blender '+bpy.app.version_string,'generator':'tools/blender/build_maps.py','artwork':'Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.','coordinateSystem':'glTF Y-up, game x/y/z unchanged','cellSize':4,'gridSize':42,'layoutSource':'cs16.js MAP_ROWS','stairsContract':'Matches floorAt(): elevation increases toward the adjacent bridge or tower.'})
+    manifest.update({'authoring':'Blender '+bpy.app.version_string,'generator':'tools/blender/build_maps.py','artwork':'Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.','coordinateSystem':'glTF Y-up, game x/y/z unchanged','cellSize':4,'gridSize':126,'layoutSource':'cs16.js MAP_ROWS','stairsContract':'Matches floorAt(): elevation increases toward the adjacent bridge or tower.'})
     for theme,rows in layouts.items():
         if cfg.map not in ('all',theme):continue
         bpy.ops.wm.read_factory_settings(use_empty=True)

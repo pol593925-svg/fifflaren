@@ -159,10 +159,10 @@
     group.name = 'CS16 Blender world: ' + mapName;
     scene.add(group);
 
-    const sky = makeSky(T, mapName === 'inferno', 320);
+    const sky = makeSky(T, mapName === 'inferno', 1100);
     group.add(sky.mesh);
     scene.background = null;
-    scene.fog = new T.Fog(mapName === 'inferno' ? 0xd0d5d3 : 0xd6d7cc, 100, 310);
+    scene.fog = new T.Fog(mapName === 'inferno' ? 0xd0d5d3 : 0xd6d7cc, 320, 980);
 
     const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x93816a, 1.0);
     group.add(hemisphere);
@@ -170,7 +170,7 @@
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
-    Object.assign(sun.shadow.camera, { left: -44, right: 44, top: 44, bottom: -44, near: 1, far: 220 });
+    Object.assign(sun.shadow.camera, { left: -160, right: 160, top: 160, bottom: -160, near: 1, far: 460 });
     sun.shadow.camera.updateProjectionMatrix();
     sun.shadow.bias = -0.00012;
     sun.shadow.normalBias = 0.035;
@@ -219,7 +219,7 @@
       sky.mesh.position.copy(activeCamera.position);
       groundPoint.set(activeCamera.position.x, 0, activeCamera.position.z);
       // Quantize in LIGHT coordinates to stop shadows swimming as the player walks.
-      const texel = 88 / quality.shadow;
+      const texel = 320 / quality.shadow;
       const rx = Math.round(groundPoint.dot(lightRight) / texel) * texel;
       const ry = Math.round(groundPoint.dot(lightUp) / texel) * texel;
       const rz = Math.round(groundPoint.dot(sky.direction) / texel) * texel;
@@ -237,7 +237,7 @@
       })).sort((a, b) => a.distance - b.distance);
       lamps.forEach((light, index) => {
         const candidate = nearest[index];
-        if (index >= quality.lamps || !candidate || candidate.distance > 24 * 24) { light.intensity = 0; return; }
+        if (index >= quality.lamps || !candidate || candidate.distance > 42 * 42) { light.intensity = 0; return; }
         const lamp = candidate.lamp;
         light.position.set(lamp.x, lamp.y, lamp.z);
         light.color.setHex(lamp.color);

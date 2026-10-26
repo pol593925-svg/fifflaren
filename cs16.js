@@ -291,6 +291,7 @@
   let grid = [];
   let SITE_A = MAP_META.dust2.sites.A, SITE_B = MAP_META.dust2.sites.B;
   const stairsDir = new Map(); // "x,y" -> [dx,dy] направление лестницы вверх к мосту
+  const stairsTop = new Map(); // 3.32.0: "x,y" -> высота верха лестницы (TOWER_H/BRIDGE_H)
   const dmgNums = []; // 3.24.3: летящие числа урона (спрайты)
   function loadMap(name) {
     if (!MAP_ROWS[name]) name = 'dust2';
@@ -308,7 +309,21 @@
       if (grid[y][x] !== 10) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, ny = y + dy;
-        if (nx >= 0 && ny >= 0 && nx < MW && ny < MH && (grid[ny][nx] === 9 || grid[ny][nx] === 11)) { stairsDir.set(x + ',' + y, [dx, dy]); break; }
+        if (nx >= 0 && ny >= 0 && nx < MW && ny < MH && (grid[ny][nx] === 9 || grid[ny][nx] === 11)) { stairsDir.set(x + ',' + y, [dx, dy]); stairsTop.set(x + ',' + y, grid[ny][nx] === 11 ? TOWER_H : BRIDGE_H); break; }
+      }
+    }
+    // 3.32.0: fallback — лестница может стоять в 2-3 клетках от моста/вышки (раньше искали только соседей, из-за этого нельзя было подняться и «проваливался» пол под пандусом)
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+      if (grid[y][x] !== 10 || stairsDir.has(x + ',' + y)) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        for (let k = 1; k <= 3; k++) {
+          const nx = x + dx * k, ny = y + dy * k;
+          if (nx < 0 || ny < 0 || nx >= MW || ny >= MH) break;
+          const c = grid[ny][nx];
+          if (c === 9 || c === 11) { stairsDir.set(x + ',' + y, [dx, dy]); stairsTop.set(x + ',' + y, c === 11 ? TOWER_H : BRIDGE_H); break; }
+          if (c !== 0 && c !== 10) break; // стена/ящик перекрывают путь к мосту
+        }
+        if (stairsDir.has(x + ',' + y)) break;
       }
     }
     SITE_A = MAP_META[name].sites.A; SITE_B = MAP_META[name].sites.B;
@@ -329,7 +344,7 @@
       if (!d) return 0;
       // 3.24.2: лестница к вышке выше, чем к мосту
       const sx = Math.floor((wx || 0) / CELL), sy = Math.floor((wz || 0) / CELL);
-      const topH = ((grid[sy] && (grid[sy][sx - 1] === 11 || grid[sy][sx + 1] === 11)) || (grid[sy - 1] && grid[sy - 1][sx] === 11) || (grid[sy + 1] && grid[sy + 1][sx] === 11)) ? TOWER_H : BRIDGE_H;
+      const topH = stairsTop.get(sx + ',' + sy) || BRIDGE_H;
       const lx = (wx - Math.floor(wx / CELL) * CELL), lz = (wz - Math.floor(wz / CELL) * CELL);
       const prog = d[0] > 0 ? lx / CELL : d[0] < 0 ? (CELL - lx) / CELL : d[1] > 0 ? lz / CELL : (CELL - lz) / CELL;
       return Math.max(0, Math.min(1, prog)) * topH;
@@ -645,6 +660,9 @@
 
   // ---------- THREE ----------
   let renderer3, scene, camera, canvasEl;
+  // 3.32.0: полный экран пока открыта вкладка CS 1.6
+  let ipcR = null, fsActive = false, fsCheckAt = 0;
+  try { ipcR = require('electron').ipcRenderer; } catch (e) { ipcR = null; }
   // ---------- 3.23.0: СКИНЫ-РИСУНКИ (как настоящие скины CS:GO, а не заливка цветом) ----------
   const skinTexCache = {};
   function skinTex(id) {
@@ -1072,7 +1090,48 @@
     ui.loadingRetry.hidden = true; ui.loadingRetry.onclick = () => buildWorld();
     window.addEventListener('resize', resize3);
   }
+  // 3.32.0: магазин по вкладкам
+  let buyTab = 'all';
+  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['veh','🛠 Техника']];
+  function buyTabOf(it) {
+    if (it.id.indexOf('veh_') === 0) return 'veh';
+    if (it.id === 'hegrenade' || it.id === 'flashbang' || it.id === 'smokegrenade') return 'nade';
+    if (it.id === 'kevlar' || it.id === 'defuser') return 'gear';
+    if (['deagle','tec9','fiveseven','elite'].indexOf(it.id) >= 0) return 'pist';
+    if (['mp5','ump45','p90','m249'].indexOf(it.id) >= 0) return 'smg';
+    if (['scout','awp'].indexOf(it.id) >= 0) return 'snip';
+    return 'rifle';
+  }
   function renderBuyList() {
+    ui.buyList.innerHTML = '';
+    const mEl = document.getElementById('cs16BuyMoney');
+    if (mEl) mEl.textContent = '$' + me.money;
+    if (!ui.buyTabs && ui.buyList.parentNode) {
+      ui.buyTabs = el('div', 'display:flex; flex-wrap:wrap; gap:4px; margin:0 0 8px 0;', ui.buyList.parentNode);
+      ui.buyList.parentNode.insertBefore(ui.buyTabs, ui.buyList);
+    }
+    if (ui.buyTabs) {
+      ui.buyTabs.innerHTML = '';
+      for (const [tid, tlabel] of BUY_TABS) {
+        const tb = el('button', 'padding:5px 9px; font:12px monospace; cursor:pointer; border:1px solid #555; border-radius:4px; background:' + (buyTab === tid ? '#c7a34a' : '#222') + '; color:' + (buyTab === tid ? '#111' : '#ccc') + ';', ui.buyTabs, tlabel);
+        tb.onclick = () => { buyTab = tid; renderBuyList(); };
+      }
+    }
+    const items = BUY_ITEMS.filter(it => buyTab === 'all' || buyTabOf(it) === buyTab);
+    for (const [i, it] of items.entries()) {
+      const w = WEAPONS[it.id];
+      const teamGate = (w && w.team) || it.team;
+      let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
+      if (it.id === 'defuser' && me.kit) dis = true;
+      const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
+      b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
+      if (dis) b.disabled = true;
+      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent='Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
+      b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
+    }
+    if (!items.length) ui.buyList.innerHTML = '<div style="color:#777;font:12px monospace;padding:8px">В этой вкладке пусто</div>';
+  }
+  function renderBuyListLegacy() {
     ui.buyList.innerHTML = '';
     const mEl = document.getElementById('cs16BuyMoney');
     if (mEl) mEl.textContent = '$' + me.money;
@@ -1433,6 +1492,21 @@
       if (dd < 25) shake = Math.max(shake, 0.5 * (1 - dd / 25));
       sfxExplosion();
     });
+    // 3.32.0: HP техники — попадания по моей технике, гибель техники, снос ящиков
+    sock.on('cs16_vehhit', (d) => {
+      if (!d || d.target !== myNick || !myVeh) return;
+      myVehHp = d.hp;
+      killfeed('⚠️ По твоей технике попали — ' + Math.max(0, d.hp) + '/' + d.max + ' HP');
+    });
+    sock.on('cs16_vehdie', (d) => {
+      if (!d) return;
+      vehDeathFx(d.pos, d.kind);
+      if (d.by === myNick) {
+        if (myVeh) { scene.remove(myVeh.obj); myVeh = null; }
+        killfeed('💥 Твою технику подбили!');
+      } else removeVehicleOf(d.by);
+    });
+    sock.on('cs16_vehcrate', (d) => { if (d) destroyCrate(d.x, d.y, false); });
     sock.on('cs16_boom', (d) => {
       explodeFx(d.pos, d.kind);
       if (d.kind === 'flash') {
@@ -2012,6 +2086,16 @@
     const wall = rayWall(P.x, P.y + eyeH(), P.z, d[0], d[1], d[2], MAXT);
     const wallT = wall ? wall.t : MAXT;
     let hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wallT);
+    const vhit = rayVehicles(P.x, P.y + eyeH(), P.z, d, wallT);
+    if (vhit && (!hit || vhit.t < hit.t)) {
+      // 3.32.0: попали в чужую технику — трейсер, звук и урон по HP техники
+      const origin=[P.x,P.y+eyeH(),P.z];
+      spawnTracer(origin,d,vhit.t,false);
+      sock.emit('cs16_shoot',{origin,dir:d,weapon:current,distance:vhit.t});
+      sock.emit('cs16_vehhit', { target: vhit.nick, weapon: current });
+      ui.hitmark.style.display='block'; clearTimeout(ui.hitmark._t); ui.hitmark._t=setTimeout(()=>{ui.hitmark.style.display='none';},90);
+      return;
+    }
     const origin=[P.x,P.y+eyeH(),P.z], distance=hit?hit.t:wallT;
     spawnTracer(origin,d,distance,false);
     sock.emit('cs16_shoot',{origin,dir:d,weapon:current,distance});
@@ -2085,6 +2169,61 @@
   const vehs = new Map();        // чужая техника: nick -> {kind,obj,x,y,z,yaw,turret,tx..,lastSeen,rotor}
   const vehShells = [];          // снаряды пушки и ракеты в полёте
   let vehBoomAt = 0;             // время последнего своего взрыва (не дублируем эхо сервера)
+  // 3.32.0: попадание лучом по чужой технике (сфера r=2.3 вокруг корпуса)
+  function rayVehicles(ox, oy, oz, d, maxT) {
+    let best = null;
+    for (const [nick, v] of vehs) {
+      const q = [ox - v.x, oy - (v.y + 1.3), oz - v.z];
+      const b = q[0] * d[0] + q[1] * d[1] + q[2] * d[2];
+      const disc = b * b - (q[0] * q[0] + q[1] * q[1] + q[2] * q[2]) + 2.3 * 2.3;
+      if (disc < 0) continue;
+      const t = -b - Math.sqrt(disc);
+      if (t >= 0 && t < maxT && (!best || t < best.t)) best = { t, nick };
+    }
+    return best;
+  }
+  let myVehHp = 0; // HP моей техники (с сервера)
+  function vehDeathFx(pos, kind) {
+    sfxExplosion();
+    const dd = Math.hypot(P.x - pos[0], P.z - pos[2]);
+    if (dd < 40) shake = Math.max(shake, 0.8 * (1 - dd / 40));
+    explodeFx(pos, 'he');
+    setTimeout(() => explodeFx([pos[0] + 1.2, pos[1] + 1.6, pos[2]], 'flash'), 130);
+    setTimeout(() => explodeFx([pos[0] - 1.1, pos[1] + 0.9, pos[2] + 1.1], 'he'), 280);
+    killfeed(kind === 'tank' ? '💥 Танк подбит!' : '💥 Вертолёт сбит!');
+  }
+  // 3.32.0: разрушаемые ящики — танк проезжает насквозь с развалом
+  const crateDebris = [];
+  function crateDebrisFx(x, y, z) {
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.22), new THREE.MeshStandardMaterial({ color: i % 3 ? 0x8a6b3a : 0x5f4525 }));
+      m.position.set(x + (Math.random() - 0.5) * 2.2, y + Math.random() * 1.2, z + (Math.random() - 0.5) * 2.2);
+      scene.add(m);
+      crateDebris.push({ m, vx: (Math.random() - 0.5) * 7, vy: 3 + Math.random() * 4, vz: (Math.random() - 0.5) * 7, born: performance.now() });
+    }
+    sfxNoise(0.18, 900, 0.35);
+  }
+  function stepCrateDebris(dt) {
+    for (let i = crateDebris.length - 1; i >= 0; i--) {
+      const d = crateDebris[i];
+      d.vy -= 18 * dt;
+      d.m.position.x += d.vx * dt; d.m.position.y += d.vy * dt; d.m.position.z += d.vz * dt;
+      d.m.rotation.x += dt * 6; d.m.rotation.z += dt * 5;
+      if (performance.now() - d.born > 1200 || d.m.position.y < -0.2) {
+        scene.remove(d.m); d.m.material.dispose(); d.m.geometry.dispose(); crateDebris.splice(i, 1);
+      }
+    }
+  }
+  function destroyCrate(cx, cy, emit) {
+    if (cy < 0 || cx < 0 || cy >= MH || cx >= MW) return;
+    const c = grid[cy][cx];
+    if (c !== 2 && c !== 3) return;
+    grid[cy][cx] = 0;
+    const m = scene.getObjectByName('crate_' + cx + '_' + cy);
+    if (m) { scene.remove(m); m.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    crateDebrisFx(cx * CELL + 2, c === 2 ? 1.3 : 0.6, cy * CELL + 2);
+    if (emit && sock && sock.connected) sock.emit('cs16_vehcrate', { x: cx, y: cy });
+  }
   function vehSolid(c) { return solidFor(c, 0.3) || c === 4 || c === 8; } // техника не лезет в туннели/вентиляцию
   function vehCollide(nx, nz, r) {
     const minCx = Math.floor((nx - r) / CELL), maxCx = Math.floor((nx + r) / CELL);
@@ -2110,6 +2249,7 @@
     let x = P.x + fx * 3, z = P.z + fz * 3;
     [x, z] = vehCollide(x, z, kind === 'tank' ? 1.9 : 1.6);
     myVeh = { kind, obj, x, y: 0, z, yaw: Math.atan2(-fz, fx), inside: false, cd: 0, rocketCd: 0, syncAcc: 1, rotor: 0 };
+    myVehHp = kind === 'tank' ? 1000 : 600; // 3.32.0: HP техники
     obj.position.set(x, 0, z);
     obj.rotation.y = myVeh.yaw;
     killfeed(kind === 'tank' ? '🛡 Танк доставлен — садись клавишей E' : '🚁 Вертолёт доставлен — садись клавишей E');
@@ -2139,6 +2279,8 @@
       let nx = v.x + Math.cos(v.yaw) * sp * dt, nz = v.z - Math.sin(v.yaw) * sp * dt;
       [nx, nz] = vehCollide(nx, nz, 1.9);
       v.x = nx; v.z = nz; v.y = 0;
+      // 3.32.0: танк на ходу сносит ящики с развалом
+      if (mv > 0) destroyCrate(Math.floor((v.x + Math.cos(v.yaw) * 2.3) / CELL), Math.floor((v.z - Math.sin(v.yaw) * 2.3) / CELL), true);
     } else {
       if (keys.a) v.yaw += dt * 1.9;
       if (keys.d) v.yaw -= dt * 1.9;
@@ -2192,6 +2334,14 @@
       const wall = rayWall(o[0], o[1], o[2], d[0], d[1], d[2], 220);
       const wallT = wall ? wall.t : 220;
       const hit = rayPlayers(o[0], o[1], o[2], d, wallT);
+      const vhit = rayVehicles(o[0], o[1], o[2], d, wallT);
+      if (vhit && (!hit || vhit.t < hit.t)) {
+        spawnTracer(o, d, vhit.t, false);
+        sock.emit('cs16_shoot', { origin: o, dir: d, weapon: 'mgveh', distance: vhit.t });
+        sock.emit('cs16_vehhit', { target: vhit.nick, weapon: 'mgveh' });
+        ui.hitmark.style.display='block'; clearTimeout(ui.hitmark._t); ui.hitmark._t=setTimeout(()=>{ui.hitmark.style.display='none';},90);
+        return;
+      }
       spawnTracer(o, d, hit ? hit.t : wallT, false);
       sock.emit('cs16_shoot', { origin: o, dir: d, weapon: 'mgveh', distance: hit ? hit.t : wallT });
       if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'mgveh', head: hit.head, zone: hit.zone, dist: hit.t });
@@ -2250,6 +2400,8 @@
     vehs.clear();
     for (const s of vehShells) { scene.remove(s.mesh); s.mesh.material.dispose(); s.mesh.geometry.dispose(); }
     vehShells.length = 0;
+    for (const d of crateDebris) { scene.remove(d.m); d.m.material.dispose(); d.m.geometry.dispose(); }
+    crateDebris.length = 0;
   }
   function removeVehicleOf(nick) { const v = vehs.get(nick); if (v) { if (v.obj) scene.remove(v.obj); vehs.delete(nick); } }
   function ensureRemoteVeh(v) {
@@ -2429,6 +2581,7 @@
     ui.hpTxt.textContent = '+ ' + Math.max(0, me.hp);
     ui.armorTxt.textContent = 'БРОНЯ  ' + Math.max(0, me.armor);
     ui.money.textContent = '$' + me.money;
+    if (myVeh) ui.topBar.textContent += (myVeh.kind === 'tank' ? '  ·  ТАНК ' : '  ·  ВЕРТОЛЁТ ') + Math.max(0, myVehHp) + ' HP';
     const w = WEAPONS[current];
     const a = ammo[current];
     ui.ammo.textContent = w.melee ? '∞' : (a ? `${a.mag} / ${a.reserve}` : '');
@@ -2513,6 +2666,12 @@
 
   function loop(t) {
     requestAnimationFrame(loop);
+    // 3.32.0: полный экран пока вкладка CS 1.6 открыта (проверка раз в 0.5 с)
+    if (ipcR && t - fsCheckAt > 500) {
+      fsCheckAt = t;
+      const vis = !!(canvasEl && canvasEl.clientWidth > 0 && canvasEl.clientHeight > 0);
+      if (vis !== fsActive) { fsActive = vis; try { ipcR.send('cs16-fullscreen', vis); } catch (e) {} }
+    }
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
     try {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
@@ -2567,6 +2726,7 @@
     }
     stepNades(dt);
     stepVehShells(dt);
+    stepCrateDebris(dt);
     stepRemoteVehicles(dt);
     stepSmokes();
     updateAction(dt);

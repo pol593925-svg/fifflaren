@@ -254,6 +254,12 @@ ipcMain.on('s2-fullscreen', (event, on) => {
   if (win && !win.isDestroyed()) win.setFullScreen(!!on);
 });
 
+// CS 1.6: полный экран пока открыта вкладка игры
+ipcMain.on('cs16-fullscreen', (event, on) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) win.setFullScreen(!!on);
+});
+
 // Разрешение на закрытие приложения: true — админ/ТЛ, false — сотрудник
 ipcMain.on('set-can-quit', (event, can) => {
   allowQuit = !!can;

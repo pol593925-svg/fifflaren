@@ -337,11 +337,50 @@ def cover(x,z,char):
             box('steel',px2,1.35,pz2,.04 if dx else .18,.45,.18 if dx else .04)
 
 
+def box_into(b,x,h,z,w,hh,d,tint=1):
+    x0,x1=x-w/2,x+w/2; h0,h1=h-hh/2,h+hh/2; z0,z1=z-d/2,z+d/2
+    for vs in (
+        [(x0,h0,z1),(x1,h0,z1),(x1,h1,z1),(x0,h1,z1)],
+        [(x1,h0,z0),(x0,h0,z0),(x0,h1,z0),(x1,h1,z0)],
+        [(x1,h0,z1),(x1,h0,z0),(x1,h1,z0),(x1,h1,z1)],
+        [(x0,h0,z0),(x0,h0,z1),(x0,h1,z1),(x0,h1,z0)],
+        [(x0,h1,z1),(x1,h1,z1),(x1,h1,z0),(x0,h1,z0)],
+        [(x0,h0,z0),(x1,h0,z0),(x1,h0,z1),(x0,h0,z1)],
+    ): b.face(vs,tint=tint)
+
+
+def cover_object(x,z,char):
+    # 3.32.0: разрушаемый ящик — ОТДЕЛЬНЫЙ именованный объект (клиент убирает по имени crate_x_z)
+    px,pz=x*CELL+2,z*CELL+2
+    h=2.6 if char=='D' else 1.15
+    b=Batch()
+    box_into(b,px,h/2,pz,4,h,4)
+    for k in range(7):
+        c=-1.70+k*.56
+        box_into(b,px+c,h-.012,pz,.50,.024,3.82,tint=.86+(k%3)*.06)
+    mesh=bpy.data.meshes.new(f'crate_{x}_{z}')
+    mesh.from_pydata(b.vertices,[],b.faces);mesh.update()
+    uv=mesh.uv_layers.new(name='UVMap')
+    uv.data.foreach_set('uv',np.array(b.uvs,dtype=np.float32).ravel())
+    attr=mesh.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
+    attr.data.foreach_set('color',np.array(b.colors,dtype=np.float32).ravel())
+    ob=bpy.data.objects.new(f'crate_{x}_{z}',mesh)
+    bpy.context.collection.objects.link(ob)
+    ob.data.materials.append(MATS['wood'])
+    ob['crate']=f'{x}_{z}'
+
+
 def stair(x,z,rows):
-    d=(0,-1)
+    # 3.32.0: мост/вышка может быть в 2-3 клетках от лестницы — ищем по прямой, как в floorAt
+    d=(0,-1);tower=False;found=False
     for dx,dz in ((1,0),(-1,0),(0,1),(0,-1)):
-        if cell(rows,x+dx,z+dz) in ('B','T'): d=(dx,dz);break
-    h=TOWER_H if any(cell(rows,x+dx,z+dz)=='T' for dx,dz in ((1,0),(-1,0),(0,1),(0,-1))) else BRIDGE_H
+        for k in range(1,4):
+            c=cell(rows,x+dx*k,z+dz*k)
+            if c=='T': d=(dx,dz);tower=True;found=True;break
+            if c=='B': d=(dx,dz);found=True;break
+            if c not in ('.','S'): break
+        if found: break
+    h=TOWER_H if tower else BRIDGE_H
     def height(lx,lz):
         # Mirrors the current floorAt contract exactly; see manifest.
         return (lx/CELL if d[0]>0 else (CELL-lx)/CELL if d[0]<0 else lz/CELL if d[1]>0 else (CELL-lz)/CELL)*h
@@ -447,7 +486,7 @@ def build_map(theme,rows):
                     b=(px+dx*2+dz*2,0,pz+dz*2-dx*2)
                     face('plaster' if ((x//3+z//5)%4) else 'plaster_light',[a,b,(b[0],4,b[2]),(a[0],4,a[2])],tint=tint)
                     wall_details(x,z,dx,dz,x*7+z*11+(dx+dz),theme)
-            elif ch in ('C','D'): cover(x,z,ch)
+            elif ch in ('C','D'): cover_object(x,z,ch)
             elif ch=='T':
                 box('limestone',px,TOWER_H/2,pz,4,TOWER_H,4)
                 box('trim',px,TOWER_H-.10,pz,3.98,.18,3.98)

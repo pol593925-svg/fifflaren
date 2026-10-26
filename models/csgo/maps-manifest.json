@@ -3,8 +3,8 @@
   "maps": {
     "dust2": {
       "file": "dust2.glb",
-      "bytes": 73843032,
-      "triangles": 619339,
+      "bytes": 66625172,
+      "triangles": 510283,
       "meshBatches": 61,
       "materials": 16,
       "textureImages": 52,
@@ -4261,8 +4261,8 @@
     },
     "inferno": {
       "file": "inferno.glb",
-      "bytes": 58013492,
-      "triangles": 467369,
+      "bytes": 53503800,
+      "triangles": 398009,
       "meshBatches": 57,
       "materials": 16,
       "textureImages": 52,

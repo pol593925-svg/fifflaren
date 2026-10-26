@@ -1091,7 +1091,7 @@
     window.addEventListener('resize', resize3);
   }
   // 3.32.0: магазин по вкладкам
-  let buyTab = 'all';
+  let buyTab = 'rifle';
   const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['veh','🛠 Техника']];
   function buyTabOf(it) {
     if (it.id.indexOf('veh_') === 0) return 'veh';
@@ -1104,6 +1104,7 @@
   }
   function renderBuyList() {
     ui.buyList.innerHTML = '';
+    ui.buyList.classList.add('cs16-buy-scroll');ui.buyList.parentNode.classList.add('cs16-buy-dialog');
     const mEl = document.getElementById('cs16BuyMoney');
     if (mEl) mEl.textContent = '$' + me.money;
     if (!ui.buyTabs && ui.buyList.parentNode) {
@@ -1481,12 +1482,12 @@
         v = { kind: d.kind, obj: null, x: d.pos[0], y: d.pos[1], z: d.pos[2], yaw: d.yaw || 0, turret: d.turret || 0, tx: d.pos[0], ty: d.pos[1], tz: d.pos[2], tyaw: d.yaw || 0, tturret: d.turret || 0, rotor: 0 };
         vehs.set(d.by, v);
       }
-      v.kind = d.kind;
+      v.kind = d.kind;v.hp=Number.isFinite(d.hp)?d.hp:(v.hp??(d.kind==='heli'?600:1000));v.max=d.max||(d.kind==='heli'?600:1000);
       v.tx = d.pos[0]; v.ty = d.pos[1]; v.tz = d.pos[2]; v.tyaw = d.yaw || 0; v.tturret = d.turret || 0;
     });
     sock.on('cs16_vehboom', (d) => {
       if (!d || !d.pos) return;
-      if (performance.now() - vehBoomAt < 400) return; // свой взрыв уже показали локально
+      if (d.by === myNick && performance.now() - vehBoomAt < 400) return; // свой взрыв уже показали локально
       explodeFx(d.pos, 'he');
       const dd = Math.hypot(P.x - d.pos[0], P.z - d.pos[2]);
       if (dd < 25) shake = Math.max(shake, 0.5 * (1 - dd / 25));
@@ -1494,7 +1495,8 @@
     });
     // 3.32.0: HP техники — попадания по моей технике, гибель техники, снос ящиков
     sock.on('cs16_vehhit', (d) => {
-      if (!d || d.target !== myNick || !myVeh) return;
+      if(!d)return;const remote=vehs.get(d.target);if(remote){remote.hp=d.hp;remote.max=d.max;}
+      if (d.target !== myNick || !myVeh) return;
       myVehHp = d.hp;
       killfeed('⚠️ По твоей технике попали — ' + Math.max(0, d.hp) + '/' + d.max + ' HP');
     });
@@ -2220,20 +2222,21 @@
     if (c !== 2 && c !== 3) return;
     grid[cy][cx] = 0;
     const m = scene.getObjectByName('crate_' + cx + '_' + cy);
-    if (m) { scene.remove(m); m.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    if (m) { m.removeFromParent(); m.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
     crateDebrisFx(cx * CELL + 2, c === 2 ? 1.3 : 0.6, cy * CELL + 2);
     if (emit && sock && sock.connected) sock.emit('cs16_vehcrate', { x: cx, y: cy });
   }
-  function vehSolid(c) { return solidFor(c, 0.3) || c === 4 || c === 8; } // техника не лезет в туннели/вентиляцию
-  function vehCollide(nx, nz, r) {
+  function vehSolid(c,height=0) { return solidFor(c,height+0.3) || (height<1.5&&(c===4||c===8)); } // техника не лезет в туннели/вентиляцию
+  function vehCollide(nx, nz, r, height=0) {
     const minCx = Math.floor((nx - r) / CELL), maxCx = Math.floor((nx + r) / CELL);
     const minCy = Math.floor((nz - r) / CELL), maxCy = Math.floor((nz + r) / CELL);
     for (let cy = minCy; cy <= maxCy; cy++) for (let cx = minCx; cx <= maxCx; cx++) {
       const c = (cx < 0 || cy < 0 || cx >= MW || cy >= MH) ? 1 : grid[cy][cx];
-      if (!vehSolid(c)) continue;
+      if (!vehSolid(c,height)) continue;
       const bx = Math.max(cx * CELL, Math.min(nx, cx * CELL + CELL));
       const bz = Math.max(cy * CELL, Math.min(nz, cy * CELL + CELL));
       const dx = nx - bx, dz = nz - bz, d2 = dx * dx + dz * dz;
+      if(d2<=1e-9){const exits=[[Math.abs(nx-cx*CELL),cx*CELL-r,nz],[Math.abs((cx+1)*CELL-nx),(cx+1)*CELL+r,nz],[Math.abs(nz-cy*CELL),nx,cy*CELL-r],[Math.abs((cy+1)*CELL-nz),nx,(cy+1)*CELL+r]];exits.sort((a,b)=>a[0]-b[0]);nx=exits[0][1];nz=exits[0][2];continue;}
       if (d2 < r * r && d2 > 1e-9) { const d = Math.sqrt(d2), push = r - d; nx += dx / d * push; nz += dz / d * push; }
     }
     return [nx, nz];
@@ -2270,11 +2273,12 @@
     P.x = nx; P.z = nz; P.y = Math.max(0, myVeh.kind === 'heli' ? myVeh.y : 0); P.vx = P.vy = P.vz = 0;
   }
   function stepMyVehicle(dt) {
-    const v = myVeh; if (!v || !v.inside) return;
+    const v = myVeh; if (!v) return;
+    const controls=v.inside&&state.phase==='live'?keys:{};
     if (v.kind === 'tank') {
-      let mv = 0; if (keys.w) mv = 1; else if (keys.s) mv = -0.5;
-      if (keys.a) v.yaw += dt * 1.6;
-      if (keys.d) v.yaw -= dt * 1.6;
+      let mv = 0; if (controls.w) mv = 1; else if (controls.s) mv = -0.5;
+      if (controls.a) v.yaw += dt * 1.6;
+      if (controls.d) v.yaw -= dt * 1.6;
       const sp = 8 * mv;
       let nx = v.x + Math.cos(v.yaw) * sp * dt, nz = v.z - Math.sin(v.yaw) * sp * dt;
       [nx, nz] = vehCollide(nx, nz, 1.9);
@@ -2282,23 +2286,23 @@
       // 3.32.0: танк на ходу сносит ящики с развалом
       if (mv > 0) destroyCrate(Math.floor((v.x + Math.cos(v.yaw) * 2.3) / CELL), Math.floor((v.z - Math.sin(v.yaw) * 2.3) / CELL), true);
     } else {
-      if (keys.a) v.yaw += dt * 1.9;
-      if (keys.d) v.yaw -= dt * 1.9;
-      let sp = 0; if (keys.w) sp = 15; else if (keys.s) sp = -6;
+      if (controls.a) v.yaw += dt * 1.9;
+      if (controls.d) v.yaw -= dt * 1.9;
+      let sp = 0; if (controls.w) sp = 15; else if (controls.s) sp = -6;
       let nx = v.x + Math.cos(v.yaw) * sp * dt, nz = v.z - Math.sin(v.yaw) * sp * dt;
-      [nx, nz] = vehCollide(nx, nz, 1.6);
+      [nx, nz] = vehCollide(nx, nz, 1.6,v.y);
       v.x = nx; v.z = nz;
-      if (keys.space) v.y += 7 * dt;
-      if (keys.ctrl) v.y -= 7 * dt;
-      v.y = Math.max(0.4, Math.min(30, v.y));
+      if (controls.space) v.y += 7 * dt;
+      if (controls.ctrl) v.y -= 7 * dt;
+      v.y = Math.max(.4+cellH(cellAt(v.x,v.z)), Math.min(30, v.y));
     }
     // игрок едет внутри — его позиция уходит другим через обычный cs16_pos
-    P.x = v.x; P.z = v.z; P.y = v.kind === 'heli' ? v.y + 0.4 : 0;
-    P.vx = P.vy = P.vz = 0; P.onGround = true;
+    if(v.inside){P.x = v.x; P.z = v.z; P.y = v.kind === 'heli' ? v.y + 0.4 : 0;
+    P.vx = P.vy = P.vz = 0; P.onGround = true;}
     // визуал и анимации
     v.obj.position.set(v.x, v.y, v.z);
     v.obj.rotation.y = v.yaw;
-    const aimYaw = P.yaw + Math.PI / 2; // модели смотрят в +X при rotation.y = 0
+    if(v.inside)v.aim=P.yaw;const aimYaw = (v.aim??P.yaw) + Math.PI / 2; // модели смотрят в +X при rotation.y = 0
     const tur = v.obj.getObjectByName('Turret');
     if (tur) tur.rotation.y = aimYaw - v.yaw;
     const gun = v.obj.getObjectByName('Gun');
@@ -2307,12 +2311,12 @@
       v.rotor += dt * 28;
       const r = v.obj.getObjectByName('Rotor'); if (r) r.rotation.y = v.rotor;
       const tr = v.obj.getObjectByName('TailRotor'); if (tr) tr.rotation.x = v.rotor * 1.8;
-      v.obj.rotation.z = (keys.w ? -0.13 : 0) + (keys.s ? 0.09 : 0);
+      v.obj.rotation.z = (controls.w ? -0.13 : 0) + (controls.s ? 0.09 : 0);
     }
     v.syncAcc += dt;
     if (v.syncAcc > 0.1 && sock && sock.connected) {
       v.syncAcc = 0;
-      sock.emit('cs16_veh', { kind: v.kind, pos: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)], yaw: +v.yaw.toFixed(3), turret: +P.yaw.toFixed(3) });
+      sock.emit('cs16_veh', { kind: v.kind, pos: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)], yaw: +v.yaw.toFixed(3), turret: +(v.aim??P.yaw).toFixed(3), inside:!!v.inside });
     }
   }
   function vehFireGun() {
@@ -2378,7 +2382,10 @@
       const stepLen = dl * dt + 0.15;
       const wall = rayWall(s.pos[0], s.pos[1], s.pos[2], d[0], d[1], d[2], stepLen);
       const hit = rayPlayers(s.pos[0], s.pos[1], s.pos[2], d, wall ? wall.t : stepLen);
-      if (hit || wall || performance.now() - s.born > 2500 || s.pos[1] < -4) {
+      const vehicleHit=rayVehicles(...s.pos,d,wall?wall.t:stepLen);
+      const impact=Math.min(wall?wall.t:Infinity,hit?hit.t:Infinity,vehicleHit?vehicleHit.t:Infinity);
+      if(Number.isFinite(impact))for(let k=0;k<3;k++)s.pos[k]+=d[k]*impact;
+      if (hit || vehicleHit || wall || performance.now() - s.born > 2500 || s.pos[1] < -4) {
         scene.remove(s.mesh); s.mesh.material.dispose(); s.mesh.geometry.dispose();
         vehShells.splice(i, 1);
         explodeFx(s.pos, 'he');
@@ -2396,14 +2403,14 @@
   }
   function clearVehicles() {
     if (myVeh) { scene.remove(myVeh.obj); myVeh = null; }
-    for (const v of vehs.values()) if (v.obj) scene.remove(v.obj);
+    for (const v of vehs.values()){if(v.obj)scene.remove(v.obj);disposeVehBar(v);}
     vehs.clear();
     for (const s of vehShells) { scene.remove(s.mesh); s.mesh.material.dispose(); s.mesh.geometry.dispose(); }
     vehShells.length = 0;
     for (const d of crateDebris) { scene.remove(d.m); d.m.material.dispose(); d.m.geometry.dispose(); }
     crateDebris.length = 0;
   }
-  function removeVehicleOf(nick) { const v = vehs.get(nick); if (v) { if (v.obj) scene.remove(v.obj); vehs.delete(nick); } }
+  function removeVehicleOf(nick) { const v = vehs.get(nick); if (v) { if (v.obj) scene.remove(v.obj);disposeVehBar(v); vehs.delete(nick); } }
   function ensureRemoteVeh(v) {
     const src = vehGlb[v.kind];
     if (!src || v.obj) return;
@@ -2413,6 +2420,14 @@
     v.obj = obj;
     obj.position.set(v.x, v.y, v.z);
   }
+  function disposeVehBar(v){if(v.hpBar){v.hpBar.removeFromParent();v.hpBar.material.map.dispose();v.hpBar.material.dispose();v.hpBar=null;}}
+  function updateVehBar(v){
+    if(!v.hpBar){const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;v.hpCanvas=canvas;v.hpBar=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),transparent:true,depthWrite:false,depthTest:true}));v.hpBar.scale.set(4.6,1.15,1);scene.add(v.hpBar);}
+    const max=v.max||(v.kind==='heli'?600:1000),hp=Math.max(0,v.hp??max),key=hp+'/'+max;
+    if(v.hpKey!==key){v.hpKey=key;const g=v.hpCanvas.getContext('2d');g.clearRect(0,0,256,64);g.fillStyle='rgba(10,20,28,.9)';g.fillRect(0,0,256,64);g.font='bold 23px Arial';g.textAlign='center';g.fillStyle='#fff';g.fillText((v.kind==='heli'?'HELI':'TANK')+'  '+key,128,27);g.fillStyle='#273440';g.fillRect(12,39,232,13);g.fillStyle=hp/max>.5?'#60dcb1':hp/max>.25?'#f5c969':'#f16b67';g.fillRect(12,39,232*Math.min(1,hp/max),13);v.hpBar.material.map.needsUpdate=true;}
+    v.hpBar.position.set(v.x,v.y+4.2,v.z);
+    v.hpBar.visible=hp>0&&Math.hypot(P.x-v.x,P.z-v.z)<140&&losClear(P.x,P.y+eyeH(),P.z,v.x,v.y+1.5,v.z)&&!smokeBlocks(P.x,P.y+eyeH(),P.z,v.x,v.y+1.5,v.z);
+  }
   function stepRemoteVehicles(dt) {
     const lerp = Math.min(1, dt * 8);
     for (const v of vehs.values()) {
@@ -2420,10 +2435,10 @@
       let dy = v.tyaw - v.yaw;
       while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
       v.yaw += dy * lerp;
-      v.turret += (v.tturret - v.turret) * lerp;
+      let turn=v.tturret-v.turret;while(turn>Math.PI)turn-=Math.PI*2;while(turn< -Math.PI)turn+=Math.PI*2;v.turret+=turn*lerp;
       if (!v.obj) { ensureRemoteVeh(v); if (!v.obj) continue; }
       v.obj.position.set(v.x, v.y, v.z);
-      v.obj.rotation.y = v.yaw;
+      v.obj.rotation.y = v.yaw;updateVehBar(v);
       const aimYaw = v.turret + Math.PI / 2;
       const tur = v.obj.getObjectByName('Turret');
       if (tur) tur.rotation.y = aimYaw - v.yaw;
@@ -2667,10 +2682,10 @@
   function loop(t) {
     requestAnimationFrame(loop);
     // 3.32.0: полный экран пока вкладка CS 1.6 открыта (проверка раз в 0.5 с)
-    if (ipcR && t - fsCheckAt > 500) {
+    if (t - fsCheckAt > 500) {
       fsCheckAt = t;
       const vis = !!(canvasEl && canvasEl.clientWidth > 0 && canvasEl.clientHeight > 0);
-      if (vis !== fsActive) { fsActive = vis; try { ipcR.send('cs16-fullscreen', vis); } catch (e) {} }
+      if (vis !== fsActive) { fsActive = vis; document.getElementById('tab-cs16').classList.toggle('cs16-fullscreen',vis);resize3();try { if(ipcR)ipcR.send('cs16-fullscreen',vis); } catch(e){} }
     }
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
     try {
@@ -2727,6 +2742,7 @@
     stepNades(dt);
     stepVehShells(dt);
     stepCrateDebris(dt);
+    if(myVeh&&!myVeh.inside)stepMyVehicle(dt);
     stepRemoteVehicles(dt);
     stepSmokes();
     updateAction(dt);

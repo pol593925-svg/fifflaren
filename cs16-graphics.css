@@ -63,3 +63,8 @@
 #tab-cs16 .cs16-loading-label { font-size:11px; letter-spacing:4px; color:#b6ad91; }
 #tab-cs16 .cs16-loading button { padding:10px 24px; border:1px solid #a99a78; background:#243846; color:#eee9d8; cursor:pointer; }
 @media(max-width:1000px) { #tab-cs16 .cs16-radar { width:130px!important;height:130px!important; } #tab-cs16 .cs16-money { top:185px!important; } #tab-cs16 .cs16-topBar { min-width:130px;font-size:11px!important; } #tab-cs16 .cs16-scoreT { left:calc(50% - 171px)!important; } #tab-cs16 .cs16-scoreCT { right:calc(50% - 171px)!important; } }
+
+#tab-cs16.cs16-fullscreen{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;min-height:0!important;margin:0!important;padding:0!important;z-index:100000}
+#tab-cs16 .cs16-buy-dialog{width:min(720px,calc(100vw - 32px))!important;min-width:0!important;max-height:calc(100vh - 40px);box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;border-radius:14px!important;background:linear-gradient(145deg,#172b36,#101820)!important}
+#tab-cs16 .cs16-buy-scroll{overflow-y:auto;min-height:0;overscroll-behavior:contain;scrollbar-color:#557783 #14222d}
+#tab-cs16 .cs16-buy-scroll>button{border-radius:8px!important;padding:10px 12px!important}

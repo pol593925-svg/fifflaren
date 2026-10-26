@@ -9,9 +9,37 @@ fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ combatChecks:()=>{
+   for(const r of remotes.values())scene.remove(r.group);remotes.clear();
+   let cell;for(let z=2;z<MH-2&&!cell;z++)for(let x=2;x<MW-2;x++)if(grid[z][x]===0){cell=[x,z];break;}
+   P.x=(cell[0]+.5)*CELL;P.z=(cell[1]+.5)*CELL;P.y=0;P.yaw=0;P.pitch=Math.atan2(1.72-eyeH(),1.2);P.onGround=true;
+   me.alive=true;me.team='ct';state.phase='live';current='ak47';reloading=0;scoped=false;bloom=0;sprayN=0;
+   for(const k in keys)keys[k]=false;
+   ammo.ak47={mag:30,reserve:90};
+   const r=addRemote('AimTarget','t');r.alive=true;r.x=P.x;r.z=P.z-1.2;r.y=0;r.tx=P.x+20;r.tz=P.z+20;
+   const random=Math.random;Math.random=()=>0;
+   try {
+     window.__emitted=[];fireOne();
+     const head=__emitted.find(e=>e.n==='cs16_hit')?.d;
+     const shot=__emitted.find(e=>e.n==='cs16_shoot')?.d;
+     spawnSmoke([P.x,0,P.z]);stepSmokes();
+     P.yaw=0;P.pitch=Math.atan2(1.72-eyeH(),1.2);bloom=0;sprayN=0;window.__emitted=[];fireOne();
+     const smokeHit=__emitted.find(e=>e.n==='cs16_hit')?.d;
+     const particles=smokes.at(-1).mesh.children.length,opacity=Number(ui.smokeVeil.style.opacity);
+     r.crouched=true;
+     const duck=Combat.playerHit([P.x,1.72,P.z],[0,0,-1],r,10);
+     for(let z=2;z<MH-2;z++)for(let x=2;x<MW-2;x++)if(grid[z][x]===0&&grid[z][x+1]===1){
+       P.x=(x+.5)*CELL;P.z=(z+.5)*CELL;r.x=P.x+4;r.z=P.z;r.crouched=false;
+       const wall=rayWall(P.x,1.1,P.z,1,0,0,10);
+       const blocked=rayPlayers(P.x,1.1,P.z,[1,0,0],wall?wall.t:10);
+       return {head,shot,smokeHit,particles,opacity,duck,wall:!!wall,blocked,ammo:ammo.ak47.mag};
+     }
+     throw Error('No wall fixture');
+   }finally{Math.random=random;}
+ },
  fire:()=>{state.phase='live';lastShot=-Infinity;tryShoot();return {mag:ammo[current]?.mag,tracers:tracers.length,kick:vmKickVelocity};},
  effects:()=>({tracers:tracers.length,flashes:shotFlashes.length,kick:vmKick,z:vm?.position.z}),
  lobby:(nick,players,host)=>{myNick=nick;state={...state,phase:'lobby',players,host};renderLobby();},
@@ -129,6 +157,12 @@ async function run(){
   await page.waitForTimeout(700);
   const final=await page.evaluate(()=>__qa.snapshot());console.log('FINAL',JSON.stringify(final));
   assert.equal(final.errors,0);assert.equal(errors.length,0,errors.join('\n'));
+  const combat=await page.evaluate(()=>__qa.combatChecks());
+  assert.equal(combat.head?.zone,'head');assert.equal(combat.smokeHit?.zone,'head');
+  assert.equal(combat.shot.origin[1],1.62);assert.equal(combat.shot.distance,combat.head.dist);
+  assert.equal(combat.particles,32);assert(combat.opacity>.9);assert.equal(combat.duck,null);
+  assert(combat.wall);assert.equal(combat.blocked,null);assert.equal(combat.ammo,28);
+  console.log('LIVE_COMBAT',JSON.stringify(combat));
   fs.writeFileSync(path.join(outputs,'graphics-validation.json'),JSON.stringify({first,final,dustSurfaces,infernoSurfaces,errors},null,2));
   if(process.env.KEEP_PREVIEW){console.log('PREVIEW_URL '+origin);await new Promise(()=>{});}
  }finally{await browser.close();server.close();}

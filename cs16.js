@@ -202,7 +202,7 @@
         const h = cellH(c);
         // Попали в объём ячейки (сверху может перелететь)
         if (hy >= 0 && hy <= h) return { t, nx, nz, cell: c };
-        if (dy > 0 && hy > h) return null; // летим выше стены
+        if (dy > 0 && hy > h) continue; // летим выше стены
       }
     }
     return null;
@@ -238,6 +238,8 @@
     elite:  { name: 'Dual Elites', dmg: 26, rpm: 750, mag: 30, reserve: 120, reload: 2.6, spread: 1.7, auto: false, price: 800, move: 1.06 },
     smokegrenade: { name: 'Дымовая', dmg: 0, rpm: 0, mag: 1, reserve: 0, reload: 0, spread: 0, auto: false, price: 300, nade: 'smoke' },
   };
+  const Combat = window.CS16Combat;
+  for (const [id, profile] of Object.entries(Combat.weapons)) Object.assign(WEAPONS[id], profile);
   const BUY_ITEMS = [
     { id: 'kevlar',     label: '🦺 Бронежилет',    price: 650 },
     { id: 'deagle',     label: '🔫 Desert Eagle',  price: 650 },
@@ -612,7 +614,7 @@
   function rebuildWorld(name) {
     loadMap(name);
     remotesClear();
-    clearShotEffects(); nadesList.length = 0; smokes.length = 0; dmgNums.length = 0;
+    clearShotEffects(); nadesList.length = 0; smokes.forEach(s=>{scene.remove(s.mesh);s.mesh.children.forEach(sp=>sp.material.dispose());}); smokes.length = 0; if(ui.smokeVeil)ui.smokeVeil.style.opacity='0'; dmgNums.length = 0;
     bombPlanted = null; removeBombMesh();
     buildWorld();
   }
@@ -912,6 +914,7 @@
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
       if (dis) b.disabled = true;
+      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent='Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
       b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
     }
   }
@@ -1185,12 +1188,12 @@
       if (!r) r = addRemote(d.nick, d.team);
       r.tx = d.pos[0]; r.ty = d.pos[1]; r.tz = d.pos[2];
       r.tyaw = d.yaw; r.tpitch = d.pitch; r.weapon = d.weapon; r.skin = d.skin || ''; r.lastSeen = performance.now();
-      r.moving = !!d.move;
+      r.moving = !!d.move; r.crouched = !!d.crouched;
     });
     sock.on('cs16_shoot', (d) => {
       const r = remotes.get(d.nick);
       if (r) { r.muzzle = WEAPONS[d.weapon]?.melee ? 0 : performance.now(); }
-      if (!WEAPONS[d.weapon]?.melee) spawnTracer(d.origin, d.dir, WEAPONS[d.weapon] ? Math.min(120, WEAPONS[d.weapon].dmg * 3) : 60, true);
+      if (!WEAPONS[d.weapon]?.melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(200,d.distance)) : 60, true);
       sfxShot(d.weapon);
       // 3.24.0: враг, который стрелял, 2.5 сек виден на радаре всем
       if (r && r.team !== me.team) enemyBlips.set(d.nick, performance.now());
@@ -1209,7 +1212,7 @@
         ui.hitmark._t = setTimeout(() => { ui.hitmark.style.display = 'none'; }, 90);
       }
       if (d.target === myNick) {
-        me.hp = d.hp;
+        me.hp = d.hp; if(Number.isFinite(d.armor))me.armor=d.armor;
         ui.dmgVin.style.opacity = '1';
         setTimeout(() => { ui.dmgVin.style.opacity = '0'; }, 220);
         if (me.hp <= 0) me.alive = false;
@@ -1578,15 +1581,15 @@
   }
   function spawnSmoke(pos) {
     const grp = new THREE.Group();
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 32; i++) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex(), transparent: true, depthWrite: false, opacity: 0.96 }));
-      const a = Math.random() * Math.PI * 2, r = Math.random() * 1.9;
-      sp.position.set(pos[0] + Math.cos(a) * r, pos[1] + 0.4 + Math.random() * 1.6, pos[2] + Math.sin(a) * r);
-      sp.scale.setScalar(3.4 + Math.random() * 1.6);
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * (Combat.SMOKE_RADIUS-1.7);
+      sp.position.set(pos[0] + Math.cos(a) * r, pos[1] + 0.5 + Math.random() * 2.6, pos[2] + Math.sin(a) * r);
+      sp.scale.setScalar(4.0 + Math.random() * 1.5);
       grp.add(sp);
     }
     scene.add(grp);
-    smokes.push({ mesh: grp, pos, until: performance.now() + 22000, born: performance.now() });
+    smokes.push({ mesh: grp, pos, until: performance.now() + Combat.SMOKE_DURATION, born: performance.now() });
   }
   // отрезок проходит сквозь дым? (проверка сфер дыма)
   function smokeBlocks(ax, ay, az, bx, by, bz) {
@@ -1598,16 +1601,23 @@
       let t = len2 > 0 ? ((s.pos[0] - ax) * px + (s.pos[1] - ay) * py + (s.pos[2] - az) * pz) / len2 : 0;
       t = Math.max(0, Math.min(1, t));
       const cx = ax + px * t - s.pos[0], cy = ay + py * t - s.pos[1], cz = az + pz * t - s.pos[2];
-      if (cx * cx + cy * cy + cz * cz < 2.3 * 2.3) return true;
+      if (cx * cx + cy * cy + cz * cz < Combat.SMOKE_RADIUS * Combat.SMOKE_RADIUS) return true;
     }
     return false;
   }
   function stepSmokes() {
     const now = performance.now();
+    if(!ui.smokeVeil){ui.smokeVeil=el('div','position:absolute;inset:0;pointer-events:none;background:#a5a7a5;opacity:0;',ui.hud);ui.hud.prepend(ui.smokeVeil);}
+    let density=0;
+    for(const s of smokes){
+      const distance=Math.hypot((P.x-s.pos[0])/Combat.SMOKE_RADIUS,(P.y+eyeH()-s.pos[1]-1.6)/3,(P.z-s.pos[2])/Combat.SMOKE_RADIUS);
+      density=Math.max(density,Math.min(1,Math.max(0,(1-distance)*4))*Math.min(1,(s.until-now)/3000));
+    }
+    ui.smokeVeil.style.opacity=String(density*.98);
     for (let i = smokes.length - 1; i >= 0; i--) {
       const s = smokes[i];
       const left = s.until - now;
-      if (left <= 0) { scene.remove(s.mesh); smokes.splice(i, 1); continue; }
+      if (left <= 0) { scene.remove(s.mesh); s.mesh.children.forEach(sp=>sp.material.dispose()); smokes.splice(i, 1); continue; }
       if (left < 3000) { // растворение
         const k = left / 3000;
         s.mesh.children.forEach(sp => { sp.material.opacity = 0.96 * k; });
@@ -1719,6 +1729,7 @@
     vm.position.y += vmKick*.035;
     vm.rotation.x += vmKick*(melee ? -.7 : .23);
     vm.rotation.z = vmKick*(melee ? -.9 : -.06);
+    if(shake>0){vm.position.x+=Math.sin(t*.071)*shake*.018;vm.position.y+=Math.cos(t*.083)*shake*.018;}
     vm.visible = me.alive && !scoped;
   }
 
@@ -1737,6 +1748,8 @@
   }
   function switchSlot(id) {
     if (!WEAPONS[id] || id === current) return;
+    burstTimers.forEach(clearTimeout); burstTimers.length = 0;
+    sprayN = 0; bloom = 0; scoped = false;
     lastWeaponSlot = current;
     current = id;
     reloading = 0;
@@ -1760,7 +1773,8 @@
     vmKickVelocity=18;
     sfxShot('knife');
     const d = dirFromCam();
-    const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, 2.8);
+    const wall=rayWall(P.x,P.y+eyeH(),P.z,...d,2.8);
+    const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wall?wall.t:2.8);
     if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t, heavy: true });
   }
   function tryShoot() {
@@ -1779,7 +1793,7 @@
   }
   function fireOne() {
     const w = WEAPONS[current];
-    if (reloading > 0) return;
+    if (!me.alive || state.phase !== 'live' || reloading > 0 || w.nade) return;
     const a = ammo[current];
     if (a && a.mag <= 0) { if (!burstTimers.length) startReload(); return; }
     if (!burstTimers.length) lastShot = performance.now();
@@ -1789,30 +1803,25 @@
     if (w.melee) {
       // нож: короткая дистанция
       const d = dirFromCam();
-      const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, 2.4);
+      const wall=rayWall(P.x,P.y+eyeH(),P.z,...d,2.4);
+      const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wall?wall.t:2.4);
       if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t });
       return;
     }
-    // 3.23.0: спрей-паттерн — разброс растёт с каждым выстрелом в зажиме, сброс при паузе
-    sprayN = Math.min(14, sprayN + 1);
-    if (sprayTimer) clearTimeout(sprayTimer);
-    sprayTimer = setTimeout(() => { sprayN = 0; }, 300);
-    // разброс: база + цветение + спрей + штраф за движение/воздух (как в CS:GO)
-    bloom = Math.min(bloom + (w.auto ? 0.35 : 0.8), 2.5);
-    const moving2 = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
-    const movePenalty = !P.onGround ? 2.6 : (moving2 ? 1.15 : 0);
-    const spreadDeg = (scoped && w.scope ? w.spreadScoped : w.spread) + bloom * 0.35 + sprayN * 0.22 + movePenalty;
-    const sr = spreadDeg * Math.PI / 180;
-    let d = dirFromCam();
-    d = [d[0] + (Math.random() - 0.5) * sr, d[1] + (Math.random() - 0.5) * sr, d[2] + (Math.random() - 0.5) * sr];
-    const dl = Math.hypot(d[0], d[1], d[2]); d = [d[0] / dl, d[1] / dl, d[2] / dl];
+    // Spread is centered on the crosshair; apply this shot's bloom afterwards.
+    const spreadDeg = Combat.spread(w, {scoped,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
+    const d = Combat.direction(P.yaw,P.pitch,spreadDeg);
+    sprayN = Math.min(14,sprayN+1);
+    if(sprayTimer)clearTimeout(sprayTimer);
+    sprayTimer=setTimeout(()=>{sprayN=0;},300);
+    bloom=Math.min(bloom+(w.auto?.35:.8),2.5);
     const MAXT = 200;
     const wall = rayWall(P.x, P.y + eyeH(), P.z, d[0], d[1], d[2], MAXT);
     const wallT = wall ? wall.t : MAXT;
     let hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wallT);
-    // 3.24.0: дым не простреливается
-    if (hit && smokeBlocks(P.x, P.y + eyeH(), P.z, P.x + d[0] * hit.t, P.y + eyeH() + d[1] * hit.t, P.z + d[2] * hit.t)) hit = null;
-    spawnTracer([P.x, P.y + eyeH() - 0.1, P.z], d, hit ? hit.t : wallT, false);
+    const origin=[P.x,P.y+eyeH(),P.z], distance=hit?hit.t:wallT;
+    spawnTracer(origin,d,distance,false);
+    sock.emit('cs16_shoot',{origin,dir:d,weapon:current,distance});
     if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head, zone: hit.zone, dist: hit.t });
     // отдача: вертикальный паттерн растёт со спреем (кликанье — точно, зажим — вверх)
     P.pitch = Math.min(1.45, P.pitch + (current === 'awp' ? 0.035 : 0.005 + sprayN * 0.0018 + Math.random() * 0.004));
@@ -1822,41 +1831,9 @@
     let best = null;
     for (const [nick, r] of remotes) {
       if (!r.alive || (state.gm !== 'gg' && r.team === me.team)) continue;
-      // 3.24.2: экстраполяция — стреляем туда, где враг есть на сервере СЕЙЧАС, а не где его рисует интерполяция
-      const LAGK = 1.5;
-      const ex = r.x + (r.tx - r.x) * LAGK, ey2 = r.y + (r.ty - r.y), ez = r.z + (r.tz - r.z) * LAGK;
-      // тело — вертикальный цилиндр (чуть шире, регистрация чётче)
-      const rx = ex - ox, rz = ez - oz;
-      const a = d[0] * d[0] + d[2] * d[2];
-      let tBody = null;
-      if (a > 1e-8) {
-        const b = -(rx * d[0] + rz * d[2]);
-        const c = rx * rx + rz * rz - 0.66 * 0.66;
-        const disc = b * b - a * c;
-        if (disc >= 0) {
-          const t = (-b - Math.sqrt(disc)) / a;
-          if (t > 0 && t < maxT) {
-            const hy = oy + d[1] * t;
-            if (hy >= ey2 && hy <= ey2 + 1.85) tBody = t;
-          }
-        }
-      }
-      // голова — сфера
-      const hx = ex - ox, hy = ey2 + 1.58 - oy, hz = ez - oz;
-      const bb = -(hx * d[0] + hy * d[1] + hz * d[2]);
-      const cc = hx * hx + hy * hy + hz * hz - 0.34 * 0.34;
-      const dd = bb * bb - cc;
-      let tHead = null;
-      if (dd >= 0) {
-        const t = bb - Math.sqrt(dd);
-        if (t > 0 && t < maxT) tHead = t;
-      }
-      const t = tHead != null ? tHead : tBody;
-      if (t != null && (!best || t < best.t)) {
-        const hy = oy + d[1] * t;
-        const zone = tHead != null && (tBody == null || tHead <= tBody) ? 'head' : (hy < ey2 + 0.85 ? 'leg' : 'body');
-        best = { t, nick, head: zone === 'head', zone };
-      }
+      // Test the displayed interpolated model, not an extrapolated invisible target.
+      const hit=Combat.playerHit([ox,oy,oz],d,r,maxT);
+      if(hit&&(!best||hit.t<best.t))best={...hit,nick};
     }
     return best;
   }
@@ -2046,6 +2023,8 @@
     ui.weaponName.textContent = w.name;
     ui.location.textContent = MAP_META[curMap].name.toUpperCase();
     ui.crosshair.style.display = (scoped || !me.alive) ? 'none' : 'block';
+    const cone=Combat.spread(w,{scoped,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
+    ui.crosshair.style.transform='translate(-50%,-50%) scale('+Math.min(3,1+cone*.22)+')';
     ui.scope.style.display = scoped ? 'block' : 'none';
     ui.flash.style.opacity = String(Math.min(1, flashAlpha));
     if (reloading > 0) ui.ammo.textContent = 'перезарядка...';
@@ -2149,7 +2128,7 @@
       r.yaw += dy * lerp;
       r.pitch += (r.tpitch - r.pitch) * lerp;
       r.group.position.set(r.x, r.y, r.z);
-      r.group.rotation.y = r.yaw;
+      r.group.rotation.y = r.yaw; r.group.scale.y = r.crouched ? .72 : 1;
       setRemoteGun(r);
       if (r.muzzleFx) r.muzzleFx.visible = r.alive && (performance.now() - r.muzzle) < 55; // 3.22.0: вспышка на дуле
       if (r.alive) {
@@ -2242,14 +2221,11 @@
     } else specTarget = null;
     // камера
     camera.position.set(P.x, P.y + eyeH(), P.z);
-    if (shake > 0) {
-      camera.position.x += (Math.random() - 0.5) * shake * 0.25;
-      camera.position.y += (Math.random() - 0.5) * shake * 0.25;
-    }
+    // Explosion feedback moves the viewmodel, not the crosshair's ray origin.
     camera.rotation.order = 'YXZ';
     camera.rotation.y = P.yaw;
     camera.rotation.x = P.pitch;
-    camera.fov += ((scoped ? 16 : 75) - camera.fov) * Math.min(1, dt * 10);
+    camera.fov += ((scoped ? (current==='awp'?16:current==='scout'?22:40) : 75) - camera.fov) * Math.min(1, dt * 10);
     camera.updateProjectionMatrix();
     updateHud();
     // отправка позиции 15 раз/сек
@@ -2257,7 +2233,7 @@
     if (posAcc > 1 / 15 && sock && sock.connected && me.alive) {
       posAcc = 0;
       const moving = keys.w || keys.a || keys.s || keys.d;
-      sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, skin: mySkin });
+      sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
     }
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);

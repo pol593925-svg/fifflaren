@@ -5,7 +5,7 @@ const archive=path.join(dist,'win-unpacked/resources/app.asar');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json')));
 for(const file of ['support2-world.js','casino-art.js','assets/casino/slot-vault.png','assets/casino/symbol-atlas.png','assets/casino/race-arena.png','assets/support2/forest-floor.png'])assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),'Packaged artwork differs: '+file);
 assert.equal(JSON.parse(asar.extractFile(archive,'package.json')).version,pkg.version);
-for(const file of ['chat-session.js','support-chat.js','main.js','renderer.js','app-ui.js','app-theme.css','hub-features.css','calls-inbox.js','exchange-catalog.js','casino-design.js','support2.js','support2-effects.js','notification.html','image.html','cs16.js','cs16-graphics.js','cs16-graphics.css','index.html',...fs.readdirSync(path.join(root,'models/csgo')).filter(n=>n.endsWith('.glb')).map(n=>'models/csgo/'+n)]){
+for(const file of ['cs16-combat.js','chat-session.js','support-chat.js','main.js','renderer.js','app-ui.js','app-theme.css','hub-features.css','calls-inbox.js','exchange-catalog.js','casino-design.js','support2.js','support2-effects.js','notification.html','image.html','cs16.js','cs16-graphics.js','cs16-graphics.css','index.html',...fs.readdirSync(path.join(root,'models/csgo')).filter(n=>n.endsWith('.glb')).map(n=>'models/csgo/'+n)]){
  assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),'Packaged source differs: '+file);
 }
 const entries=asar.listPackage(archive).map(n=>n.replace(/\\/g,'/'));

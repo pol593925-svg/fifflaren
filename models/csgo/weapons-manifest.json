@@ -13,23 +13,23 @@
     },
     {
       "file": "usp.glb",
-      "triangles": 3988,
-      "bytes": 843900
+      "triangles": 5408,
+      "bytes": 883784
     },
     {
       "file": "deagle.glb",
-      "triangles": 3988,
-      "bytes": 843904
+      "triangles": 4176,
+      "bytes": 848744
     },
     {
       "file": "ak47.glb",
       "triangles": 12772,
-      "bytes": 1433008
+      "bytes": 1269808
     },
     {
       "file": "m4a1.glb",
-      "triangles": 14368,
-      "bytes": 1118548
+      "triangles": 14936,
+      "bytes": 1134496
     },
     {
       "file": "awp.glb",
@@ -38,28 +38,28 @@
     },
     {
       "file": "mp5.glb",
-      "triangles": 14368,
-      "bytes": 1118544
+      "triangles": 14652,
+      "bytes": 1126520
     },
     {
       "file": "p90.glb",
-      "triangles": 11172,
-      "bytes": 1036260
+      "triangles": 16892,
+      "bytes": 1206300
     },
     {
       "file": "ump45.glb",
-      "triangles": 14368,
-      "bytes": 1118548
+      "triangles": 14840,
+      "bytes": 1131364
     },
     {
       "file": "galil.glb",
       "triangles": 12772,
-      "bytes": 1433008
+      "bytes": 1269808
     },
     {
       "file": "famas.glb",
-      "triangles": 14368,
-      "bytes": 1118548
+      "triangles": 14932,
+      "bytes": 1133068
     },
     {
       "file": "scout.glb",
@@ -74,7 +74,7 @@
     {
       "file": "aug.glb",
       "triangles": 17300,
-      "bytes": 1201168
+      "bytes": 1202264
     },
     {
       "file": "m249.glb",
@@ -84,22 +84,22 @@
     {
       "file": "fiveseven.glb",
       "triangles": 3988,
-      "bytes": 843904
+      "bytes": 843908
     },
     {
       "file": "tec9.glb",
-      "triangles": 3988,
-      "bytes": 843900
+      "triangles": 5024,
+      "bytes": 871184
     },
     {
       "file": "elite.glb",
-      "triangles": 3988,
-      "bytes": 843900
+      "triangles": 7976,
+      "bytes": 948896
     },
     {
       "file": "hands.glb",
       "triangles": 12248,
-      "bytes": 554140
+      "bytes": 548268
     }
   ]
 }

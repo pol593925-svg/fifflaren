@@ -49,7 +49,16 @@ def build(kind):
     sniper=kind in ('awp','scout')
     ak=kind in ('ak47','galil')
     smg=kind in ('mp5','ump45','p90')
-    bodymat=green if sniper else steel
+    bullpup=kind in ('aug','famas','p90')
+    bodymat=green if sniper or kind=='aug' else black if kind=='p90' else steel
+    # Warm directional laminate grain, visible on the AK's stock and fore-end.
+    woodnode=next(n for n in wood.node_tree.nodes if n.type=='TEX_IMAGE')
+    grain=np.ones((512,512,4),dtype=np.float32)
+    yy,xx=np.mgrid[:512,:512]
+    rings=np.sin(xx*.15+np.sin(yy*.019)*5+np.sin(xx*.027)*3)
+    tone=.82+.15*rings+.05*np.sin(xx*.73+yy*.008)
+    grain[:,:,:3]=np.array([.30,.12,.045])[None,None,:]*tone[:,:,None]
+    woodnode.image=a.image('Walnut directional grain',grain)
     if kind=='knife':
         a.box('Knife grip',(0,0,.055),(.035,.04,.14),black,p,.01)
         a.box('Finger guard',(0,0,-.02),(.09,.018,.023),edge,p,.003)
@@ -58,7 +67,7 @@ def build(kind):
         for z in (.015,.04,.065,.09):cyl('Grip rings',(0,0,z),.025,.008,black,p)
     elif pistol:
         long=.26 if kind=='deagle' else .21
-        slide= edge if kind=='deagle' else steel
+        slide= edge if kind=='deagle' else black if kind=='fiveseven' else steel
         a.box('Slide',(0,.025,-.05),(.045,.045,long),slide,p,.004)
         a.box('Lower frame',(0,-.012,-.025),(.043,.035,long*.85),black,p,.004)
         grip=a.box('Textured grip',(0,-.075,.025),(.042,.105,.058),black,p,.008);grip.rotation_euler.x=-.17
@@ -72,9 +81,26 @@ def build(kind):
         a.box('Front sight',(0,.055,-.13),(.009,.014,.01),black,p,.001)
         a.box('Rear sight',(0,.054,.04),(.035,.016,.012),black,p,.001)
         a.box('Safety',(.026,-.006,.02),(.009,.008,.027),edge,p,.002)
+        if kind=='usp':
+            cyl('USP suppressor',(0,.025,-.235),.023,.15,steel,p)
+            cyl('Suppressor bore',(0,.025,-.312),.009,.002,black,p)
+            for z in (-.17,-.20,-.27):cyl('Suppressor seam',(0,.025,z),.024,.004,black,p)
+        if kind=='tec9':
+            cyl('Tubular receiver',(0,.03,-.04),.036,.27,steel,p)
+            a.box('Extended magazine',(0,-.18,.01),(.03,.17,.045),steel,p,.003)
+            for z in (-.16,-.13,-.10):a.box('Barrel shroud vent',(.036,.03,z),(.003,.017,.015),black,p,.003)
+        if kind=='deagle':
+            a.box('Barrel rib',(0,.052,-.09),(.018,.012,.18),edge,p,.002)
+        if kind=='elite':
+            # Both pistols are present in the model, not one shared silhouette.
+            original=list(p.children_recursive)
+            for o in original:
+                duplicate=o.copy();duplicate.data=o.data.copy() if o.data else None
+                bpy.context.collection.objects.link(duplicate);duplicate.parent=p
+                duplicate.location.x-=.09;o.location.x+=.09
     else:
         length=.68 if sniper else .40 if smg else .53
-        receiver_len=.29 if sniper else .23
+        receiver_len=.36 if bullpup else .29 if sniper else .23
         a.box('Receiver',(0,.005,-.04),(.075,.10,receiver_len),bodymat,p,.009)
         cyl('Upper receiver',(0,.052,-.065),.038,receiver_len,bodymat,p)
         a.box('Ejection chamber',(.039,.035,-.065),(.002,.037,.095),black,p,.002)
@@ -88,6 +114,18 @@ def build(kind):
         for z in (-length*.80-.09,-length*.80-.11):cyl('Brake ring',(0,.035,z),.022,.005,black,p)
         fore_z=-.235
         a.box('Fore-end',(0,.015,fore_z),(.078,.075,.18),wood if ak else bodymat,p,.008)
+        if kind in ('mp5','ump45'):
+            cyl('SMG handguard',(0,.025,-.24),.048,.17,black,p)
+            if kind=='ump45':a.box('UMP polymer lower',(0,-.035,-.08),(.078,.09,.24),black,p,.01)
+        if kind=='p90':
+            a.box('P90 rounded frame',(0,-.025,.045),(.10,.15,.34),black,p,.025)
+            a.box('P90 top magazine',(0,.12,-.12),(.085,.045,.34),green,p,.012)
+            for z in np.linspace(-.27,.02,18):cyl('Visible magazine cartridge',(0,.145,float(z)),.005,.068,brass,p,'x',10)
+            a.box('Reflex sight bridge',(0,.17,-.15),(.07,.10,.10),black,p,.01)
+            a.box('Reflex sight glass',(0,.19,-.204),(.044,.044,.004),glass,p,.002)
+        if kind=='famas':
+            for z in (-.23,.075):a.box('Carry handle post',(0,.11,z),(.045,.1,.045),black,p,.006)
+            a.box('FAMAS carry handle',(0,.16,-.08),(.05,.04,.35),black,p,.007)
         for z in np.linspace(-.315,-.165,10):
             a.box('Cooling slots',(.040,.014,float(z)),(.001,.017,.008),black,p,.001)
             if not ak:a.box('Picatinny rail',(0,.062,float(z)),(.08,.012,.008),edge,p,.001)
@@ -101,12 +139,12 @@ def build(kind):
         elif kind=='p90':a.box('Horizontal magazine',(0,.09,-.18),(.065,.055,.27),black,p,.006)
         else:
             for i in range(6):
-                yy=-.07-i*.029; zz=-.105-(i*i*.002 if ak else i*.0015)
+                yy=-.07-i*.029; zz=(.15 if bullpup else -.105)-(i*i*.002 if ak else i*.0015)
                 a.box('Magazine section',(0,yy,zz),(.046,.033,.075),steel,p,.003)
                 for x in (-.024,.024):a.box('Magazine pressed channel',(x,yy,zz-.017),(.002,.030,.004),edge,p,.001)
         # Shoulder stock with a rubberized cheek weld and separate butt pad.
         cyl('Stock buffer',(0,.023,.15),.022,.13,steel,p)
-        a.box('Shoulder stock',(0,.002,.24),(.058,.115,.20),wood if ak else black,p,.012)
+        a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),wood if ak else black,p,.012)
         a.box('Butt pad',(0,-.005,.346),(.066,.13,.018),black,p,.004)
         a.box('Cheek rest',(0,.065,.24),(.064,.025,.17),wood if ak else black,p,.006)
         for z in (.16,.20,.24,.28):a.box('Stock texture',(.03,.015,z),(.001,.048,.012),steel,p,.001)
@@ -115,6 +153,9 @@ def build(kind):
         cyl('Sight hood',(0,.113,-.37),.018,.018,steel,p)
         cyl('Sight aperture',(0,.113,-.381),.011,.001,black,p)
         a.box('Rear sight',(0,.088,.018),(.047,.025,.026),steel,p,.002)
+        if kind=='m4a1':
+            cyl('M4 suppressor',(0,.035,-.60),.028,.17,steel,p)
+            cyl('M4 suppressor bore',(0,.035,-.687),.01,.002,black,p)
         if ak:cyl('Gas tube',(0,.077,-.275),.012,.22,steel,p)
         if sniper or kind in ('aug','sg552'):
             for z in (-.13,.015):a.box('Scope mount',(0,.102,z),(.048,.048,.025),steel,p,.003)

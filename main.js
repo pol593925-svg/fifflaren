@@ -12,6 +12,7 @@ let muted = false; // глобальное отключение звука (🔊
 let allowQuit = true;  // может ли пользователь закрыть приложение (админы/ТЛ)
 let forceQuit = false; // служебное принудительное закрытие (обновление и т.п.)
 let rebuildTrayMenuFn = null; // перестроить меню трея (скрыть/показать «Выход»)
+let recreateCount = 0; // 3.30.1: счётчик пересозданий окна после краша (защита от цикла)
 
 // --- ЗАЩИТА ОТ ВЫЛЕТОВ 3.24.2: лог крашей + авто-перезагрузка рендера ---
 function crashLog(msg) {
@@ -37,11 +38,23 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
   mainWindow.maximize();
-  // 3.24.2: рендер убит (GPU/OOM/краш) — не вылетаем, а перезагружаем окно (сессия переподключится сама)
+  // 3.24.2/3.30.1: рендер убит (GPU/OOM/краш) — не вылетаем: перезагружаем окно, а если оно уничтожено — пересоздаём
   mainWindow.webContents.on('render-process-gone', (e, details) => {
     crashLog('render-process-gone: reason=' + (details && details.reason) + ' exitCode=' + (details && details.exitCode));
-    if (!forceQuit && mainWindow && !mainWindow.isDestroyed()) {
+    if (forceQuit) return;
+    if (mainWindow && !mainWindow.isDestroyed()) {
       try { mainWindow.reload(); } catch (err) { crashLog('reload failed: ' + err); }
+    } else {
+      // окно уничтожено крашем — без пересоздания window-all-closed прибьёт приложение
+      recreateCount++;
+      const delay = recreateCount > 5 ? 15000 : 800; // защита от бесконечного цикла крашей
+      crashLog('окно уничтожено — пересоздание через ' + delay + 'мс (№' + recreateCount + ')');
+      setTimeout(() => {
+        try {
+          if (!mainWindow || mainWindow.isDestroyed()) { mainWindow = null; createWindow(); }
+          setTimeout(() => { recreateCount = 0; }, 60000); // счётчик сбрасывается через минуту стабильной работы
+        } catch (err) { crashLog('recreate failed: ' + err); }
+      }, delay);
     }
   });
   mainWindow.webContents.on('unresponsive', () => crashLog('unresponsive: окно зависло >3с'));
@@ -563,7 +576,13 @@ app.on('before-quit', (e) => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // 3.30.1: полный вылет из КС — если окно уничтожено крашем, не выходим, а живём в трее
+  if (process.platform !== 'darwin' && !tray) {
     app.quit();
   }
+});
+
+// 3.30.1: падение GPU/utility-процессов — пишем в лог (рендер при этом Chromium обычно перезапускает сам)
+app.on('child-process-gone', (e, details) => {
+  crashLog('child-process-gone: type=' + (details && details.type) + ' reason=' + (details && details.reason) + ' exitCode=' + (details && details.exitCode));
 });

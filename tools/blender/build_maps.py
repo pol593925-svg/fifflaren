@@ -161,6 +161,7 @@ def create_materials(theme):
         tint=(.76,.65,.46); shutter=(.19,.27,.20)
     material('plaster', plaster)
     material('plaster_light', tint)
+    material('plaster_blue', (.26,.39,.46))
     material('limestone', stone, 'stone')
     material('ground', ground, 'sand' if theme=='dust2' else 'cobble')
     material('wood', (.36,.22,.105), 'wood', .87)
@@ -178,7 +179,7 @@ def create_materials(theme):
     # Photographic albedo, tangent-space normal and roughness maps, embedded
     # into the Blender/GLB deliverables. No network access occurs in the game.
     scans={'plaster':'plastered_stone_wall','plaster_light':'plastered_wall_02',
-           'limestone':'sandstone_blocks_04','ground':'sandy_gravel' if theme=='dust2' else 'cobblestone_floor_02',
+           'limestone':'sandstone_blocks_04','ground':'cobblestone_floor_02',
            'wood':'weathered_brown_planks','tunnel':'sandstone_blocks_04'}
     for name,asset in scans.items():
         mat=MATS[name];nodes=mat.node_tree.nodes;links=mat.node_tree.links;p=nodes.get('Principled BSDF')
@@ -190,7 +191,7 @@ def create_materials(theme):
             img.pack();TEX_IMAGES.append(img)
             node=nodes.new('ShaderNodeTexImage');node.image=img
             if channel=='Diffuse':
-                if name=='plaster' or (theme=='dust2' and name=='ground'):
+                if name=='plaster':
                     # Calibrate the dark scan to sun-bleached paint / dusty earth,
                     # retaining the scan's real surface variation in linear space.
                     pixels=np.empty(len(img.pixels),dtype=np.float32);img.pixels.foreach_get(pixels)
@@ -270,7 +271,20 @@ def wall_details(x,z,dx,dz,variant,theme):
         front=.045+layer*.004
         xx=px+(-dz)*along+dx*(front-depth/2); zz=pz+dx*along+dz*(front-depth/2)
         box(mat,xx,y,zz,depth if dx else w,hh,w if dx else depth)
-    panel('limestone',0,.35,4,.7,.045)
+    panel('limestone',0,.46,4,.92,.07)
+    if theme=='dust2' and variant%7 in (0,1):
+        panel('plaster_blue',0,2.45,3.95,2.9,.025)
+    # Upper floors occupy solid map cells; walking routes remain unchanged.
+    if variant%3 != 1:
+        panel('plaster_light',0,5.2,4,2.4,.04)
+        panel('trim',0,6.45,4,.18,.10)
+        panel('dark',0,5.25,1.34,1.45,.02)
+        panel('shutter',0,5.25,1.18,1.30,.02)
+        for k in range(9): panel('shutter',0,4.67+k*.14,1.22,.065,.035)
+        panel('trim',0,4.5,1.55,.14,.16)
+        panel('steel',1.57,5.1,.07,2.7,.065)
+        box('limestone',x*CELL+2,6.49,z*CELL+2,4,.12,4)
+    panel('limestone',0,.045,3.95,.09,.30)
     panel('trim',0,3.86,4,.16,.06)
     panel('limestone',-1.85,2.15,.22,3.3,.07)
     if variant%4 in (0,1):

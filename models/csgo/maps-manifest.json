@@ -3,11 +3,11 @@
   "maps": {
     "dust2": {
       "file": "dust2.glb",
-      "bytes": 26838060,
-      "triangles": 120187,
-      "meshBatches": 57,
-      "materials": 15,
-      "textureImages": 50,
+      "bytes": 31389064,
+      "triangles": 182587,
+      "meshBatches": 61,
+      "materials": 16,
+      "textureImages": 52,
       "layoutSha256": "9f0efb7fc792d27af43b950e5650216f349a809c62910fd8b5bcdc890dc94ec2",
       "cellCounts": {
         "#": 754,
@@ -868,11 +868,11 @@
     },
     "inferno": {
       "file": "inferno.glb",
-      "bytes": 22394044,
-      "triangles": 95683,
+      "bytes": 26778076,
+      "triangles": 142315,
       "meshBatches": 57,
-      "materials": 15,
-      "textureImages": 49,
+      "materials": 16,
+      "textureImages": 52,
       "layoutSha256": "39c44165a1526fc0046438b8c4e7ac0f1242063aebd927b7e5bbb69b6b4ad54d",
       "cellCounts": {
         "#": 868,

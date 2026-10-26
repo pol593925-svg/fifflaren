@@ -487,6 +487,7 @@ ipcMain.handle('take-screenshot', async () => {
 
 // --- ЖИЗНЕННЫЙ ЦИКЛ ---
 app.whenReady().then(() => {
+  require('./chat-session')(session.defaultSession);
   createWindow();
   createNotifyWindow();
   createImageWindow();

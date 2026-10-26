@@ -41,6 +41,15 @@ async function run(){
   await page.screenshot({path:path.join(out,'hub-login.png')});
   await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');
   await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
+  await page.click('#support-chat-toggle');
+  await page.locator('#support-chat-panel iframe').waitFor();
+  assert.equal(await page.locator('#support-chat-panel iframe').getAttribute('src'),'https://tawk.to/chat/6aaac31a0be5c3344706f5f0/1k2lgk7sp');
+  await tab('notes');
+  assert(await page.locator('#support-chat-panel').isVisible());
+  await page.click('#support-chat-toggle');await page.click('#support-chat-toggle');
+  assert.equal(await page.locator('#support-chat-panel iframe').count(),1);
+  await page.screenshot({path:path.join(out,'hub-chat.png')});
+  await page.click('#support-chat-toggle');await tab('support');
   await page.screenshot({path:path.join(out,'hub-support.png')});
   await tab('shift');await page.click('#startBtn');await page.click('#addFiveBtn');
   assert.equal(await page.locator('#countDisplay').textContent(),'5');

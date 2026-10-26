@@ -12,7 +12,7 @@ window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handler
 </script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
- fire:()=>{state.phase='live';lastShot=-Infinity;tryShoot();return {mag:ammo[current]?.mag,tracers:tracers.length};},
+ fire:()=>{state.phase='live';lastShot=-Infinity;tryShoot();return {mag:ammo[current]?.mag,tracers:tracers.length,kick:vmKickVelocity};},
  effects:()=>({tracers:tracers.length,flashes:shotFlashes.length,kick:vmKick,z:vm?.position.z}),
  lobby:(nick,players,host)=>{myNick=nick;state={...state,phase:'lobby',players,host};renderLobby();},
  snapshot:()=>({map:curMap,ready:worldReady,errors:window.__cs16Err||0,players:remotes.size,calls:renderer3.info.render.calls,triangles:renderer3.info.render.triangles,memory:{...renderer3.info.memory},position:[P.x,P.y,P.z],weapons:Object.keys(WEAPONS)}),
@@ -103,9 +103,9 @@ async function run(){
   await page.evaluate(()=>{__qa.weapon('ak47');__qa.aim(28,0,28,-.65,-.02);__qa.addRemote('Patrol','ct',36,18);__qa.hideMessages();});
   await page.waitForTimeout(600);
   const fired=await page.evaluate(()=>__qa.fire());assert.equal(fired.mag,29);assert(fired.tracers>0);
-  await page.waitForTimeout(50);const recoil=await page.evaluate(()=>__qa.effects());assert(recoil.kick>0);
+  assert(fired.kick>0);
   await page.screenshot({path:path.join(outputs,'csgo-shot-preview.png')});
-  await page.waitForTimeout(750);const settled=await page.evaluate(()=>__qa.effects());assert.equal(settled.tracers,0);assert.equal(settled.flashes,0);assert(Math.abs(settled.kick)<.001);
+  await page.waitForFunction(()=>Math.abs(__qa.effects().kick)<.001&&__qa.effects().tracers===0&&__qa.effects().flashes===0,null,{timeout:15000});const settled=await page.evaluate(()=>__qa.effects());assert.equal(settled.tracers,0);assert.equal(settled.flashes,0);assert(Math.abs(settled.kick)<.001);
   await page.screenshot({path:path.join(outputs,'csgo-dust2-preview.png')});
   const first=await page.evaluate(()=>__qa.snapshot());
   console.log('DUST2',JSON.stringify(first));assert.equal(first.errors,0);assert.equal(first.ready,true);assert(first.triangles>1000);

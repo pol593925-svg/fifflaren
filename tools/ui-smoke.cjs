@@ -32,6 +32,7 @@ async function run(){
   if(req.method()==='POST')posts.push({url,body:req.postData()});
   if(req.resourceType()==='document')return route.fulfill({contentType:'text/html',body:'<body style="background:#191c26;color:#9ba4bc;font:14px Segoe UI;padding:30px">Чат поддержки · локальная проверка интерфейса</body>'});
  const data={success:true,username:'fifflaren',callsToken:'t'.repeat(43),calls:[{id:'1',user:'Alex',createdAt:'2026-10-25T10:00:00Z',service:'Binance',kind:'Проверка',link:'https://example.com/call',note:'Тест команды'}],hasMore:false,role:'admin',isTL:true,team:'fifflaren',teams:[{name:'fifflaren',users:['fifflaren','Alex','Mira']}],users:[],events:[],tasks:[],items:[],posts:[],messages:[],dialogs:[],queue:[],tops:[],totals:[],stats:[],rows:[],balance:1500,owned:[],equipped:'',exchanges:{yes:[],no:[],conditional:[]}};
+  Object.assign(data,{reels:['7','⚡','🏛️','👑'],multiplier:1,winnings:5,phase:'bet',round:1,startPrice:100,price:103,ticks:[100,101,100.5,102,101.7,103],history:[],endsAt:Date.now()+60000,available:true,sectors:[{id:'win5',label:'+5',w:1},{id:'fine5',label:'−5',w:2},{id:'spin',label:'Ещё',w:1}],race:{phase:'bet',round:1,timeLeft:30,winner:-1,positions:[20,35,10,42,26],roosters:[{name:'Рубин',odds:2},{name:'Шторм',odds:3},{name:'Искра',odds:4},{name:'Лист',odds:5},{name:'Тень',odds:6}]}});
   return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
  });
  const tab=async id=>{await page.locator('.tabs [data-tab="'+id+'"]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#tab-'+id).evaluate(e=>getComputedStyle(e).display==='none'),false,id+' hidden');};
@@ -71,6 +72,14 @@ async function run(){
   await tab('casino');await page.evaluate(()=>casinoSkipSplash());await page.screenshot({path:path.join(out,'hub-casino.png')});
   await page.locator('.casino-room-btn').first().click();await page.locator('.slot-theme-btn[data-theme="zeus"]').click();assert.equal(await page.locator('#room-slot').getAttribute('data-art'),'zeus');
   await page.waitForTimeout(350);await page.screenshot({path:path.join(out,'hub-slots.png')});
+  await page.click('#casinoSpinBtn');await page.waitForFunction(()=>!document.getElementById('casinoSpinBtn').disabled);
+  assert.deepEqual(await page.locator('.casino-reel').allTextContents(),['7','⚡','🏛️','👑']);assert.equal(await page.locator('.casino-reel[data-painted]').count(),4);
+  for(const room of ['roulette','blackjack','crash','options','duel','wheel','lottery','mines','poker','snake','race','case','rr','bank']){
+   await page.evaluate(id=>openCasinoRoom(id),room);await page.waitForTimeout(200);assert(await page.locator('#room-'+room).isVisible());
+   if(room==='options')await page.evaluate(()=>{optTicks=[100,100.8,100.4,101.2,102.1,101.5,103];optPrice=103;optDraw();});
+   if(['race','options','wheel','case','blackjack'].includes(room))await page.screenshot({path:path.join(out,'hub-'+room+'.png')});
+  }
+  assert(posts.some(p=>p.url.includes('/api/casino/spin')&&JSON.parse(p.body).theme==='zeus'));
   assert.equal(await page.locator('.tabs [data-tab="approve"],.tabs [data-tab="salary"]').count(),0);
   await tab('shift');await page.click('#themeToggleBtn');assert(await page.locator('body').evaluate(e=>e.classList.contains('light')));
   await page.screenshot({path:path.join(out,'hub-light.png')});

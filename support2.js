@@ -371,6 +371,7 @@
   }
   function tickRig(u, dt) {
     if (!u.rig) return;
+    if(u.rig.custom){u.rig.animate(u,dt);return;}
     let st = 'idle';
     if (!u.alive) st = 'death';
     else if (u.atkAnimT > 0) st = 'attack';
@@ -394,7 +395,7 @@
       const cam = new THREE.PerspectiveCamera(34, 200 / 230, 0.1, 60);
       for (const h of HEROES) {
         const hm = S2_HERO_MODEL[h.id] || { model: 'kk_Knight', scale: 1 };
-        const inst = instantiateS2Model(hm.model, h.color, (hm.scale || 1) * 1.05);
+        const inst = window.S2World.character(h);
         if (!inst) continue;
         const portraitRoot = new THREE.Group();portraitRoot.add(inst.model);
         window.S2Effects?.decorate(portraitRoot,h);
@@ -447,14 +448,15 @@
 
   // ---------- КАРТА ----------
   const MAP = 210;                 // 3.20.0: карта больше (была 170)
-  const BASE_R = { x: -82, z: -82 };  // база Radiant (юго-запад)
-  const BASE_D = { x: 82, z: 82 };    // база Dire (северо-восток)
+  const BASE_R = { x: -82, z: 82 };
+  const BASE_D = { x: 82, z: -82 };
   const LANES = {
     top: [[-76, -76], [-76, -64], [64, -64], [64, 64], [76, 76]],
     mid: [[-74, -74], [74, 74]],
     bot: [[-76, -76], [-64, -76], [-64, 64], [64, 76], [76, 76]],
   };
-  const riverDist = (x, z) => Math.abs(x + z) / Math.SQRT2; // расстояние до реки (диагональ)
+  for(const lane of Object.values(LANES))for(const p of lane)p[1]=-p[1];
+  const riverDist = (x, z) => Math.abs(x-z)/Math.SQRT2;
   const inRiver = (x, z) => riverDist(x, z) < 5;
 
   const obstacles = []; // {x, z, r} деревья/вышки для столкновений
@@ -502,14 +504,14 @@
   function buildScene() {
     scene = new THREE.Scene();
     fogMesh = null; fogGrid.fill(0); fogT = 0; // 3.21.1: сброс тумана войны при новой сцене
-    scene.background = new THREE.Color(0xd6c9e2); // 3.21.0: сиренево-розовая дымка как на карте Доты
-    scene.fog = new THREE.Fog(0xd6c9e2, 150, 380);
-    camera = new THREE.PerspectiveCamera(46, 1.6, 0.5, 600);
+    scene.background = new THREE.Color(0x17252b);
+    scene.fog = new THREE.Fog(0x17252b, 130, 260);
+    camera = new THREE.OrthographicCamera(-40,40,25,-25,.5,600);
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     // мультяшная картинка — киношная тональная компрессия и sRGB
     if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
-    if (THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12; }
+    if (THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .95; }
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rootWrap.insertBefore(renderer.domElement, rootWrap.firstChild);
@@ -525,229 +527,10 @@
     sc.left = -150; sc.right = 150; sc.top = 150; sc.bottom = -150; sc.far = 420;
     scene.add(sunLight);
 
-    // --- земля: мох, каменная брусчатка на линиях, берега реки ---
-    const groundTex = makeCanvas(1024, 1024, (g, w, h) => {
-      const px = v => (v + MAP / 2) / MAP * w;
-      // базовая трава с мягким градиентом
-      const base = g.createRadialGradient(w / 2, h / 2, w * 0.1, w / 2, h / 2, w * 0.75);
-      base.addColorStop(0, '#6f9a4c'); base.addColorStop(1, '#4f7436');
-      g.fillStyle = base; g.fillRect(0, 0, w, w);
-      // пятна травы разных оттенков
-      for (let i = 0; i < 1400; i++) {
-        g.fillStyle = `rgba(${70 + Math.random() * 40 | 0},${120 + Math.random() * 45 | 0},${55 + Math.random() * 30 | 0},0.28)`;
-        const r = 4 + Math.random() * 22;
-        g.beginPath(); g.arc(Math.random() * w, Math.random() * h, r, 0, 7); g.fill();
-      }
-      // цветочки
-      for (let i = 0; i < 260; i++) {
-        g.fillStyle = pick(['#ffd34a', '#ff9fbe', '#e8d4ff', '#ffffff', '#ffb066']);
-        g.beginPath(); g.arc(Math.random() * w, Math.random() * h, 1.6 + Math.random() * 1.8, 0, 7); g.fill();
-      }
-      // линии: земляная подложка + каменная брусчатка
-      for (const key of ['top', 'mid', 'bot']) {
-        const pts = LANES[key];
-        const draw = (style, width, alpha) => {
-          g.globalAlpha = alpha; g.strokeStyle = style; g.lineWidth = width;
-          g.lineCap = 'round'; g.lineJoin = 'round';
-          g.beginPath(); g.moveTo(px(pts[0][0]), px(pts[0][1]));
-          for (let i = 1; i < pts.length; i++) g.lineTo(px(pts[i][0]), px(pts[i][1]));
-          g.stroke(); g.globalAlpha = 1;
-        };
-        draw('rgba(96,78,52,0.9)', 36, 0.9);
-        draw('#b3a184', 28, 1);
-        // швы брусчатки: квадратные камни
-        g.strokeStyle = 'rgba(70,56,36,0.5)'; g.lineWidth = 1.4;
-        const step = 26 / MAP * w;
-        for (let i = 0; i < pts.length - 1; i++) {
-          const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
-          const len = Math.hypot(bx - ax, bz - az), n = Math.floor(len / 3.4);
-          const nx = -(bz - az) / len, nz = (bx - ax) / len;
-          for (let j = 0; j <= n; j++) {
-            const t = j / Math.max(n, 1);
-            const cx = px(lerp(ax, bx, t)), cz = px(lerp(az, bz, t));
-            const hw = 13 / MAP * w;
-            // короткая поперечная черта + точки швов по краям — имитация кладки
-            g.beginPath();
-            g.moveTo(cx + nx * hw, cz + nz * hw);
-            g.lineTo(cx - nx * hw, cz - nz * hw);
-            g.stroke();
-          }
-        }
-      }
-      // река: диагональная полоса с песчаными берегами
-      g.save();
-      g.translate(w / 2, h / 2); g.rotate(-Math.PI / 4);
-      const rw = 5 * Math.SQRT2 / MAP * w;
-      g.fillStyle = 'rgba(196,176,116,0.85)';
-      g.fillRect(-w, -rw * 1.5, w * 2, rw * 3);
-      const grad = g.createLinearGradient(0, -rw, 0, rw);
-      grad.addColorStop(0, 'rgba(86,146,192,0.9)');
-      grad.addColorStop(0.5, 'rgba(102,166,212,0.95)');
-      grad.addColorStop(1, 'rgba(86,146,192,0.9)');
-      g.fillStyle = grad;
-      g.fillRect(-w, -rw, w * 2, rw * 2);
-      g.restore();
-    });
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(MAP + 80, MAP + 80),
-      new THREE.MeshLambertMaterial({ map: groundTex })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // --- река: живой водный слой поверх нарисованной ---
-    waterGeo = new THREE.PlaneGeometry(MAP * 1.5, 12, 70, 4);
-    waterMesh = new THREE.Mesh(waterGeo, new THREE.MeshPhongMaterial({
-      color: 0x55a0d8, transparent: true, opacity: 0.82, shininess: 140, specular: 0xd8f0ff,
-    }));
-    waterMesh.rotation.x = -Math.PI / 2;
-    waterMesh.rotation.z = Math.PI / 4;
-    waterMesh.position.y = 0.12;
-    scene.add(waterMesh);
-
-    // --- деревья: сакуры с розовыми кронами + зелёные круглые (как на карте Доты) ---
-    const treePos = [];
-    let guard = 0;
-    while (treePos.length < 330 && guard++ < 6000) {
-      const x = rand(-MAP / 2 + 6, MAP / 2 - 6), z = rand(-MAP / 2 + 6, MAP / 2 - 6);
-      if (distToLane('top', x, z) < 9 || distToLane('mid', x, z) < 8 || distToLane('bot', x, z) < 9) continue;
-      if (riverDist(x, z) < 9) continue;
-      if (d2(x, z, BASE_R.x, BASE_R.z) < 26 || d2(x, z, BASE_D.x, BASE_D.z) < 26) continue;
-      if (treePos.some(p => d2(x, z, p[0], p[1]) < 3.4)) continue;
-      treePos.push([x, z]);
-    }
-    const trunkGeo = new THREE.CylinderGeometry(0.3, 0.46, 3.0, 6);
-    const crownGeo = new THREE.IcosahedronGeometry(2.3, 2);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5f4030 });
-    const crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // оттенок задаём на инстанс
-    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treePos.length);
-    const crowns = new THREE.InstancedMesh(crownGeo, crownMat, treePos.length);
-    trunks.castShadow = crowns.castShadow = true;
-    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), Pv = new THREE.Vector3();
-    const treeCol = new THREE.Color();
-    const sakuraCols = ['#f7cddd', '#f4b8cf', '#fceef2', '#f0a8c0', '#ffd9e4'];
-    treePos.forEach((p, i) => {
-      const s = rand(0.8, 1.4);
-      const sakura = p[0]+p[1]<0 && Math.random() < 0.22;
-      Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(0, 6.28));
-      S.set(s, s, s);
-      M.compose(Pv.set(p[0], 1.5 * s, p[1]), Q, S); trunks.setMatrixAt(i, M);
-      M.compose(Pv.set(p[0], (3.0 + 1.7) * s, p[1]), Q, S); crowns.setMatrixAt(i, M);
-      if (sakura) treeCol.set(pick(sakuraCols));
-      else if(p[0]+p[1]>25) treeCol.setHSL(.05+rand(0,.04),.18,rand(.22,.34));
-      else treeCol.setHSL(0.29 + rand(-0.03, 0.06), rand(0.35, 0.5), rand(0.24, 0.38));
-      crowns.setColorAt(i, treeCol);
-      obstacles.push({ x: p[0], z: p[1], r: 0.9 * s });
-      trees.push({ x: p[0], z: p[1], hp: 1 });
-    });
-    scene.add(trunks); scene.add(crowns);
-    // Low-cost second canopy layer adds depth to the forest using one draw call.
-    const upperCrowns = new THREE.InstancedMesh(crownGeo,crownMat,treePos.length);
-    treePos.forEach((p,i)=>{
-      crowns.getMatrixAt(i,M); M.decompose(Pv,Q,S); Pv.y+=1.3; S.multiplyScalar(.72);
-      M.compose(Pv,Q,S);upperCrowns.setMatrixAt(i,M);
-      crowns.getColorAt(i,treeCol);treeCol.multiplyScalar(1.12);upperCrowns.setColorAt(i,treeCol);
-    });upperCrowns.castShadow=true;scene.add(upperCrowns);
-
-    // --- декор: камни и кусты ---
-    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
-    const rockMat = new THREE.MeshLambertMaterial({ color: 0x8a8a85 });
-    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, 46);
-    for (let i = 0; i < 46; i++) {
-      const x = rand(-MAP / 2 + 4, MAP / 2 - 4), z = rand(-MAP / 2 + 4, MAP / 2 - 4);
-      const s = rand(0.5, 1.6);
-      Q.setFromAxisAngle(new THREE.Vector3(rand(0, 1), 1, rand(0, 1)).normalize(), rand(0, 6));
-      M.compose(Pv.set(x, s * 0.4, z), Q, S.set(s, s * 0.7, s));
-      rocks.setMatrixAt(i, M);
-    }
-    rocks.castShadow = true;
-    scene.add(rocks);
-    const bushGeo = new THREE.IcosahedronGeometry(1, 0);
-    const bushMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    const bushes = new THREE.InstancedMesh(bushGeo, bushMat, 90);
-    for (let i = 0; i < 90; i++) {
-      const x = rand(-MAP / 2 + 4, MAP / 2 - 4), z = rand(-MAP / 2 + 4, MAP / 2 - 4);
-      if (riverDist(x, z) < 7 || distToLane('mid', x, z) < 8) { continue; }
-      const s = rand(0.5, 1.1);
-      Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(0, 6.28));
-      M.compose(Pv.set(x, s * 0.5, z), Q, S.set(s, s * 0.62, s));
-      bushes.setMatrixAt(i, M);
-      bushes.setColorAt(i, treeCol.setHSL(0.27 + rand(-0.03, 0.06), 0.5, rand(0.32, 0.44)));
-    }
-    scene.add(bushes);
-
-    // --- 3.21.0: деревянные мосты через реку (перекрёстки линий: мид, топ, бот) ---
-    const bridgeMat = new THREE.MeshLambertMaterial({ color: 0x8a6242 });
-    const railMat = new THREE.MeshLambertMaterial({ color: 0x6b4830 });
-    for (const bx of [0, 64, -64]) {
-      const bz = -bx; // река — диагональ x+z=0
-      const deck = new THREE.Mesh(new THREE.BoxGeometry(7, 0.5, 16), bridgeMat);
-      deck.position.set(bx, 0.42, bz);
-      deck.rotation.y = Math.PI / 4;
-      deck.castShadow = deck.receiveShadow = true;
-      scene.add(deck);
-      for (const side of [-1, 1]) {
-        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 16), railMat);
-        rail.position.set(bx + side * 2.6 * Math.SQRT1_2, 1.1, bz - side * 2.6 * Math.SQRT1_2);
-        rail.rotation.y = Math.PI / 4;
-        scene.add(rail);
-      }
-    }
-
-    // --- бумажные фонари вдоль линий (тёплый свет) ---
-    const lanternGlow = new THREE.MeshBasicMaterial({ color: 0xffc06a });
-    const lanternPoleMat = new THREE.MeshLambertMaterial({ color: 0x4a3524 });
-    for (const lane of ['top', 'mid', 'bot']) {
-      for (const t of [0.12, 0.26, 0.4, 0.6, 0.74, 0.88]) {
-        for (const side of [-1, 1]) {
-          if (Math.random() < 0.3) continue;
-          const pt = lanePoint(lane, t);
-          const next = lanePoint(lane, Math.min(t + 0.02, 1));
-          const dx = next.x - pt.x, dz = next.z - pt.z, l = Math.hypot(dx, dz) || 1;
-          const x = pt.x + (-dz / l) * side * 5.2, z = pt.z + (dx / l) * side * 5.2;
-          if (riverDist(x, z) < 5) continue;
-          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 2.6, 5), lanternPoleMat);
-          pole.position.set(x, 1.3, z);
-          scene.add(pole);
-          const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 6), lanternGlow);
-          lamp.position.set(x, 2.5, z);
-          lamp.scale.y = 1.25;
-          scene.add(lamp);
-        }
-      }
-    }
-
-    // --- лотосы на реке ---
-    const lotusMat = new THREE.MeshLambertMaterial({ color: 0xf29ec0 });
-    const lotusGeo = new THREE.CircleGeometry(0.55, 7);
-    for (let i = 0; i < 26; i++) {
-      const t = rand(-MAP / 2 + 10, MAP / 2 - 10);
-      const off = rand(-3.4, 3.4);
-      const lotus = new THREE.Mesh(lotusGeo, lotusMat);
-      lotus.rotation.x = -Math.PI / 2;
-      lotus.rotation.z = rand(0, 6.28);
-      lotus.position.set(t - off * Math.SQRT1_2, 0.2, -t - off * Math.SQRT1_2);
-      scene.add(lotus);
-    }
-
-    // --- 3.20.0: облака-подушки в небе ---
-    const cloudGeo = new THREE.SphereGeometry(1, 10, 7);
-    const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
-    for (let i = 0; i < 14; i++) {
-      const cl = new THREE.Group();
-      const n = 3 + Math.floor(Math.random() * 3);
-      for (let j = 0; j < n; j++) {
-        const puff = new THREE.Mesh(cloudGeo, cloudMat);
-        puff.scale.set(rand(5, 10), rand(1.8, 3), rand(3.5, 6));
-        puff.position.set(j * rand(4, 6) - n * 2.5, rand(-0.5, 0.5), rand(-2, 2));
-        cl.add(puff);
-      }
-      cl.position.set(rand(-MAP, MAP), rand(55, 80), rand(-MAP, MAP));
-      scene.add(cl);
-      effects.push({ mesh: cl, ttl: Infinity, update(e, dt) { e.mesh.position.x += dt * 1.1; if (e.mesh.position.x > MAP + 60) e.mesh.position.x = -MAP - 60; } });
-    }
-
+    const world = window.S2World.build(scene, {size:MAP,lanes:LANES,
+      nearLane:(x,z)=>Math.min(...['top','mid','bot'].map(l=>distToLane(l,x,z))),
+      riverDistance:riverDist,bases:[BASE_R,BASE_D],obstacles,trees});
+    waterGeo=world.waterGeo;waterMesh=world.waterMesh;
     // --- базы: фонтан + трон ---
     buildBase('r', BASE_R.x, BASE_R.z, 0x3f9fe0);
     buildBase('d', BASE_D.x, BASE_D.z, 0xe04a3f);
@@ -763,17 +546,27 @@
   }
 
   function buildBase(team, bx, bz, color) {
+    const firstChild=scene.children.length;
     // платформа
     const plat = new THREE.Mesh(
-      new THREE.CylinderGeometry(17, 19, 1.6, 24),
-      new THREE.MeshLambertMaterial({ color: 0x9a958a })
+      new THREE.CylinderGeometry(6.5, 7.5, .45, 12),
+      new THREE.MeshStandardMaterial({ color: 0x626865,roughness:.85,metalness:.1 })
     );
-    plat.position.set(bx, 0.8, bz);
+    plat.position.set(bx,.22,bz);
     plat.receiveShadow = true;
     scene.add(plat);
+    const masonry=new THREE.MeshStandardMaterial({color:team==='r'?0x77857b:0x50464b,roughness:.8});
+    const bronze=new THREE.MeshStandardMaterial({color:0x9e8551,metalness:.75,roughness:.4});
+    for(let i=0;i<8;i++){
+      const angle=i*Math.PI/4,x=bx+Math.cos(angle)*6,z=bz+Math.sin(angle)*6;
+      const pillar=new THREE.Mesh(new THREE.CylinderGeometry(.4,.65,4.4,8),masonry);pillar.position.set(x,2.2,z);pillar.castShadow=true;scene.add(pillar);
+      const capital=new THREE.Mesh(new THREE.BoxGeometry(1.3,.4,1.3),bronze);capital.position.set(x,4.3,z);scene.add(capital);
+      const cap=new THREE.Mesh(new THREE.ConeGeometry(.7,1.1,8),masonry);cap.position.set(x,5,z);cap.castShadow=true;scene.add(cap);
+    }
+    for(let i=0;i<3;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(3.6+i*.65,.08,8,64),bronze);ring.rotation.x=-Math.PI/2;ring.position.set(bx,.5+i*.025,bz);scene.add(ring);}
     // трон (древний)
     const anc = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(3.4, 0),
+      new THREE.OctahedronGeometry(2.1, 0),
       new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.25, shininess: 80 })
     );
     anc.position.set(bx, 5.2, bz);
@@ -796,6 +589,7 @@
     const base = team === 'r' ? BASE_R : BASE_D;
     base.fountain = { x: fx, z: fz };
     base.shopZone = { x: bx, z: bz, r: 20 };
+    base.visuals=scene.children.slice(firstChild);
   }
 
   function makeTower(team, pos, lane, tier) {
@@ -874,7 +668,8 @@
   function attachModel(u, modelId, tint, scale, fallbackFn, barY) {
     const g = new THREE.Group();
     let inst = null;
-    if (modelId) inst = instantiateS2Model(modelId, tint, scale);
+    if(u.heroDef)inst=window.S2World.character(u.heroDef);
+    else if (modelId) inst = instantiateS2Model(modelId, tint, scale);
     if (inst) {
       u.rig = inst;
       g.add(inst.model);
@@ -1007,7 +802,7 @@
       u.skillPts = 1; // 3.19.1: первая очка прокачки — игрок решает сам
       const hm = S2_HERO_MODEL[opts.heroDef.id] || { model: 'kk_Knight', scale: 1 };
       attachModel(u, hm.model, opts.heroDef.color, hm.scale, () => heroMesh(opts.heroDef, opts.team), 2.9);
-      attachWeapon(u);   // 3.19.1: оружие в руке
+      if(!u.rig?.custom)attachWeapon(u);
       addNameplate(u);   // 3.19.1: ник над героем
     } else if (opts.isCreep) {
       u.maxHp = opts.ranged ? 320 : 480; u.hp = u.maxHp;
@@ -1469,6 +1264,7 @@
     );
     mesh.position.set((x0 + x1) / 2, 1.5, (z0 + z1) / 2);
     mesh.lookAt(x1, 1.5, z1);
+    mesh.userData.visionPoints=[[x0,z0],[x1,z1]];
     scene.add(mesh);
     effects.push({ mesh, ttl: 0.3, update(e, dt, k) { e.mesh.material.opacity = 0.9 * k; } });
   }
@@ -1584,13 +1380,28 @@
     return 14; // крипы
   }
   function fogVisibleAt(x, z) { return fogGrid[fogCellIdx(x, z)] === 2; }
+  function visibleToPlayer(u){return !myHero||u.team===myHero.team||(fogVisibleAt(u.x,u.z)&&!isStealthed(u));}
+  function applyFogVisibility(){
+    const visibleAt=(x,z)=>!myHero||fogVisibleAt(x,z);
+    for(const u of units){
+      if(u.mesh)u.mesh.visible=visibleToPlayer(u)&&(u.alive||!!u.hideAt&&clockT<u.hideAt);
+      if(u.ancMesh)u.ancMesh.visible=u.alive&&visibleToPlayer(u);
+    }
+    for(const [team,base] of [['r',BASE_R],['d',BASE_D]])for(const mesh of base.visuals||[])mesh.visible=!myHero||team===myHero.team||visibleAt(base.x,base.z);
+    for(const p of projectiles)if(p.mesh)p.mesh.visible=visibleAt(p.mesh.position.x,p.mesh.position.z);
+    for(const z of zones)if(z.mesh)z.mesh.visible=visibleAt(z.x,z.z);
+    for(const e of effects)if(e.mesh&&e.ttl!==Infinity)e.mesh.visible=e.mesh.userData.visionPoints?e.mesh.userData.visionPoints.every(p=>visibleAt(p[0],p[1])):visibleAt(e.mesh.position.x,e.mesh.position.z);
+    window.S2Effects?.visibility(visibleAt);
+    if(selUnit&&!visibleToPlayer(selUnit))selectUnit(null);
+    if(myHero?.target&&!visibleToPlayer(myHero.target))myHero.target=null;
+  }
   function tickFog(dt) {
     if (!scene) return;
     if (!fogMesh) { // оверлей-туман над землёй
       fogCanvas = document.createElement('canvas'); fogCanvas.width = FOG_N; fogCanvas.height = FOG_N;
       fogTex = new THREE.CanvasTexture(fogCanvas);
       fogMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(MAP + 80, MAP + 80),
+        new THREE.PlaneGeometry(MAP, MAP),
         new THREE.MeshBasicMaterial({ map: fogTex, transparent: true, depthWrite: false })
       );
       fogMesh.rotation.x = -Math.PI / 2;
@@ -1642,8 +1453,8 @@
     fogTex.needsUpdate = true;
     // прячем врагов в тумане (вышки/троны видны всегда — как в Доте)
     for (const u of units) {
-      if (!u.mesh || u.isTower || u.isAncient) continue;
-      u.mesh.visible = u.team === myTeam || fogVisibleAt(u.x, u.z);
+      if (!u.mesh) continue;
+      u.mesh.visible = u.alive && visibleToPlayer(u);
     }
   }
   const deadAllies = []; // {x, z, ref, t} для воскрешения
@@ -2152,7 +1963,7 @@
     effects.push({ mesh: castFlash, ttl: 0.45, update(e, dt2, k) { e.mesh.scale.setScalar(1 + (1 - k) * 1.6); e.mesh.material.opacity = 0.9 * k; } });
     // Космический поток Астры
     if (u.heroDef.id === 'astra') u.mana = Math.min(u.maxMana, u.mana + 4);
-    if (u === myHero || d2(u.x, u.z, camX, camZ) < 55) sfxCast();
+    if (visibleToPlayer(u) && (u === myHero || d2(u.x, u.z, camX, camZ) < 55)) sfxCast();
     sparkleFx(u.x, u.z, acolor);
     // 3.19.0: хост рассылает событие каста — клиенты повторяют визуал
     if (net.mode === 'host' && s2net.sock && s2net.connected) {
@@ -2591,7 +2402,7 @@
         if (!target) { feed('Тыкни по телу павшего союзника', true); return; }
         if (d2(target.x, target.z, myHero.x, myHero.z) > a.def.range) { feed('Слишком далеко от тела союзника', true); return; }
       } else {
-        target = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.6)
+        target = units.filter(u2 => u2.alive && visibleToPlayer(u2) && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.6)
           .sort((x, y) => d2(x.x, x.z, p.x, p.z) - d2(y.x, y.z, p.x, p.z))[0];
         if (!target) { feed('Тыкни по врагу', true); return; }
         if (d2(target.x, target.z, myHero.x, myHero.z) > a.def.range) { feed('Вне радиуса действия', true); return; }
@@ -2648,7 +2459,9 @@
     if (myHero && keys.space) { camX = myHero.x; camZ = myHero.z; }
     camX = clamp(camX, -MAP / 2, MAP / 2);
     camZ = clamp(camZ, -MAP / 2, MAP / 2);
-    camera.position.set(camX, camZoom, camZ + camZoom * 0.55);
+    camera.left=-camZoom*.6*camera.aspect;camera.right=camZoom*.6*camera.aspect;
+    camera.top=camZoom*.6;camera.bottom=-camZoom*.6;camera.updateProjectionMatrix();
+    camera.position.set(camX,70,camZ+58);
     camera.lookAt(camX, 0, camZ);
     if (sunLight) { sunLight.position.set(camX + 60, 110, camZ + 40); sunLight.target.position.set(camX, 0, camZ); sunLight.target.updateMatrixWorld(); }
   }
@@ -2680,7 +2493,7 @@
       if (e.button === 0 && castMode != null) { castFromMode(p); return; }
       if (e.button === 0 && !attackMoveMode) {
         // 3.18.0: клик по юниту — выделение (реально «жмётся»)
-        const clicked = units.filter(u2 => u2.alive && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.4)
+        const clicked = units.filter(u2 => u2.alive && visibleToPlayer(u2) && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.4)
           .sort((a, b) => d2(a.x, a.z, p.x, p.z) - d2(b.x, b.z, p.x, p.z))[0];
         if (clicked) { selectUnit(clicked); sfx(700, 0.05, 0.04, 'sine'); }
         else { selectUnit(null); }
@@ -2688,7 +2501,7 @@
         return;
       }
       if (e.button === 2) { // правая — движение/атака
-        const enemy = units.filter(u2 => u2.alive && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.5)
+        const enemy = units.filter(u2 => u2.alive && visibleToPlayer(u2) && u2.team !== myHero.team && d2(u2.x, u2.z, p.x, p.z) < u2.radius + 1.5)
           .sort((a, b) => d2(a.x, a.z, p.x, p.z) - d2(b.x, b.z, p.x, p.z))[0];
         if (net.mode === 'client') { // 3.19.0: команда уходит хосту
           if (attackMoveMode) { s2Send({ k: 'am', x: p.x, z: p.z }); attackMoveMode = false; cv.style.cursor = 'default'; }
@@ -2751,7 +2564,7 @@
     g.fillStyle = '#1c2415'; g.fillRect(0, 0, W, W); // тёмная зелень
     // река
     g.strokeStyle = '#3a6a94'; g.lineWidth = 6;
-    g.beginPath(); g.moveTo(px(MAP / 2), 0); g.lineTo(0, px(MAP / 2)); g.stroke(); // диагональ x+z=0
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(W, W); g.stroke(); // диагональ x+z=0
     // линии
     g.strokeStyle = '#5d4c33'; g.lineWidth = 3.4;
     for (const key of ['top', 'mid', 'bot']) {
@@ -2761,17 +2574,18 @@
       g.stroke();
     }
     // базы
-    g.fillStyle = '#3f9fe0'; g.beginPath(); g.arc(px(BASE_R.x), px(BASE_R.z), 8, 0, 7); g.fill();
-    g.fillStyle = '#e04a3f'; g.beginPath(); g.arc(px(BASE_D.x), px(BASE_D.z), 8, 0, 7); g.fill();
+    if(fogMini&&myHero)g.drawImage(fogMini,0,0,W,W);
+    if(!myHero||myHero.team==='r'||fogVisibleAt(BASE_R.x,BASE_R.z)){g.fillStyle='#3f9fe0';g.beginPath();g.arc(px(BASE_R.x),px(BASE_R.z),8,0,7);g.fill();}
+    if(!myHero||myHero.team==='d'||fogVisibleAt(BASE_D.x,BASE_D.z)){g.fillStyle='#e04a3f';g.beginPath();g.arc(px(BASE_D.x),px(BASE_D.z),8,0,7);g.fill();}
     // вышки
     for (const u of units) {
-      if (!u.alive) continue;
+      if (!u.alive || !visibleToPlayer(u)) continue;
       if (u.isTower) { g.fillStyle = u.team === 'r' ? '#7fc4f0' : '#f08a7a'; g.fillRect(px(u.x) - 3, px(u.z) - 3, 6, 6); }
       else if (u.isAncient) { g.fillStyle = u.team === 'r' ? '#bfe4ff' : '#ffc8b8'; g.beginPath(); g.arc(px(u.x), px(u.z), 5, 0, 7); g.fill(); }
     }
     // юниты
     for (const u of units) {
-      if (!u.alive || u.isTower || u.isAncient || u.isCourier) continue;
+      if (!u.alive || !visibleToPlayer(u) || u.isTower || u.isAncient || u.isCourier) continue;
       if (u.isHero) g.fillStyle = u.team === 'r' ? '#3fd0ff' : '#ff5a4a';
       else g.fillStyle = u.team === 'r' ? '#3f8fd0' : '#d05a4a';
       g.beginPath(); g.arc(px(u.x), px(u.z), u.isHero ? 3.4 : 1.8, 0, 7); g.fill();
@@ -3333,6 +3147,7 @@
     }
     tickEffects(dt);
     window.S2Effects?.update(dt);
+    applyFogVisibility();
     // вода
     if (waterGeo) {
       const pos = waterGeo.attributes.position;

@@ -10,9 +10,10 @@
     while (active.length >= limit) remove(active.shift());
     const T = window.THREE, group = new T.Group(), duration = ultimate ? 1.7 : .85;
     const radius = ultimate ? 8 : key === 'W' ? 5 : 3;
-    group.position.set(target.x, .16, target.z);
+    group.position.set(target.x, .75, target.z);
+    const family=from.heroDef?.id||'varg';
     const material = (opacity = 1) => new T.MeshBasicMaterial({color, transparent:true, opacity,
-      blending:T.AdditiveBlending, depthWrite:false, side:T.DoubleSide});
+      blending:T.AdditiveBlending, depthWrite:false, side:T.DoubleSide, toneMapped:false});
     for (let i = 0; i < 2; i++) {
       const ring = new T.Mesh(new T.RingGeometry(radius * (.65 + i * .3), radius * (.68 + i * .3), 64), material(.9));
       ring.rotation.x = -Math.PI / 2; ring.position.y = i * .08;
@@ -20,13 +21,26 @@
     }
     const count = ultimate ? 28 : 12;
     for (let i = 0; i < count; i++) {
-      const shard = new T.Mesh(new T.OctahedronGeometry(ultimate ? .22 : .12), material());
+      const shard = new T.Mesh(new T.OctahedronGeometry(ultimate ? .35 : .2), material());
+      if(['freya','vesper','astra'].includes(family))shard.geometry.scale(.6,3,.6);
       shard.userData = {kind:'shard', angle:i / count * Math.PI * 2, speed:2 + Math.random() * 4, phase:Math.random()};
       group.add(shard);
     }
     if (ultimate) {
       const beam = new T.Mesh(new T.CylinderGeometry(.12, 1.4, 15, 24, 1, true), material(.55));
       beam.position.y = 7.5; beam.userData.kind = 'pillar'; group.add(beam);
+    }
+    // Element-specific silhouettes rather than the same flash for every spell.
+    const elemental=['cinder','freya','varg','briar','ksul','vesper'].includes(family);
+    if(elemental){
+      for(let i=0;i<(ultimate?12:6);i++){
+        const angle=i*Math.PI*2/(ultimate?12:6),x=Math.cos(angle)*radius*.7,z=Math.sin(angle)*radius*.7;
+        let geo;
+        if(family==='freya')geo=new T.ConeGeometry(.45,3.4,5);
+        else if(family==='cinder')geo=new T.ConeGeometry(.6,3.2,12,1,true);
+        else {const curve=new T.CatmullRomCurve3([new T.Vector3(x,0,z),new T.Vector3(x*.7,2,z*.7),new T.Vector3(x*.4,3.8,z*.4),new T.Vector3(-x*.2,4.5,-z*.2)]);geo=new T.TubeGeometry(curve,16,.06,5,false);}
+        const rune=new T.Mesh(geo,material(.75));if(['freya','cinder'].includes(family))rune.position.set(x,1.5,z);rune.userData.kind='growth';group.add(rune);
+      }
     }
     // Arcing ribbons link the caster to the impact without obscuring units.
     if (Math.hypot(from.x - target.x, from.z - target.z) > 2) {
@@ -35,7 +49,7 @@
       const ribbon = new T.Mesh(new T.TubeGeometry(curve, 20, ultimate ? .12 : .055, 5, false), material(.65));
       ribbon.userData.kind = 'ribbon'; group.add(ribbon);
     }
-    scene.add(group); active.push({group, time:0, duration, radius});
+    scene.add(group); active.push({group, time:0, duration, radius,source:{x:from.x,z:from.z}});
   }
   function update(dt) {
     for (let i = active.length - 1; i >= 0; i--) {
@@ -51,6 +65,7 @@
           o.rotation.set(p * 5, angle + p * 3, p * 2); o.scale.setScalar(1 - p * .7);
         }
         if (o.userData.kind === 'pillar') o.scale.set(1 - p * .8, 1, 1 - p * .8);
+        if (o.userData.kind === 'growth')o.scale.y=Math.sin(p*Math.PI)*1.2;
       }
     }
   }
@@ -77,5 +92,6 @@
       }
     }
   }
-  window.S2Effects = {cast, update, clear, decorate, get count(){return active.length;}};
+  function visibility(canSee){for(const e of active)e.group.visible=canSee(e.group.position.x,e.group.position.z)&&canSee(e.source.x,e.source.z);}
+  window.S2Effects = {cast, update, clear, decorate, visibility, get count(){return active.length;}};
 })();

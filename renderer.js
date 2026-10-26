@@ -3652,6 +3652,7 @@ let optTimerInt = null;
 function optDraw() {
   const cv = document.getElementById("optChart");
   if (!cv) return;
+  if(window.CasinoArt)return CasinoArt.chart(cv,optTicks,optStartPrice,optPrice);
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
@@ -4355,6 +4356,7 @@ const WHEEL_KIND_COLOR = (id) => id.startsWith('fine') ? '#c0392b' : id.startsWi
 function wheelDraw(rotation) {
   const cv = document.getElementById("wheelCanvas");
   if (!cv || !wheelSectors.length) return;
+  if(window.CasinoArt)return CasinoArt.wheel(cv,wheelSectors,rotation);
   const ctx = cv.getContext("2d");
   const R = cv.width / 2, cx = R, cy = R;
   const total = wheelSectors.reduce((s, x) => s + x.w, 0);
@@ -4952,6 +4954,7 @@ function raceAnimLoop() {
   raceAnimId = requestAnimationFrame(raceAnimLoop);
   const cv = document.getElementById("raceCanvas");
   if (!cv || !raceCache) return;
+  if(window.CasinoArt)return CasinoArt.race(cv,raceCache,raceSmooth);
   const ctx = cv.getContext("2d");
   const W = cv.width, H = cv.height;
   // небо и земля
@@ -5025,6 +5028,7 @@ window.caseEnter = async () => {
 function caseDraw(state, reward) {
   const cv = document.getElementById("caseCanvas");
   if (!cv) return;
+  if(window.CasinoArt)return CasinoArt.chest(cv,state,reward);
   const ctx = cv.getContext("2d");
   const W = cv.width, H = cv.height;
   ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, W, H);

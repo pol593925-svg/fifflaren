@@ -4,8 +4,8 @@
 
   const QUALITY = Object.freeze({
     low: { dpr: 1, shadow: 1024, anisotropy: 2, lamps: 2 },
-    balanced: { dpr: 1.5, shadow: 2048, anisotropy: 4, lamps: 3 },
-    high: { dpr: 2, shadow: 4096, anisotropy: 8, lamps: 4 },
+    balanced: { dpr: 1, shadow: 2048, anisotropy: 4, lamps: 3 },
+    high: { dpr: 1.5, shadow: 2048, anisotropy: 8, lamps: 4 },
   });
   const ASSETS = 'models/csgo/';
   let operatorPromise = null;

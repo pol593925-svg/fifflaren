@@ -793,8 +793,8 @@
     return t;
   }
   let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null;
-  let graphicsQuality = 'high';
-  try { graphicsQuality = localStorage.getItem('cs16-graphics-quality') || 'high'; } catch (_) {}
+  let graphicsQuality = navigator.deviceMemory && navigator.deviceMemory<=4 ? 'low' : 'balanced';
+  try { graphicsQuality = localStorage.getItem('cs16-graphics-quality') || graphicsQuality; } catch (_) {}
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
@@ -837,6 +837,7 @@
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
+      if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
       worldReady = true; ui.loading.style.display = 'none';
       ensureSocket(); doJoin();
     } catch(error) {
@@ -849,6 +850,7 @@
       ui.loadingRetry.hidden = false;
     } finally { loadEnded = true; clearTimeout(timer); }
   }
+  function placePlayerSpawn(pos){const base=me.team==='t'?[curMap==='inferno'?206:194,0,curMap==='inferno'?422:434]:[230,0,38];const safe=CS16Props.safeSpawn(grid,pos||base);P.x=safe[0];P.y=0;P.z=safe[2];P.vx=P.vy=P.vz=0;P.onGround=true;}
   function resize3() {
     if (!renderer3) return;
     const w = canvasEl.clientWidth || 800, h = canvasEl.clientHeight || 500;
@@ -1342,7 +1344,7 @@
       state = s;
       if (s.now) clockOffset = s.now - Date.now();
       const my = s.players.find(p => p.nick === myNick);
-      if (my) { me.team = my.team ?? me.team; me.money = my.money; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
+      if (my) { me.team = my.team; me.money = my.money; me.alive=!!my.alive&&!!my.team; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
       // 3.24.0: смена карты — пересобираем мир
       if (s.map && s.map !== curMap && typeof rebuildWorld === 'function') rebuildWorld(s.map);
       if (s.phase === 'lobby') { renderLobby(); return; }
@@ -1395,10 +1397,11 @@
       state.round = d.round; state.scores = d.scores;
       if(state.gm==='cq'){primary=me.team==='t'?'ak47':'m4a1';current=primary;me.armor=100;}
       const sp = (d.spawns || []).find(x => {
+        if(x.nick===myNick||x.id===sock?.id)return true;
         const pl = state.players.find(p => p.id === x.id);
         return pl && pl.nick === myNick;
       });
-      me.alive = true; me.hp = 100;
+      me.alive = !!me.team; me.hp = 100;
       scoped = false; reloading = 0; bloom = 0;
       nades.he = 0; nades.flash = 0; nades.smoke = 0;
       // Сброс боезапаса (все стволы)
@@ -1406,7 +1409,7 @@
       for (const k in WEAPONS) { const w = WEAPONS[k]; if (w.melee || w.nade) continue; ammo[k] = { mag: w.mag, reserve: w.reserve }; }
       if (!primary) current = (secondary && WEAPONS[secondary]) ? secondary : (me.team === 't' ? 'glock' : 'usp');
       else current = primary;
-      if (sp) { P.x = sp.pos[0]; P.y = 0; P.z = sp.pos[2]; P.vx = P.vy = P.vz = 0; }
+      placePlayerSpawn(sp?.pos);
       // ставим соперников на их спавны, чтобы не мелькали в углу
       const spawnNicks = new Set();
       for (const s of (d.spawns || [])) {
@@ -1423,7 +1426,7 @@
       bombPlanted = null; action = null; lastBeep = -1;
       removeBombMesh();
       // 3.15.7: полная очистка поля — летящие гранаты и трассеры прошлого раунда
-      for (const n of nadesList) scene.remove(n.mesh);
+      for (const n of nadesList) disposeNade(n.mesh);
       clearVehicles();
       nadesList.length = 0;
       clearShotEffects();
@@ -1627,14 +1630,14 @@
       if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;r.x=r.tx=d.pos[0];r.y=r.ty=0;r.z=r.tz=d.pos[2];}return;}
       if(myVeh){if(myVeh.passenger)exitVehicle(false);else{scene.remove(myVeh.obj);myVeh=null;}}
       me.alive=true;me.hp=100;me.armor=100;specTarget=null;scoped=false;reloading=0;bloom=0;flashAlpha=0;
-      P.x=d.pos[0];P.y=0;P.z=d.pos[2];P.vx=P.vy=P.vz=0;primary=d.weapon;secondary=me.team==='t'?'glock':'usp';current=primary;
+      placePlayerSpawn(d.pos);primary=d.weapon;secondary=me.team==='t'?'glock':'usp';current=primary;
       for(const id of [primary,secondary]){const w=WEAPONS[id];ammo[id]={mag:w.mag,reserve:w.reserve};}nades.he=nades.flash=nades.smoke=0;
       centerMsg('',0);ui.centerMsg.style.display='none';killfeed('Возрождение · защита 1,8 сек · B — магазин');
     });
     sock.on('cs16_gg_respawn', (d) => {
       if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;if(d.pos){r.x=r.tx=d.pos[0];r.y=r.ty=d.pos[1];r.z=r.tz=d.pos[2];}}return;}
       me.alive = true; me.hp = 100;
-      if (d.pos) { P.x = d.pos[0]; P.y = d.pos[1]; P.z = d.pos[2]; P.vx = P.vy = P.vz = 0; }
+      if(d.pos)placePlayerSpawn(d.pos);
       centerMsg('', 0); if (ui.centerMsg) ui.centerMsg.style.display = 'none';
     });
   }
@@ -1662,7 +1665,7 @@
   function addRemote(nick, team) {
     // 3.15.7: если моделька уже есть — удаляем старую (иначе дубли накапливаются в сцене)
     const prev = remotes.get(nick);
-    if (prev) { disposeGun(prev.gun); scene.remove(prev.group); remotes.delete(nick); }
+    if (prev) { disposeOperator(prev); remotes.delete(nick); }
     const g = CS16Graphics.createOperator(team);
     if (!g) throw new Error('Operator assets must load before joining a match');
     const torso = g.getObjectByName('torso'), head = g.getObjectByName('head');
@@ -1721,11 +1724,12 @@
       if (o.isMesh) for (const m of [].concat(o.material)) if (m.userData.cs16Owned) m.dispose();
     });
   }
+  function disposeOperator(r){disposeGun(r.gun);r.group.traverse(o=>{if(o.isSkinnedMesh)o.skeleton?.dispose();if(o.isSprite){if(o!==r.muzzleFx)o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
   function removeRemote(nick) {
     const r = remotes.get(nick);
-    if (r) { disposeGun(r.gun); scene.remove(r.group); remotes.delete(nick); }
+    if (r) { disposeOperator(r); remotes.delete(nick); }
   }
-  function remotesClear() { for (const n of [...remotes.keys()]) removeRemote(n); for (const n of nadesList) scene.remove(n.mesh); nadesList.length = 0; clearVehicles(); }
+  function remotesClear() { for (const n of [...remotes.keys()]) removeRemote(n); for (const n of nadesList) disposeNade(n.mesh); nadesList.length = 0; clearVehicles(); }
 
   // ---------- ЭФФЕКТЫ ----------
   // 3.22.0: вспышка выстрела — аддитивная звезда + точечный свет, видны ВСЕМ (и на стенах)
@@ -1825,17 +1829,19 @@
     if (glbN) {
       mesh = glbN.clone();
       mesh.scale.multiplyScalar(1.1);
-      mesh.traverse(o => { if (o.isMesh && kind === 'flash') o.material = new THREE.MeshStandardMaterial({ color: 0xdddddd }); });
+      mesh.traverse(o => { if (o.isMesh && kind === 'flash') {o.material = new THREE.MeshStandardMaterial({ color: 0xdddddd });o.material.userData.cs16Owned=true;} });
     } else {
       mesh = new THREE.Mesh(
         new THREE.SphereGeometry(0.16, 8, 6),
         new THREE.MeshStandardMaterial({ color: kind === 'flash' ? 0xeeeeee : 0x3a5f2a })
       );
     }
+    mesh.userData.sharedGrenade=!!glbN;
     mesh.position.set(pos[0], pos[1], pos[2]);
     scene.add(mesh);
     nadesList.push({ mesh, vx: vel[0], vy: vel[1], vz: vel[2], kind, fuse: 1.5, mine: isMine, boomSent: false });
   }
+  function disposeNade(mesh){mesh.removeFromParent();if(mesh.userData.sharedGrenade)disposeGun(mesh);else disposeShot(mesh);}
   function stepNades(dt) {
     for (let i = nadesList.length - 1; i >= 0; i--) {
       const n = nadesList[i];
@@ -1858,7 +1864,7 @@
       n.mesh.position.set(nx, ny, nz);
       n.fuse -= dt;
       if (n.fuse <= 0) {
-        scene.remove(n.mesh);
+        disposeNade(n.mesh);
         nadesList.splice(i, 1);
         if (n.mine && !n.boomSent) {
           n.boomSent = true;
@@ -1878,7 +1884,7 @@
     const born = performance.now();
     (function anim() {
       const k = (performance.now() - born) / 350;
-      if (k >= 1) { scene.remove(s); return; }
+      if (k >= 1) { disposeShot(s); return; }
       s.scale.setScalar(0.5 + k * (kind === 'flash' ? 4 : 6));
       s.material.opacity = 0.9 * (1 - k);
       requestAnimationFrame(anim);

@@ -808,35 +808,46 @@
     bombPlanted = null; removeBombMesh();
     buildWorld();
   }
-  function buildWorld() {
+  let worldLoadEpoch = 0;
+  async function buildWorld() {
+    const epoch = ++worldLoadEpoch;
+    let active = null, timer, loadEnded = false;
     worldReady = false;
-    if(conquestUI){conquestUI.dispose();conquestUI=null;}
-    if (fieldProps) {fieldProps.dispose();fieldProps=null;}
-    if (worldGraphics) worldGraphics.dispose();
-    scene = new THREE.Scene();
-    scene.add(camera);
     ui.loading.style.display = 'flex';
-    ui.loadingText.textContent = 'Загрузка ' + MAP_META[curMap].name;
+    ui.loadingText.textContent = 'Подготовка ' + MAP_META[curMap].name;
     ui.loadingRetry.hidden = true;
-    const active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
-      map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality });
-    worldGraphics = active;
-    fieldProps=CS16Props.create(THREE,scene,grid,curMap);
-    conquestUI=CS16ConquestUI.create({T:THREE,scene,camera,hud:ui.hud,grid,getState:()=>state,getMe:()=>me,getPlayer:()=>P,getNick:()=>myNick,now:()=>Date.now()+clockOffset,send:(name,data)=>sock&&sock.emit(name,data),message:killfeed,lock:blocked=>{for(const key of Object.keys(keys))keys[key]=false;unlockForShop=blocked;if(blocked){if(document.pointerLockElement)document.exitPointerLock();}else if(me.alive&&state.phase==='live'&&!document.pointerLockElement)canvasEl.requestPointerLock();}});
-    Promise.all([active.ready, loadCombatArt()]).then(() => {
-      if (worldGraphics !== active) return;
-      worldReady = true;
-      ui.loading.style.display = 'none';
-      ensureSocket();
-      doJoin();
-    }).catch(error => {
-      if (worldGraphics !== active) return;
+    const progress = text => { if (!loadEnded && epoch === worldLoadEpoch) ui.loadingText.textContent = text; };
+    try {
+      if(conquestUI){conquestUI.dispose();conquestUI=null;}
+      if(fieldProps){fieldProps.dispose();fieldProps=null;}
+      if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
+      scene = new THREE.Scene(); scene.add(camera);
+      if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
+      active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
+        map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
+        onProgress: event => progress('Карта ' + MAP_META[curMap].name + (event.total ? ' · ' + Math.round(event.loaded / event.total * 100) + '%' : ' · ' + (event.loaded / 1048576).toFixed(1) + ' МБ')) });
+      worldGraphics = active;
+      // Attach rejection handling before any synchronous scene construction can fail.
+      const assets = Promise.all([active.ready.then(() => progress('Подготовка моделей и материалов…')), loadCombatArt()]);
+      assets.catch(() => {});
+      fieldProps = CS16Props.create(THREE,scene,grid,curMap);
+      conquestUI = CS16ConquestUI.create({T:THREE,scene,camera,hud:ui.hud,grid,getState:()=>state,getMe:()=>me,getPlayer:()=>P,getNick:()=>myNick,now:()=>Date.now()+clockOffset,send:(name,data)=>sock&&sock.emit(name,data),message:text=>killfeed(esc(text)),lock:blocked=>{for(const key of Object.keys(keys))keys[key]=false;unlockForShop=blocked;if(blocked){if(document.pointerLockElement)document.exitPointerLock();}else if(me.alive&&state.phase==='live'&&!document.pointerLockElement)canvasEl.requestPointerLock()?.catch(()=>{});}});
+      buildRadarBase(); resize3();
+      await Promise.race([assets, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Загрузка превысила 90 секунд. Закрой лишние приложения и повтори.')), 90000); })]);
+      if(epoch !== worldLoadEpoch)return;
+      // Catch first-frame shader/GPU errors before dismissing the loading screen.
+      renderer3.render(scene, camera);
+      worldReady = true; ui.loading.style.display = 'none';
+      ensureSocket(); doJoin();
+    } catch(error) {
+      if(epoch !== worldLoadEpoch)return;
+      worldReady = false;
+      if(active)active.dispose();
       console.error('CS graphics load:', error);
-      ui.loadingText.textContent = 'Не удалось загрузить карту. Повтори загрузку.';
+      ui.loading.style.display = 'flex';
+      ui.loadingText.textContent = 'Не удалось загрузить игру: ' + (error.message || String(error));
       ui.loadingRetry.hidden = false;
-    });
-    buildRadarBase();
-    resize3();
+    } finally { loadEnded = true; clearTimeout(timer); }
   }
   function resize3() {
     if (!renderer3) return;
@@ -1588,6 +1599,12 @@
             <td style="padding:4px 8px; text-align:right;">${((p.kills || 0) / Math.max(1, p.deaths || 0)).toFixed(2)}</td>
             <td style="padding:4px 8px; text-align:right; color:#ffc107;">⭐${p.lvl || 1}</td></tr>`).join('') +
           `</table>`;
+        if(d.players.some(p=>p.cqStats)){
+          const awards=document.createElement('div');awards.style.cssText='display:grid;gap:8px;margin:15px 0;color:#d9e8f1;font:13px Segoe UI';
+          for(const [label,value]of [['Лучший стрелок',p=>p.kills||0],['Захватчик',p=>p.cqStats?.captures||0],['Охотник на технику',p=>p.cqStats?.vehicles||0]]){const best=[...d.players].sort((a,b)=>value(b)-value(a))[0];if(best&&value(best)>0){const row=document.createElement('div');row.textContent=label+': '+best.nick+' · '+value(best);awards.append(row);}}
+          const table=document.createElement('div');table.style.cssText='max-height:240px;overflow:auto;border-top:1px solid #456;padding-top:10px';
+          for(const p of pl){const st=p.cqStats;if(!st)continue;const row=document.createElement('div');row.style.cssText='padding:6px 0';row.textContent=p.nick+' · флаги '+st.captures+' · защита '+st.defenses+' · техника '+st.vehicles+' · убийства с техники '+st.vehicleKills+' · командные очки +'+st.teamwork;table.append(row);}awards.append(table);ui.scoreboard.append(awards);
+        }
         ui.scoreboard.style.display = 'block';
         setTimeout(() => { ui.scoreboard.style.display = 'none'; }, 12000);
       }
@@ -1603,6 +1620,7 @@
       killfeed(`🔫 GG: теперь у тебя ${WEAPONS[d.weapon].name}`);
     });
     sock.on('cs16_cq_flag',d=>killfeed('⚑ Флаг '+d.label+' захвачен '+(d.owner==='ct'?'CT':'T')+' · участникам +$750'));
+    sock.on('cs16_ping',d=>conquestUI?.ping(d));
     sock.on('cs16_artillery',d=>{if(conquestUI)conquestUI.strike(d);});
     sock.on('cs16_artillery_impact',d=>{explodeFx(d.pos,'he');if(Math.hypot(P.x-d.pos[0],P.z-d.pos[2])<65){sfxExplosion();shake=Math.max(shake,.35);}});
     sock.on('cs16_cq_respawn',d=>{
@@ -1614,6 +1632,7 @@
       centerMsg('',0);ui.centerMsg.style.display='none';killfeed('Возрождение · защита 1,8 сек · B — магазин');
     });
     sock.on('cs16_gg_respawn', (d) => {
+      if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;if(d.pos){r.x=r.tx=d.pos[0];r.y=r.ty=d.pos[1];r.z=r.tz=d.pos[2];}}return;}
       me.alive = true; me.hp = 100;
       if (d.pos) { P.x = d.pos[0]; P.y = d.pos[1]; P.z = d.pos[2]; P.vx = P.vy = P.vz = 0; }
       centerMsg('', 0); if (ui.centerMsg) ui.centerMsg.style.display = 'none';
@@ -2647,6 +2666,7 @@
         return;
       }
       if(k==='j'&&!e.repeat){conquestUI?.open();return;}
+      if(k==='z'&&!e.repeat){conquestUI?.openPing();return;}
       if (k === 'b') openBuy();
       if (k === 'e' && !e.repeat) tryVehToggle();
       if (k === 'm') { sock && me.team && sock.emit('cs16_swap'); }

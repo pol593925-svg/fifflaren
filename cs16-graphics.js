@@ -51,10 +51,10 @@
     if (root.parent) root.parent.remove(root);
   }
 
-  function loadGLTF(T, path) {
+  function loadGLTF(T, path, onProgress) {
     if (!T.GLTFLoader) return Promise.reject(new Error('GLTFLoader is not loaded'));
     return new Promise((resolve, reject) => {
-      new T.GLTFLoader().load(path, resolve, undefined, error => {
+      new T.GLTFLoader().load(path, resolve, onProgress, error => {
         const reason = error && error.message || 'asset unavailable';
         reject(new Error('Cannot load ' + path + ': ' + reason));
       });
@@ -164,9 +164,9 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xd0d5d3 : 0xd6d7cc, 320, 980);
 
-    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x93816a, 1.0);
+    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x93816a, 0.72);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xfff0d5, 3.15);
+    const sun = new T.DirectionalLight(0xfff0d5, 2.75);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -246,7 +246,7 @@
       });
     }
 
-    const ready = loadGLTF(T, ASSETS + mapName + '.glb').then(gltf => {
+    const ready = loadGLTF(T, ASSETS + mapName + '.glb', options.onProgress).then(gltf => {
       if (disposed) {
         disposeTree(gltf.scene);
         const error = new Error('World was replaced while loading');

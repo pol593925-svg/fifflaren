@@ -805,23 +805,14 @@ function sendOvertime() {
 }
 
 // ==================== КОЛЫ ====================
-function sendCallEntry() {
-  const callType = document.getElementById("callTypeSelect")?.value || "";
-  const serviceName = document.getElementById("callServiceName")?.value.trim() || "";
-  const callLink = document.getElementById("callLinkInput")?.value.trim() || "";
-  const callNote = document.getElementById("callNoteInput")?.value.trim() || "";
-
-  if (!serviceName || !callLink) { alert("Заполните название и ссылку!"); return; }
-
-  sendToGoogleSheet({ type: "Колы", nick: currentUser, callType, serviceName, callLink, callNote });
-  sendEventToServer('call', { callType, serviceName, callLink, callNote });
-
-  document.getElementById("callServiceName").value = "";
-  document.getElementById("callLinkInput").value = "";
-  document.getElementById("callNoteInput").value = "";
-
-  const status = document.getElementById("callStatus");
-  if (status) { status.innerText = "✅ Колл отправлен!"; setTimeout(() => status.innerText = "", 3000); }
+async function sendCallEntry() {
+  const callType=document.getElementById('callTypeSelect').value,serviceName=document.getElementById('callServiceName').value.trim(),callLink=document.getElementById('callLinkInput').value.trim(),callNote=document.getElementById('callNoteInput').value.trim();
+  const status=document.getElementById('callStatus'),button=document.getElementById('sendCallBtn');
+  if(!serviceName||!callLink){status.textContent='Укажи название и ссылку.';return;}
+  button.disabled=true;status.textContent='Отправляем…';
+  try{await HubCalls.submit({callType,serviceName,callLink,callNote});sendToGoogleSheet({type:'Колы',nick:currentUser,callType,serviceName,callLink,callNote});
+    for(const id of ['callServiceName','callLinkInput','callNoteInput'])document.getElementById(id).value='';status.textContent='Колл отправлен · В ожидании';
+  }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
 }
 
 // ==================== ОТПРОСИТЬСЯ ====================

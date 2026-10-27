@@ -792,7 +792,7 @@
     skinTexCache[id] = t;
     return t;
   }
-  let worldGraphics = null, worldReady = false;
+  let worldGraphics = null, worldReady = false, fieldProps=null;
   let graphicsQuality = 'high';
   try { graphicsQuality = localStorage.getItem('cs16-graphics-quality') || 'high'; } catch (_) {}
   function initScene() {
@@ -810,6 +810,7 @@
   }
   function buildWorld() {
     worldReady = false;
+    if (fieldProps) {fieldProps.dispose();fieldProps=null;}
     if (worldGraphics) worldGraphics.dispose();
     scene = new THREE.Scene();
     scene.add(camera);
@@ -819,6 +820,7 @@
     const active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
       map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality });
     worldGraphics = active;
+    fieldProps=CS16Props.create(THREE,scene,grid,curMap);
     Promise.all([active.ready, loadCombatArt()]).then(() => {
       if (worldGraphics !== active) return;
       worldReady = true;
@@ -1375,6 +1377,7 @@
       banner('🥾 Тебя выкинул из комнаты Fifflaren', '#ff7777', 5000);
     });
     sock.on('cs16_round_start', (d) => {
+      if(fieldProps)fieldProps.reset();
       state.round = d.round; state.scores = d.scores;
       const sp = (d.spawns || []).find(x => {
         const pl = state.players.find(p => p.id === x.id);
@@ -1522,6 +1525,7 @@
         killfeed('💥 Твою технику подбили!');
       } else removeVehicleOf(d.by);
     });
+    sock.on('cs16_props',d=>{if(!fieldProps||d.map!==curMap||!Array.isArray(d.ids))return;for(const id of d.ids)fieldProps.destroy(id,!d.snapshot);});
     sock.on('cs16_vehcrate', (d) => { if (d) destroyCrate(d.x, d.y, false); });
     sock.on('cs16_boom', (d) => {
       explodeFx(d.pos, d.kind);
@@ -2326,6 +2330,8 @@
       let mv = 0; if (controls.w) mv = 1; else if (controls.s) mv = -0.5;
       if (controls.a) v.yaw += dt * 1.6;
       if (controls.d) v.yaw -= dt * 1.6;
+      v.propAcc=(v.propAcc||0)+dt;
+      if(mv&&fieldProps&&v.propAcc>.12){v.propAcc=0;const ids=fieldProps.near(v.x,v.z);if(ids.length)sock.emit('cs16_props',{ids});}
       const sp = VEH_TYPES[v.variant||v.kind].speed * mv;
       let nx = v.x + Math.cos(v.yaw) * sp * dt, nz = v.z - Math.sin(v.yaw) * sp * dt;
       [nx, nz] = vehCollide(nx, nz, 1.9);
@@ -2889,6 +2895,7 @@
       const moving = keys.w || keys.a || keys.s || keys.d;
       sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
     }
+    if(fieldProps)fieldProps.update(Math.min(.05,dt));
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);
     } catch (err) {

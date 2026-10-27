@@ -792,7 +792,7 @@
     skinTexCache[id] = t;
     return t;
   }
-  let worldGraphics = null, worldReady = false, fieldProps=null;
+  let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null;
   let graphicsQuality = 'high';
   try { graphicsQuality = localStorage.getItem('cs16-graphics-quality') || 'high'; } catch (_) {}
   function initScene() {
@@ -810,6 +810,7 @@
   }
   function buildWorld() {
     worldReady = false;
+    if(conquestUI){conquestUI.dispose();conquestUI=null;}
     if (fieldProps) {fieldProps.dispose();fieldProps=null;}
     if (worldGraphics) worldGraphics.dispose();
     scene = new THREE.Scene();
@@ -821,6 +822,7 @@
       map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality });
     worldGraphics = active;
     fieldProps=CS16Props.create(THREE,scene,grid,curMap);
+    conquestUI=CS16ConquestUI.create({T:THREE,scene,camera,hud:ui.hud,grid,getState:()=>state,getMe:()=>me,getPlayer:()=>P,getNick:()=>myNick,now:()=>Date.now()+clockOffset,send:(name,data)=>sock&&sock.emit(name,data),message:killfeed,lock:blocked=>{for(const key of Object.keys(keys))keys[key]=false;unlockForShop=blocked;if(blocked){if(document.pointerLockElement)document.exitPointerLock();}else if(me.alive&&state.phase==='live'&&!document.pointerLockElement)canvasEl.requestPointerLock();}});
     Promise.all([active.ready, loadCombatArt()]).then(() => {
       if (worldGraphics !== active) return;
       worldReady = true;
@@ -1230,16 +1232,17 @@
       .map(p => `<div style="padding:3px 8px; background:#26221a; margin:3px 0; border-radius:4px;">${esc(p.nick)}${p.bot ? ' 🤖' : ''} ${p.lvl ? `<span style="color:#ffc107; font-size:11px;" title="Уровень">⭐${p.lvl}</span>` : ''} <span style="color:#888; font-size:11px;">${p.kills || 0}/${p.deaths || 0}</span>${adminBtns(p)}</div>`).join('');
     const spectators = state.players.filter(p => !p.team).map(p => `<div class="cs16-spectator"><span>${esc(p.nick)}${p.nick === state.host ? ' <small>ХОСТ</small>' : ''}</span>${adminBtns(p)}</div>`).join('');
     const mapName = curMap === 'inferno' ? 'de_inferno' : 'de_dust2';
-    const gmName = state.gm === 'gg' ? 'Gun-Game' : 'Классика (C4)';
+    const gmName = state.gm==='cq'?'Захват · 10 минут / 50 убийств':state.gm === 'gg' ? 'Gun-Game' : 'Классика (C4)';
     ui.lobby.innerHTML = `
       <div style="max-width:760px; margin:0 auto;">
-        <div style="font:bold 26px monospace; color:#e8c34a; text-align:center;">COUNTER-STRIKE <span style="color:#999; font-size:13px;">${mapName} · ${gmName}${state.gm !== 'gg' ? ' · матч до 16 побед · MR15' : ''}</span></div>
+        <div style="font:bold 26px monospace; color:#e8c34a; text-align:center;">COUNTER-STRIKE <span style="color:#999; font-size:13px;">${mapName} · ${gmName}${state.gm === 'classic' ? ' · матч до 16 побед · MR15' : ''}</span></div>
         <div style="display:flex; gap:10px; justify-content:center; margin-top:8px; font:12px monospace; color:#ccc; flex-wrap:wrap;">
           <span>Карта:
             <button class="cs16MapBtn" data-m="dust2" style="padding:3px 10px; cursor:pointer; background:${(!state.map || state.map === 'dust2') ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_dust2</button>
             <button class="cs16MapBtn" data-m="inferno" style="padding:3px 10px; cursor:pointer; background:${state.map === 'inferno' ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_inferno</button>
           </span>
           <span>Режим:
+            <button class="cs16GmBtn" data-g="cq" style="padding:5px 12px;cursor:pointer;background:#315951;color:#fff;border:1px solid #71b79f;">⚑ Захват · 10 мин / 50</button>
             <button class="cs16GmBtn" data-g="classic" style="padding:3px 10px; cursor:pointer; background:${(!state.gm || state.gm === 'classic') ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">Классика</button>
             <button class="cs16GmBtn" data-g="gg" style="padding:3px 10px; cursor:pointer; background:${state.gm === 'gg' ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">Gun-Game</button>
           </span>
@@ -1379,6 +1382,7 @@
     sock.on('cs16_round_start', (d) => {
       if(fieldProps)fieldProps.reset();
       state.round = d.round; state.scores = d.scores;
+      if(state.gm==='cq'){primary=me.team==='t'?'ak47':'m4a1';current=primary;me.armor=100;}
       const sp = (d.spawns || []).find(x => {
         const pl = state.players.find(p => p.id === x.id);
         return pl && pl.nick === myNick;
@@ -1468,6 +1472,7 @@
         ? `☠️ ${esc(d.killer)} → ${esc(d.nick)}${d.head ? ' 🎯' : ''}`
         : (d.weapon === 'swap' ? `🔁 ${esc(d.nick)} сменил команду` : `💥 ${esc(d.nick)} разорвало гранатой`));
       if (d.nick === myNick) {
+        if(conquestUI)conquestUI.abort();
         me.alive = false; scoped = false; closeBuy(); if (myVeh && myVeh.inside) exitVehicle();
         primary = null; current = me.team === 't' ? 'glock' : 'usp'; // убитый роняет основное оружие
         centerMsg(d.weapon === 'swap'
@@ -1596,6 +1601,17 @@
       if (PISTOLS[d.weapon]) secondary = d.weapon; else primary = d.weapon;
       ammo[d.weapon] = { mag: WEAPONS[d.weapon].mag, reserve: WEAPONS[d.weapon].reserve };
       killfeed(`🔫 GG: теперь у тебя ${WEAPONS[d.weapon].name}`);
+    });
+    sock.on('cs16_cq_flag',d=>killfeed('⚑ Флаг '+d.label+' захвачен '+(d.owner==='ct'?'CT':'T')+' · участникам +$750'));
+    sock.on('cs16_artillery',d=>{if(conquestUI)conquestUI.strike(d);});
+    sock.on('cs16_artillery_impact',d=>{explodeFx(d.pos,'he');if(Math.hypot(P.x-d.pos[0],P.z-d.pos[2])<65){sfxExplosion();shake=Math.max(shake,.35);}});
+    sock.on('cs16_cq_respawn',d=>{
+      if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;r.x=r.tx=d.pos[0];r.y=r.ty=0;r.z=r.tz=d.pos[2];}return;}
+      if(myVeh){if(myVeh.passenger)exitVehicle(false);else{scene.remove(myVeh.obj);myVeh=null;}}
+      me.alive=true;me.hp=100;me.armor=100;specTarget=null;scoped=false;reloading=0;bloom=0;flashAlpha=0;
+      P.x=d.pos[0];P.y=0;P.z=d.pos[2];P.vx=P.vy=P.vz=0;primary=d.weapon;secondary=me.team==='t'?'glock':'usp';current=primary;
+      for(const id of [primary,secondary]){const w=WEAPONS[id];ammo[id]={mag:w.mag,reserve:w.reserve};}nades.he=nades.flash=nades.smoke=0;
+      centerMsg('',0);ui.centerMsg.style.display='none';killfeed('Возрождение · защита 1,8 сек · B — магазин');
     });
     sock.on('cs16_gg_respawn', (d) => {
       me.alive = true; me.hp = 100;
@@ -1953,6 +1969,7 @@
   function updateAction(dt) {
     if(myVeh&&myVeh.inside&&ui.hint){action=null;ui.hint.textContent=(myVeh.passenger?'СТРЕЛОК':'WASD — управление')+' · Q — '+VEH_WEAPON_NAMES[myVeh.mode]+' · ЛКМ — огонь · E — выход'+(myVeh.kind==='heli'&&!myVeh.passenger?' · Space/Ctrl — высота':'');return;}
     if (!me.alive || state.phase !== 'live' || !ui.hint) { action = null; return; }
+    if(state.gm==='cq'){action=null;ui.hint.textContent='⚑ Захватывай флаги · +$750 за захват · доход каждые 10 сек · J — артобстрел';return;}
     let want = null;
     if (me.team === 't' && !bombPlanted && siteOf()) want = { type: 'plant', need: 3, site: siteOf() };
     else if (me.team === 'ct' && bombPlanted && nearBomb()) want = { type: 'defuse', need: me.kit ? 5 : 10 };
@@ -2020,7 +2037,7 @@
     vm.rotation.x += vmKick*(melee ? -.7 : .23);
     vm.rotation.z = vmKick*(melee ? -.9 : -.06);
     if(shake>0){vm.position.x+=Math.sin(t*.071)*shake*.018;vm.position.y+=Math.cos(t*.083)*shake*.018;}
-    vm.visible = me.alive && !scoped && !(myVeh && myVeh.inside);
+    vm.visible = me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
   }
 
   // ---------- СТРЕЛЬБА ----------
@@ -2566,6 +2583,7 @@
       }
     });
     canvasEl.addEventListener('mousedown', (e) => {
+      if(conquestUI?.blocked)return;
       if (state.phase === 'lobby') return;
       if (!pointerLocked) { canvasEl.requestPointerLock(); return; }
       if (e.button === 0) {
@@ -2590,6 +2608,7 @@
       cycleSlot(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
     window.addEventListener('mousemove', (e) => {
+      if(conquestUI?.blocked)return;
       if (!pointerLocked || !me.alive) return;
       const sens = scoped ? 0.0009 : 0.0023;
       P.yaw -= e.movementX * sens;
@@ -2603,6 +2622,7 @@
       'я':'z','ч':'x','с':'c','м':'v','и':'b','т':'n','ь':'m' };
     const normK = k => RU2EN[k] || k;
     window.addEventListener('keydown', (e) => {
+      if(conquestUI?.blocked){if(e.key==='Escape'){e.preventDefault();conquestUI.abort();}return;}
       if (state.phase === 'lobby' || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
       keys[normK(e.key.toLowerCase())] = true;
       if (e.code === 'Space') { keys.space = true; e.preventDefault(); }
@@ -2626,6 +2646,7 @@
         if (k === 'b' || k === 'escape') closeBuy();
         return;
       }
+      if(k==='j'&&!e.repeat){conquestUI?.open();return;}
       if (k === 'b') openBuy();
       if (k === 'e' && !e.repeat) tryVehToggle();
       if (k === 'm') { sock && me.team && sock.emit('cs16_swap'); }
@@ -2657,7 +2678,7 @@
     const left = Math.max(0, ends - nowSrv);
     const mm = String(Math.floor(left / 60000)), ss = String(Math.floor(left % 60000 / 1000)).padStart(2, '0');
     const phaseTxt = state.phase === 'freeze' ? 'ПОКУПКИ' : state.phase === 'live' ? '' : '—';
-    ui.topBar.textContent = `РАУНД ${state.round} · ${mm}:${ss} ${phaseTxt}`;
+    ui.topBar.textContent = state.gm==='cq'?`ЗАХВАТ · ${mm}:${ss} · ДО 50 ${phaseTxt}`:`РАУНД ${state.round} · ${mm}:${ss} ${phaseTxt}`;
     ui.scoreT.textContent = 'T  ' + state.scores.t;
     ui.scoreCT.textContent = state.scores.ct + '  CT';
     ui.hpTxt.textContent = '+ ' + Math.max(0, me.hp);
@@ -2872,7 +2893,8 @@
           camera.fov += (75 - camera.fov) * Math.min(1, dt * 10);
           camera.updateProjectionMatrix();
           updateHud();
-          worldGraphics.update(camera, t);
+          if(conquestUI)conquestUI.update(t);
+    worldGraphics.update(camera, t);
           renderer3.render(scene, camera);
           return; // пропускаем собственную камеру
         }
@@ -2896,6 +2918,7 @@
       sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
     }
     if(fieldProps)fieldProps.update(Math.min(.05,dt));
+    if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);
     } catch (err) {

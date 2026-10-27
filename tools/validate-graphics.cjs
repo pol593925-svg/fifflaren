@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert/strict'),vm=require('vm');
 const root=path.resolve(__dirname,'..'),assets=path.join(root,'models/csgo');
 const source=fs.readFileSync(path.join(root,'cs16.js'),'utf8');
-for(const file of ['cs16.js','cs16-graphics.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
+for(const file of ['cs16.js','cs16-graphics.js','cs16-props.js','cs16-conquest-ui.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
 const maps=vm.runInNewContext('('+source.match(/const MAP_ROWS = (\{[\s\S]*?\n  \});/)[1]+')');
 const manifest=JSON.parse(fs.readFileSync(path.join(assets,'maps-manifest.json')));
 function glb(file){

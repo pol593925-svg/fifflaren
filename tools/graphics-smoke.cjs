@@ -9,7 +9,7 @@ fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
  combatChecks:()=>{

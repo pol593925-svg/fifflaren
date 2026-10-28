@@ -132,6 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser = data.username;
         currentRole = data.role || 'user';
         HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
+      HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
         localStorage.setItem('support_hub_user', data.username);
         // 3.12.0: «Оставаться в системе»
@@ -185,6 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'swipe') loadSwipeQueue();
       if (tabName === 'tops') loadTops();
       if (tabName === 'battleship') bsTabOpen();
+      if (tabName === 'voxel') HubVoxels.open();
       if (tabName === 'cs16' && typeof window.__cs16Open === 'function') window.__cs16Open(currentUser);
       if (tabName === 'support2' && typeof window.__s2Open === 'function') window.__s2Open(currentUser);
     });
@@ -4833,6 +4835,7 @@ document.addEventListener('keydown', (e) => {
       currentUser = data.username;
       currentRole = data.role || 'user';
       HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
+      HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);
       localStorage.setItem('support_hub_user', data.username);
       if (authScreen) authScreen.style.display = 'none';
@@ -4850,7 +4853,8 @@ document.addEventListener('keydown', (e) => {
 })();
 
 // 3.12.0: кнопка выхода из аккаунта
-bindClick("logoutBtn", () => {
+bindClick("logoutBtn", async () => {
+  await HubVoxels.leave();
   localStorage.clear();
   location.reload();
 });

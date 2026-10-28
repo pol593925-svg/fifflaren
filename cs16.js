@@ -796,10 +796,21 @@
   let graphicsQuality = navigator.deviceMemory && navigator.deviceMemory<=4 ? 'low' : 'balanced';
   try { graphicsQuality = localStorage.getItem('cs16-graphics-quality') || graphicsQuality; } catch (_) {}
   function initScene() {
-    renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
+    renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: false, powerPreference:'low-power' });
+    canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();worldReady=false;resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
+    canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1600);
     buildWorld();
+  }
+  function releaseLostGraphics(){
+    remotesClear();clearShotEffects();removeBombMesh();
+    if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
+    if(fieldProps){fieldProps.dispose();fieldProps=null;}
+    if(conquestUI){conquestUI.dispose();conquestUI=null;}
+    if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
+    for(const d of dmgNums){d.sp.removeFromParent();d.sp.material.map?.dispose();d.sp.material.dispose();}dmgNums.length=0;
+    for(const s of smokes){s.mesh.removeFromParent();s.mesh.children.forEach(p=>p.material.dispose());}smokes.length=0;
   }
   function rebuildWorld(name) {
     loadMap(name);
@@ -812,7 +823,7 @@
   async function buildWorld() {
     const epoch = ++worldLoadEpoch;
     let active = null, timer, loadEnded = false;
-    worldReady = false;
+    worldReady = false;resetBlindness();
     ui.loading.style.display = 'flex';
     ui.loadingText.textContent = 'Подготовка ' + MAP_META[curMap].name;
     ui.loadingRetry.hidden = true;
@@ -1105,7 +1116,7 @@
     ui.loadingText = el('div', '', ui.loading, 'Загрузка карты');
     ui.loadingText.setAttribute('role', 'status');
     ui.loadingRetry = el('button', '', ui.loading, 'Повторить');
-    ui.loadingRetry.hidden = true; ui.loadingRetry.onclick = () => buildWorld();
+    ui.loadingRetry.hidden = true; ui.loadingRetry.onclick = () => {if(renderer3?.getContext().isContextLost()){location.reload();return;}buildWorld();};
     window.addEventListener('resize', resize3);
   }
   // 3.32.0: магазин по вкладкам
@@ -1347,7 +1358,7 @@
       if (my) { me.team = my.team; me.money = my.money; me.alive=!!my.alive&&!!my.team; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
       // 3.24.0: смена карты — пересобираем мир
       if (s.map && s.map !== curMap && typeof rebuildWorld === 'function') rebuildWorld(s.map);
-      if (s.phase === 'lobby') { renderLobby(); return; }
+      if (s.phase === 'lobby'||!my?.team) { renderLobby(); return; }
       ui.lobby.style.display = 'none';
       ui.canvas.style.display = 'block';
       ui.hud.style.display = 'block';
@@ -1430,7 +1441,7 @@
       clearVehicles();
       nadesList.length = 0;
       clearShotEffects();
-      flashAlpha = 0; shake = 0;
+      resetBlindness(); shake = 0;
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
       closeBuy();
@@ -1561,7 +1572,7 @@
           const distK = Math.max(0.55, 1 - dist / 90);              // лёгкий спад на дистанции
           const a = dirK * distK;
           if (a > 0.04) {
-            flashAlpha = Math.max(flashAlpha, Math.min(1, a));
+            flashAlpha = Math.max(flashAlpha, Math.min(1, a));flashExpires=performance.now()+4500;
             if (a > 0.5) flashUntil = performance.now() + 3000; // 3.24.0: полное ослепление держится 3 секунды
             sfxFlash();
           }
@@ -1629,7 +1640,7 @@
     sock.on('cs16_cq_respawn',d=>{
       if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;r.x=r.tx=d.pos[0];r.y=r.ty=0;r.z=r.tz=d.pos[2];}return;}
       if(myVeh){if(myVeh.passenger)exitVehicle(false);else{scene.remove(myVeh.obj);myVeh=null;}}
-      me.alive=true;me.hp=100;me.armor=100;specTarget=null;scoped=false;reloading=0;bloom=0;flashAlpha=0;
+      me.alive=true;me.hp=100;me.armor=100;specTarget=null;scoped=false;reloading=0;bloom=0;resetBlindness();
       placePlayerSpawn(d.pos);primary=d.weapon;secondary=me.team==='t'?'glock':'usp';current=primary;
       for(const id of [primary,secondary]){const w=WEAPONS[id];ammo[id]={mag:w.mag,reserve:w.reserve};}nades.he=nades.flash=nades.smoke=0;
       centerMsg('',0);ui.centerMsg.style.display='none';killfeed('Возрождение · защита 1,8 сек · B — магазин');
@@ -1821,7 +1832,8 @@
   }
   const nadesList = [];
   const smokes = []; // дымовые завесы: {mesh, until}
-  let flashUntil = 0; // флешка держит белый экран 3 сек
+  function resetBlindness(){flashUntil=0;flashExpires=0;flashAlpha=0;if(ui.flash)ui.flash.style.opacity='0';}
+  let flashUntil = 0,flashExpires=0; // флешка держит белый экран 3 сек
   let flashAlpha = 0, shake = 0;
   function spawnNade(pos, vel, kind, isMine) {
     let mesh;
@@ -2801,6 +2813,7 @@
       const vis = !!(canvasEl && canvasEl.clientWidth > 0 && canvasEl.clientHeight > 0);
       if (vis !== fsActive) { fsActive = vis; document.getElementById('tab-cs16').classList.toggle('cs16-fullscreen',vis);resize3();try { if(ipcR)ipcR.send('cs16-fullscreen',vis); } catch(e){} }
     }
+    if(ui.flash&&performance.now()>Math.max(flashUntil+1200,flashExpires)){flashAlpha=0;ui.flash.style.opacity='0';}
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
     try {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
@@ -2960,7 +2973,7 @@
     if (!inited) {
       inited = true;
       buildUI();
-      initScene();
+      try{initScene();}catch(error){inited=false;ui.loading.style.display='flex';ui.loadingText.textContent='Не удалось запустить графику: '+error.message;ui.loadingRetry.hidden=false;ui.loadingRetry.onclick=()=>location.reload();console.error(error);return;}
       bindInput();
       loadSkins();
       requestAnimationFrame(loop);

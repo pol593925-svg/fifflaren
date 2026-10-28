@@ -11,14 +11,14 @@ document.addEventListener('DOMContentLoaded', () => {
     pm:['Личные сообщения','Разговоры один на один'], swipe:['Дайсерчвинчик','Знакомься с коллегами'],
     casino:['Казино','Время сделать перерыв'], tops:['Топ','Достижения и результаты участников'],
     battleship:['Морской бой','Тактика, флот и точный расчёт'], cs16:['Counter-Strike','Командная игра · Dust2 / Inferno'],
-    support2:['Support2','Собери команду и присоединяйся к матчу'], salary:['Зарплата','Расчёты и результаты за месяц'],
+    voxel:['Блочный мир','Один общий мир · постройки и инвентарь сохраняются'], support2:['Support2','Собери команду и присоединяйся к матчу'], salary:['Зарплата','Расчёты и результаты за месяц'],
     tlpanel:['ТЛ-панель','Управление командой и рабочими событиями'], admin:['Администрирование','Люди, настройки и управление приложением']
   };
   nav.setAttribute('aria-label','Разделы приложения');
   const brand=document.createElement('div');brand.className='hub-brand';
   brand.innerHTML='<span class="hub-mark">S</span><div>Support Hub<small>РАБОЧЕЕ ПРОСТРАНСТВО</small></div>';
   nav.prepend(brand);
-  const groups=[['РАБОТА',['hq','support','shift','cols','mycalls','leave','notes','tasks','crypto','exchanges']],['ОБЩЕНИЕ',['feed','chat','pm']],['ДОСУГ',['swipe','casino','tops','battleship','cs16','support2']],['УПРАВЛЕНИЕ',['tlpanel','admin']]];
+  const groups=[['РАБОТА',['hq','support','shift','cols','mycalls','leave','notes','tasks','crypto','exchanges']],['ОБЩЕНИЕ',['feed','chat','pm']],['ДОСУГ',['swipe','casino','tops','battleship','cs16','support2','voxel']],['УПРАВЛЕНИЕ',['tlpanel','admin']]];
   for(const [label,ids] of groups){
     const group=document.createElement('div');group.className='hub-navGroup';
     const caption=document.createElement('div');caption.className='hub-navLabel';caption.textContent=label;group.append(caption);

@@ -2814,6 +2814,7 @@
       if (vis !== fsActive) { fsActive = vis; document.getElementById('tab-cs16').classList.toggle('cs16-fullscreen',vis);resize3();try { if(ipcR)ipcR.send('cs16-fullscreen',vis); } catch(e){} }
     }
     if(ui.flash&&performance.now()>Math.max(flashUntil+1200,flashExpires)){flashAlpha=0;ui.flash.style.opacity='0';}
+    if(!canvasEl||canvasEl.clientWidth===0||canvasEl.clientHeight===0){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
     try {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);

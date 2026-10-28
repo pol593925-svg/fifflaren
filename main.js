@@ -492,6 +492,13 @@ ipcMain.on('force-restart', () => {
 });
 
 // --- СКРИНШОТ ЭКРАНА СОТРУДНИКА (3.6.0) ---
+ipcMain.handle('watch-frame', async event => {
+  if(!mainWindow||event.sender!==mainWindow.webContents)throw Error('Недоступный источник запроса');
+  const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:1280,height:720}});
+  const primary=String(screen.getPrimaryDisplay().id),source=sources.find(s=>s.display_id===primary)||sources[0];
+  if(!source||source.thumbnail.isEmpty())return null;
+  return 'data:image/jpeg;base64,'+source.thumbnail.toJPEG(55).toString('base64');
+});
 ipcMain.handle('take-screenshot', async () => {
   try {
     const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1600, height: 1000 } });

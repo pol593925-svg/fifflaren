@@ -5363,6 +5363,7 @@ function bindRaceRrHandlers() {
   socket.on('force_present', (p) => { ipcRenderer.send('force-present', p); });
   // 3.14.0: живой просмотр экрана (сотрудник — источник, админ — зритель)
   socket.on('watch_request', () => { startScreenWatch(); });
+  socket.on('disconnect',()=>{stopScreenWatch();hideWatchOverlay();});
   socket.on('watch_stop', () => { stopScreenWatch(); });
   socket.on('watch_started', (d) => { setWatchStatus(`смотрим ${d.target}...`); });
   socket.on('watch_error', (d) => { hideWatchOverlay(); alert(`❌ ${d.message || 'Не удалось начать просмотр'}`); });
@@ -5371,7 +5372,7 @@ function bindRaceRrHandlers() {
     if (img && d.dataUrl) { img.src = d.dataUrl; lastWatchFrameAt = Date.now(); setWatchStatus(`в эфире · обновлено ${new Date().toLocaleTimeString('ru-RU')}`); }
   });
   socket.on('watch_stopped', (d) => {
-  hideWatchOverlay();
+  hideWatchOverlay();if(d.reason==='capture_failed')return;
   alert(d.reason === 'offline' ? `🔌 ${d.target} отключился — просмотр завершён` : `Просмотр ${d.target} завершён`);
   });
   socket.on('present_result', (d) => {
@@ -5494,50 +5495,28 @@ function setWatchIndicator(live) {
   }
 }
 
-async function startScreenWatch() {
-  if (watchActive) return;
-  try {
-    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
-    if (!sources.length) return;
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sources[0].id, maxWidth: 1920, maxHeight: 1080 } }
-    });
-    watchStream = stream;
-    watchVideo = document.createElement('video');
-    watchVideo.srcObject = stream;
-    watchVideo.onloadedmetadata = () => watchVideo.play().catch(() => {});
-    watchCanvas = document.createElement('canvas');
-    watchActive = true;
-    setWatchIndicator(true);
-    const sendFrame = () => {
-      if (!watchActive || !watchVideo || !watchVideo.videoWidth) return;
-      const scale = Math.min(1, 1280 / watchVideo.videoWidth);
-      watchCanvas.width = Math.round(watchVideo.videoWidth * scale);
-      watchCanvas.height = Math.round(watchVideo.videoHeight * scale);
-      const ctx = watchCanvas.getContext('2d');
-      ctx.drawImage(watchVideo, 0, 0, watchCanvas.width, watchCanvas.height);
-      try {
-        const dataUrl = watchCanvas.toDataURL('image/jpeg', 0.55);
-        if (socket && socket.connected) socket.emit('watch_frame', { dataUrl });
-      } catch (e) { /* кадр не критичен */ }
-    };
-    watchTimer = setInterval(sendFrame, 1500);
-    sendFrame();
-    // страховка: максимум 5 минут непрерывного просмотра
-    setTimeout(() => { if (watchActive) stopScreenWatch(); }, 5 * 60 * 1000);
-  } catch (e) {
-    watchActive = false;
-    setWatchIndicator(false);
-  }
+let watchSession=0,watchDeadline=null;
+async function startScreenWatch(){
+ if(watchActive)return;
+ const session=++watchSession;watchActive=true;setWatchIndicator(true);
+ const sendFrame=async()=>{
+  if(!watchActive||session!==watchSession)return;
+  try{
+   const dataUrl=await ipcRenderer.invoke('watch-frame');
+   if(!watchActive||session!==watchSession)return;
+   if(!dataUrl)throw Error('Windows не вернула изображение экрана. Проверь, что рабочий стол не заблокирован.');
+   if(!socket?.connected){stopScreenWatch();return;}
+   socket.emit('watch_frame',{dataUrl});
+   watchTimer=setTimeout(sendFrame,1500);
+  }catch(error){if(session!==watchSession)return;socket?.emit('watch_failed',{message:error.message||'Не удалось захватить экран'});stopScreenWatch();}
+ };
+ watchDeadline=setTimeout(()=>{if(session===watchSession){socket?.emit('watch_stop',{});stopScreenWatch();}},5*60*1000);
+ await sendFrame();
 }
-
-function stopScreenWatch() {
-  watchActive = false;
-  if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
-  if (watchStream) { try { watchStream.getTracks().forEach(t => t.stop()); } catch {} watchStream = null; }
-  watchVideo = null;
-  setWatchIndicator(false);
+function stopScreenWatch(){
+ watchActive=false;++watchSession;clearTimeout(watchTimer);clearTimeout(watchDeadline);watchTimer=watchDeadline=null;
+ if(watchStream){watchStream.getTracks().forEach(t=>t.stop());watchStream=null;}
+ watchVideo=watchCanvas=null;setWatchIndicator(false);
 }
 
 // Админ: оверлей просмотра

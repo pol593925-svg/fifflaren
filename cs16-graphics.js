@@ -74,6 +74,7 @@
         materials.add(material);
         if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
           material.envMapIntensity = 0.55;
+          material.dithering = true;
         }
         // GLTFLoader already assigns sRGB to color maps and linear to data maps.
         Object.keys(material).forEach(key => {

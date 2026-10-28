@@ -804,7 +804,7 @@
   function rebuildWorld(name) {
     loadMap(name);
     remotesClear();
-    clearShotEffects(); nadesList.length = 0; clearVehicles(); smokes.forEach(s=>{scene.remove(s.mesh);s.mesh.children.forEach(sp=>sp.material.dispose());}); smokes.length = 0; if(ui.smokeVeil)ui.smokeVeil.style.opacity='0'; dmgNums.length = 0;
+    clearShotEffects(); nadesList.length = 0; clearVehicles(); smokes.forEach(s=>{scene.remove(s.mesh);s.mesh.children.forEach(sp=>sp.material.dispose());}); smokes.length = 0; if(ui.smokeVeil)ui.smokeVeil.style.opacity='0'; for(const d of dmgNums){d.sp.removeFromParent();d.sp.material.map?.dispose();d.sp.material.dispose();}dmgNums.length = 0;
     bombPlanted = null; removeBombMesh();
     buildWorld();
   }
@@ -1961,7 +1961,7 @@
       bombMesh.add(m);
     } else {
       const box = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.3), new THREE.MeshStandardMaterial({ color: 0x2a2a2a }));
-      bombMesh.add(box);
+      bombMesh.add(box);bombMesh.userData.ownedFallback=box;
     }
     bombLight = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 6), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
     bombLight.position.set(0.15, 0.15, 0);
@@ -1977,7 +1977,7 @@
     bombMesh.position.set(pos[0], pos[1] + 0.11, pos[2]);
     scene.add(bombMesh);
   }
-  function removeBombMesh() { if (bombMesh) { scene.remove(bombMesh); bombMesh = null; bombLight = null; bombBeam = null; } }
+  function removeBombMesh() { if (bombMesh) { if(bombLight)disposeShot(bombLight);if(bombBeam)disposeShot(bombBeam);if(bombMesh.userData.ownedFallback)disposeShot(bombMesh.userData.ownedFallback);scene.remove(bombMesh); bombMesh = null; bombLight = null; bombBeam = null; } }
 
   // ---------- ДЕЙСТВИЕ ПО E (закладка / разминирование) ----------
   function siteOf() {

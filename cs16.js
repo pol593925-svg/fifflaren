@@ -1142,6 +1142,7 @@
   }
   function renderBuyList() {
     ui.buyList.innerHTML = '';
+    ui.buyList.parentNode.querySelector('.cs16-class-panel')?.remove();classChoices(ui.buyList.parentNode);
     ui.buyList.classList.add('cs16-buy-scroll');ui.buyList.parentNode.classList.add('cs16-buy-dialog');
     const mEl = document.getElementById('cs16BuyMoney');
     if (mEl) mEl.textContent = '$' + me.money;
@@ -1165,7 +1166,7 @@
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
       if (dis) b.disabled = true;
-      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent='Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
+      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent=w.rocket?'Взрывной урон · 4 ракеты · радиус 6 м':'Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
       b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
     }
     if (!items.length) ui.buyList.innerHTML = '<div style="color:#777;font:12px monospace;padding:8px">В этой вкладке пусто</div>';
@@ -1182,7 +1183,7 @@
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
       if (dis) b.disabled = true;
-      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent='Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
+      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent=w.rocket?'Взрывной урон · 4 ракеты · радиус 6 м':'Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
       b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
     }
   }
@@ -1252,6 +1253,11 @@
     if (un) un.style.display = mySkin ? '' : 'none';
   }
 
+  function classChoices(parent){
+    if(state.gm!=='cq'||!window.CS16Classes)return;
+    const box=document.createElement('div');box.className='cs16-class-panel';box.innerHTML='<h3>Выбор класса</h3><p>Стартовый комплект при следующем возрождении. B — выбор во время матча.</p>';const list=document.createElement('div');list.className='cs16-class-grid';box.append(list);const selected=state.players.find(p=>p.nick===myNick)?.nextClass||'assault';
+    for(const [id,spec]of Object.entries(CS16Classes.profiles)){const b=document.createElement('button');b.className='cs16-class-card'+(id===selected?' selected':'');b.innerHTML='<span>'+spec.icon+'</span><strong>'+spec.name+'</strong><small>'+spec.detail+'</small>';b.onclick=()=>sock?.emit('cs16_class',id);list.append(b);}parent.append(box);
+  }
   function renderLobby() {
     const inMatch = state.phase !== 'lobby';
     const isFiff = myNick.toLowerCase() === 'fifflaren';
@@ -1351,6 +1357,7 @@
       } catch (e) {}
     };
     refreshSkinsPanel();
+    const lobbyContent=ui.lobby.firstElementChild;classChoices(lobbyContent);const choices=lobbyContent.querySelector('.cs16-class-panel');if(choices)lobbyContent.insertBefore(choices,lobbyContent.children[1]);
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -1373,6 +1380,7 @@
       ui.hud.style.display = 'block';
       resize3();
     });
+    sock.on('cs16_class_selected',d=>{const p=state.players.find(p=>p.nick===myNick);if(p)p.nextClass=d.id;if(ui.buy.style.display==='block')renderBuyList();killfeed('Класс выбран · применяется при следующем возрождении');});
     sock.on('cs16_you', (y) => {
       me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
       if (y.weapon && y.weapon !== current && WEAPONS[y.weapon]) { primary = y.weapon; }
@@ -1421,6 +1429,7 @@
         const pl = state.players.find(p => p.id === x.id);
         return pl && pl.nick === myNick;
       });
+      if(state.gm==='cq'&&sp?.weapon){primary=sp.weapon;current=primary;me.armor=sp.armor??100;}
       me.alive = !!me.team; me.hp = 100;
       scoped = false; reloading = 0; bloom = 0;
       nades.he = 0; nades.flash = 0; nades.smoke = 0;
@@ -1449,7 +1458,7 @@
       for (const n of nadesList) disposeNade(n.mesh);
       clearVehicles();
       nadesList.length = 0;
-      clearShotEffects();
+      clearShotEffects();clearRockets();
       resetBlindness(); shake = 0;
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
@@ -1651,7 +1660,7 @@
     sock.on('cs16_cq_respawn',d=>{
       if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;r.x=r.tx=d.pos[0];r.y=r.ty=0;r.z=r.tz=d.pos[2];}return;}
       if(myVeh){if(myVeh.passenger)exitVehicle(false);else{scene.remove(myVeh.obj);myVeh=null;}}
-      me.alive=true;me.hp=100;me.armor=100;specTarget=null;scoped=false;reloading=0;bloom=0;resetBlindness();
+      me.alive=true;me.hp=100;me.armor=d.armor??100;specTarget=null;scoped=false;reloading=0;bloom=0;resetBlindness();
       placePlayerSpawn(d.pos);primary=d.weapon;secondary=me.team==='t'?'glock':'usp';current=primary;
       for(const id of [primary,secondary]){const w=WEAPONS[id];ammo[id]={mag:w.mag,reserve:w.reserve};}nades.he=nades.flash=nades.smoke=0;
       centerMsg('',0);ui.centerMsg.style.display='none';killfeed('Возрождение · защита 1,8 сек · B — магазин');

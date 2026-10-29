@@ -171,7 +171,7 @@
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
-    Object.assign(sun.shadow.camera, { left: -160, right: 160, top: 160, bottom: -160, near: 1, far: 460 });
+    Object.assign(sun.shadow.camera, { left: -100, right: 100, top: 100, bottom: -100, near: 1, far: 460 });
     sun.shadow.camera.updateProjectionMatrix();
     sun.shadow.bias = -0.00012;
     sun.shadow.normalBias = 0.035;
@@ -220,7 +220,7 @@
       sky.mesh.position.copy(activeCamera.position);
       groundPoint.set(activeCamera.position.x, 0, activeCamera.position.z);
       // Quantize in LIGHT coordinates to stop shadows swimming as the player walks.
-      const texel = 320 / quality.shadow;
+      const texel = 200 / quality.shadow;
       const rx = Math.round(groundPoint.dot(lightRight) / texel) * texel;
       const ry = Math.round(groundPoint.dot(lightUp) / texel) * texel;
       const rz = Math.round(groundPoint.dot(sky.direction) / texel) * texel;

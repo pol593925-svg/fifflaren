@@ -35,9 +35,17 @@ async function run(){
   Object.assign(data,{reels:['7','⚡','🏛️','👑'],multiplier:1,winnings:5,phase:'bet',round:1,startPrice:100,price:103,ticks:[100,101,100.5,102,101.7,103],history:[],endsAt:Date.now()+60000,available:true,sectors:[{id:'win5',label:'+5',w:1},{id:'fine5',label:'−5',w:2},{id:'spin',label:'Ещё',w:1}],race:{phase:'bet',round:1,timeLeft:30,winner:-1,positions:[20,35,10,42,26],roosters:[{name:'Рубин',odds:2},{name:'Шторм',odds:3},{name:'Искра',odds:4},{name:'Лист',odds:5},{name:'Тень',odds:6}]}});
   return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
  });
- const tab=async id=>{if(await page.locator('#casinoSplash').isVisible())await page.locator('#casinoSplash').click();await page.locator('.tabs [data-tab="'+id+'"]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#tab-'+id).evaluate(e=>getComputedStyle(e).display==='none'),false,id+' hidden');};
+ const tab=async id=>{if(await page.locator('#casinoSplash').isVisible())await page.locator('#casinoSplash').click();await page.locator('.hub-menuToggle').click();await page.locator('.hub-hero-card[data-section="'+id+'"]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#tab-'+id).evaluate(e=>getComputedStyle(e).display==='none'),false,id+' hidden');};
  try{
   await page.goto(origin+'/index.html');
+  await page.locator('.hub-comic').waitFor();
+  await page.screenshot({path:path.join(out,'comic-page-one.png')});
+  for(let i=0;i<3;i++)await page.keyboard.press('Enter');
+  assert((await page.locator('.comic-page').textContent()).includes('2 / 2'));
+  await page.screenshot({path:path.join(out,'comic-page-two.png')});
+  for(let i=0;i<2;i++)await page.keyboard.press('Enter');
+  assert.equal(await page.locator('.comic-dialogue p').textContent(),'Да, я найду апрув. За дело!');
+  await page.keyboard.press('Enter');assert.equal(await page.locator('.hub-comic').count(),0);
   await page.screenshot({path:path.join(out,'hub-login.png')});
   await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');
   await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
@@ -56,7 +64,7 @@ async function run(){
   await page.screenshot({path:path.join(out,'hub-shift.png')});await page.click('#stopBtn');
   assert(await page.locator('#reportBox').isVisible());
   await tab('cols');await page.fill('#callServiceName','QA');await page.fill('#callLinkInput','https://example.com/test');await page.fill('#callNoteInput','Проверка формы');
-  await page.screenshot({path:path.join(out,'hub-calls.png')});await page.click('#sendCallBtn');assert.equal(await page.inputValue('#callServiceName'),'');
+  await page.screenshot({path:path.join(out,'hub-calls.png')});await page.click('#sendCallBtn');await page.waitForFunction(()=>document.getElementById('callServiceName').value==='');
   await tab('leave');await page.fill('#leaveDate','2026-10-25');await page.fill('#leaveTimeFrom','14:00');await page.fill('#leaveTimeTo','15:00');await page.fill('#leaveComment','Локальная проверка');await page.click('#sendLeaveBtn');
   await page.screenshot({path:path.join(out,'hub-leave.png')});
   await tab('notes');await page.fill('#userNotes','План на день\n\n1. Проверить сообщения команды\n2. Закрыть текущие задачи\n3. Подготовить отчёт по смене');await page.click('#saveNotesBtn');
@@ -64,9 +72,9 @@ async function run(){
   await page.screenshot({path:path.join(out,'hub-notes.png')});
   const visited=[];
   for(const id of ['hq','support','shift','cols','mycalls','leave','crypto','notes','exchanges','tasks','feed','chat','pm','swipe','casino','tops','battleship','tlpanel','admin']){
-   if(await page.locator('.tabs [data-tab="'+id+'"]').isVisible()){await tab(id);visited.push(id);}
+   if(await page.locator('.tabs [data-tab="'+id+'"]').evaluate(e=>!e.hidden&&e.style.display!=='none')){await tab(id);visited.push(id);}
   }
-  await tab('mycalls');await page.waitForSelector('.call-entry');assert.equal(await page.locator('.call-entry a').getAttribute('href'),'https://example.com/call');
+  await tab('mycalls');await page.waitForSelector('#tab-mycalls .call-entry');assert.equal(await page.locator('#tab-mycalls .call-entry button').count()>0,true);
   await page.screenshot({path:path.join(out,'hub-personal-calls.png')});
   await page.evaluate(async()=>{
    const handlers={};HubCalls.subscribe({emit(){},on:(n,f)=>handlers[n]=f});
@@ -74,7 +82,7 @@ async function run(){
    handlers.fifflaren_call({id:'push1',user:'Alex',service:'QA',link:'https://example.com/call'});
   });
   assert.equal((await page.evaluate(()=>__ipc)).filter(a=>a[0]==='call-notification'&&a[1].title==='Новый колл · Alex').length,1);
-  await tab('exchanges');assert(await page.locator('.exchange-card').count()>0);
+  await tab('exchanges');await page.evaluate(()=>HubExchanges.set([{name:'Deribit',section:'condition',condition:'Только с проверкой',website:'https://www.deribit.com/'},{name:'Example',section:'no',website:'https://example.com/'}]));assert.equal(await page.locator('.exchange-card').count(),0);
   await page.fill('#exchangeSearchInput','https://www.deribit.com/options/BTC');assert(await page.locator('.exchange-card').count()>0);
   await page.click('#exchangeClear');await page.locator('[data-exchange-filter="condition"]').click();assert.equal(await page.locator('.exchange-card:not([data-section="condition"])').count(),0);
   await page.screenshot({path:path.join(out,'hub-exchanges.png')});
@@ -94,8 +102,8 @@ async function run(){
   await page.screenshot({path:path.join(out,'hub-light.png')});
   await page.setViewportSize({width:900,height:650});await tab('cols');
   const box=await page.locator('#sendCallBtn').boundingBox();assert(box.x>=0&&box.x+box.width<=900);
-  await page.locator('.hub-menuToggle').click();assert(await page.locator('body').evaluate(e=>e.classList.contains('hub-navCollapsed')));
-  await page.locator('.hub-menuToggle').click();await page.click('#themeToggleBtn');
+  await page.locator('.hub-menuToggle').click();assert(await page.locator('.hub-selector').isVisible());await page.screenshot({path:path.join(out,'hero-gallery.png')});
+  await page.keyboard.press('Escape');await page.click('#themeToggleBtn');
   await tab('support2');visited.push('support2');await page.getByText('✖ Закрыть игру',{exact:true}).click();
   await tab('cs16');visited.push('cs16');
   await page.waitForFunction(()=>{const l=document.querySelector('.cs16-loading');return l&&l.style.display==='none'},null,{timeout:120000});

@@ -1,0 +1,1 @@
+const {spawn}=require('child_process');const env={...process.env,GRAPHICS_REPO:process.cwd()};delete env.ELECTRON_RUN_AS_NODE;const p=spawn('C:/Users/sasha/AppData/Local/Temp/support-hub-build-3340/node_modules/electron/dist/electron.exe',['tools/electron-load-test.cjs'],{env,windowsHide:true,stdio:'inherit'});p.on('exit',c=>process.exitCode=c);

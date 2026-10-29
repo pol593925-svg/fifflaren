@@ -1,0 +1,3 @@
+Mode: built-in image_gen, transparent background edit.
+Asset: hero-pedestals-transparent.png
+Prompt: Edit the six-column hero sprite atlas. Remove all backgrounds and vertical dividers; true transparent alpha around each character and circular pedestal. Keep six characters in the same order, clothing, poses, magical accessories and colors. Equal-width columns, each full-body hero and pedestal centered, transparent gutters. Premium volumetric illustrated appearance, crisp silhouettes. No environment, ground outside pedestals, rectangles, text or frames. Wide 3:1 composition.

@@ -35,7 +35,7 @@ async function run(){
   Object.assign(data,{reels:['7','⚡','🏛️','👑'],multiplier:1,winnings:5,phase:'bet',round:1,startPrice:100,price:103,ticks:[100,101,100.5,102,101.7,103],history:[],endsAt:Date.now()+60000,available:true,sectors:[{id:'win5',label:'+5',w:1},{id:'fine5',label:'−5',w:2},{id:'spin',label:'Ещё',w:1}],race:{phase:'bet',round:1,timeLeft:30,winner:-1,positions:[20,35,10,42,26],roosters:[{name:'Рубин',odds:2},{name:'Шторм',odds:3},{name:'Искра',odds:4},{name:'Лист',odds:5},{name:'Тень',odds:6}]}});
   return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
  });
- const tab=async id=>{if(await page.locator('#casinoSplash').isVisible())await page.locator('#casinoSplash').click();await page.locator('.hub-menuToggle').click();await page.locator('.hub-hero-card[data-section="'+id+'"]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#tab-'+id).evaluate(e=>getComputedStyle(e).display==='none'),false,id+' hidden');};
+ const tab=async id=>{if(await page.locator('#casinoSplash').isVisible())await page.locator('#casinoSplash').click();await page.locator('.hub-menuToggle').click();await page.locator('.hub-selector-controls input').fill(await page.locator('.tabs [data-tab="'+id+'"]').getAttribute('title')||id);await page.locator('.hub-hero-card[data-section="'+id+'"]').click();await page.waitForTimeout(120);assert.equal(await page.locator('#tab-'+id).evaluate(e=>getComputedStyle(e).display==='none'),false,id+' hidden');};
  try{
   await page.goto(origin+'/index.html');
   await page.locator('.hub-comic').waitFor();

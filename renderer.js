@@ -718,7 +718,7 @@ async function addCountWithLog(val) {
   if(!link||!comment){if(status)status.textContent='Добавь ссылку и информацию по логу.';return;}
   try{const url=new URL(link);if(!['https:','http:'].includes(url.protocol))throw Error();}catch{if(status)status.textContent='Укажи корректную ссылку http:// или https://';return;}
   button.disabled=true;if(status)status.textContent='Сохраняем…';
-  try{const response=await fetch(`${SERVER_API_URL}/api/events`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:currentUser,type:'log',date:localDateStr(),link,comment}),signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok||data.success===false)throw Error(data.message||'Не удалось сохранить лог');
+  try{await HubCalls.submitLog({link,comment});
     addCount(val);sendToGoogleSheet({type:'Логи',nick:currentUser,link,comment});document.getElementById('logLinkInput').value='';document.getElementById('logCommentInput').value='';document.dispatchEvent(new Event('hub:log-sent'));
   }catch(error){if(status)status.textContent=error.message||'Ошибка сети. Попробуй ещё раз.';}finally{button.disabled=false;}
 }

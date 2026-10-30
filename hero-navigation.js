@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded',()=>{
  const nav=document.querySelector('.tabs'),toggle=document.querySelector('.hub-menuToggle');if(!nav||!toggle)return;
  const groups={hq:'work',support:'work',shift:'work',cols:'work',mycalls:'work',leave:'work',notes:'work',tasks:'work',crypto:'work',exchanges:'work',feed:'social',chat:'social',pm:'social',swipe:'social',casino:'games',tops:'games',battleship:'games',cs16:'games',support2:'games',voxel:'games',tlpanel:'admin',admin:'admin'};
- const art={hq:0,support:1,shift:0,cols:1,mycalls:0,leave:2,notes:2,tasks:2,crypto:5,exchanges:5,feed:2,chat:1,pm:1,swipe:1,casino:3,tops:5,battleship:4,cs16:4,support2:5,voxel:2,tlpanel:0,admin:5};
+ const art={hq:0,support:1,shift:2,mycalls:3,leave:4,notes:5,tasks:6,crypto:7,exchanges:8,feed:9,chat:10,pm:11,swipe:12,casino:13,tops:14,battleship:15,cs16:16,support2:17,voxel:18,tlpanel:19,admin:20};
  const captions={work:'Работа',social:'Общение',games:'Игры и отдых',admin:'Управление'};
  const dialog=document.createElement('dialog');dialog.className='hub-selector';dialog.setAttribute('aria-label','Выбор раздела');document.body.append(dialog);
  const head=document.createElement('header');head.className='hub-selector-head';head.innerHTML='<div><small>SUPPORT HUB / ВЫБОР РАЗДЕЛА</small><h2>Твоё пространство</h2><p>Выбери, чем займёмся сейчас</p></div>';dialog.append(head);
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const available=Array.from(nav.querySelectorAll('[data-tab]')).filter(b=>allowed(b)&&(filter==='all'||groups[b.dataset.tab]===filter)&&(b.title||b.textContent).toLowerCase().includes(query));
   for(const item of items)item.button.remove();items=[];
   for(const original of available){const id=original.dataset.tab,name=original.title||original.textContent.trim(),button=document.createElement('button');button.className='hub-hero-card';button.dataset.section=id;button.setAttribute('aria-label','Открыть '+name);
-   const portrait=document.createElement('span');portrait.className='hub-hero-portrait';portrait.style.backgroundPosition=(art[id]*20)+'% center';portrait.setAttribute('aria-hidden','true');button.append(portrait);
+   const portrait=document.createElement('span');portrait.className='hub-hero-portrait';portrait.style.backgroundPosition=((art[id]%6)*20)+'% '+(Math.floor(art[id]/6)*100/3)+'%';portrait.setAttribute('aria-hidden','true');button.append(portrait);
    const label=document.createElement('span');label.className='hub-hero-label';label.textContent=name;button.append(label);button.onclick=()=>{if(!allowed(original)){render();return;}dialog.close();original.click();};stage.append(button);items.push({id,name,button,original});
   }
   center=Math.max(0,items.findIndex(item=>item.id===focusedId));position();

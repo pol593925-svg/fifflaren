@@ -25,13 +25,13 @@
   }return article;
  }
  function render(){const list=el('callsList');list.replaceChildren();el('callsCount').textContent=rows.length;if(!rows.length){list.textContent='За выбранный день колов пока нет.';return;}for(const row of rows)list.append(card(row,true));}
- function setupMine(){if(el('myCallsList'))return;const tab=el('tab-cols'),form=tab.querySelector('.card'),wrap=node('div',undefined,'calls-workspace'),aside=node('aside',undefined,'my-calls-panel');
+ function setupMine(){if(el('myCallsList'))return;const tab=el('tab-shift'),form=el('sendCallBtn').closest('.card'),aside=node('aside',undefined,'my-calls-panel shift-calls-panel');
   form.classList.add('call-compose');form.querySelector('h3').textContent='Новый колл';el('sendCallBtn').textContent='Отправить на рассмотрение';
   const header=node('div',undefined,'my-calls-header'),title=node('h3','Мои колы'),refresh=node('button','↻ Обновить','call-refresh');refresh.type='button';refresh.onclick=()=>loadMine().catch(()=>{});header.append(title,refresh);
   const info=node('p','Твои заявки и результаты рассмотрения','my-calls-info');info.id='myCallsStatus';const list=node('div');list.id='myCallsList';const more=node('button','Показать ещё','call-refresh');more.id='myCallsMore';more.hidden=true;more.onclick=()=>loadMine(true).catch(()=>{});
-  aside.append(header,info,list,more);wrap.append(form,aside);tab.append(wrap);
+  aside.append(header,info,list,more);tab.insertBefore(aside,tab.children[1]||null);
  }
- async function loadMine(append=false){if(!options)return;const seq=++mineSeq,page=append?minePage+1:0,config=options;try{const data=await api('/api/calls/mine?page='+page);if(seq!==mineSeq||config!==options)return;minePage=page;personal=append?personal.concat(data.calls):data.calls;mineMore=data.hasMore;const list=el('myCallsList');list.replaceChildren();if(!personal.length)list.append(node('div','Пока нет колов. Отправь первый — он появится здесь.','call-empty'));for(const row of personal)list.append(card(row,false));el('myCallsStatus').textContent='Всего: '+data.total+' · обновляется автоматически';el('myCallsMore').hidden=!mineMore;}catch(e){if(seq===mineSeq)el('myCallsStatus').textContent=e.message;throw e;}}
+ async function loadMine(append=false){if(!options)return;const seq=++mineSeq,page=append?minePage+1:0,config=options;try{const data=await api('/api/calls/mine?page='+page);if(seq!==mineSeq||config!==options)return;minePage=page;personal=append?personal.concat(data.calls):data.calls;mineMore=data.hasMore;const list=el('myCallsList');list.replaceChildren();if(!personal.length)list.append(node('div','Пока нет колов. Отправь первый — он появится здесь.','call-empty'));for(const row of personal)list.append(card(row,false));el('myCallsStatus').textContent='Всего: '+(data.total??personal.length)+' · обновляется автоматически';el('myCallsMore').hidden=!mineMore;}catch(e){if(seq===mineSeq)el('myCallsStatus').textContent=e.message;throw e;}}
  async function submit(fields){await api('/api/events',{method:'POST',body:JSON.stringify({user:options.username,type:'call',...fields})});await loadMine().catch(()=>{});}
  async function fetchDay(date){
   const all=[];let page=0;
@@ -56,7 +56,7 @@
  function start(config){
   clearInterval(timer);sequence++;seen.clear();options=null;
   owner=String(config.username).toLowerCase()==='fifflaren';el('callsTabBtn').style.display=owner?'':'none';
-  options=config;personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-cols').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
+  options=config;personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-shift').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
   el('callsRefresh').onclick=()=>load().catch(()=>{});el('callsDate').onchange=()=>load().catch(()=>{});
   el('callsCopy').onclick=async()=>{try{await navigator.clipboard.writeText(rows.map(r=>[r.service||r.kind,r.link,r.user].join(' — ')).join('\n'));el('callsStatus').textContent='Список скопирован';}catch{el('callsStatus').textContent='Не удалось скопировать список';}};
   if(!config.token){el('callsStatus').textContent='Для личной вкладки нужен новый сервер. После его обновления войди заново.';return;}

@@ -711,17 +711,16 @@ function startTimerLoop() {
 }
 
 // +1 лог: уходит в базу сервера и в таблицу (со ссылкой и комментарием)
-function addCountWithLog(val) {
-  const link = document.getElementById("logLinkInput")?.value.trim() || "";
-  const comment = document.getElementById("logCommentInput")?.value.trim() || "";
-
-  addCount(val);
-
-  sendToGoogleSheet({ type: "Логи", nick: currentUser, link, comment });
-  sendEventToServer('log', { link, comment });
-
-  const linkInput = document.getElementById("logLinkInput");
-  if (linkInput) linkInput.value = "";
+async function addCountWithLog(val) {
+  const status=document.getElementById('logStatus'),button=document.getElementById('addOneBtn');
+  if(!isWorking||button.disabled)return;
+  const link=document.getElementById('logLinkInput').value.trim(),comment=document.getElementById('logCommentInput').value.trim();
+  if(!link||!comment){if(status)status.textContent='Добавь ссылку и информацию по логу.';return;}
+  try{const url=new URL(link);if(!['https:','http:'].includes(url.protocol))throw Error();}catch{if(status)status.textContent='Укажи корректную ссылку http:// или https://';return;}
+  button.disabled=true;if(status)status.textContent='Сохраняем…';
+  try{const response=await fetch(`${SERVER_API_URL}/api/events`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:currentUser,type:'log',date:localDateStr(),link,comment}),signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok||data.success===false)throw Error(data.message||'Не удалось сохранить лог');
+    addCount(val);sendToGoogleSheet({type:'Логи',nick:currentUser,link,comment});document.getElementById('logLinkInput').value='';document.getElementById('logCommentInput').value='';document.dispatchEvent(new Event('hub:log-sent'));
+  }catch(error){if(status)status.textContent=error.message||'Ошибка сети. Попробуй ещё раз.';}finally{button.disabled=false;}
 }
 
 function addCount(val) {
@@ -813,7 +812,7 @@ async function sendCallEntry() {
   if(!serviceName||!callLink){status.textContent='Укажи название и ссылку.';return;}
   button.disabled=true;status.textContent='Отправляем…';
   try{await HubCalls.submit({callType,serviceName,callLink,callNote});sendToGoogleSheet({type:'Колы',nick:currentUser,callType,serviceName,callLink,callNote});
-    for(const id of ['callServiceName','callLinkInput','callNoteInput'])document.getElementById(id).value='';status.textContent='Колл отправлен · В ожидании';
+    for(const id of ['callServiceName','callLinkInput','callNoteInput'])document.getElementById(id).value='';status.textContent='Колл отправлен · В ожидании';document.dispatchEvent(new Event('hub:call-sent'));
   }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
 }
 

@@ -486,7 +486,7 @@ ipcMain.on('force-restart', () => {
   app.exit(0);
 });
 
-require('./assistance-native').install({ipcMain,BrowserWindow,screen,shell,globalShortcut:require('electron').globalShortcut,app,getMain:()=>mainWindow});
+const assistanceService=require('./assistance-native').install({ipcMain,BrowserWindow,screen,shell,clipboard:require('electron').clipboard,desktopCapturer,globalShortcut:require('electron').globalShortcut,app,getMain:()=>mainWindow});
 // --- СКРИНШОТ ЭКРАНА СОТРУДНИКА (3.6.0) ---
 ipcMain.handle('watch-frame', async (event,options={}) => {
   if(!mainWindow||event.sender!==mainWindow.webContents)throw Error('Недоступный источник запроса');
@@ -518,7 +518,7 @@ app.whenReady().then(() => {
 
   // Разрешаем микрофон (голосовые в ЛС) и медиа; pointerLock — для прицела в КС 1.6
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(['media', 'audioCapture', 'speaker-selection', 'pointerLock', 'fullscreen'].includes(permission));
+    cb(permission==='display-capture' ? assistanceService.canCapture(wc) : ['media', 'audioCapture', 'speaker-selection', 'pointerLock', 'fullscreen'].includes(permission));
   });
 
   // Автозапуск с Windows включён по умолчанию

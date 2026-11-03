@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert/strict'),vm=require('vm');
 const root=path.resolve(__dirname,'..'),assets=path.join(root,'models/csgo');
 const source=fs.readFileSync(path.join(root,'cs16.js'),'utf8');
-for(const file of ['cs16.js','cs16-graphics.js','cs16-props.js','cs16-conquest-ui.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
+for(const file of ['cs16.js','cs16-landscape.js','cs16-graphics.js','cs16-props.js','cs16-conquest-ui.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
 const maps=vm.runInNewContext('('+source.match(/const MAP_ROWS = (\{[\s\S]*?\n  \});/)[1]+')');
 const manifest=JSON.parse(fs.readFileSync(path.join(assets,'maps-manifest.json')));
 function glb(file){
@@ -29,3 +29,5 @@ assert(html.indexOf('GLTFLoader.js')<html.indexOf('cs16-graphics.js'));
 assert(html.indexOf('cs16-graphics.js')<html.indexOf('src="cs16.js"'));
 for(const name of ['dust2','inferno'])console.log(name+': geometry, PBR channels, source hash and draw budget OK');
 console.log('Operators: six articulation groups each; 19 weapons and first-person hands: valid GLB');
+
+const nature=glb('nature.glb');assert(nature.meshes.length<=12);assert(fs.statSync(path.join(assets,'nature.glb')).size<2*1024*1024);for(const species of ['oak','birch','pine','bush','rock'])assert(nature.nodes.some(n=>n.name?.startsWith(species+'_')));console.log('Nature: five original asset types, <=12 meshes, <2MB');

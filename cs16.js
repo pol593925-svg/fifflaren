@@ -858,6 +858,7 @@
       buildRadarBase(); resize3();
       await Promise.race([assets, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Загрузка превысила 90 секунд. Закрой лишние приложения и повтори.')), 90000); })]);
       if(epoch !== worldLoadEpoch)return;
+      fieldProps?.applyNature(active.nature(),graphicsQuality);
       buildingGraphics?.applyMaterials(name=>active.surface(name));
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
@@ -1123,6 +1124,7 @@
       graphicsQuality = ui.quality.value;
       try { localStorage.setItem('cs16-graphics-quality', graphicsQuality); } catch (_) {}
       if (worldGraphics) worldGraphics.setQuality(graphicsQuality);
+      fieldProps?.setQuality(graphicsQuality);
       resize3();
     };
     ui.loading = el('div', '', r); ui.loading.className = 'cs16-loading';
@@ -3012,7 +3014,7 @@
       const moving = keys.w || keys.a || keys.s || keys.d;
       sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
     }
-    if(fieldProps)fieldProps.update(Math.min(.05,dt));updateRockets(performance.now());
+    if(fieldProps)fieldProps.update(Math.min(.05,dt),camera);updateRockets(performance.now());
     if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);

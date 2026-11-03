@@ -1,0 +1,10 @@
+const {spawn}=require('node:child_process'),assert=require('node:assert/strict');
+let code=require('../assistance-input').replace('[DllImport("user32.dll")] static extern bool SetProcessDPIAware();','static bool SetProcessDPIAware(){return true;}');
+code=code.replace('[DllImport("user32.dll")] static extern bool SetCursorPos(int x,int y);','static bool SetCursorPos(int x,int y){Console.WriteLine("POS "+x+" "+y);return true;}')
+ .replace('[DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint n,INPUT[] a,int size);','static uint SendInput(uint n,INPUT[] a,int size){foreach(INPUT i in a)Console.WriteLine(i.type==1?"KEY "+i.u.key.vk+" "+i.u.key.scan+" "+i.u.key.flags:"MOUSE "+i.u.mouse.flags+" "+i.u.mouse.data);return n;}');
+assert(!code.includes('extern'),'test must not call Windows input APIs');
+const p=spawn('powershell.exe',['-NoProfile','-NonInteractive','-InputFormat','Text','-OutputFormat','Text','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{windowsHide:true,stdio:['pipe','pipe','pipe']});
+let out='',err='',sent=false;const timer=setTimeout(()=>p.kill(),20000);
+p.stdout.on('data',b=>{out+=b.toString();if(!sent&&out.includes('READY')){sent=true;for(const d of [{kind:'probe'},{kind:'text',text:'Ж🙂'},{kind:'key',vk:65,ctrl:true},{kind:'down',button:0,x:30,y:40},{kind:'wheel',x:30,y:40,delta:-1},{kind:'release'}])p.stdin.write(JSON.stringify(d)+'\n');p.stdin.end();}});
+p.stderr.on('data',b=>err+=b.toString());
+p.on('exit',c=>{clearTimeout(timer);try{assert.equal(c,0,err);assert(out.includes('INPUT_SIZE=40'));assert(out.includes('KEY 0 1046 4'));assert(out.includes('KEY 0 1046 6'));assert(out.includes('KEY 17 0 0'));assert(out.includes('KEY 65 0 0'));assert(out.includes('KEY 17 0 2'));assert(out.includes('MOUSE 2 0'));assert(out.includes('MOUSE 4 0'));assert(out.includes('MOUSE 2048 4294967176'));assert(!out.includes('INPUT_ERROR'));console.log('PASS: compiled C# Unicode/surrogate input, Ctrl shortcut, mouse down/release, signed wheel; all Win32 input calls replaced by test stubs');}catch(e){console.error(e);process.exitCode=1;}});

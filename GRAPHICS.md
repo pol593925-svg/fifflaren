@@ -45,3 +45,7 @@ The browser check uses installed Chrome; set `CHROME_PATH` for a different Chrom
 executable and `GRAPHICS_OUTPUT` to select a screenshot/report directory.
 The built installer still uses the existing server endpoint. Multiplayer behavior
 needs a live multi-client playtest; software-rendered QA does not establish gaming FPS.
+
+## 3.44.1 environment
+
+cs16-landscape.js blends meadow, dirt and paving using a mask derived from the unchanged collision grid. Grass patches are pooled (220/420/700), detailed trees are capped by quality and distance; far vegetation retains inexpensive cards. Destruction uses existing authoritative prop IDs. Distant hills sit beyond the playable boundary. Native maps and stairs retain their geometry and layout hash. New nature GLB is below 2 MB, with embedded bounded-size textures; no runtime downloads beyond packaged assets.

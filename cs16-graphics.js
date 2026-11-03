@@ -153,7 +153,7 @@
     const { renderer, scene, camera, grid } = options;
     const mapName = options.map === 'inferno' ? 'inferno' : 'dust2';
     let quality = qualityOf(renderer.userData && renderer.userData.cs16Quality);
-    let disposed = false, model = null, environmentTarget = null;
+    let disposed = false, model = null, environmentTarget = null, nature = null, landscape = null;
     let lampsTick = -Infinity;
     const CELL = options.CELL || 4;
     const group = new T.Group();
@@ -165,16 +165,16 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xd0d5d3 : 0xd6d7cc, 320, 980);
 
-    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x93816a, 0.86);
+    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x738459, 0.86);
     group.add(hemisphere);
     const sun = new T.DirectionalLight(0xffedce, 2.35);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
-    Object.assign(sun.shadow.camera, { left: -100, right: 100, top: 100, bottom: -100, near: 1, far: 460 });
+    Object.assign(sun.shadow.camera, { left: -65, right: 65, top: 65, bottom: -65, near: 1, far: 460 });
     sun.shadow.camera.updateProjectionMatrix();
-    sun.shadow.bias = -0.00012;
-    sun.shadow.normalBias = 0.035;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.08;
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
@@ -218,9 +218,10 @@
     function update(activeCamera, time) {
       if (disposed || !activeCamera) return;
       sky.mesh.position.copy(activeCamera.position);
+      if(landscape)landscape.update(activeCamera,typeof time==='number'?time:performance.now(),renderer.userData.cs16Quality);
       groundPoint.set(activeCamera.position.x, 0, activeCamera.position.z);
       // Quantize in LIGHT coordinates to stop shadows swimming as the player walks.
-      const texel = 200 / quality.shadow;
+      const texel = 130 / quality.shadow;
       const rx = Math.round(groundPoint.dot(lightRight) / texel) * texel;
       const ry = Math.round(groundPoint.dot(lightUp) / texel) * texel;
       const rz = Math.round(groundPoint.dot(sky.direction) / texel) * texel;
@@ -250,14 +251,16 @@
       });
     }
 
-    const ready = loadGLTF(T, ASSETS + mapName + '.glb', options.onProgress).then(gltf => {
+    const ready = Promise.allSettled([loadGLTF(T, ASSETS + mapName + '.glb', options.onProgress),loadGLTF(T, ASSETS+'nature.glb')]).then(results => {
+      const failed=results.find(r=>r.status==='rejected');if(failed){for(const r of results)if(r.status==='fulfilled')disposeTree(r.value.scene);throw failed.reason;}
+      const [gltf,natureAsset]=results.map(r=>r.value);
       if (disposed) {
-        disposeTree(gltf.scene);
+        disposeTree(gltf.scene);disposeTree(natureAsset.scene);
         const error = new Error('World was replaced while loading');
         error.name = 'AbortError';
         throw error;
       }
-      model = gltf.scene;
+      model = gltf.scene;nature=natureAsset.scene;
       model.name = 'CS16 ' + mapName + ' geometry';
       prepareMeshes(T, model, renderer, quality);
       // A map's Blender export may contain render lights/cameras; the runtime owns lighting.
@@ -265,6 +268,8 @@
       model.traverse(object => { if (object.isLight || object.isCamera) auxiliaries.push(object); });
       auxiliaries.forEach(object => { if (object.parent) object.parent.remove(object); });
       group.add(model);
+      if(!global.CS16Landscape)throw Error('Landscape module unavailable');
+      landscape=global.CS16Landscape.create({T,scene,grid,map:mapName,model});
       update(camera, 0);
       return model;
     });
@@ -281,6 +286,8 @@
     function dispose() {
       if (disposed) return;
       disposed = true;
+      if(landscape){landscape.dispose();landscape=null;}
+      if(nature){disposeTree(nature);nature=null;}
       if (model) { disposeTree(model); model = null; }
       disposeTree(sky.mesh);
       if (sun.shadow.map) sun.shadow.map.dispose();
@@ -295,7 +302,7 @@
     }
 
     update(camera, 0);
-    return { ready, update, dispose, setQuality, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
+    return { ready, update, dispose, setQuality, nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
   }
 
   function loadOperators(THREE) {

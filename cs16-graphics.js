@@ -295,15 +295,15 @@
     }
 
     update(camera, 0);
-    return { ready, update, dispose, setQuality };
+    return { ready, update, dispose, setQuality, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
   }
 
   function loadOperators(THREE) {
     const T = THREE || global.THREE;
     if (operatorPromise) return operatorPromise;
     const epoch = operatorEpoch;
-    const ids=['ct','t','ember','tide','jade','aurora'];
-    operatorPromise = Promise.allSettled(ids.map(id => loadGLTF(T, ASSETS + (id==='ct'||id==='t'?'operator-':'hero-') + id + '.glb')))
+    const ids=[...Object.keys(global.CS16Characters.profiles),...Object.keys(global.CS16Magic.pets).map(id=>'pet-'+id)];
+    operatorPromise = Promise.allSettled(ids.map(id => loadGLTF(T, ASSETS + (id.startsWith('pet-')?'':'hero-') + id + '.glb')))
       .then(results => {
         const failed = results.find(result => result.status === 'rejected');
         if (failed || epoch !== operatorEpoch) {
@@ -325,7 +325,7 @@
 
   function createOperator(team, characterId) {
     const id=global.CS16Characters.normalize(characterId);
-    const source = operators.get(id==='classic'?(team === 't' ? 't' : 'ct'):id);
+    const source = operators.get(id);
     if (!source) return null;
     const T = global.THREE;
     const clone = T.SkeletonUtils && T.SkeletonUtils.clone ? T.SkeletonUtils.clone(source) : source.clone(true);
@@ -333,5 +333,6 @@
     return clone;
   }
 
-  global.CS16Graphics = Object.freeze({ configureRenderer, createWorld, loadOperators, createOperator });
+  function createPet(id){const source=operators.get('pet-'+id);return source?source.clone(true):null;}
+  global.CS16Graphics = Object.freeze({createPet, configureRenderer, createWorld, loadOperators, createOperator });
 })(window);

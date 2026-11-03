@@ -74,7 +74,7 @@
     const text = params.get('text') || 'Внимание!';
     const from = params.get('from') || 'Fifflaren';
     const time = params.get('time') || '';
-    const muted = params.get('muted') === '1';
+    const muted = !params.has('text') || params.get('muted') === '1';
     const isBlue = params.get('color') === 'blue';
     const sound = params.get('sound') || 'default';
 
@@ -87,7 +87,7 @@
     const snd = document.getElementById('snd');
     snd.src = sound === 'fart' ? 'fart.mp3' : sound === 'moan' ? 'moan.mp3' : 'alert.wav';
     snd.volume = 1.0;
-    const tryPlay = () => { if (!muted) snd.play().catch(() => {}); };
+    let started=false;const tryPlay = () => { if (!muted&&!started) {started=true;snd.play().catch(() => {started=false;});} };
     tryPlay();
     setTimeout(tryPlay, 100);
     document.body.addEventListener('click', tryPlay, { once: true });

@@ -133,6 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentRole = data.role || 'user';
         HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+      HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
         localStorage.setItem('support_hub_user', data.username);
         // 3.12.0: «Оставаться в системе»
@@ -4834,6 +4835,7 @@ document.addEventListener('keydown', (e) => {
       currentRole = data.role || 'user';
       HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+      HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);
       localStorage.setItem('support_hub_user', data.username);
       if (authScreen) authScreen.style.display = 'none';
@@ -5556,6 +5558,7 @@ window.watchScreen = (username) => {
   }, 2000);
 };
 
+window.requestAssistance=()=>{const target=currentWatchTarget;if(!target)return;window.stopWatching();HubAssistance.request(target);};
 window.stopWatching = () => {
   if (socket && socket.connected && currentWatchTarget) {
     socket.emit('watch_stop', { from: currentUser, target: currentWatchTarget });

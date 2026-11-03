@@ -5,8 +5,8 @@
     {
       "file": "hero-ember.glb",
       "triangles": 17812,
-      "meshes": 23,
-      "bytes": 667184,
+      "meshes": 6,
+      "bytes": 697860,
       "pivots": [
         "torso",
         "head",
@@ -19,8 +19,8 @@
     {
       "file": "hero-tide.glb",
       "triangles": 19020,
-      "meshes": 23,
-      "bytes": 694716,
+      "meshes": 6,
+      "bytes": 743472,
       "pivots": [
         "torso",
         "head",
@@ -33,8 +33,8 @@
     {
       "file": "hero-jade.glb",
       "triangles": 17832,
-      "meshes": 23,
-      "bytes": 652236,
+      "meshes": 6,
+      "bytes": 698416,
       "pivots": [
         "torso",
         "head",
@@ -47,8 +47,92 @@
     {
       "file": "hero-aurora.glb",
       "triangles": 18464,
-      "meshes": 23,
-      "bytes": 673708,
+      "meshes": 6,
+      "bytes": 723684,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-pyra.glb",
+      "triangles": 18020,
+      "meshes": 6,
+      "bytes": 709844,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-neve.glb",
+      "triangles": 18528,
+      "meshes": 6,
+      "bytes": 727760,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-zephyr.glb",
+      "triangles": 17976,
+      "meshes": 6,
+      "bytes": 705796,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-basalt.glb",
+      "triangles": 18264,
+      "meshes": 6,
+      "bytes": 717820,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-helio.glb",
+      "triangles": 18992,
+      "meshes": 6,
+      "bytes": 746740,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-classic.glb",
+      "triangles": 18432,
+      "meshes": 6,
+      "bytes": 722292,
       "pivots": [
         "torso",
         "head",

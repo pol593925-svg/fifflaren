@@ -9,11 +9,12 @@ fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ magicPreview:()=>{state.phase='freeze';state.players=[{nick:myNick,alive:true,team:'ct',characterId:'pyra',petId:'fox'}];me.alive=true;me.team='ct';const pos=[P.x,P.y,P.z];for(const[i,id]of ['pyra','neve','zephyr','basalt','helio'].entries()){const nick='Magic '+i,r=addRemote(nick,'ct',id);r.x=r.tx=P.x+(i-2)*1.6;r.y=r.ty=P.y;r.z=r.tz=P.z-5;r.group.position.set(r.x,r.y,r.z);r.alive=true;state.players.push({nick,alive:true,team:'ct',characterId:id,petId:['fox','dragon','owl','golem','deer'][i]});}ui.lobby.style.display='none';ui.hud.style.display='block';magicView.set({heroReady:Date.now()+70000,petReady:0,hp:100});magicView.fx({id:'flame',pos:[P.x,P.y,P.z-5]});magicView.update(.016,performance.now());return state.players.length;},
  characters:()=>{
-   const results=[];for(const id of ['ember','tide','jade','aurora','classic']){const root=CS16Graphics.createOperator('ct',id);if(!root)throw Error('Missing '+id);for(const n of ['torso','head','legL','legR','armL','armR'])if(!root.getObjectByName(n))throw Error(id+' missing '+n);results.push(id);}return results;
+   const results=[];for(const id of Object.keys(CS16Characters.profiles)){const root=CS16Graphics.createOperator('ct',id);if(!root)throw Error('Missing '+id);for(const n of ['torso','head','legL','legR','armL','armR'])if(!root.getObjectByName(n))throw Error(id+' missing '+n);results.push(id);}return results;
  },
  remoteCharacter:()=>{const r=addRemote('HeroSync','t','ember');r.alive=true;r.x=r.tx=30;r.z=r.tz=24;window.__socket.receive('cs16_pos',{nick:'HeroSync',team:'t',pos:[30,0,24],yaw:0,pitch:0,weapon:'ak47',move:false,characterId:'tide'});const changed=remotes.get('HeroSync');return {id:changed.characterId,alive:changed.alive,x:changed.x,head:!!changed.head};},
  combatChecks:()=>{
@@ -106,13 +107,15 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
-  assert.deepEqual(await page.evaluate(()=>__qa.characters()),['ember','tide','jade','aurora','classic']);
+  assert.deepEqual(await page.evaluate(()=>__qa.characters()),['ember','tide','jade','aurora','pyra','neve','zephyr','basalt','helio','classic']);
   await page.evaluate(()=>__qa.lobby('Preview',[{nick:'Preview',team:null,characterId:'classic'}],'Preview'));
-  for(const id of ['ember','tide','jade','aurora','classic']){
+  for(const id of ['ember','tide','jade','aurora','pyra','neve','zephyr','basalt','helio','classic']){
    await page.locator('[data-character="'+id+'"]').click();assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_character',d:id});
    await page.evaluate(id=>__socket.receive('cs16_character_selected',{id}),id);assert.equal(await page.locator('[data-character="'+id+'"]').getAttribute('aria-pressed'),'true');
   }
   assert.equal(await page.evaluate(()=>localStorage.getItem('cs16-character')),'classic');
+  assert.equal(await page.locator('.cs16-pet-choice').count(),5);for(const [i,id]of ['fox','dragon','owl','golem','deer'].entries()){await page.locator('.cs16-pet-choice').nth(i).click();assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_pet',d:id});await page.evaluate(id=>__socket.receive('cs16_pet_selected',{id}),id);assert.equal(await page.locator('.cs16-pet-choice').nth(i).getAttribute('aria-pressed'),'true');}
+  assert.equal(await page.evaluate(()=>localStorage.getItem('cs16-pet')),'deer');
   await page.screenshot({path:path.join(outputs,'cs16-character-selection.png')});
   if(process.env.LOBBY_ONLY){
    const players=[{nick:'knyaz',team:null},{nick:'Fifflaren',team:null},{nick:'Alpha',team:'t'},{nick:'Bravo',team:'ct'}];

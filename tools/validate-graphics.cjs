@@ -17,10 +17,11 @@ for(const [name,rows]of Object.entries(maps)){
  assert(g.materials.some(m=>m.pbrMetallicRoughness?.metallicRoughnessTexture),name+' missing roughness');
  assert(manifest.maps[name].meshBatches<120,name+' draw budget');
 }
-for(const team of ['ct','t','ember','tide','jade','aurora']){
+for(const team of ['ct','t','ember','tide','jade','aurora','classic','pyra','neve','zephyr','basalt','helio']){
  const g=glb((['ct','t'].includes(team)?'operator-':'hero-')+team+'.glb');const names=new Set(g.nodes.map(n=>n.name));
  for(const n of ['torso','head','legL','legR','armL','armR'])assert(names.has(n),team+' missing '+n);
 }
+for(const id of ['fox','dragon','owl','golem','deer'])assert(glb('pet-'+id+'.glb').meshes.length<=2);
 const weapons=JSON.parse(fs.readFileSync(path.join(assets,'weapons-manifest.json')));
 assert.equal(weapons.assets.length,20);weapons.assets.forEach(a=>{const g=glb(a.file);assert(g.materials.some(m=>m.normalTexture),a.file+' missing material relief');});
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');

@@ -812,7 +812,7 @@
     buildWorld();
   }
   function releaseLostGraphics(){
-    remotesClear();clearShotEffects();removeBombMesh();
+    remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
     clearRockets();if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
@@ -842,7 +842,8 @@
       clearRockets();if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
       if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
-      scene = new THREE.Scene(); scene.add(camera);
+      if(magicView){magicView.dispose();magicView=null;}scene = new THREE.Scene(); scene.add(camera);
+      magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
       if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
@@ -857,6 +858,7 @@
       buildRadarBase(); resize3();
       await Promise.race([assets, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Загрузка превысила 90 секунд. Закрой лишние приложения и повтори.')), 90000); })]);
       if(epoch !== worldLoadEpoch)return;
+      buildingGraphics?.applyMaterials(name=>active.surface(name));
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
       if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
@@ -928,7 +930,7 @@
     // 3.24.0: приседание на Ctrl (медленнее, ниже обзор — зато пролезаешь в вентиляцию)
     P.crouched = !!keys.ctrl || (cellAt(P.x,P.z)===8 && P.y<VENT_CEIL);
     // 3.24.1: скорость зависит от оружия (нож — быстрый, AWP/пулемёт — тяжёлые), как в CS 1.6
-    const speed = (keys.shift ? 4.3 : 8.1) * (scoped ? 0.45 : 1) * (WEAPONS[current].move || 1) * (P.crouched ? 0.52 : 1);
+    const speed = (keys.shift ? 4.3 : 8.1) * (scoped ? 0.45 : 1) * (WEAPONS[current].move || 1) * (P.crouched ? 0.52 : 1) * (magicStatus.slowUntil>Date.now()+clockOffset?.5:1) * (magicStatus.speedUntil>Date.now()+clockOffset?1.45:1);
     const sin = Math.sin(P.yaw), cos = Math.cos(P.yaw);
     let wx = 0, wz = 0;
     if (keys.w) { wx -= sin; wz -= cos; }
@@ -1256,13 +1258,17 @@
     if (un) un.style.display = mySkin ? '' : 'none';
   }
 
+  let magicView=null,magicStatus={},chosenPet='fox',magicReloadWeapon=null;
+  try{const saved=localStorage.getItem('cs16-pet');if(CS16Magic.petValid(saved))chosenPet=saved;}catch{}
   let chosenCharacter='ember';
   try{const saved=localStorage.getItem('cs16-character');if(CS16Characters.valid(saved))chosenCharacter=saved;}catch{}
   function characterChoices(parent){
-    const box=document.createElement('section');box.className='cs16-character-panel';box.innerHTML='<h3>Выбери своего бойца</h3><p>Внешность видна всем. Здоровье, хитбоксы и оружие зависят от правил матча и класса.</p>';const list=document.createElement('div');list.className='cs16-character-grid';box.append(list);
+    const box=document.createElement('section');box.className='cs16-character-panel';box.innerHTML='<h3>Выбери своего бойца</h3><p>C — магия героя · V — умение питомца. Сильные способности восстанавливаются 45–75 секунд.</p>';const list=document.createElement('div');list.className='cs16-character-grid';box.append(list);
     const selected=state.players.find(p=>p.nick===myNick)?.characterId||chosenCharacter;
-    for(const [id,spec]of Object.entries(CS16Characters.profiles)){const b=document.createElement('button');b.className='cs16-character'+(id===selected?' selected':'');b.dataset.character=id;b.setAttribute('aria-pressed',String(id===selected));b.style.setProperty('--hero-color',spec.color);if(id!=='classic'){const img=document.createElement('img');img.src='assets/cs16/'+id+'.png';img.alt='';b.append(img);}else{const icon=document.createElement('span');icon.className='cs16-classic-icon';icon.textContent='◈';b.append(icon);}const title=document.createElement('strong');title.textContent=spec.name;const detail=document.createElement('small');detail.textContent=spec.detail;b.append(title,detail);b.onclick=()=>sock?.emit('cs16_character',id);list.append(b);}parent.prepend(box);
+    for(const [id,spec]of Object.entries(CS16Characters.profiles)){const b=document.createElement('button');b.className='cs16-character'+(id===selected?' selected':'');b.dataset.character=id;b.setAttribute('aria-pressed',String(id===selected));b.style.setProperty('--hero-color',spec.color);if(true){const img=document.createElement('img');img.src='assets/cs16/'+id+'.png';img.alt='';b.append(img);}else{const icon=document.createElement('span');icon.className='cs16-classic-icon';icon.textContent='◈';b.append(icon);}const title=document.createElement('strong');title.textContent=spec.name;const detail=document.createElement('small');detail.textContent=spec.detail+' · '+CS16Magic.spells[spec.ability].detail;b.append(title,detail);b.onclick=()=>sock?.emit('cs16_character',id);list.append(b);}parent.prepend(box);petChoices(box);
   }
+  function petChoices(parent){const title=document.createElement('h3');title.textContent='Твой спутник · один на матч';parent.append(title);const list=document.createElement('div');list.className='cs16-pet-grid';const selected=state.players.find(p=>p.nick===myNick)?.petId||chosenPet;for(const[id,p]of Object.entries(CS16Magic.pets)){const b=document.createElement('button');b.className='cs16-pet-choice'+(selected===id?' selected':'');b.setAttribute('aria-pressed',String(selected===id));b.style.setProperty('--hero-color',p.color);const image=document.createElement('img');image.src='assets/cs16/pet-'+id+'.png';image.alt='';const name=document.createElement('strong');name.textContent=p.name+' · '+p.species;const text=document.createElement('small');text.textContent=p.detail+' · 60 сек';b.append(image,name,text);b.onclick=()=>sock?.emit('cs16_pet',id);list.append(b);}parent.append(list);}
+  function castMagic(slot){if(!me.alive||state.phase!=='live'||myVeh?.inside||!worldReady)return;if(slot==='pet')magicReloadWeapon=current;sock?.emit('cs16_magic',{slot,dir:dirFromCam()});}
   function classChoices(parent){
     if(state.gm!=='cq'||!window.CS16Classes)return;
     const box=document.createElement('div');box.className='cs16-class-panel';box.innerHTML='<h3>Выбор класса</h3><p>Стартовый комплект при следующем возрождении. B — выбор во время матча.</p>';const list=document.createElement('div');list.className='cs16-class-grid';box.append(list);const selected=state.players.find(p=>p.nick===myNick)?.nextClass||'assault';
@@ -1391,6 +1397,9 @@
       ui.hud.style.display = 'block';
       resize3();
     });
+    sock.on('cs16_pet_selected',d=>{if(!CS16Magic.petValid(d.id))return;chosenPet=d.id;try{localStorage.setItem('cs16-pet',d.id);}catch{}const p=state.players.find(p=>p.nick===myNick);if(p)p.petId=d.id;if(ui.lobby.style.display!=='none')renderLobby();});
+    sock.on('cs16_magic_state',d=>{magicStatus={...magicStatus,...d};magicView?.set(d);if(Number.isFinite(d.hp))me.hp=d.hp;if(d.teleport){P.x=d.teleport[0];P.y=d.teleport[1];P.z=d.teleport[2];P.vx=P.vy=P.vz=0;sock.emit('cs16_pos',{pos:[P.x,P.y,P.z],yaw:P.yaw,pitch:P.pitch,weapon:current,move:false});}if(d.reload&&magicReloadWeapon&&ammo[magicReloadWeapon]){const a=ammo[magicReloadWeapon],w=WEAPONS[magicReloadWeapon];if(w&&Number.isFinite(w.mag)){const take=Math.min(w.mag-a.mag,a.reserve);a.mag+=take;a.reserve-=take;if(current===magicReloadWeapon)reloading=0;}}});
+    sock.on('cs16_magic_fx',d=>magicView?.fx(d));
     sock.on('cs16_character_selected',d=>{if(!CS16Characters.valid(d.id))return;chosenCharacter=d.id;try{localStorage.setItem('cs16-character',d.id);}catch{}const p=state.players.find(p=>p.nick===myNick);if(p)p.characterId=d.id;if(ui.lobby.style.display!=='none')renderLobby();});
     sock.on('cs16_class_selected',d=>{const p=state.players.find(p=>p.nick===myNick);if(p)p.nextClass=d.id;if(ui.buy.style.display==='block')renderBuyList();killfeed('Класс выбран · применяется при следующем возрождении');});
     sock.on('cs16_you', (y) => {
@@ -1689,7 +1698,7 @@
   }
   function doJoin() {
     if (Date.now() < kickUntil) return; // кик от Fifflaren — пауза 30 сек
-    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick); sock.emit('cs16_character',chosenCharacter); joined = true; }
+    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick); sock.emit('cs16_character',chosenCharacter);sock.emit('cs16_pet',chosenPet);sock.emit('cs16_magic_info'); joined = true; }
   }
 
   // ---------- УДАЛЁННЫЕ ИГРОКИ ----------
@@ -1782,7 +1791,7 @@
     const r = remotes.get(nick);
     if (r) { disposeOperator(r); remotes.delete(nick); }
   }
-  function remotesClear() { for (const n of [...remotes.keys()]) removeRemote(n); for (const n of nadesList) disposeNade(n.mesh); nadesList.length = 0; clearVehicles(); }
+  function remotesClear() { magicView?.clear(); for (const n of [...remotes.keys()]) removeRemote(n); for (const n of nadesList) disposeNade(n.mesh); nadesList.length = 0; clearVehicles(); }
 
   // ---------- ЭФФЕКТЫ ----------
   // 3.22.0: вспышка выстрела — аддитивная звезда + точечный свет, видны ВСЕМ (и на стенах)
@@ -2726,6 +2735,8 @@
         if (k === 'b' || k === 'escape') closeBuy();
         return;
       }
+      if(k==='c'&&!e.repeat){castMagic('hero');return;}
+      if(k==='v'&&!e.repeat){castMagic('pet');return;}
       if(k==='j'&&!e.repeat){conquestUI?.open();return;}
       if(k==='z'&&!e.repeat){conquestUI?.openPing();return;}
       if (k === 'b') openBuy();
@@ -2862,6 +2873,7 @@
     try {
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
     lastT = t;
+    magicView?.update(dt,t);
     // таймеры клиента
     bloom = Math.max(0, bloom - dt * 3);
     // 3.24.0: флешка — 3 секунды полный белый экран, потом гаснет

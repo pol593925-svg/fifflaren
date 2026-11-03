@@ -577,7 +577,10 @@
   // Full glTF loader preserves Blender PBR textures and material properties.
   function loadGLBAll() {
     const loader = new THREE.GLTFLoader();
-    return Promise.all(Object.entries(GLB_MODELS).map(async ([id, cfg]) => {
+    const entries=Object.entries(GLB_MODELS);let next=0;
+    // Bound concurrent parsing/image decoding to avoid startup memory spikes.
+    return Promise.allSettled(Array.from({length:3},async()=>{while(next<entries.length){
+      const [id,cfg]=entries[next++];if(glbCache[id]?.model)continue;
       glbCache[id] = { model: null };
       try {
         const asset = await loader.loadAsync(cfg.url);
@@ -603,7 +606,7 @@
         });
         glbCache[id].model = wrap;
       } catch (error) { throw new Error('Weapon model unavailable: ' + id + ': ' + error.message); }
-    }));
+    }})).then(results=>{const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;});
   }
   // Клон GLB-модели оружия с тонировкой скином
   function glbGunClone(weapon, skin) {
@@ -1253,6 +1256,13 @@
     if (un) un.style.display = mySkin ? '' : 'none';
   }
 
+  let chosenCharacter='ember';
+  try{const saved=localStorage.getItem('cs16-character');if(CS16Characters.valid(saved))chosenCharacter=saved;}catch{}
+  function characterChoices(parent){
+    const box=document.createElement('section');box.className='cs16-character-panel';box.innerHTML='<h3>Выбери своего бойца</h3><p>Внешность видна всем. Здоровье, хитбоксы и оружие зависят от правил матча и класса.</p>';const list=document.createElement('div');list.className='cs16-character-grid';box.append(list);
+    const selected=state.players.find(p=>p.nick===myNick)?.characterId||chosenCharacter;
+    for(const [id,spec]of Object.entries(CS16Characters.profiles)){const b=document.createElement('button');b.className='cs16-character'+(id===selected?' selected':'');b.dataset.character=id;b.setAttribute('aria-pressed',String(id===selected));b.style.setProperty('--hero-color',spec.color);if(id!=='classic'){const img=document.createElement('img');img.src='assets/cs16/'+id+'.png';img.alt='';b.append(img);}else{const icon=document.createElement('span');icon.className='cs16-classic-icon';icon.textContent='◈';b.append(icon);}const title=document.createElement('strong');title.textContent=spec.name;const detail=document.createElement('small');detail.textContent=spec.detail;b.append(title,detail);b.onclick=()=>sock?.emit('cs16_character',id);list.append(b);}parent.prepend(box);
+  }
   function classChoices(parent){
     if(state.gm!=='cq'||!window.CS16Classes)return;
     const box=document.createElement('div');box.className='cs16-class-panel';box.innerHTML='<h3>Выбор класса</h3><p>Стартовый комплект при следующем возрождении. B — выбор во время матча.</p>';const list=document.createElement('div');list.className='cs16-class-grid';box.append(list);const selected=state.players.find(p=>p.nick===myNick)?.nextClass||'assault';
@@ -1329,6 +1339,7 @@
           R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить
         </div>
       </div>`;
+    characterChoices(ui.lobby.firstElementChild);
     const jt = document.getElementById('cs16JoinT'), jc = document.getElementById('cs16JoinCT');
     if (jt) jt.onclick = () => sock && sock.emit('cs16_team', 't');
     if (jc) jc.onclick = () => sock && sock.emit('cs16_team', 'ct');
@@ -1380,6 +1391,7 @@
       ui.hud.style.display = 'block';
       resize3();
     });
+    sock.on('cs16_character_selected',d=>{if(!CS16Characters.valid(d.id))return;chosenCharacter=d.id;try{localStorage.setItem('cs16-character',d.id);}catch{}const p=state.players.find(p=>p.nick===myNick);if(p)p.characterId=d.id;if(ui.lobby.style.display!=='none')renderLobby();});
     sock.on('cs16_class_selected',d=>{const p=state.players.find(p=>p.nick===myNick);if(p)p.nextClass=d.id;if(ui.buy.style.display==='block')renderBuyList();killfeed('Класс выбран · применяется при следующем возрождении');});
     sock.on('cs16_you', (y) => {
       me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
@@ -1467,7 +1479,10 @@
     sock.on('cs16_live', () => { banner('❗ РАУНД НАЧАЛСЯ', '#ff5544', 1500); closeBuy(); });
     sock.on('cs16_pos', (d) => {
       let r = remotes.get(d.nick);
-      if (!r) r = addRemote(d.nick, d.team);
+      const characterId=CS16Characters.normalize(d.characterId);
+      if (!r) r = addRemote(d.nick, d.team,characterId);
+      else if(r.characterId!==characterId||r.team!==d.team){const old=r;r=addRemote(d.nick,d.team,characterId);for(const k of ['x','y','z','tx','ty','tz','yaw','tyaw','pitch','tpitch','alive','moving','crouched','walkPhase','weapon','skin'])r[k]=old[k];r.group.position.set(r.x,r.y,r.z);}
+
       r.tx = d.pos[0]; r.ty = d.pos[1]; r.tz = d.pos[2];
       r.tyaw = d.yaw; r.tpitch = d.pitch; r.weapon = d.weapon; r.skin = d.skin || ''; r.lastSeen = performance.now();
       r.moving = !!d.move; r.crouched = !!d.crouched;
@@ -1674,7 +1689,7 @@
   }
   function doJoin() {
     if (Date.now() < kickUntil) return; // кик от Fifflaren — пауза 30 сек
-    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick); joined = true; }
+    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick); sock.emit('cs16_character',chosenCharacter); joined = true; }
   }
 
   // ---------- УДАЛЁННЫЕ ИГРОКИ ----------
@@ -1693,11 +1708,12 @@
     sp.position.y = 2.25;
     return sp;
   }
-  function addRemote(nick, team) {
+  function addRemote(nick, team, characterId) {
+    characterId=CS16Characters.normalize(characterId||state.players.find(p=>p.nick===nick)?.characterId);
     // 3.15.7: если моделька уже есть — удаляем старую (иначе дубли накапливаются в сцене)
     const prev = remotes.get(nick);
     if (prev) { disposeOperator(prev); remotes.delete(nick); }
-    const g = CS16Graphics.createOperator(team);
+    const g = CS16Graphics.createOperator(team,characterId);
     if (!g) throw new Error('Operator assets must load before joining a match');
     const torso = g.getObjectByName('torso'), head = g.getObjectByName('head');
     const legL = g.getObjectByName('legL'), legR = g.getObjectByName('legR');
@@ -1717,7 +1733,7 @@
     // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
     if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
+    const r = { characterId, group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);

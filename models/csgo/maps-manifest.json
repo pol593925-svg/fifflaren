@@ -3,9 +3,9 @@
   "maps": {
     "dust2": {
       "file": "dust2.glb",
-      "bytes": 66505548,
-      "triangles": 508557,
-      "meshBatches": 61,
+      "bytes": 70211288,
+      "triangles": 549621,
+      "meshBatches": 62,
       "materials": 16,
       "textureImages": 52,
       "layoutSha256": "ad1b2479bf96a400bc6b3566334163d65442098d411b485733eadbf2d7746f21",
@@ -4261,9 +4261,9 @@
     },
     "inferno": {
       "file": "inferno.glb",
-      "bytes": 53521308,
-      "triangles": 397223,
-      "meshBatches": 57,
+      "bytes": 56424844,
+      "triangles": 429767,
+      "meshBatches": 58,
       "materials": 16,
       "textureImages": 52,
       "layoutSha256": "8079fe05a4f9d3c9bec8a8034103c03fc84cdc95d4fce142e9116703da86cc40",
@@ -6578,7 +6578,7 @@
       "sourceBlend": "inferno.blend"
     }
   },
-  "authoring": "Blender 4.5.9 LTS",
+  "authoring": "Blender 5.2.3 LTS",
   "generator": "tools/blender/build_maps.py",
   "artwork": "Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.",
   "coordinateSystem": "glTF Y-up, game x/y/z unchanged",

@@ -104,7 +104,6 @@ async function run(){
   const box=await page.locator('#sendCallBtn').boundingBox();assert(box.x>=0&&box.x+box.width<=900);
   await page.locator('.hub-menuToggle').click();assert(await page.locator('.hub-selector').isVisible());await page.screenshot({path:path.join(out,'hero-gallery.png')});
   await page.keyboard.press('Escape');await page.click('#themeToggleBtn');
-  await tab('support2');visited.push('support2');await page.getByText('✖ Закрыть игру',{exact:true}).click();
   await tab('cs16');visited.push('cs16');
   await page.waitForFunction(()=>{const l=document.querySelector('.cs16-loading');return l&&l.style.display==='none'},null,{timeout:120000});
   await tab('cs16');await page.waitForSelector('#cs16StartBtn',{state:'visible'});await page.screenshot({path:path.join(out,'hub-game-lobby.png')});

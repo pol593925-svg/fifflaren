@@ -315,6 +315,48 @@ def wall_details(x,z,dx,dz,variant,theme):
         panel('steel',1.1,2.85,.34,.44,.035)
         panel('lamp_warm',1.1,2.85,.20,.23,.001)
 
+    # Sculpted stone arch over closed shutters. The opening is decorative;
+    # the existing wall and all gameplay collision planes stay in place.
+    if variant%4 in (0,1):
+        for i in range(18):
+            a,b=i*math.pi/18,(i+1)*math.pi/18
+            points=[]
+            for angle,radius in ((a,.69),(a,.86),(b,.86),(b,.69)):
+                along=math.cos(angle)*radius
+                points.append((px-dz*along+dx*.115,2.85+math.sin(angle)*radius,pz+dx*along+dz*.115))
+            face('limestone',points,tint=.91+(i%3)*.025)
+        for along in (-.78,.78):
+            panel('limestone',along,2.18,.17,1.34,.08)
+
+
+def distant_landscape(theme):
+    """Smooth rocky ridges outside the playable 504m square; one draw call."""
+    count=192;vertices=[];faces=[]
+    for row in range(7):
+        radius=390+row*43
+        for i in range(count):
+            a=i*math.tau/count
+            peaks=math.sin(a*5+.7)*.20+math.sin(a*9-1)*.13+math.cos(a*17)*.07
+            profile=math.sin(row/6*math.pi)**1.5
+            height=-4+profile*(78+peaks*100)
+            r=radius+math.sin(a*7)*9+math.cos(a*13+row*.4)*5
+            vertices.append((252+math.cos(a)*r,-252-math.sin(a)*r,height))
+    for row in range(6):
+        for i in range(count):
+            j=(i+1)%count
+            a=row*count+i;b=row*count+j;c=(row+1)*count+j;d=(row+1)*count+i
+            faces.extend(((a,b,c),(a,c,d)))
+    mesh=bpy.data.meshes.new('Sculpted distant ridges');mesh.from_pydata(vertices,[],faces);mesh.update()
+    for poly in mesh.polygons:poly.use_smooth=True
+    uv=mesh.uv_layers.new(name='UVMap')
+    for loop in mesh.loops:
+        v=mesh.vertices[loop.vertex_index].co
+        uv.data[loop.index].uv=(v.x/18,v.y/18)
+    ob=bpy.data.objects.new('Distant landscape',mesh);bpy.context.collection.objects.link(ob)
+    ob.data.materials.append(MATS['limestone'] if theme=='dust2' else MATS['tunnel'])
+    ob['backdrop']=True
+    return ob
+
 
 def cover(x,z,char):
     px,pz=x*CELL+2,z*CELL+2
@@ -570,6 +612,7 @@ def main():
         create_materials(theme)
         lamps,beacons=build_map(theme,rows)
         objects=bake_batches()
+        objects.append(distant_landscape(theme))
         tris=0
         for ob in objects:ob.data.calc_loop_triangles();tris+=len(ob.data.loop_triangles)
         bpy.context.scene.world=bpy.data.worlds.new('World')

@@ -11,18 +11,18 @@ function glb(file){
  return JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString().trim());
 }
 for(const [name,rows]of Object.entries(maps)){
- assert.equal(rows.length,42);rows.forEach(r=>assert.equal(r.length,42));
+ assert.equal(rows.length,126);rows.forEach(r=>assert.equal(r.length,126));
  assert.equal(manifest.maps[name].layoutSha256,crypto.createHash('sha256').update(rows.join('\n')).digest('hex'),name+' stale export');
  const g=glb(name+'.glb');assert(g.materials.some(m=>m.normalTexture),name+' missing normals');
  assert(g.materials.some(m=>m.pbrMetallicRoughness?.metallicRoughnessTexture),name+' missing roughness');
  assert(manifest.maps[name].meshBatches<120,name+' draw budget');
 }
-for(const team of ['ct','t']){
- const g=glb('operator-'+team+'.glb');const names=new Set(g.nodes.map(n=>n.name));
+for(const team of ['ct','t','ember','tide','jade','aurora']){
+ const g=glb((['ct','t'].includes(team)?'operator-':'hero-')+team+'.glb');const names=new Set(g.nodes.map(n=>n.name));
  for(const n of ['torso','head','legL','legR','armL','armR'])assert(names.has(n),team+' missing '+n);
 }
 const weapons=JSON.parse(fs.readFileSync(path.join(assets,'weapons-manifest.json')));
-assert.equal(weapons.assets.length,20);weapons.assets.forEach(a=>glb(a.file));
+assert.equal(weapons.assets.length,20);weapons.assets.forEach(a=>{const g=glb(a.file);assert(g.materials.some(m=>m.normalTexture),a.file+' missing material relief');});
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 assert(html.indexOf('GLTFLoader.js')<html.indexOf('cs16-graphics.js'));
 assert(html.indexOf('cs16-graphics.js')<html.indexOf('src="cs16.js"'));

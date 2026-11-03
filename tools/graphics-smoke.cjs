@@ -9,9 +9,13 @@ fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ characters:()=>{
+   const results=[];for(const id of ['ember','tide','jade','aurora','classic']){const root=CS16Graphics.createOperator('ct',id);if(!root)throw Error('Missing '+id);for(const n of ['torso','head','legL','legR','armL','armR'])if(!root.getObjectByName(n))throw Error(id+' missing '+n);results.push(id);}return results;
+ },
+ remoteCharacter:()=>{const r=addRemote('HeroSync','t','ember');r.alive=true;r.x=r.tx=30;r.z=r.tz=24;window.__socket.receive('cs16_pos',{nick:'HeroSync',team:'t',pos:[30,0,24],yaw:0,pitch:0,weapon:'ak47',move:false,characterId:'tide'});const changed=remotes.get('HeroSync');return {id:changed.characterId,alive:changed.alive,x:changed.x,head:!!changed.head};},
  combatChecks:()=>{
    for(const r of remotes.values())scene.remove(r.group);remotes.clear();
    let cell;for(let z=2;z<MH-2&&!cell;z++)for(let x=2;x<MW-2;x++)if(grid[z][x]===0){cell=[x,z];break;}
@@ -102,6 +106,14 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
+  assert.deepEqual(await page.evaluate(()=>__qa.characters()),['ember','tide','jade','aurora','classic']);
+  await page.evaluate(()=>__qa.lobby('Preview',[{nick:'Preview',team:null,characterId:'classic'}],'Preview'));
+  for(const id of ['ember','tide','jade','aurora','classic']){
+   await page.locator('[data-character="'+id+'"]').click();assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_character',d:id});
+   await page.evaluate(id=>__socket.receive('cs16_character_selected',{id}),id);assert.equal(await page.locator('[data-character="'+id+'"]').getAttribute('aria-pressed'),'true');
+  }
+  assert.equal(await page.evaluate(()=>localStorage.getItem('cs16-character')),'classic');
+  await page.screenshot({path:path.join(outputs,'cs16-character-selection.png')});
   if(process.env.LOBBY_ONLY){
    const players=[{nick:'knyaz',team:null},{nick:'Fifflaren',team:null},{nick:'Alpha',team:'t'},{nick:'Bravo',team:'ct'}];
    await page.evaluate(p=>__qa.lobby('Fifflaren',p,'knyaz'),players);
@@ -127,6 +139,7 @@ async function run(){
    console.log('LOBBY PASS: take host, kick host, spectator controls, ordinary player permissions, narrow layout');return;
   }
   await page.evaluate(s=>window.__nextState=s,state());await page.evaluate(begin);
+  assert.deepEqual(await page.evaluate(()=>__qa.remoteCharacter()),{id:'tide',alive:true,x:30,head:true});
   await page.waitForTimeout(1500);
   await page.evaluate(()=>{__qa.weapon('ak47');__qa.aim(28,0,28,-.65,-.02);__qa.addRemote('Patrol','ct',36,18);__qa.hideMessages();});
   await page.waitForTimeout(600);
@@ -136,6 +149,7 @@ async function run(){
   await page.waitForFunction(()=>Math.abs(__qa.effects().kick)<.001&&__qa.effects().tracers===0&&__qa.effects().flashes===0,null,{timeout:15000});const settled=await page.evaluate(()=>__qa.effects());assert.equal(settled.tracers,0);assert.equal(settled.flashes,0);assert(Math.abs(settled.kick)<.001);
   await page.screenshot({path:path.join(outputs,'csgo-dust2-preview.png')});
   const first=await page.evaluate(()=>__qa.snapshot());
+  const qualityCheck=await page.evaluate(()=>{const world=__qa.world(),renderer=__qa.renderer(),sun=__qa.scene().getObjectByName('CS16 sun');world.setQuality('high');renderer.render(__qa.scene(),__qa.camera());const highMap=!!sun.shadow.map,highSize=sun.shadow.mapSize.x;world.setQuality('low');renderer.render(__qa.scene(),__qa.camera());const lowMap=!!sun.shadow.map,shadows=renderer.shadowMap.enabled;world.setQuality('balanced');return {highMap,highSize,lowMap,shadows,balancedSize:sun.shadow.mapSize.x};});assert.deepEqual(qualityCheck,{highMap:true,highSize:2048,lowMap:false,shadows:false,balancedSize:1024});console.log('QUALITY_BUDGET',JSON.stringify(qualityCheck));
   console.log('DUST2',JSON.stringify(first));assert.equal(first.errors,0);assert.equal(first.ready,true);assert(first.triangles>1000);
   const dustSurfaces=await page.evaluate(()=>__qa.surfaces());console.log('DUST2_SURFACES',JSON.stringify(dustSurfaces));assert.deepEqual(dustSurfaces.failures,[]);
   // Actual input path: open/close shop and pause, change quality, retain actions.

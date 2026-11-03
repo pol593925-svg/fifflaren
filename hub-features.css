@@ -16,26 +16,11 @@ body #tab-casino .casino-reel.rolling {animation:reel-pulse .13s linear infinite
 @media(max-width:1000px){.casino-hero {padding:26px;min-height:235px}.casino-hero h2 {font-size:42px}.casino-art {transform:scale(.8);transform-origin:right center;width:260px}.casino-reelStage {padding:15px!important;gap:7px!important}body #tab-casino .casino-reel {width:80px!important;height:110px!important;font-size:48px!important}}
 @media(max-width:700px){.casino-art{display:none}.calls-overview{align-items:flex-start}.exchange-grid{grid-template-columns:1fr}body #tab-casino .casino-reel{width:50px!important;height:80px!important;font-size:35px!important}.casino-room{padding:14px!important}}
 @media(prefers-reduced-motion:reduce){.casino-reel.rolling{animation:none!important}.exchange-card,.casino-room-btn{transition:none!important}}
-/* Support2: cinematic draft, readable original hero cards. */
-.s2-shell{font-family:Inter,"Segoe UI",sans-serif}
-.s2-shell [data-lobby],.s2-shell [data-pick]{background:radial-gradient(ellipse at 18% 5%,#28404788,transparent 48%),radial-gradient(ellipse at 90% 85%,#51263477,transparent 48%),linear-gradient(135deg,#0b151b,#11121c 60%,#1b1419)!important}
-.s2-shell .s2-heroCard{border-radius:12px!important;background:linear-gradient(155deg,#26313e,#10151e)!important;box-shadow:0 12px 25px #0005;transition:transform .18s,border-color .18s,box-shadow .18s;overflow:hidden}
-.s2-shell .s2-heroCard:before{content:"";position:absolute;inset:0;pointer-events:none;border-top:2px solid var(--hero-color);background:linear-gradient(0deg,#070b1099,transparent 60%)}
-.s2-shell .s2-heroCard>div{position:relative}.s2-shell .s2-heroCard img{aspect-ratio:200/230;object-fit:cover;background:radial-gradient(ellipse,var(--hero-color),#17202b)!important}
-.s2-shell .s2-heroCard:hover{box-shadow:0 8px 30px #0009,0 0 14px color-mix(in srgb,var(--hero-color) 25%,transparent)}
-.s2-shell [data-lobby] .s2-heroCard{width:100px!important;min-height:153px}
-.s2-shell .s2-pickGrid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))!important;width:min(1100px,100%);max-width:1100px!important}
-@media(max-width:650px){.s2-shell [data-pick]{padding-top:65px!important}.s2-shell [data-lobby] .s2-heroCard{width:84px!important}.s2-shell .s2-pickGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-@media(prefers-reduced-motion:reduce){.s2-shell .s2-heroCard{transition:none}}
 body #tab-casino #room-slot[data-art=bananza]{background:radial-gradient(ellipse at 50% 0,#778e2c66,transparent 65%),#14251d}
 body #tab-casino #room-slot[data-art=zeus]{background:radial-gradient(ellipse at 50% 0,#4978b977,transparent 65%),#14182e}
 body #tab-casino #room-slot[data-art=dogs]{background:radial-gradient(ellipse at 50% 0,#ae674c66,transparent 65%),#2b1921}
 body #tab-casino .slot-theme-btn{background:#242432!important;color:#a8a3b6!important;box-shadow:none!important;border:1px solid transparent!important}
 body #tab-casino .slot-theme-btn.active{background:#473c2c!important;color:#ffe3a4!important;border-color:#cba66a!important}
-.s2-shell .s2-hudBar{flex-shrink:0;transform-origin:bottom center}
-@media(max-width:1200px){.s2-shell .s2-hudBar{transform:scale(.8);margin-left:150px}}
-@media(max-width:950px){.s2-shell .s2-hudBar{transform:scale(.62);margin-left:155px}.s2-shell canvas[data-s2top]{width:145px!important;height:145px!important}}
-@media(max-width:650px){.s2-shell .s2-hudBar{transform:scale(.48);margin-left:80px}.s2-shell canvas[data-s2top]{width:85px!important;height:85px!important}}
 /* Illustrated casino rooms: real game controls remain above the artwork. */
 body #tab-casino .casino-illustrated{position:relative;isolation:isolate;overflow:hidden;border:1px solid #b69c6744;box-shadow:0 30px 90px #0006;min-height:440px;padding:28px 36px}
 .casino-sceneCaption{color:#cbb78c!important;text-transform:uppercase;letter-spacing:3px;font-size:10px!important;margin:-8px 0 26px!important}

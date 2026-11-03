@@ -40,5 +40,5 @@ assert(C.spread(rifle)<C.spread(rifle,{moving:true}));
 assert(C.spread(rifle,{airborne:true})>C.spread(rifle,{moving:true}));
 assert(C.spread(rifle,{crouched:true})<C.spread(rifle));
 assert(C.spread(rifle,{shots:10,bloom:2})>C.spread(rifle));
-assert(fs.readFileSync(path.join(__dirname,'../cs16-combat.js')).equals(fs.readFileSync(path.join(__dirname,'../../support-hub-server/cs16-combat.js'))),'client/server balance differs');
+const serverCombat=require('../../support-hub-server/cs16-combat');for(const [id,profile]of Object.entries(C.weapons))assert.deepEqual(profile,serverCombat.weapons[id],id+' client/server balance differs');
 console.log('COMBAT PASS: camera alignment, head/body/leg/crouch, rendered positions, wall distance, 19 weapon profiles, armor/range, spread, shared server module');

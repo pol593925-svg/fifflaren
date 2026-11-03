@@ -58,7 +58,7 @@ body .auth-box { width:410px;padding:36px;background:var(--hub-panel);border:1px
 .auth-box::before { content:'S';display:grid;place-items:center;width:52px;height:54px;background:linear-gradient(145deg,#bbaaff,#6c55cb);color:#fff;border-radius:16px;margin:0 auto 24px;font-size:32px;font-weight:700; }
 body .auth-box h3 { color:var(--hub-text);font-size:21px; }body .auth-box p { color:var(--hub-muted); }body .auth-box input { background:var(--hub-field);border-color:var(--hub-line);color:var(--hub-text);border-radius:9px;padding:12px; }body .auth-box button { background:#7965d9;border-radius:9px;padding:12px; }body .auth-box a { color:var(--hub-accent); }
 body .update-banner { background:var(--hub-soft);color:var(--hub-text);border-color:var(--hub-accent); }
-body #tab-cs16,body #tab-support2 { padding:0;position:relative;min-height:0!important;height:auto!important; }body #tab-cs16 .cs16-lobby { background:var(--hub-bg)!important; }
+body #tab-cs16 { padding:0;position:relative;min-height:0!important;height:auto!important; }body #tab-cs16 .cs16-lobby { background:var(--hub-bg)!important; }
 body .casino-room-btn { background:var(--hub-panel);border:1px solid var(--hub-line);border-radius:16px;padding:24px;color:var(--hub-text);box-shadow:0 8px 30px #0001; }
 body .casino-room-btn span { color:var(--hub-muted); }body .casino-room-btn:hover { border-color:var(--hub-accent);background:var(--hub-soft);box-shadow:0 8px 30px #0002; }
 body .casino-rooms { gap:16px; }body .casino-reel { border-radius:12px;border-color:var(--hub-line); }

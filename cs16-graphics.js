@@ -4,7 +4,7 @@
 
   const QUALITY = Object.freeze({
     low: { dpr: 1, shadow: 1024, anisotropy: 2, lamps: 2 },
-    balanced: { dpr: 1, shadow: 2048, anisotropy: 4, lamps: 3 },
+    balanced: { dpr: 1, shadow: 1024, anisotropy: 4, lamps: 3 },
     high: { dpr: 1.5, shadow: 2048, anisotropy: 8, lamps: 4 },
   });
   const ASSETS = 'models/csgo/';
@@ -21,8 +21,8 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.96;
-    renderer.shadowMap.enabled = true;
+    renderer.toneMappingExposure = 1.02;
+    renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
     renderer.userData.cs16Quality = name;
@@ -66,14 +66,14 @@
     const materials = new Set();
     root.traverse(object => {
       if (!object.isMesh) return;
-      object.castShadow = true;
+      object.castShadow = !object.userData.backdrop;
       object.receiveShadow = true;
       const list = Array.isArray(object.material) ? object.material : [object.material];
       list.forEach(material => {
         if (!material || materials.has(material)) return;
         materials.add(material);
         if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
-          material.envMapIntensity = 0.55;
+          material.envMapIntensity = 0.65;
           material.dithering = true;
         }
         // GLTFLoader already assigns sRGB to color maps and linear to data maps.
@@ -130,7 +130,7 @@
         '  color=mix(ground,color,smoothstep(-0.12,0.03,d.y));',
         '  vec2 p=d.xz/(0.18+max(d.y,0.0))*2.1;',
         '  float wisps=smoothstep(0.51,0.76,cloud(p))*smoothstep(0.05,0.25,d.y);',
-        '  color=mix(color,vec3(0.74,0.78,0.79),wisps*0.42);',
+        '  color=mix(color,vec3(0.91,0.93,0.94),wisps*0.68);',
         '  float alignment=max(dot(d,sunDirection),0.0);',
         '  color+=vec3(1.0,0.79,0.48)*pow(alignment,28.0)*0.16;',
         '  color+=vec3(1.0,0.91,0.73)*pow(alignment,700.0)*0.75;',
@@ -165,9 +165,9 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xd0d5d3 : 0xd6d7cc, 320, 980);
 
-    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x93816a, 0.72);
+    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x93816a, 0.86);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xfff0d5, 2.75);
+    const sun = new T.DirectionalLight(0xffedce, 2.35);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -175,7 +175,7 @@
     sun.shadow.camera.updateProjectionMatrix();
     sun.shadow.bias = -0.00012;
     sun.shadow.normalBias = 0.035;
-    sun.shadow.radius = 2;
+    sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
     // Reuse the same atmosphere for metal reflections; no remote HDR dependency.
@@ -231,11 +231,14 @@
       const now = typeof time === 'number' ? time : performance.now();
       if (now - lampsTick < 150) return;
       lampsTick = now;
-      const nearest = lampCandidates.map(lamp => ({
-        lamp,
-        distance: Math.pow(lamp.x - activeCamera.position.x, 2) + Math.pow(lamp.z - activeCamera.position.z, 2)
-          + Math.pow(lamp.y - activeCamera.position.y, 2) * 3,
-      })).sort((a, b) => a.distance - b.distance);
+      // Keep only the four relevant lamps; avoid allocating and sorting the entire map.
+      const nearest = [];
+      for(const lamp of lampCandidates){
+        const distance=(lamp.x-activeCamera.position.x)**2+(lamp.z-activeCamera.position.z)**2+(lamp.y-activeCamera.position.y)**2*3;
+        if(distance>42*42)continue;
+        let index=0;while(index<nearest.length&&nearest[index].distance<distance)index++;
+        if(index<quality.lamps){nearest.splice(index,0,{lamp,distance});if(nearest.length>quality.lamps)nearest.pop();}
+      }
       lamps.forEach((light, index) => {
         const candidate = nearest[index];
         if (index >= quality.lamps || !candidate || candidate.distance > 42 * 42) { light.intensity = 0; return; }
@@ -299,7 +302,8 @@
     const T = THREE || global.THREE;
     if (operatorPromise) return operatorPromise;
     const epoch = operatorEpoch;
-    operatorPromise = Promise.allSettled(['ct', 't'].map(team => loadGLTF(T, ASSETS + 'operator-' + team + '.glb')))
+    const ids=['ct','t','ember','tide','jade','aurora'];
+    operatorPromise = Promise.allSettled(ids.map(id => loadGLTF(T, ASSETS + (id==='ct'||id==='t'?'operator-':'hero-') + id + '.glb')))
       .then(results => {
         const failed = results.find(result => result.status === 'rejected');
         if (failed || epoch !== operatorEpoch) {
@@ -309,7 +313,7 @@
         results.forEach((result, index) => {
           const root = result.value.scene;
           prepareMeshes(T, root, null, QUALITY.high);
-          operators.set(index === 0 ? 'ct' : 't', root);
+          operators.set(ids[index], root);
         });
         return true;
       }).catch(error => {
@@ -319,8 +323,9 @@
     return operatorPromise;
   }
 
-  function createOperator(team) {
-    const source = operators.get(team === 't' ? 't' : 'ct');
+  function createOperator(team, characterId) {
+    const id=global.CS16Characters.normalize(characterId);
+    const source = operators.get(id==='classic'?(team === 't' ? 't' : 'ct'):id);
     if (!source) return null;
     const T = global.THREE;
     const clone = T.SkeletonUtils && T.SkeletonUtils.clone ? T.SkeletonUtils.clone(source) : source.clone(true);

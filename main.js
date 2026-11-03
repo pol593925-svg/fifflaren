@@ -248,11 +248,6 @@ ipcMain.on('set-muted', (event, m) => {
   muted = !!m;
 });
 
-// Support2: полный экран при входе в игру
-ipcMain.on('s2-fullscreen', (event, on) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (win && !win.isDestroyed()) win.setFullScreen(!!on);
-});
 
 // CS 1.6: полный экран пока открыта вкладка игры
 ipcMain.on('cs16-fullscreen', (event, on) => {

@@ -1,0 +1,62 @@
+{
+  "generator": "tools/blender/build_heroes.py",
+  "artwork": "Original Support Hub fantasy characters",
+  "assets": [
+    {
+      "file": "hero-ember.glb",
+      "triangles": 17812,
+      "meshes": 23,
+      "bytes": 667184,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-tide.glb",
+      "triangles": 19020,
+      "meshes": 23,
+      "bytes": 694716,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-jade.glb",
+      "triangles": 17832,
+      "meshes": 23,
+      "bytes": 652236,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    },
+    {
+      "file": "hero-aurora.glb",
+      "triangles": 18464,
+      "meshes": 23,
+      "bytes": 673708,
+      "pivots": [
+        "torso",
+        "head",
+        "legL",
+        "legR",
+        "armL",
+        "armR"
+      ]
+    }
+  ]
+}

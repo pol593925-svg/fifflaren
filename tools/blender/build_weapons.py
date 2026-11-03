@@ -23,6 +23,15 @@ def metal(name,color,rough=.36,metallic=.8):
         x,y=rng.integers(0,n,2);length=int(rng.integers(2,18));px[y:y+1,x:min(n,x+length),:3]+=.045
     node=m.node_tree.nodes.new('ShaderNodeTexImage');node.image=a.image(name+'_finish',px)
     m.node_tree.links.new(node.outputs['Color'],m.node_tree.nodes.get('Principled BSDF').inputs['Base Color'])
+    # Fine machining relief and independently varied roughness catch grazing light.
+    bsdf=m.node_tree.nodes.get('Principled BSDF')
+    rough_px=np.ones_like(px);rough_px[:,:,:3]=np.clip(rough+noise[:,:,None]*3+lines[:,:,None],.18,.95)
+    rt=m.node_tree.nodes.new('ShaderNodeTexImage');rt.image=a.image(name+'_roughness',rough_px[::4,::4],False)
+    m.node_tree.links.new(rt.outputs['Color'],bsdf.inputs['Roughness'])
+    normal=np.ones_like(px);normal[:,:,0]=.5+(np.roll(noise,1,1)-noise)*1.3;normal[:,:,1]=.5+(np.roll(noise,1,0)-noise)*1.3
+    nt=m.node_tree.nodes.new('ShaderNodeTexImage');nt.image=a.image(name+'_normal',normal[::4,::4],False)
+    nm=m.node_tree.nodes.new('ShaderNodeNormalMap');nm.inputs['Strength'].default_value=.35
+    m.node_tree.links.new(nt.outputs['Color'],nm.inputs['Color']);m.node_tree.links.new(nm.outputs['Normal'],bsdf.inputs['Normal'])
     return m
 
 def cyl(name,pos,radius,length,mat,parent,axis='z',vertices=24):
@@ -40,7 +49,7 @@ def build(kind):
     root=a.empty(kind);p=a.empty('weapon',parent=root)
     steel=metal('Parkerized steel',(.095,.11,.12),.4)
     edge=metal('Machined edges',(.23,.25,.26),.3)
-    black=a.surface('Polymer',(.026,.032,.033),.68)
+    black=a.surface('Polymer',(.026,.032,.033),.68,fabric=True)
     wood=metal('Walnut laminate',(.27,.105,.04),.5,.0)
     green=a.surface('Olive rifle finish',(.18,.23,.14),.6)
     glass=a.surface('Coated scope glass',(.035,.12,.17),.08,.5)
@@ -166,6 +175,21 @@ def build(kind):
                 cyl('Lens retaining ring',(0,.145,z),.044,.006,black,p)
             cyl('Elevation dial',(0,.182,-.07),.022,.028,edge,p,'y')
             cyl('Windage dial',(.032,.145,-.07),.022,.028,edge,p,'x')
+    if kind!='knife':
+        # Fasteners, machined slots, trigger and a positive selector silhouette.
+        for side in (-1,1):
+            for z in ((-.025,.045) if pistol else (-.15,-.055,.04)):
+                x=side*(.024 if pistol else .034)
+                cyl('Recessed receiver pin',(x,.014,z),.006,.004,edge,p,'x',16)
+                a.box('Pin screwdriver slot',(x+side*.0025,.014,z),(.001,.002,.008),black,p,.0005)
+        a.line('Curved trigger',[(0,-.022,-.035),(0,-.038,-.043),(0,-.050,-.037)],.003,edge,p)
+        if not pistol:
+            a.box('Selector lever',(.039,.002,.028),(.009,.013,.045),edge,p,.003)
+            a.box('Bolt handle stem',(.051,.043,-.055),(.043,.012,.014),steel,p,.003)
+            cyl('Knurled charging handle',(.073,.043,-.055),.012,.022,black,p,'x',20)
+            for z in (-.25,-.22,-.19):
+                a.box('Handguard vent',(.030,.025,z),(.002,.012,.018),black,p,.003)
+            a.line('Rear sling loop',[(-.03,-.04,.31),(-.045,-.06,.31),(-.02,-.078,.31),(0,-.06,.31)],.004,edge,p)
     a.join_parts(root)
     return root
 

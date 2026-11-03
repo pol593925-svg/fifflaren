@@ -170,6 +170,7 @@ def create_materials(theme):
     material('duct', (.34,.38,.40), 'metal', .57, .45)
     material('tunnel', (.34,.31,.25), 'stone', .96)
     material('roof', (.40,.19,.105), 'stone', .92)
+    material('window_glass', (.075,.14,.16), tex=False, rough=.22, metallic=.35)
     material('dark', (.035,.045,.046), tex=False, rough=.75)
     material('trim', (.64,.61,.51), tex=False, rough=.82)
     material('paint', (.58,.22,.095), tex=False, rough=.9)
@@ -197,8 +198,8 @@ def create_materials(theme):
                     pixels=np.empty(len(img.pixels),dtype=np.float32);img.pixels.foreach_get(pixels)
                     pixels=pixels.reshape((-1,4))
                     luma=pixels[:,:3].mean(axis=1)
-                    variation=np.clip(luma/max(float(luma.mean()),.001),.48,1.55)
-                    color=([.73,.65,.51] if theme=='dust2' else [.76,.51,.31]) if name=='plaster' else [.62,.55,.40]
+                    variation=np.clip(.58+.42*luma/max(float(luma.mean()),.001),.78,1.20)
+                    color=([.78,.70,.56] if theme=='dust2' else [.74,.54,.39]) if name=='plaster' else [.62,.55,.40]
                     pixels[:,:3]=np.clip(variation[:,None]*np.array(color),0,1)
                     painted=bpy.data.images.new(theme+'_'+name+'_scan',width=img.size[0],height=img.size[1],alpha=False)
                     painted.pixels.foreach_set(pixels.ravel());painted.pack();node.image=painted;TEX_IMAGES.append(painted)
@@ -263,47 +264,61 @@ def wall_details(x,z,dx,dz,variant,theme):
     # playable cover and all walking/ballistic collision remain unchanged.
     px,pz=x*CELL+2+dx*2,z*CELL+2+dz*2
     layer=0
-    def panel(mat,along,y,w,hh,depth=.022):
+    def panel(mat,along,y,w,hh,depth=.022,solid=True):
         # Ordered facade layers sit just in front of the structural surface.
         # Putting them inside the opaque wall hides every shutter and trim.
         nonlocal layer
         layer+=1
         front=.045+layer*.004
-        xx=px+(-dz)*along+dx*(front-depth/2); zz=pz+dx*along+dz*(front-depth/2)
-        box(mat,xx,y,zz,depth if dx else w,hh,w if dx else depth)
+        def point(a,b,d):return (px-dz*a+dx*d,b,pz+dx*a+dz*d)
+        # Back faces sit inside the structural wall. Thin plates/louvers need
+        # only the visible face; keep real edges on sills, frames and cornices.
+        rim=[(along-w/2,y-hh/2),(along+w/2,y-hh/2),(along+w/2,y+hh/2),(along-w/2,y+hh/2)]
+        rim.reverse()  # tangent x up points inward; glTF uses outward CCW faces
+        face(mat,[point(a,b,front) for a,b in rim])
+        if solid and depth>=.065:
+            for i in range(4):
+                a,b=rim[i];c,d=rim[(i+1)%4]
+                face(mat,[point(c,d,front),point(a,b,front),point(a,b,front-depth),point(c,d,front-depth)])
     panel('limestone',0,.46,4,.92,.07)
-    if theme=='dust2' and variant%7 in (0,1):
-        panel('plaster_blue',0,2.45,3.95,2.9,.025)
-    # Upper floors occupy solid map cells; walking routes remain unchanged.
-    if variant%3 != 1:
-        panel('plaster_light',0,5.2,4,2.4,.04)
-        panel('trim',0,6.45,4,.18,.10)
-        panel('dark',0,5.25,1.34,1.45,.02)
-        panel('shutter',0,5.25,1.18,1.30,.02)
-        for k in range(9): panel('shutter',0,4.67+k*.14,1.22,.065,.035)
-        panel('trim',0,4.5,1.55,.14,.16)
-        panel('steel',1.57,5.1,.07,2.7,.065)
-        box('limestone',x*CELL+2,6.49,z*CELL+2,4,.12,4)
+    # The grid's solid cover ends at 4m. No disconnected decorative upper floor.
+    # Continuous cornice/coping closes every exposed side at the same height.
+    panel('trim',0,3.73,4,.11,.13)
+    panel('limestone',0,3.88,4,.16,.19)
+    panel('roof' if theme=='inferno' else 'trim',0,3.975,4,.05,.22)
+    # Corbels break up the long facade and cast shallow, readable shadows.
+    for along in (-1.50,1.50):
+        panel('trim',along,3.58,.19,.25,.15)
+    # Low weathered dado, with a thin stone string course instead of raw cubes.
+    panel('trim',0,.90,4,.065,.09)
     panel('limestone',0,.045,3.95,.09,.30)
     panel('trim',0,3.86,4,.16,.06)
     panel('limestone',-1.85,2.15,.22,3.3,.07)
     if variant%4 in (0,1):
         # Shuttered openings: separate sill, inset panes, timber boards, hinges.
-        panel('trim',0,2.30,1.48,1.67,.065)
-        panel('dark',0,2.30,1.27,1.48,.035)
-        panel('shutter',0,2.30,1.16,1.36,.012)
-        for k in range(8): panel('shutter',0,1.72+k*.16,1.19,.075,.002)
-        panel('steel',-.43,1.84,.15,.055,.001)
-        panel('steel',.43,2.75,.15,.055,.001)
-        panel('trim',0,1.43,1.57,.13,.001)
+        panel('trim',0,2.25,1.64,1.85,.10)
+        panel('dark',0,2.25,1.40,1.62,.06)
+        panel('window_glass',0,2.26,1.24,1.46,.015)
+        panel('wood',0,2.26,.055,1.49,.035)
+        panel('wood',0,2.18,1.28,.055,.035)
+        # Pair of inset wooden shutters, with directional grain and real louvers.
+        for side in (-1,1):
+            panel('shutter',side*.87,2.25,.32,1.65,.09)
+            for k in range(10):panel('shutter',side*.87,1.53+k*.15,.31,.055,.11,False)
+            for y in (1.60,2.88):panel('steel',side*.87,y,.24,.045,.018)
+        panel('trim',0,1.30,1.88,.13,.24)
+        panel('trim',0,3.17,1.92,.12,.18)
     elif variant%4==2:
         # Flush service door with recessed panels, lintel and metal handle.
-        panel('trim',-.15,1.35,1.55,2.65,.05)
-        panel('wood',-.15,1.30,1.33,2.47,.018)
-        for yy in (.55,1.2,1.9):
-            panel('steel',-.15,yy,1.29,.055,.002)
-        panel('steel',.31,1.25,.09,.25,.001)
-        panel('dark',.31,1.30,.06,.05,.0005)
+        panel('trim',-.15,1.40,1.60,2.80,.11)
+        panel('dark',-.15,1.36,1.37,2.67,.04)
+        panel('wood',-.15,1.32,1.24,2.56,.07)
+        for yy in (.50,1.26,2.06):
+            panel('shutter',-.15,yy,.97,.56,.018)
+            panel('wood',-.15,yy,.82,.43,.025)
+        panel('steel',.29,1.28,.055,.22,.035)
+        panel('steel',.34,1.34,.17,.035,.055)
+        panel('trim',-.15,.045,1.66,.09,.20)
     else:
         # Exposed masonry patches and a junction box.
         panel('limestone',.25,1.00,2.9,.9,.02)
@@ -526,7 +541,7 @@ def build_map(theme,rows):
                     if cell(rows,x+dx,z+dz)=='#':continue
                     a=(px+dx*2-dz*2,0,pz+dz*2+dx*2)
                     b=(px+dx*2+dz*2,0,pz+dz*2-dx*2)
-                    face('plaster' if ((x//3+z//5)%4) else 'plaster_light',[a,b,(b[0],4,b[2]),(a[0],4,a[2])],tint=tint)
+                    face(('plaster_light','plaster','plaster_blue','plaster_light')[(x//6+z//6)%4],[a,b,(b[0],4,b[2]),(a[0],4,a[2])],tint=tint)
                     wall_details(x,z,dx,dz,x*7+z*11+(dx+dz),theme)
             elif ch in ('C','D'): cover_object(x,z,ch)
             elif ch=='T':
@@ -605,7 +620,7 @@ def main():
     layouts=read_layouts()
     manifest_path=OUT/'maps-manifest.json'
     manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {'format':1,'maps':{}}
-    manifest.update({'authoring':'Blender '+bpy.app.version_string,'generator':'tools/blender/build_maps.py','artwork':'Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.','coordinateSystem':'glTF Y-up, game x/y/z unchanged','cellSize':4,'gridSize':126,'layoutSource':'cs16.js MAP_ROWS','stairsContract':'Matches floorAt(): elevation increases toward the adjacent bridge or tower.'})
+    manifest.update({'authoring':'Blender '+bpy.app.version_string,'generator':'tools/blender/build_maps.py','artwork':'Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.','coordinateSystem':'glTF Y-up, game x/y/z unchanged','cellSize':4,'gridSize':126,'layoutSource':'cs16.js MAP_ROWS','facadeHeight':4,'stairsContract':'Matches floorAt(): elevation increases toward the adjacent bridge or tower.'})
     for theme,rows in layouts.items():
         if cfg.map not in ('all',theme):continue
         bpy.ops.wm.read_factory_settings(use_empty=True)

@@ -3,10 +3,10 @@
   "maps": {
     "dust2": {
       "file": "dust2.glb",
-      "bytes": 70211288,
-      "triangles": 549621,
-      "meshBatches": 62,
-      "materials": 16,
+      "bytes": 49984548,
+      "triangles": 345031,
+      "meshBatches": 66,
+      "materials": 17,
       "textureImages": 52,
       "layoutSha256": "ad1b2479bf96a400bc6b3566334163d65442098d411b485733eadbf2d7746f21",
       "cellCounts": {
@@ -4261,10 +4261,10 @@
     },
     "inferno": {
       "file": "inferno.glb",
-      "bytes": 56424844,
-      "triangles": 429767,
-      "meshBatches": 58,
-      "materials": 16,
+      "bytes": 42044552,
+      "triangles": 275265,
+      "meshBatches": 70,
+      "materials": 17,
       "textureImages": 52,
       "layoutSha256": "8079fe05a4f9d3c9bec8a8034103c03fc84cdc95d4fce142e9116703da86cc40",
       "cellCounts": {
@@ -6585,5 +6585,6 @@
   "cellSize": 4,
   "gridSize": 126,
   "layoutSource": "cs16.js MAP_ROWS",
-  "stairsContract": "Matches floorAt(): elevation increases toward the adjacent bridge or tower."
+  "stairsContract": "Matches floorAt(): elevation increases toward the adjacent bridge or tower.",
+  "facadeHeight": 4
 }

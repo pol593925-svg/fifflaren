@@ -613,23 +613,7 @@
     const entry = glbCache[weapon];
     if (!entry || !entry.model) return null;
     const m = entry.model.clone();
-    const s = SKINS[skin];
-    if (s) {
-      // 3.23.0: рисованный узор скина вместо плоского цвета
-      const map = skinTex(skin);
-      m.traverse(o => {
-        if (o.isMesh) {
-          const original = [].concat(o.material)[0];
-          // Keep normal/roughness detail when applying the player's existing skin.
-          const material = original.clone();
-          material.map = map; material.color.setHex(0xffffff);
-          material.roughness = skin === 'gold' ? .25 : .48;
-          material.metalness = skin === 'gold' ? .9 : .45;
-          if (s.glow || s.rainbow) { material.emissiveMap = map; material.emissive.setHex(0xffffff); material.emissiveIntensity = .35; }
-          material.userData.cs16Owned = true; o.material = material;
-        }
-      });
-    }
+    if (SKINS[skin]) CS16WeaponFinish.apply(m, skinTex(skin), SKINS[skin], skin);
     return m;
   }
 
@@ -638,6 +622,7 @@
   let bombMesh = null, bombLight = null, bombBeam = null, lastBeep = -1;
   let action = null;           // {type:'plant'|'defuse', t, need, site?}
   let kickUntil = 0;
+  const stepPosition={x:0,z:0};
   let stepAcc = 0;             // 3.24.0: таймер собственных шагов
   let specTarget = null;       // 3.24.0: ник игрока, за которым наблюдаем после смерти
   const enemyBlips = new Map(); // 3.24.0: радар — враги, стрелявшие недавно: nick -> time
@@ -843,7 +828,7 @@
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
       if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
       if(magicView){magicView.dispose();magicView=null;}scene = new THREE.Scene(); scene.add(camera);
-      magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
+      magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,constrain:companionPosition,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
       if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
@@ -884,6 +869,27 @@
     camera.updateProjectionMatrix();
   }
 
+  // Cosmetic companion path uses the same wall and floor contracts as the player.
+  function companionPosition(owner, target) {
+    const dx=target.x-owner.x,dz=target.z-owner.z,length=Math.hypot(dx,dz);
+    if(length<.001)return {x:owner.x,y:owner.y,z:owner.z};
+    const dirX=dx/length,dirZ=dz/length;
+    const hit=rayWall(owner.x,owner.y+.45,owner.z,dirX,0,dirZ,length+.3);
+    const reach=hit?Math.max(0,Math.min(length,hit.t-.42)):length;
+    let result={x:owner.x,y:owner.y,z:owner.z},level=owner.y;
+    for(let d=Math.min(.18,reach);d<=reach+.001;d=Math.min(d+.18,reach)){
+      const x=owner.x+dirX*d,z=owner.z+dirZ*d,c=cellAt(x,z);
+      let floor=floorAt(c,x,z);
+      if(c===4&&owner.y>=TUN_CEIL+.16)floor=0;
+      if(c===9&&owner.y<BRIDGE_H-.3)floor=0;
+      if(c===8&&owner.y>=VENT_CEIL+.06)floor=VENT_CEIL+.08;
+      if(cellH(c)>0&&owner.y>=cellH(c)-.3)floor=cellH(c);
+      if(CS16Buildings.contains(grid,curMap,x,z,.2))floor=Math.max(floor,CS16Buildings.vertical(grid,curMap,x,z,level,.65).floor);
+      if(Math.abs(floor-level)>.7)break;
+      result={x,y:floor,z};level=floor;if(d>=reach)break;
+    }
+    return result;
+  }
   // ---------- ФИЗИКА ИГРОКА ----------
   function collideAxis(nx, nz) {
     // круг радиуса RADIUS против твёрдых ячеек
@@ -1008,16 +1014,17 @@
   function sfxFlash() { const a = ac(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 3200; g.gain.value = 0.12; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.35); }
   function sfxBeep(vol) { const a = ac(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 1900; g.gain.value = 0.2 * (vol == null ? 1 : vol); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.08); }
   // 3.24.0: звуки шагов — свой (полный) и чужие (по дистанции)
-  function sfxStep(surf, vol) {
-    const a = ac(); if (!a) return;
-    const t = a.currentTime;
-    const buf = a.createBuffer(1, a.sampleRate * 0.09, a.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, surf === 'tun' ? 3 : 2.2);
-    const src = a.createBufferSource(); src.buffer = buf;
-    const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = surf === 'tun' ? 900 : 480;
-    const g = a.createGain(); g.gain.value = 0.5 * (vol == null ? 1 : vol);
-    src.connect(f); f.connect(g); g.connect(a.destination); src.start(t);
+  let footsteps = null;
+  function sfxStep(surf, vol, pan) {
+    const context = ac(); if (!context) return;
+    if (!footsteps) footsteps = CS16Footsteps.create(context);
+    footsteps.play(surf, vol, pan);
+  }
+  function stepSurface() {
+    const c = cellAt(P.x, P.z);
+    if (c === 8 && P.y < VENT_CEIL) return 'metal';
+    if (P.y < -.1 || P.y > .25 || CS16Buildings.contains(grid,curMap,P.x,P.z,.2)) return 'stone';
+    return worldGraphics?.groundSurface(P.x,P.z) || 'stone';
   }
   function sfxHit() { sfxNoise(0.05, 3000, 0.2, 'highpass'); }
 
@@ -1508,7 +1515,7 @@
     });
     sock.on('cs16_step', (d) => { // чужие шаги — громкость по дистанции
       const dist = Math.hypot(d.pos[0] - P.x, d.pos[2] - P.z);
-      if (dist < 16) sfxStep(d.surf, Math.max(0, 1 - dist / 16) * 0.8);
+      if (dist < 16) {const pan=((d.pos[0]-P.x)*Math.cos(P.yaw)-(d.pos[2]-P.z)*Math.sin(P.yaw))/Math.max(1,dist);sfxStep(d.surf, Math.max(0, 1 - dist / 16) * 0.8,pan);}
     });
     sock.on('cs16_hit', (d) => {
       // 3.24.3: мой урон по врагу — число над ним + красный хитмаркер ✕
@@ -2943,13 +2950,16 @@
       const interval = left < 3000 ? 280 : left < 8000 ? 600 : 1000;
       if (nowMs - lastBeep > interval && left > 0) { lastBeep = nowMs; sfxBeep(vol); }
     }
-    // 3.24.0: свои шаги — по таймеру от скорости; 3.24.1: Shift — тихая ходьба (без звука и без отправки шагов)
-    if (me.alive && state.phase !== 'freeze' && P.onGround && (keys.w || keys.a || keys.s || keys.d)) {
-      if (!keys.shift) {
-        stepAcc += dt;
-        if (stepAcc > (P.crouched ? 0.62 : 0.42)) { stepAcc = 0; const sf = cellAt(P.x, P.z); sfxStep(sf >= 4 && sf <= 8 ? 'tun' : 'sand'); sock && sock.emit('cs16_step', { pos: [P.x, P.y, P.z], surf: (sf >= 4 && sf <= 8) ? 'tun' : 'sand' }); }
-      } else stepAcc = 0.2; // при отпускании Shift звук сразу, без задержки
-    }
+    // Distance cadence: no footsteps in vehicles, in air, or while pushing a wall.
+    const walked=Math.hypot(P.x-stepPosition.x,P.z-stepPosition.z);
+    stepPosition.x=P.x;stepPosition.z=P.z;
+    if(me.alive&&state.phase==='live'&&P.onGround&&!myVeh?.inside&&!keys.shift&&walked<2&&walked>.002){
+      stepAcc+=walked;
+      if(stepAcc>(P.crouched?1.65:2.8)){
+        stepAcc=0;const surf=stepSurface();sfxStep(surf,P.crouched?.45:1);
+        sock?.emit('cs16_step',{pos:[P.x,P.y,P.z],surf});
+      }
+    }else stepAcc=0;
     drawRadar();
     // 3.24.3: числа урона — взлетают и гаснут
     for (let i = dmgNums.length - 1; i >= 0; i--) {

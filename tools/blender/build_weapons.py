@@ -54,12 +54,15 @@ def build(kind):
     green=a.surface('Olive rifle finish',(.18,.23,.14),.6)
     glass=a.surface('Coated scope glass',(.035,.12,.17),.08,.5)
     brass=a.surface('Brass hardware',(.45,.30,.09),.3,.8)
+    def paint(material):
+        result=material.copy();result.name='Weapon finish / '+material.name;return result
+    painted_steel,painted_black,painted_wood,painted_green,painted_edge=map(paint,(steel,black,wood,green,edge))
     pistol=kind in ('glock','usp','deagle','fiveseven','tec9','elite')
     sniper=kind in ('awp','scout')
     ak=kind in ('ak47','galil')
     smg=kind in ('mp5','ump45','p90')
     bullpup=kind in ('aug','famas','p90')
-    bodymat=green if sniper or kind=='aug' else black if kind=='p90' else steel
+    bodymat=painted_green if sniper or kind=='aug' else painted_black if kind=='p90' else painted_steel
     # Warm directional laminate grain, visible on the AK's stock and fore-end.
     woodnode=next(n for n in wood.node_tree.nodes if n.type=='TEX_IMAGE')
     grain=np.ones((512,512,4),dtype=np.float32)
@@ -68,6 +71,7 @@ def build(kind):
     tone=.82+.15*rings+.05*np.sin(xx*.73+yy*.008)
     grain[:,:,:3]=np.array([.30,.12,.045])[None,None,:]*tone[:,:,None]
     woodnode.image=a.image('Walnut directional grain',grain)
+    next(n for n in painted_wood.node_tree.nodes if n.type=='TEX_IMAGE').image=woodnode.image
     if kind=='knife':
         a.box('Knife grip',(0,0,.055),(.035,.04,.14),black,p,.01)
         a.box('Finger guard',(0,0,-.02),(.09,.018,.023),edge,p,.003)
@@ -76,7 +80,7 @@ def build(kind):
         for z in (.015,.04,.065,.09):cyl('Grip rings',(0,0,z),.025,.008,black,p)
     elif pistol:
         long=.26 if kind=='deagle' else .21
-        slide= edge if kind=='deagle' else black if kind=='fiveseven' else steel
+        slide= painted_edge if kind=='deagle' else painted_black if kind=='fiveseven' else painted_steel
         a.box('Slide',(0,.025,-.05),(.045,.045,long),slide,p,.004)
         a.box('Lower frame',(0,-.012,-.025),(.043,.035,long*.85),black,p,.004)
         grip=a.box('Textured grip',(0,-.075,.025),(.042,.105,.058),black,p,.008);grip.rotation_euler.x=-.17
@@ -122,13 +126,13 @@ def build(kind):
         cyl('Dark barrel bore',(0,.035,-length*.80-.125),.010,.002,black,p)
         for z in (-length*.80-.09,-length*.80-.11):cyl('Brake ring',(0,.035,z),.022,.005,black,p)
         fore_z=-.235
-        a.box('Fore-end',(0,.015,fore_z),(.078,.075,.18),wood if ak else bodymat,p,.008)
+        a.box('Fore-end',(0,.015,fore_z),(.078,.075,.18),painted_wood if ak else bodymat,p,.008)
         if kind in ('mp5','ump45'):
             cyl('SMG handguard',(0,.025,-.24),.048,.17,black,p)
-            if kind=='ump45':a.box('UMP polymer lower',(0,-.035,-.08),(.078,.09,.24),black,p,.01)
+            if kind=='ump45':a.box('UMP polymer lower',(0,-.035,-.08),(.078,.09,.24),painted_black,p,.01)
         if kind=='p90':
-            a.box('P90 rounded frame',(0,-.025,.045),(.10,.15,.34),black,p,.025)
-            a.box('P90 top magazine',(0,.12,-.12),(.085,.045,.34),green,p,.012)
+            a.box('P90 rounded frame',(0,-.025,.045),(.10,.15,.34),painted_black,p,.025)
+            a.box('P90 top magazine',(0,.12,-.12),(.085,.045,.34),painted_green,p,.012)
             for z in np.linspace(-.27,.02,18):cyl('Visible magazine cartridge',(0,.145,float(z)),.005,.068,brass,p,'x',10)
             a.box('Reflex sight bridge',(0,.17,-.15),(.07,.10,.10),black,p,.01)
             a.box('Reflex sight glass',(0,.19,-.204),(.044,.044,.004),glass,p,.002)
@@ -153,9 +157,9 @@ def build(kind):
                 for x in (-.024,.024):a.box('Magazine pressed channel',(x,yy,zz-.017),(.002,.030,.004),edge,p,.001)
         # Shoulder stock with a rubberized cheek weld and separate butt pad.
         cyl('Stock buffer',(0,.023,.15),.022,.13,steel,p)
-        a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),wood if ak else black,p,.012)
+        a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),painted_wood if ak else painted_black,p,.012)
         a.box('Butt pad',(0,-.005,.346),(.066,.13,.018),black,p,.004)
-        a.box('Cheek rest',(0,.065,.24),(.064,.025,.17),wood if ak else black,p,.006)
+        a.box('Cheek rest',(0,.065,.24),(.064,.025,.17),painted_wood if ak else painted_black,p,.006)
         for z in (.16,.20,.24,.28):a.box('Stock texture',(.03,.015,z),(.001,.048,.012),steel,p,.001)
         # Iron sights, gas block and barrel band.
         a.box('Front sight tower',(0,.071,-.37),(.025,.072,.025),steel,p,.002)
@@ -173,6 +177,12 @@ def build(kind):
                 cyl('Scope bell',(0,.145,z),.041,.055,steel,p)
                 cyl('Optical lens',(0,.145,z+(-.029 if z<0 else .029)),.034,.002,glass,p)
                 cyl('Lens retaining ring',(0,.145,z),.044,.006,black,p)
+            # Rubber focus ring, stepped ocular housing and finely knurled turret.
+            for zz in (.045,.051,.057,.063):cyl('Focus rib',(0,.145,zz),.043,.0025,black,p)
+            for zz in (-.165,-.158):cyl('Mount clamp',(0,.145,zz),.029,.004,edge,p)
+            for angle in np.linspace(0,math.tau,16,endpoint=False):
+                x=math.sin(angle)*.021;z=-.07+math.cos(angle)*.021
+                a.box('Turret grip',(float(x),.184,float(z)),(.003,.019,.003),black,p,.0005)
             cyl('Elevation dial',(0,.182,-.07),.022,.028,edge,p,'y')
             cyl('Windage dial',(.032,.145,-.07),.022,.028,edge,p,'x')
     if kind!='knife':

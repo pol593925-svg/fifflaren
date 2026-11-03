@@ -302,7 +302,7 @@
     }
 
     update(camera, 0);
-    return { ready, update, dispose, setQuality, nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
+    return { ready, update, dispose, setQuality, groundSurface:(x,z)=>landscape?.groundSurface(x,z)||'stone', nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
   }
 
   function loadOperators(THREE) {

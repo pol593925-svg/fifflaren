@@ -9,92 +9,92 @@
     {
       "file": "glock.glb",
       "triangles": 5516,
-      "bytes": 1092516
+      "bytes": 1093748
     },
     {
       "file": "usp.glb",
       "triangles": 6936,
-      "bytes": 1132400
+      "bytes": 1133628
     },
     {
       "file": "deagle.glb",
       "triangles": 5704,
-      "bytes": 1097360
+      "bytes": 1098584
     },
     {
       "file": "ak47.glb",
       "triangles": 16264,
-      "bytes": 1620552
+      "bytes": 1623068
     },
     {
       "file": "m4a1.glb",
       "triangles": 18428,
-      "bytes": 1436044
+      "bytes": 1438456
     },
     {
       "file": "awp.glb",
-      "triangles": 20792,
-      "bytes": 1503824
+      "triangles": 25504,
+      "bytes": 1630328
     },
     {
       "file": "mp5.glb",
       "triangles": 18144,
-      "bytes": 1428068
+      "bytes": 1430480
     },
     {
       "file": "p90.glb",
       "triangles": 20384,
-      "bytes": 1507848
+      "bytes": 1509056
     },
     {
       "file": "ump45.glb",
       "triangles": 18332,
-      "bytes": 1432908
+      "bytes": 1435324
     },
     {
       "file": "galil.glb",
       "triangles": 16264,
-      "bytes": 1620556
+      "bytes": 1623068
     },
     {
       "file": "famas.glb",
       "triangles": 18424,
-      "bytes": 1434616
+      "bytes": 1437012
     },
     {
       "file": "scout.glb",
-      "triangles": 20792,
-      "bytes": 1503824
+      "triangles": 25504,
+      "bytes": 1630332
     },
     {
       "file": "sg552.glb",
-      "triangles": 20792,
-      "bytes": 1502720
+      "triangles": 25504,
+      "bytes": 1630428
     },
     {
       "file": "aug.glb",
-      "triangles": 20792,
-      "bytes": 1503812
+      "triangles": 25504,
+      "bytes": 1630316
     },
     {
       "file": "m249.glb",
       "triangles": 14664,
-      "bytes": 1338912
+      "bytes": 1341320
     },
     {
       "file": "fiveseven.glb",
       "triangles": 5516,
-      "bytes": 1092524
+      "bytes": 1093692
     },
     {
       "file": "tec9.glb",
       "triangles": 6552,
-      "bytes": 1119796
+      "bytes": 1121024
     },
     {
       "file": "elite.glb",
       "triangles": 9504,
-      "bytes": 1197516
+      "bytes": 1198768
     },
     {
       "file": "hands.glb",

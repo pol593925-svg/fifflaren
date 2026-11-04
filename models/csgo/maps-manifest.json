@@ -6576,6 +6576,196 @@
         }
       ],
       "sourceBlend": "inferno.blend"
+    },
+    "frontline": {
+      "layoutSource": "cs16-front.js district()",
+      "file": "frontline.glb",
+      "bytes": 43330476,
+      "triangles": 315367,
+      "meshBatches": 59,
+      "materials": 17,
+      "textureImages": 52,
+      "layoutSha256": "3b0df810ac7cbce6ee082e43a222d7135adcf3d0e29f61726d28c15e7e8407eb",
+      "cellCounts": {
+        "#": 2011,
+        ".": 13733,
+        "C": 44,
+        "D": 24,
+        "T": 27,
+        "S": 3,
+        "5": 2,
+        "4": 30,
+        "7": 2
+      },
+      "lights": [
+        {
+          "position": [
+            178,
+            -1.5,
+            294
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            190,
+            -1.5,
+            294
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            202,
+            -1.5,
+            294
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            214,
+            -1.5,
+            294
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            226,
+            -1.5,
+            294
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            186,
+            -1.5,
+            298
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            198,
+            -1.5,
+            298
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            210,
+            -1.5,
+            298
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            222,
+            -1.5,
+            298
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        },
+        {
+          "position": [
+            234,
+            -1.5,
+            298
+          ],
+          "color": 16760688,
+          "intensity": 1.5,
+          "distance": 10
+        }
+      ],
+      "beacons": [
+        {
+          "position": [
+            172,
+            0.3,
+            294
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            174,
+            0.3,
+            292
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            240,
+            0.3,
+            294
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            238,
+            0.3,
+            292
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            172,
+            0.3,
+            298
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            174,
+            0.3,
+            300
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            240,
+            0.3,
+            298
+          ],
+          "kind": "tunnel"
+        },
+        {
+          "position": [
+            238,
+            0.3,
+            300
+          ],
+          "kind": "tunnel"
+        }
+      ],
+      "sourceBlend": "frontline.blend"
     }
   },
   "authoring": "Blender 5.2.3 LTS",

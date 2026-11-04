@@ -166,7 +166,7 @@
   function createWorld(options) {
     const T = options.THREE || global.THREE;
     const { renderer, scene, camera, grid } = options;
-    const mapName = options.map === 'inferno' ? 'inferno' : 'dust2';
+    const mapName = ['inferno','frontline'].includes(options.map)?options.map:'dust2';
     let quality = qualityOf(renderer.userData && renderer.userData.cs16Quality);
     let disposed = false, model = null, environmentTarget = null, nature = null, landscape = null;
     let lampsTick = -Infinity;

@@ -645,12 +645,14 @@ def bake_batches():
 def main():
     args=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
     ap=argparse.ArgumentParser();ap.add_argument('--sources',type=Path)
-    ap.add_argument('--map',choices=('dust2','inferno','all'),default='all')
+    ap.add_argument('--map',choices=('dust2','inferno','frontline','all'),default='all')
     cfg=ap.parse_args(args)
     if cfg.sources:cfg.sources=cfg.sources.resolve()
     OUT.mkdir(parents=True,exist_ok=True)
     if cfg.sources:cfg.sources.mkdir(parents=True,exist_ok=True)
     layouts=read_layouts()
+    if cfg.map in ("frontline","all"):
+        layouts["frontline"]=json.loads(subprocess.check_output(["node","-e","process.stdout.write(JSON.stringify(require(\x27./cs16-front\x27).district()))"],cwd=ROOT,encoding="utf-8"))
     manifest_path=OUT/'maps-manifest.json'
     manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {'format':1,'maps':{}}
     manifest.update({'authoring':'Blender '+bpy.app.version_string,'generator':'tools/blender/build_maps.py','artwork':'Original geometry and procedural detail with CC0 Poly Haven surface textures; see ART_CREDITS.md. No Valve assets.','coordinateSystem':'glTF Y-up, game x/y/z unchanged','cellSize':4,'gridSize':126,'layoutSource':'cs16.js MAP_ROWS','facadeHeight':4,'stairsContract':'Matches floorAt(): elevation increases toward the adjacent bridge or tower.'})
@@ -670,7 +672,7 @@ def main():
         target=OUT/(theme+'.glb')
         bpy.ops.export_scene.gltf(filepath=str(target),export_format='GLB',export_yup=True,export_apply=False,export_animations=False,export_cameras=False,export_lights=False,export_extras=True,export_image_format='AUTO',export_materials='EXPORT',export_texcoords=True,export_normals=True,export_tangents=False)
         layout_hash=hashlib.sha256('\n'.join(rows).encode()).hexdigest()
-        manifest['maps'][theme]={'file':target.name,'bytes':target.stat().st_size,'triangles':tris,'meshBatches':len(objects),'materials':len(MATS),'textureImages':len(TEX_IMAGES),'layoutSha256':layout_hash,'cellCounts':dict(Counter(''.join(rows))),'lights':lamps,'beacons':beacons,'sourceBlend':theme+'.blend'}
+        manifest['maps'][theme]={'layoutSource':'cs16-front.js district()' if theme=='frontline' else 'cs16.js MAP_ROWS','file':target.name,'bytes':target.stat().st_size,'triangles':tris,'meshBatches':len(objects),'materials':len(MATS),'textureImages':len(TEX_IMAGES),'layoutSha256':layout_hash,'cellCounts':dict(Counter(''.join(rows))),'lights':lamps,'beacons':beacons,'sourceBlend':theme+'.blend'}
         manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
         print('MAP_BUILT',theme,json.dumps({k:manifest['maps'][theme][k] for k in ('bytes','triangles','meshBatches','layoutSha256')}),flush=True)
 

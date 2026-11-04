@@ -127,11 +127,13 @@
       for (const b of records) {
         const baseMat = b.mat || 'base';
         for (let f = 0; f < 6; f++) {
-          const top = f === 2,
-            mat = baseMat.startsWith('facade') && top ? 'roof' : baseMat;
           const owner = C.buildings[b.owner],
-            facadeBase = baseMat === 'base' && owner && b.d < 0.5 && b.w > 4 && (f === 4 || f === 5);
-          const faceMaterial = facadeBase ? (owner.kind === 2 ? 'shutter' : 'shop') : mat;
+            facadeBase = baseMat === 'base' && owner && b.d < 0.5 && b.w > 4 &&
+              ((f === 4 && b.z === owner.back) || (f === 5 && b.z === owner.front));
+          let faceMaterial = baseMat;
+          if (facadeBase) faceMaterial = owner.kind === 2 ? 'shutter' : 'shop';
+          if (baseMat.startsWith('facade') && f === 2) faceMaterial = 'roof';
+          if (baseMat.startsWith('facade') && f === 3) faceMaterial = 'base';
           if (!groups.has(faceMaterial)) groups.set(faceMaterial, { pos: [], norm: [], uv: [], idx: [] });
           const a = groups.get(faceMaterial),
             base = a.pos.length / 3;

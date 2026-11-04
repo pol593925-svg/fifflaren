@@ -163,11 +163,11 @@
     const sky = makeSky(T, mapName === 'inferno', 1100);
     group.add(sky.mesh);
     scene.background = null;
-    scene.fog = new T.Fog(mapName === 'inferno' ? 0xd0d5d3 : 0xd6d7cc, 320, 980);
+    scene.fog = new T.Fog(mapName === 'inferno' ? 0xd8d4ca : 0xe1d6c5, 245, 910);
 
     const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x738459, 0.86);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffedce, 2.35);
+    const sun = new T.DirectionalLight(0xffe2b7, 2.22);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -269,6 +269,7 @@
       auxiliaries.forEach(object => { if (object.parent) object.parent.remove(object); });
       group.add(model);
       if(!global.CS16Landscape)throw Error('Landscape module unavailable');
+      global.CS16EnvironmentView.sculpt(T,model,grid);
       landscape=global.CS16Landscape.create({T,scene,grid,map:mapName,model});
       update(camera, 0);
       return model;

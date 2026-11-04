@@ -349,14 +349,30 @@
       const prog = d[0] > 0 ? lx / CELL : d[0] < 0 ? (CELL - lx) / CELL : d[1] > 0 ? lz / CELL : (CELL - lz) / CELL;
       return Math.max(0, Math.min(1, prog)) * topH;
     }
-    return TUN_FLOOR[c] || 0;
+    return c===0 ? CS16Terrain.height(grid,wx,wz) : TUN_FLOOR[c] || 0;
   }
   // Горизонтально твёрда ли ячейка для тела с нижней кромкой yLow
   function solidFor(c, yLow) { const h = cellH(c); return h > 0 && yLow < h; }
 
   // Луч по сетке (DDA): вернёт {t, nx, nz} или null
   function rayWall(ox, oy, oz, dx, dy, dz, maxT) {
-    const buildingHit=CS16Buildings.ray(grid,curMap,[ox,oy,oz],[dx,dy,dz],maxT),other=rayGridWall(ox,oy,oz,dx,dy,dz,maxT);return buildingHit!==null&&(!other||buildingHit<other.t)?{t:buildingHit,nx:0,nz:0,cell:1}:other;
+    const origin=[ox,oy,oz],dir=[dx,dy,dz];
+    const structure=CS16Buildings.hit(grid,curMap,origin,dir,maxT);
+    let hit=rayGridWall(ox,oy,oz,dx,dy,dz,maxT);
+    if(structure&&(!hit||structure.t<hit.t)){
+      const point=origin.map((v,i)=>v+dir[i]*structure.t);
+      let normal=CS16Terrain.normal(grid,point[0],point[2]);
+      if(structure.box){
+        let gap=Infinity;for(let i=0;i<3;i++)for(const side of ['min','max']){
+          const d=Math.abs(point[i]-structure.box[side][i]);if(d<gap){gap=d;normal=[0,0,0];normal[i]=side==='min'?-1:1;}
+        }
+      }
+      hit={...structure,normal,cell:1,nx:normal[0],nz:normal[2]};
+    }
+    if(dy<-.001&&oy>0){const ground=-oy/dy,x=ox+dx*ground,z=oz+dz*ground;
+      if(ground<=maxT&&(!hit||ground<hit.t)&&cellAt(x,z)===0&&!CS16Terrain.patch(grid,x,z))hit={t:ground,kind:'earth',normal:[0,1,0]};
+    }
+    return hit;
   }
   function rayGridWall(ox, oy, oz, dx, dy, dz, maxT) {
     let cx = Math.floor(ox / CELL), cy = Math.floor(oz / CELL);
@@ -613,7 +629,10 @@
     const entry = glbCache[weapon];
     if (!entry || !entry.model) return null;
     const m = entry.model.clone();
-    if (SKINS[skin]) CS16WeaponFinish.apply(m, skinTex(skin), SKINS[skin], skin);
+    if (SKINS[skin]) {
+      const map = skinTex(skin);
+      CS16WeaponFinish.apply(m, map, SKINS[skin], skin);
+    }
     return m;
   }
 
@@ -787,16 +806,25 @@
   }
   let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null;
   let graphicsQuality = navigator.deviceMemory && navigator.deviceMemory<=4 ? 'low' : 'balanced';
-  try { graphicsQuality = localStorage.getItem('cs16-graphics-quality') || graphicsQuality; } catch (_) {}
+  let qualityMode='auto',environmentView=null,fieldEffects=null,battleAudio=null,lastDust=0;
+  try{const preference=localStorage.getItem('cs16-graphics-quality');if(['low','balanced','high'].includes(preference)){qualityMode=preference;graphicsQuality=preference;}}catch{}
+  function applyQuality(value){
+    graphicsQuality=value;if(worldGraphics)worldGraphics.setQuality(value);fieldProps?.setQuality(value);resize3();
+    if(ui.quality){const option=[...ui.quality.options].find(o=>o.value==='auto');if(option)option.textContent='Авто · '+({low:'экономно',balanced:'баланс',high:'высоко'}[value]);}
+  }
+  const adaptive=CS16AdaptiveQuality.create({mode:qualityMode,quality:graphicsQuality,apply:applyQuality});
+  function clearFieldPresentation(){environmentView?.dispose();fieldEffects?.dispose();battleAudio?.dispose();environmentView=fieldEffects=battleAudio=null;adaptive.reset();}
+
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: false, powerPreference:'low-power' });
     canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();worldReady=false;resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
-    canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
+    canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';qualityMode='low';adaptive.setMode('low');try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1600);
     buildWorld();
   }
   function releaseLostGraphics(){
+    clearFieldPresentation();
     remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
     clearRockets();if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
@@ -816,6 +844,7 @@
   let worldLoadEpoch = 0;
   async function buildWorld() {
     const epoch = ++worldLoadEpoch;
+    clearFieldPresentation();
     let active = null, timer, loadEnded = false;
     worldReady = false;resetBlindness();
     ui.loading.style.display = 'flex';
@@ -828,7 +857,7 @@
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
       if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
       if(magicView){magicView.dispose();magicView=null;}scene = new THREE.Scene(); scene.add(camera);
-      magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,constrain:companionPosition,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
+      magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,getQuality:()=>graphicsQuality,constrain:companionPosition,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
       if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
@@ -838,18 +867,20 @@
       const assets = Promise.all([active.ready.then(() => progress('Подготовка моделей и материалов…')), loadCombatArt()]);
       assets.catch(() => {});
       buildingGraphics = CS16Buildings.create(THREE,scene,grid,curMap);
+      environmentView=CS16EnvironmentView.create({T:THREE,scene,grid,map:curMap,hud:ui.hud,getPlayer:()=>P,getActive:()=>state.phase==='live'&&me.alive&&!myVeh?.inside,getQuality:()=>graphicsQuality});
+      fieldEffects=CS16FieldEffects.create(THREE,scene,grid,()=>graphicsQuality,debrisFloor);
       fieldProps = CS16Props.create(THREE,scene,grid,curMap);
       conquestUI = CS16ConquestUI.create({T:THREE,scene,camera,hud:ui.hud,grid,getState:()=>state,getMe:()=>me,getPlayer:()=>P,getNick:()=>myNick,now:()=>Date.now()+clockOffset,send:(name,data)=>sock&&sock.emit(name,data),message:text=>killfeed(esc(text)),lock:blocked=>{for(const key of Object.keys(keys))keys[key]=false;unlockForShop=blocked;if(blocked){if(document.pointerLockElement)document.exitPointerLock();}else if(me.alive&&state.phase==='live'&&!document.pointerLockElement)canvasEl.requestPointerLock()?.catch(()=>{});}});
       buildRadarBase(); resize3();
       await Promise.race([assets, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Загрузка превысила 90 секунд. Закрой лишние приложения и повтори.')), 90000); })]);
       if(epoch !== worldLoadEpoch)return;
       fieldProps?.applyNature(active.nature(),graphicsQuality);
-      buildingGraphics?.applyMaterials(name=>active.surface(name));
+      buildingGraphics?.applyMaterials(name=>active.surface(name));environmentView?.applyMaterials(name=>active.surface(name));
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
       if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
       worldReady = true; ui.loading.style.display = 'none';
-      ensureSocket(); doJoin();
+      ensureSocket(); doJoin();sock?.emit("cs16_environment_get");
     } catch(error) {
       if(epoch !== worldLoadEpoch)return;
       worldReady = false;
@@ -860,7 +891,7 @@
       ui.loadingRetry.hidden = false;
     } finally { loadEnded = true; clearTimeout(timer); }
   }
-  function placePlayerSpawn(pos){const base=me.team==='t'?[curMap==='inferno'?206:194,0,curMap==='inferno'?422:434]:[230,0,38];const safe=CS16Props.safeSpawn(grid,pos||base);P.x=safe[0];P.y=0;P.z=safe[2];P.vx=P.vy=P.vz=0;P.onGround=true;}
+  function placePlayerSpawn(pos){const base=me.team==='t'?[curMap==='inferno'?206:194,0,curMap==='inferno'?422:434]:[230,0,38];const safe=CS16Props.safeSpawn(grid,pos||base);P.x=safe[0];P.y=CS16Terrain.walkHeight(grid,safe[0],safe[2]);P.z=safe[2];P.vx=P.vy=P.vz=0;P.onGround=true;}
   function resize3() {
     if (!renderer3) return;
     const w = canvasEl.clientWidth || 800, h = canvasEl.clientHeight || 500;
@@ -870,12 +901,22 @@
   }
 
   // Cosmetic companion path uses the same wall and floor contracts as the player.
+  function debrisFloor(x,z,y){
+    const cell=cellAt(x,z);let floor=floorAt(cell,x,z);
+    if(cell===4&&y>=TUN_CEIL+.16)floor=0;
+    if(cell===8&&y>=VENT_CEIL+.06)floor=VENT_CEIL+.08;
+    if(cell===9&&y<BRIDGE_H-.3)floor=0;
+    if(cellH(cell)>0&&y>=cellH(cell)-.3)floor=cellH(cell);
+    return Math.max(floor,CS16Buildings.vertical(grid,curMap,x,z,y,.06).floor);
+  }
   function companionPosition(owner, target) {
     const dx=target.x-owner.x,dz=target.z-owner.z,length=Math.hypot(dx,dz);
     if(length<.001)return {x:owner.x,y:owner.y,z:owner.z};
     const dirX=dx/length,dirZ=dz/length;
     const hit=rayWall(owner.x,owner.y+.45,owner.z,dirX,0,dirZ,length+.3);
-    const reach=hit?Math.max(0,Math.min(length,hit.t-.42)):length;
+    const lowObstacle=hit&&(hit.cell===3||(hit.box&&hit.box.max[1]-owner.y<=1.16));
+    const vault=lowObstacle&&!rayWall(owner.x,owner.y+1.36,owner.z,dirX,0,dirZ,length+.2);
+    const reach=hit&&!vault?Math.max(0,Math.min(length,hit.t-.42)):length;
     let result={x:owner.x,y:owner.y,z:owner.z},level=owner.y;
     for(let d=Math.min(.18,reach);d<=reach+.001;d=Math.min(d+.18,reach)){
       const x=owner.x+dirX*d,z=owner.z+dirZ*d,c=cellAt(x,z);
@@ -883,9 +924,9 @@
       if(c===4&&owner.y>=TUN_CEIL+.16)floor=0;
       if(c===9&&owner.y<BRIDGE_H-.3)floor=0;
       if(c===8&&owner.y>=VENT_CEIL+.06)floor=VENT_CEIL+.08;
-      if(cellH(c)>0&&owner.y>=cellH(c)-.3)floor=cellH(c);
-      if(CS16Buildings.contains(grid,curMap,x,z,.2))floor=Math.max(floor,CS16Buildings.vertical(grid,curMap,x,z,level,.65).floor);
-      if(Math.abs(floor-level)>.7)break;
+      if(cellH(c)>0&&(owner.y>=cellH(c)-.3||(vault&&c===3)))floor=cellH(c);
+      if(CS16Buildings.contains(grid,curMap,x,z,.2)||CS16Terrain.patch(grid,x,z)?.kind==='gully')floor=Math.max(floor,CS16Buildings.vertical(grid,curMap,x,z,vault?Math.max(level,owner.y+1.16):level,.65).floor);
+      if(Math.abs(floor-level)>(vault?1.22:.7))break;
       result={x,y:floor,z};level=floor;if(d>=reach)break;
     }
     return result;
@@ -1004,11 +1045,25 @@
     const g = a.createGain(); g.gain.value = gain;
     src.connect(f); f.connect(g); g.connect(a.destination); src.start();
   }
-  function sfxShot(w) {
-    if (w === 'awp') sfxNoise(0.35, 700, 0.5);
-    else if (w === 'deagle') sfxNoise(0.2, 1100, 0.4);
-    else if (w === 'knife') sfxNoise(0.08, 2500, 0.15, 'highpass');
-    else sfxNoise(0.14, 1600, 0.3);
+  function spatialAudio(){
+    const context=ac();if(!context)return null;
+    if(!battleAudio)battleAudio=CS16BattleAudio.create(context,{
+      listener:()=>({x:P.x,y:P.y+eyeH(),z:P.z,yaw:P.yaw}),
+      blocked:(from,to)=>!losClear(...from,...to),
+      indoor:p=>p[1]<0||(p[1]<7.2&&CS16Buildings.contains(grid,curMap,p[0],p[2]))
+    });
+    return battleAudio;
+  }
+  function sfxShot(w,pos=[P.x,P.y+eyeH(),P.z]){
+    if(w==='knife')sfxNoise(.08,2400,.12,'highpass');
+    else spatialAudio()?.shot(w,pos);
+  }
+  function surfaceImpact(origin,dir,hit){
+    const point=origin.map((v,i)=>v+dir[i]*hit.t);
+    if(Math.hypot(point[0]-P.x,point[1]-P.y,point[2]-P.z)>75)return;
+    const kind=hit.kind||(hit.cell===2||hit.cell===3?'wood':hit.cell===8?'steel':'stone');
+    const normal=hit.normal||[hit.nx||0,0,hit.nz||0];
+    fieldEffects?.impact(point,normal,kind,!!hit.id);spatialAudio()?.impact(kind,point);
   }
   function sfxExplosion() { sfxNoise(0.7, 300, 0.7); }
   function sfxFlash() { const a = ac(); if (!a) return; const o = a.createOscillator(), g = a.createGain(); o.frequency.value = 3200; g.gain.value = 0.12; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.35); }
@@ -1123,16 +1178,14 @@
     const qualityLabel = el('label', '', ew, 'Графика '); qualityLabel.className = 'cs16-quality';
     ui.quality = el('select', '', qualityLabel);
     ui.quality.setAttribute('aria-label', 'Качество графики');
-    for (const [value, label] of [['high','Высокая'],['balanced','Сбалансированная'],['low','Производительность']]) {
+    for (const [value, label] of [['auto','Авто'],['high','Высокая'],['balanced','Сбалансированная'],['low','Производительность']]) {
       const option = new Option(label, value); ui.quality.add(option);
     }
-    ui.quality.value = graphicsQuality;
-    ui.quality.onchange = () => {
-      graphicsQuality = ui.quality.value;
-      try { localStorage.setItem('cs16-graphics-quality', graphicsQuality); } catch (_) {}
-      if (worldGraphics) worldGraphics.setQuality(graphicsQuality);
-      fieldProps?.setQuality(graphicsQuality);
-      resize3();
+    ui.quality.value=qualityMode;
+    ui.quality.onchange=()=>{
+      qualityMode=ui.quality.value;
+      try{localStorage.setItem('cs16-graphics-quality',qualityMode);}catch{}
+      adaptive.setMode(qualityMode);
     };
     ui.loading = el('div', '', r); ui.loading.className = 'cs16-loading';
     el('div', '', ui.loading, 'SUPPORT HUB / COUNTER-STRIKE').className = 'cs16-loading-label';
@@ -1350,7 +1403,7 @@
         </div>
         ${isFiff ? `<div class="cs16-adminHint">Управление комнатой: назначай хоста или исключай игроков, в том числе без команды.</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
-          Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть (вентиляции) · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · ПКМ (AWP) — прицел ·
+          Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть (вентиляции) · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · ПКМ (AWP) — прицел · I — осмотр оружия · E у двери — открыть или закрыть ·
           R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить
         </div>
       </div>`;
@@ -1509,7 +1562,14 @@
       const r = remotes.get(d.nick);
       if (r) { r.muzzle = WEAPONS[d.weapon]?.melee ? 0 : performance.now(); }
       if (!WEAPONS[d.weapon]?.melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(200,d.distance)) : 60, true);
-      sfxShot(d.weapon);
+      sfxShot(d.weapon,d.origin);
+      if(!WEAPONS[d.weapon]?.melee){
+        const length=Number.isFinite(d.distance)?Math.min(200,d.distance):60;
+        spatialAudio()?.whizz(d.origin,d.dir,length);
+        if(Math.hypot(d.origin[0]-P.x,d.origin[2]-P.z)<35)fieldEffects?.eject(d.origin,d.dir);
+        const surface=rayWall(...d.origin,...d.dir,length+.08);
+        if(surface&&Math.abs(surface.t-length)<.12)surfaceImpact(d.origin,d.dir,surface);
+      }
       // 3.24.0: враг, который стрелял, 2.5 сек виден на радаре всем
       if (r && r.team !== me.team) enemyBlips.set(d.nick, performance.now());
     });
@@ -1608,6 +1668,12 @@
     });
     sock.on('cs16_rocket',d=>rocketFx(d));
     sock.on('cs16_rpg_boom',d=>explodeFx(d.pos,'he'));
+    sock.on('cs16_environment',d=>{
+      if(d?.map!==curMap||!CS16Environment.apply(CS16Buildings.layout(grid,curMap),d))return;
+      if(Array.isArray(d.shatter)&&d.shatter.length===3&&d.shatter.every(Number.isFinite)){
+        fieldEffects?.shatter(d.shatter);spatialAudio()?.impact('glass',d.shatter);
+      }
+    });
     sock.on('cs16_props',d=>{if(!fieldProps||d.map!==curMap||!Array.isArray(d.ids))return;for(const id of d.ids)fieldProps.destroy(id,!d.snapshot);});
     sock.on('cs16_vehcrate', (d) => { if (d) destroyCrate(d.x, d.y, false); });
     sock.on('cs16_boom', (d) => {
@@ -1691,7 +1757,7 @@
     sock.on('cs16_artillery',d=>{if(conquestUI)conquestUI.strike(d);});
     sock.on('cs16_artillery_impact',d=>{explodeFx(d.pos,'he');if(Math.hypot(P.x-d.pos[0],P.z-d.pos[2])<65){sfxExplosion();shake=Math.max(shake,.35);}});
     sock.on('cs16_cq_respawn',d=>{
-      if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;r.x=r.tx=d.pos[0];r.y=r.ty=0;r.z=r.tz=d.pos[2];}return;}
+      if(d.nick!==myNick){const r=remotes.get(d.nick);if(r){r.alive=true;r.group.rotation.z=0;r.x=r.tx=d.pos[0];r.y=r.ty=d.pos[1];r.z=r.tz=d.pos[2];}return;}
       if(myVeh){if(myVeh.passenger)exitVehicle(false);else{scene.remove(myVeh.obj);myVeh=null;}}
       me.alive=true;me.hp=100;me.armor=d.armor??100;specTarget=null;scoped=false;reloading=0;bloom=0;resetBlindness();
       placePlayerSpawn(d.pos);primary=d.weapon;secondary=me.team==='t'?'glock':'usp';current=primary;
@@ -1768,7 +1834,19 @@
   }
   // Модель оружия из примитивов по мотивам CS:GO (АК с изогнутым магазином, AWP с прицелом и затвором),
   // красится скином. scale>1.5 — вид от первого лица (более детально).
-  function makeRPGModel(){const g=new THREE.Group();function part(geo,color,x,y,z){const mat=new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.45});mat.userData.cs16Owned=true;const m=new THREE.Mesh(geo,mat);m.userData.rpgOwned=true;m.position.set(x,y,z);g.add(m);return m;}part(new THREE.CylinderGeometry(.065,.065,.9,14).rotateX(Math.PI/2),0x4d5841,0,0,-.15);part(new THREE.CylinderGeometry(.10,.065,.16,14).rotateX(Math.PI/2),0x313b32,0,0,.35);part(new THREE.CylinderGeometry(.07,.12,.18,14).rotateX(Math.PI/2),0x6c754d,0,0,-.66);part(new THREE.ConeGeometry(.07,.22,14).rotateX(-Math.PI/2),0x767c4d,0,0,-.86);for(const z of [-.3,.14])part(new THREE.BoxGeometry(.06,.19,.09),0x795231,0,-.12,z);part(new THREE.BoxGeometry(.035,.13,.04),0x292f2a,0,.1,-.32);return g;}
+  function makeRPGModel(){
+    const group=new THREE.Group(),round=new THREE.Group();round.name='magazine';group.add(round);
+    function part(geometry,color,x,y,z,parent=group){
+      const material=new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.45});material.userData.cs16Owned=true;
+      const mesh=new THREE.Mesh(geometry,material);mesh.userData.rpgOwned=true;mesh.position.set(x,y,z);parent.add(mesh);
+    }
+    part(new THREE.CylinderGeometry(.065,.065,.9,14).rotateX(Math.PI/2),0x4d5841,0,0,-.15);
+    part(new THREE.CylinderGeometry(.10,.065,.16,14).rotateX(Math.PI/2),0x313b32,0,0,.35);
+    part(new THREE.CylinderGeometry(.07,.12,.18,14).rotateX(Math.PI/2),0x6c754d,0,0,-.66,round);
+    part(new THREE.ConeGeometry(.07,.22,14).rotateX(-Math.PI/2),0x767c4d,0,0,-.86,round);
+    for(const z of [-.3,.14])part(new THREE.BoxGeometry(.06,.19,.09),0x795231,0,-.12,z);
+    part(new THREE.BoxGeometry(.035,.13,.04),0x292f2a,0,.1,-.32);return group;
+  }
   const rpgShots=[];
   function clearRockets(){for(const r of rpgShots){r.mesh.removeFromParent();r.mesh.geometry.dispose();r.mesh.material.dispose();}rpgShots.length=0;}
   function rocketFx(d){if(!scene||rpgShots.length>=32)return;const mesh=new THREE.Mesh(new THREE.ConeGeometry(.07,.35,8).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:0xffb963}));mesh.position.set(...d.origin);mesh.lookAt(...d.pos);scene.add(mesh);rpgShots.push({mesh,from:new THREE.Vector3(...d.origin),to:new THREE.Vector3(...d.pos),start:performance.now(),duration:d.duration});}
@@ -2100,6 +2178,7 @@
   }
 
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
+  let inspectStart=-Infinity;
   let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmKickVelocity = 0, vmSwayX = 0, vmSwayY = 0;
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
@@ -2109,6 +2188,7 @@
       if (vm) { disposeGun(vm); camera.remove(vm); }
       vm = buildGun(current, mySkin, 1.8);
       vmKick=0;vmKickVelocity=0;
+      vm.userData.animation=CS16WeaponAnimation.bind(vm);inspectStart=-Infinity;
       vm.position.set(0.24, -0.25, -0.55);
       camera.add(vm);
     }
@@ -2134,6 +2214,9 @@
     vm.rotation.x += vmKick*(melee ? -.7 : .23);
     vm.rotation.z = vmKick*(melee ? -.9 : -.06);
     if(shake>0){vm.position.x+=Math.sin(t*.071)*shake*.018;vm.position.y+=Math.cos(t*.083)*shake*.018;}
+    const progress=reloading>0?1-reloading/WEAPONS[current].reload:-1;
+    const inspect=Math.max(0,(t-inspectStart)/2300);
+    CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastShot)/1000),inspect<1?inspect:0);
     vm.visible = me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
   }
 
@@ -2156,7 +2239,7 @@
     sprayN = 0; bloom = 0; scoped = false;
     lastWeaponSlot = current;
     current = id;
-    reloading = 0;
+    inspectStart=-Infinity;reloading = 0;
   }
   function cycleSlot(dir) {
     const arr = ownedSlots();
@@ -2203,7 +2286,8 @@
     if (!burstTimers.length) lastShot = performance.now();
     if (a) a.mag--;
     vmKickVelocity = Math.min(24,vmKickVelocity + (w.scope ? 16 : w.melee ? 18 : w.auto ? 10 : 13));
-    sfxShot(current);
+    inspectStart=-Infinity;sfxShot(current);
+    if(!w.melee&&!w.rocket)fieldEffects?.eject([P.x,P.y+eyeH(),P.z],dirFromCam());
     if(w.rocket){sock.emit('cs16_rpg',{origin:[P.x,P.y+eyeH(),P.z],dir:dirFromCam()});return;}
     if (w.melee) {
       // нож: короткая дистанция
@@ -2236,6 +2320,7 @@
     }
     const origin=[P.x,P.y+eyeH(),P.z], distance=hit?hit.t:wallT;
     spawnTracer(origin,d,distance,false);
+    if(wall&&!hit)surfaceImpact(origin,d,wall);
     sock.emit('cs16_shoot',{origin,dir:d,weapon:current,distance});
     if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head, zone: hit.zone, dist: hit.t });
     // отдача: вертикальный паттерн растёт со спреем (кликанье — точно, зажим — вверх)
@@ -2256,7 +2341,7 @@
     const w = WEAPONS[current];
     const a = ammo[current];
     if (!a || reloading > 0 || a.mag >= w.mag || a.reserve <= 0) return;
-    reloading = w.reload;
+    inspectStart=-Infinity;reloading = w.reload;
   }
   function finishReload() {
     const w = WEAPONS[current];
@@ -2450,7 +2535,7 @@
       const sp = VEH_TYPES[v.variant||v.kind].speed * mv;
       let nx = v.x + Math.cos(v.yaw) * sp * dt, nz = v.z - Math.sin(v.yaw) * sp * dt;
       [nx, nz] = vehCollide(nx, nz, 1.9);
-      v.x = nx; v.z = nz; v.y = 0;
+      v.x = nx; v.z = nz; v.y = CS16Terrain.walkHeight(grid,nx,nz);
       // 3.32.0: танк на ходу сносит ящики с развалом
       if (mv > 0) destroyCrate(Math.floor((v.x + Math.cos(v.yaw) * 2.3) / CELL), Math.floor((v.z - Math.sin(v.yaw) * 2.3) / CELL), true);
     } else {
@@ -2465,7 +2550,7 @@
       if(v.inside)v.y = Math.max(flightFloor(v.x,v.z), Math.min(100, v.y));
     }
     // игрок едет внутри — его позиция уходит другим через обычный cs16_pos
-    if(v.inside){P.x = v.x; P.z = v.z; P.y = v.kind === 'heli' ? v.y + 0.4 : 0;
+    if(v.inside){P.x = v.x; P.z = v.z; P.y = v.y + (v.kind === 'heli' ? .4 : 0);
     P.vx = P.vy = P.vz = 0; P.onGround = true;}
     // визуал и анимации
     v.obj.position.set(v.x, v.y, v.z);
@@ -2491,7 +2576,8 @@
     const model=scene.getObjectByName('CS16 '+(curMap||'dust2')+' geometry');
     if(!model)return rayWall(ox,oy,oz,dx,dy,dz,maxT);
     const hits=new THREE.Raycaster(new THREE.Vector3(ox,oy,oz),new THREE.Vector3(dx,dy,dz),.01,maxT).intersectObject(model,true);
-    return hits.length?{t:hits[0].distance}:null;
+    const physical=rayWall(ox,oy,oz,dx,dy,dz,maxT);
+    return hits.length&&(!physical||hits[0].distance<physical.t)?{t:hits[0].distance}:physical;
   }
   function vehicleAim(v,height) {
     const aim=dirFromCam(),p=camera.position,max=200;
@@ -2744,6 +2830,11 @@
         if (k === 'b' || k === 'escape') closeBuy();
         return;
       }
+      if(e.code==='KeyI'&&!e.repeat&&me.alive&&!scoped&&!myVeh?.inside&&!reloading){inspectStart=performance.now();return;}
+      if(k==='e'&&!e.repeat&&me.alive&&state.phase==='live'&&!myVeh?.inside){
+        const door=CS16Environment.nearest(CS16Buildings.layout(grid,curMap),P);
+        if(door){sock?.emit('cs16_door',door.id);keys.e=false;return;}
+      }
       if(k==='c'&&!e.repeat){castMagic('hero');return;}
       if(k==='v'&&!e.repeat){castMagic('pet');return;}
       if(k==='j'&&!e.repeat){conquestUI?.open();return;}
@@ -2880,6 +2971,7 @@
     if(!canvasEl||canvasEl.clientWidth===0||canvasEl.clientHeight===0){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
     try {
+    adaptive.sample(t-lastT,!document.hidden&&!escOpen()&&state.phase==='live');
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
     lastT = t;
     magicView?.update(dt,t);
@@ -3024,6 +3116,12 @@
       const moving = keys.w || keys.a || keys.s || keys.d;
       sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
     }
+    environmentView?.update(dt,t,camera);fieldEffects?.update(dt);
+    if(t-lastDust>140){const vehicles=myVeh?[myVeh,...vehs.values()]:[...vehs.values()];for(const v of vehicles){
+      if(v.kind!=='tank'||Math.hypot(v.x-P.x,v.z-P.z)>50)continue;
+      if(Number.isFinite(v.dustX)&&Math.hypot(v.x-v.dustX,v.z-v.dustZ)>.12)fieldEffects?.plume(v.x-Math.cos(v.yaw)*1.7,v.y||0,v.z+Math.sin(v.yaw)*1.7);
+      v.dustX=v.x;v.dustZ=v.z;
+    }lastDust=t;}
     if(fieldProps)fieldProps.update(Math.min(.05,dt),camera);updateRockets(performance.now());
     if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);

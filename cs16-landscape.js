@@ -14,7 +14,8 @@
    const road=Math.min(Math.abs(wx-world*.48-Math.sin(wz*.019)*13),Math.abs(wz-world*.52-Math.sin(wx*.023)*11));
    const open=Math.min(1,Math.max(0,(clearance[z*size+x]-1)/2.5)),path=Math.min(1,Math.max(0,(road-3.5)/5));
    const meadow=open*path*(.78+.22*Math.sin(wx*.03+Math.sin(wz*.025)));const i=(z*size+x)*4;
-   maskBytes[i]=Math.round(meadow*255);maskBytes[i+1]=Math.round(Math.max(0,1-(clearance[z*size+x]-1)*.55)*255);maskBytes[i+2]=0;maskBytes[i+3]=255;
+   const terrain=global.CS16Terrain.patch(grid,wx,wz),trail=terrain&&Math.abs(wz-terrain.z-Math.sin(wx*.18)*1.4)<2.6;
+   maskBytes[i]=trail?0:Math.round(meadow*255);maskBytes[i+1]=Math.round(Math.max(0,1-(clearance[z*size+x]-1)*.55)*255);if(trail)maskBytes[i+1]=224;maskBytes[i+2]=0;maskBytes[i+3]=255;
   }
   const mask=new T.DataTexture(maskBytes,size,size,T.RGBAFormat);mask.magFilter=mask.minFilter=T.LinearFilter;mask.needsUpdate=true;
   const patched=new Set();
@@ -58,13 +59,14 @@
    for(let k=0;k<5;k++){const c=new T.Color(k<2?'#4e6b2c':'#94ad50');col.push(c.r,c.g,c.b);}
   }
   blade.setAttribute('position',new T.Float32BufferAttribute(pos,3));blade.setAttribute('color',new T.Float32BufferAttribute(col,3));blade.setIndex(ix);blade.computeVertexNormals();
-  const wind={value:0},grassMat=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:1});
-  grassMat.onBeforeCompile=s=>{s.uniforms.meadowTime=wind;s.vertexShader='uniform float meadowTime;\n'+s.vertexShader;s.vertexShader=s.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+  const wind={value:0},actor={value:new T.Vector2()},grassMat=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:1});
+  grassMat.onBeforeCompile=s=>{s.uniforms.meadowTime=wind;s.uniforms.meadowActor=actor;s.vertexShader='uniform vec2 meadowActor; uniform float meadowTime;\n'+s.vertexShader;s.vertexShader=s.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+   vec2 offset=instanceMatrix[3].xz-meadowActor;float reach=1.-smoothstep(.05,1.7,length(offset));transformed.xz+=offset/max(.05,length(offset))*reach*position.y*.8;
    transformed.x+=sin(meadowTime*1.7+instanceMatrix[3].x*.5+instanceMatrix[3].z*.3)*position.y*.22;`);};
   const grass=new T.InstancedMesh(blade,grassMat,700);grass.count=0;grass.name='Nearby meadow grass';grass.frustumCulled=false;grass.receiveShadow=true;group.add(grass);const dummy=new T.Object3D();let last=-Infinity;
-  return {mask,groundSurface(x,z){const i=(Math.max(0,Math.min(size-1,Math.floor(z/4)))*size+Math.max(0,Math.min(size-1,Math.floor(x/4))))*4;return maskBytes[i]>.45*255?'grass':maskBytes[i+1]>.5*255?'stone':'earth';},update(camera,time,quality){wind.value=time*.001;if(time-last<250)return;last=time;const max=quality==='low'?220:quality==='high'?700:420,near=[];const cx=Math.floor(camera.position.x/32),cz=Math.floor(camera.position.z/32);for(let z=cz-2;z<=cz+2;z++)for(let x=cx-2;x<=cx+2;x++)for(const p of pointsByCell.get(x+','+z)||[]){const d=(p.x-camera.position.x)**2+(p.z-camera.position.z)**2;if(d<55*55)near.push({p,d});}near.sort((a,b)=>a.d-b.d);grass.count=Math.min(max,near.length);for(let i=0;i<grass.count;i++){const p=near[i].p;dummy.position.set(p.x,.012,p.z);dummy.rotation.y=noise(p.x,p.z)*6.28;dummy.scale.setScalar(1);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}grass.instanceMatrix.needsUpdate=true;},dispose(){mask.dispose();geo.dispose();mat.dispose();blade.dispose();grassMat.dispose();group.removeFromParent();}};
+  return {mask,groundSurface(x,z){const i=(Math.max(0,Math.min(size-1,Math.floor(z/4)))*size+Math.max(0,Math.min(size-1,Math.floor(x/4))))*4;return maskBytes[i]>.45*255?'grass':maskBytes[i+1]>.5*255?'stone':'earth';},update(camera,time,quality){wind.value=time*.001;actor.value.set(camera.position.x,camera.position.z);if(time-last<250)return;last=time;const max=quality==='low'?220:quality==='high'?700:420,near=[];const cx=Math.floor(camera.position.x/32),cz=Math.floor(camera.position.z/32);for(let z=cz-2;z<=cz+2;z++)for(let x=cx-2;x<=cx+2;x++)for(const p of pointsByCell.get(x+','+z)||[]){const d=(p.x-camera.position.x)**2+(p.z-camera.position.z)**2;if(d<(quality==='low'?28*28:quality==='high'?55*55:44*44))near.push({p,d});}near.sort((a,b)=>a.d-b.d);grass.count=Math.min(max,near.length);for(let i=0;i<grass.count;i++){const p=near[i].p;dummy.position.set(p.x,global.CS16Terrain.height(grid,p.x,p.z)+.012,p.z);dummy.rotation.y=noise(p.x,p.z)*6.28;dummy.scale.setScalar(1);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}grass.instanceMatrix.needsUpdate=true;},dispose(){mask.dispose();geo.dispose();mat.dispose();blade.dispose();grassMat.dispose();group.removeFromParent();}};
  }
- function vegetation({T,group,nature,items,slots,broken}){
+ function vegetation({T,group,nature,items,slots,broken,grid}){
   const root=new T.Group();root.name='Evolution detailed vegetation';group.add(root);nature.updateMatrixWorld(true);
   const pools=new Map(),resources=[],dummy=new T.Object3D(),zero=new T.Matrix4().makeScale(0,0,0);let shown=new Set(),last=-Infinity;const breeze={value:0};
   function leafWind(m){m.onBeforeCompile=s=>{s.uniforms.natureTime=breeze;s.vertexShader='uniform float natureTime;\n'+s.vertexShader;s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.x+=sin(natureTime+instanceMatrix[3].x*.4+instanceMatrix[3].z*.3)*.035*clamp(position.y,0.,1.);');};m.customProgramCacheKey=()=> 'nature-leaf-breeze-v1';}
@@ -80,11 +82,11 @@
   function refresh(camera,time,quality){
    breeze.value=time*.001;if(!camera||time-last<220)return;last=time;
    for(const id of shown)if(!broken.has(id))for(const s of slots.get(id)||[]){s.mesh.setMatrixAt(s.index,s.matrix);s.mesh.instanceMatrix.needsUpdate=true;}
-   shown=new Set();const nearest=candidates.filter(i=>!broken.has(i.id)).map(i=>({i,d:(i.x-camera.position.x)**2+(i.z-camera.position.z)**2})).filter(v=>v.d<(v.i.kind==='tree'?85*85:42*42)).sort((a,b)=>a.d-b.d);
+   shown=new Set();const treeRange=quality==='low'?48:quality==='high'?100:85,bushRange=quality==='low'?24:quality==='high'?50:42;const nearest=candidates.filter(i=>!broken.has(i.id)).map(i=>({i,d:(i.x-camera.position.x)**2+(i.z-camera.position.z)**2})).filter(v=>v.d<(v.i.kind==='tree'?treeRange*treeRange:bushRange*bushRange)).sort((a,b)=>a.d-b.d);
    const used={oak:0,birch:0,pine:0,bush:0};let trees=0;
    for(const {i} of nearest){const species=i.kind==='shrub'?'bush':['oak','birch','pine'][i.id%3],pool=pools.get(species);if(!pool)continue;const limit=quality==='low'?10:quality==='high'?32:20;if(i.kind==='tree'&&(trees>=limit*2||used[species]>=limit)||i.kind==='shrub'&&used.bush>=(quality==='low'?20:60))continue;
     const index=used[species]++;if(i.kind==='tree')trees++;
-    dummy.position.set(i.x,0,i.z);dummy.rotation.set(0,i.yaw,0);dummy.scale.setScalar(i.scale);dummy.updateMatrix();for(const mesh of pool)mesh.setMatrixAt(index,dummy.matrix);
+    dummy.position.set(i.x,global.CS16Terrain.height(grid,i.x,i.z),i.z);dummy.rotation.set(0,i.yaw,0);dummy.scale.setScalar(i.scale);dummy.updateMatrix();for(const mesh of pool)mesh.setMatrixAt(index,dummy.matrix);
     shown.add(i.id);for(const s of slots.get(i.id)||[]){s.mesh.setMatrixAt(s.index,zero);s.mesh.instanceMatrix.needsUpdate=true;}
    }
    for(const [species,meshes] of pools)for(const mesh of meshes){mesh.count=used[species];mesh.instanceMatrix.needsUpdate=true;}

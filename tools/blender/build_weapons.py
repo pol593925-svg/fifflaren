@@ -200,6 +200,21 @@ def build(kind):
             for z in (-.25,-.22,-.19):
                 a.box('Handguard vent',(.030,.025,z),(.002,.012,.018),black,p,.003)
             a.line('Rear sling loop',[(-.03,-.04,.31),(-.045,-.06,.31),(-.02,-.078,.31),(0,-.06,.31)],.004,edge,p)
+    if pistol:
+        a.box('Magazine body',(0,-.079,.025),(.029,.085,.043),steel,p,.003)
+    # Preserve the moving assemblies as pivots through glTF export.
+    families={
+        'magazine':('Magazine','Extended magazine','Horizontal magazine','Ammunition box','P90 top magazine','Visible magazine cartridge'),
+        'bolt':('Bolt carrier','Bolt handle stem','Knurled charging handle'),
+        'slide':('Slide','Front sight','Rear sight','Barrel rib') if pistol else (),
+        'trigger':('Trigger','Curved trigger'),
+    }
+    for name,prefixes in families.items():
+        parts=[o for o in list(p.children) if o.type=='MESH' and o.name.startswith(prefixes)
+               and not o.name.startswith('Trigger guard')]
+        if not parts:continue
+        pivot=a.empty(name,parent=root)
+        for part in parts:part.parent=pivot
     a.join_parts(root)
     return root
 

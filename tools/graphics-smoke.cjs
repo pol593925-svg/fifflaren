@@ -9,9 +9,10 @@ fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ fieldScene:${require('./field-scene-check.cjs').toString()},
  presentationPreview:()=>{
   state.phase='lobby';ui.lobby.style.display='none';ui.canvas.style.display='block';ui.hud.style.display='none';resize3();
   let spot;for(let z=14;z<MH-14&&!spot;z++)for(let x=14;x<MW-14;x++){
@@ -126,6 +127,16 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
+  if(process.env.FIELD_ONLY){
+   for(const [map,mode] of [['dust2','room'],['inferno','bridge']]){
+    if(map==='inferno'){await page.evaluate(()=>__qa.map('inferno'));await page.waitForFunction(()=>__qa.snapshot().ready&&__qa.snapshot().map==='inferno',null,{timeout:120000});}
+    const result=await page.evaluate(mode=>__qa.fieldScene(mode),mode);console.log('FIELD',map,JSON.stringify(result));
+    assert(result.heights.every(([expected,y])=>Number.isFinite(y)&&Math.abs(y-expected)<.045));assert(result.travel<-.15&&result.inspecting&&result.abilityPose>.3);
+    assert(result.direct[1]>result.direct[0]&&result.direct[1]>result.behind[1]*2);assert(result.panes===42&&result.fragments>0);
+    await page.screenshot({path:path.join(outputs,'field-'+mode+'-3450.png')});
+   }
+   assert.equal(errors.length,0,errors.join('\n'));return;
+  }
   if(process.env.PRESENTATION_ONLY){
    for(const map of ['dust2','inferno']){
     if(map==='inferno'){await page.evaluate(()=>__qa.map('inferno'));await page.waitForFunction(()=>__qa.snapshot().ready&&__qa.snapshot().map==='inferno',null,{timeout:120000});}

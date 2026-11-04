@@ -1,5 +1,6 @@
 """Five original compact companions; one static draw call per pet."""
-import importlib.util, math, json
+import importlib.util, math, json, sys
+from mathutils import Vector
 from pathlib import Path
 import bpy
 ROOT=Path(__file__).resolve().parents[2]
@@ -39,9 +40,28 @@ def build(kind):
   color=tuple(ob.data.materials[0].node_tree.nodes.get('Principled BSDF').inputs['Base Color'].default_value);attr=ob.data.color_attributes.new(name='Color',type='BYTE_COLOR',domain='CORNER')
   for d in attr.data:d.color=color
   ob.data.materials.clear();ob.data.materials.append(combined)
+ # One shared material and a handful of real pivots per companion.
+ bpy.context.view_layer.update()
+ rigs={}
+ for ob in list(body.children):
+  if ob.type!='MESH':continue
+  center=ob.matrix_world @ (sum((Vector(v) for v in ob.bound_box),Vector())/8)
+  x,y,z=center.x,center.z,-center.y
+  if ob.name.startswith(('Head','Eye','Ear','Muzzle','Nose','Beak','Antler','Crystal crown')):
+   key,hinge='petHead',(0,.48,-.17)
+  elif ob.name.startswith(('Foot','Stone foot')):
+   key='leg'+('L' if x<0 else 'R')+('F' if z<0 else 'B');hinge=(x,.25,z)
+  elif ob.name.startswith(('Wing','Stone arm')):
+   key='limb'+('L' if x<0 else 'R');hinge=(math.copysign(.18,x),.45,0)
+  elif ob.name.startswith(('Fluffy tail','White tail')):
+   key,hinge='tail',(0,.28,.25)
+  else:continue
+  if key not in rigs:rigs[key]=a.empty(key,hinge,root)
+  ob.parent=rigs[key];ob.location-=rigs[key].location
  a.join_parts(root);return root
 for kind in ('fox','dragon','owl','golem','deer'):
  bpy.ops.wm.read_factory_settings(use_empty=True);root=build(kind);a.export(root,ROOT/'models/csgo'/('pet-'+kind+'.glb'))
  # Portrait helper expects a human-height subject; enlarge only after export.
- root.scale=(2,2,2);h.portrait(root,ROOT/'assets/cs16'/('pet-'+kind+'.png'))
+ if '--portraits' in sys.argv:
+  root.scale=(2,2,2);h.portrait(root,ROOT/'assets/cs16'/('pet-'+kind+'.png'))
 print('PETS_BUILT')

@@ -45,9 +45,11 @@ const web = http.createServer((req, res) => {
           : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
     });
     const page = await browser.newPage({ viewport: { width: 800, height: 450 } });
-    page.on('pageerror', (e) => console.error(e));
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
     await page.goto('http://127.0.0.1:' + web.address().port);
     page.on('console', (msg) => {
+      if (msg.type() === 'error' && msg.text().includes('Shader Error')) errors.push(msg.text());
       if (msg.text().startsWith('GPU:')) console.log(msg.text());
     });
     const rows = await page.evaluate(async () => {
@@ -101,6 +103,7 @@ const web = http.createServer((req, res) => {
       }
       return rows;
     });
+    if (errors.length) throw Error(errors.join('\n'));
     console.log(JSON.stringify(rows));
     if (process.env.BR_BENCH_OUT) fs.writeFileSync(process.env.BR_BENCH_OUT, JSON.stringify(rows));
     for (const [n, e, a] of [

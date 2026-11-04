@@ -136,8 +136,8 @@
       vec3 summer=mix(earth*vec3(.78,.86,.66),bare,smoothstep(.43,.96,fieldRegion.z)*.62);
       float wind=texture2D(fieldRock,fieldPos.xz*.037).r;
       float bank=fieldRegion.y+.34*(1.-fieldRegion.z);
-      float patch=smoothstep(.22,.66,wind+bank*.43+.05*sin(fieldPos.x*.12));
-      vec3 frosted=mix(bare*vec3(.79,.78,.72),snow,mix(.29,.96,patch));
+      float snowCover=smoothstep(.22,.66,wind+bank*.43+.05*sin(fieldPos.x*.12));
+      vec3 frosted=mix(bare*vec3(.79,.78,.72),snow,mix(.29,.96,snowCover));
       float vein=abs(sin(fieldPos.x*.039+fieldPos.z*.10+bare.r*2.));
       vec3 ice=mix(vec3(.075,.14,.16),vec3(.64,.72,.72),clamp(snow.r*.38+smoothstep(.95,1.,vein)*.49+wind*.2,0.,1.));
       diffuseColor.rgb*=mix(mix(summer,frosted,fieldRegion.x),ice,fieldRegion.y);

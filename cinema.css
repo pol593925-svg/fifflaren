@@ -3,6 +3,7 @@
 #hubCinema{box-sizing:border-box;width:min(1140px,96vw);max-height:92vh;padding:0;margin:auto;border:1px solid #4a4153;border-radius:18px;background:#101322;color:#edecf2;box-shadow:0 24px 100px #0008;overflow:auto}
 #hubCinema::backdrop{background:#080a12ba}#hubCinema:fullscreen{width:100vw;height:100vh;max-width:none;max-height:none;border:0;border-radius:0}
 #hubCinema{font-family:"Segoe UI",sans-serif}
+.cinema-notice{position:fixed;right:18px;bottom:18px;z-index:42000;max-width:min(380px,90vw);padding:14px 18px;border-radius:12px;border:1px solid #b79358;background:#241a28;color:#ffe8bd;text-align:left;cursor:pointer;box-shadow:0 8px 30px #0005}
 #hubCinema>header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #333346;color:#e1bd86;letter-spacing:.15em;font-size:11px}
 #hubCinema button,#hubCinema input,#hubCinema select{box-sizing:border-box;font:inherit;border-radius:8px;color:#eeedf5;background:#24283c;border:1px solid #41475e}
 #hubCinema button{cursor:pointer;padding:6px 10px}#hubCinema button:disabled{opacity:.5;cursor:default}

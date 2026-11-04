@@ -9,6 +9,8 @@ const path = require('path');
 const { ipcRenderer, desktopCapturer } = require('electron');
 const { io } = require("socket.io-client");
 ipcRenderer.on('open-calls',(_event,date)=>HubCalls.open(date));
+ipcRenderer.on('open-cinema',(_event,nick)=>window.HubCinema?.openNotice(nick));
+ipcRenderer.on('cinema-notice-fallback',(_event,p)=>window.HubCinema?.fallback(p));
 ipcRenderer.on('calls-tick',()=>HubCalls.checkDigest());
 
 const notesFilePath = path.join(process.cwd(), 'notes.txt');
@@ -4862,7 +4864,7 @@ document.addEventListener('keydown', (e) => {
 bindClick("logoutBtn", async () => {
   HubRadio.stop();
   await HubGames.close();
-  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:')&&!key.startsWith('hub-cinema-upload:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:')&&!key.startsWith('hub-cinema-upload:')&&!key.startsWith('hub-cinema-poster:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);
   location.reload();
 });
 

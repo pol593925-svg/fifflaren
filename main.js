@@ -471,10 +471,21 @@ ipcMain.on('restart_to_update', () => {
   forceQuit = true; // обновление должно иметь возможность перезапустить приложение
   autoUpdater.quitAndInstall();
 });
-ipcMain.on('call-notification',(_event,payload={})=>{
-  const notice=new Notification({title:String(payload.title||'Колы команды').slice(0,150),body:String(payload.text||'').slice(0,600),silent:muted});
-  notice.on('click',()=>{if(mainWindow&&!mainWindow.isDestroyed()){mainWindow.show();mainWindow.focus();mainWindow.webContents.send('open-calls',String(payload.date||''));}});
-  notice.show();
+ipcMain.on('call-notification',(event,payload={})=>{
+  if(!mainWindow||mainWindow.isDestroyed()||event.sender!==mainWindow.webContents)return;
+  const cinema=payload.kind==='cinema',username=String(payload.username||'').toLowerCase();
+  const title=String(payload.title||(cinema?'Афиша кинозала':'Колы команды')).slice(0,180),body=String(payload.text||'').slice(0,600);
+  const fallback=()=>{if(cinema&&!event.sender.isDestroyed())event.sender.send('cinema-notice-fallback',{title,text:body,username});};
+  try{
+    if(cinema&&!Notification.isSupported())return fallback();
+    const notice=new Notification({title,body,silent:muted});
+    notice.once('click',()=>{
+      if(!mainWindow||mainWindow.isDestroyed())return;
+      if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();
+      mainWindow.webContents.send(cinema?'open-cinema':'open-calls',cinema?username:String(payload.date||''));
+    });
+    if(cinema)notice.once('failed',fallback);notice.show();
+  }catch{fallback();}
 });
 
 // Принудительный перезапуск по команде админа (3.13.1)
@@ -522,6 +533,7 @@ ipcMain.handle('take-screenshot', async () => {
 
 // --- ЖИЗНЕННЫЙ ЦИКЛ ---
 app.whenReady().then(() => {
+  if(process.platform==='win32')app.setAppUserModelId('com.supporthub.app');
   require('./chat-session')(session.defaultSession);
   createWindow();
   createNotifyWindow();

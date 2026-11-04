@@ -2,7 +2,29 @@
   'use strict';
   let session,room,socket,timer,show,received=0,openId=0,requested='',retryAt=0,blocked=false,attempting=false;
   let movies=[],nextPage=null,librarySerial=0;
-  const messages=new Map(),$=id=>room.querySelector('#'+id),owner=()=>session?.username.toLowerCase()==='fifflaren';
+  const messages=new Map(),seenPosters=new Map(),$=id=>room.querySelector('#'+id),owner=()=>session?.username.toLowerCase()==='fifflaren';
+  let posterSocket,banner,bannerTimer;
+  function posterNotice(cfg,p){
+    if(cfg!==session||!cfg.notify||!Number.isSafeInteger(p?.id)||p.id<1||typeof p.title!=='string'||!Number.isFinite(p.startsAt))return;
+    const nick=cfg.username.toLowerCase(),key='hub-cinema-poster:'+nick;
+    let seen=seenPosters.get(nick)||0;try{seen=Math.max(seen,Number(localStorage.getItem(key))||0);}catch{}
+    if(seen>=p.id)return;
+    const when=new Date(p.startsAt).toLocaleString('ru',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+    const text=(p.phase==='playing'?'Показ уже идёт. Начало — ':'Начало — ')+when+'. Нажми, чтобы войти в кинозал.';
+    cfg.notify({kind:'cinema',username:nick,title:'Афиша · '+p.title,text});
+    seenPosters.set(nick,p.id);try{localStorage.setItem(key,String(p.id));}catch{}
+  }
+  function openNotice(nick){
+    if(!session||session.username.toLowerCase()!==nick)return;
+    const entry=document.getElementById('cinemaButton');if(entry)entry.click();else open();
+  }
+  function fallback(p){
+    if(!session||session.username.toLowerCase()!==p?.username)return;
+    clearTimeout(bannerTimer);banner?.remove();banner=document.createElement('button');
+    banner.type='button';banner.className='cinema-notice';banner.setAttribute('role','status');
+    banner.textContent=p.title+' · '+p.text;banner.onclick=()=>{banner.remove();openNotice(p.username);};
+    document.body.append(banner);bannerTimer=setTimeout(()=>banner?.remove(),20000);
+  }
   const clock=()=>show.now+performance.now()-received;
   const stamp=seconds=>[Math.floor(seconds/3600),Math.floor(seconds/60)%60,Math.floor(seconds)%60].map(x=>String(Math.max(0,x)).padStart(2,'0')).join(':');
   async function api(path,body){
@@ -115,6 +137,14 @@
     let checks=0;timer=setInterval(()=>{tick();if(++checks%30===0)api('state').then(s=>{if(openId===epoch)update(s);}).catch(()=>{});},400);
     if(owner())library();
   }
-  function stop(){if(room?.open){room.close();cleanup();}session=null;}
-  window.HubCinema={start(cfg){stop();session=cfg;},open,stop};
+  function stop(){
+    posterSocket?.disconnect();posterSocket=null;clearTimeout(bannerTimer);banner?.remove();
+    if(room?.open){room.close();cleanup();}session=null;
+  }
+  function start(cfg){
+    stop();session=cfg;if(!cfg?.token||!cfg.io)return;
+    posterSocket=cfg.io(cfg.server+'/cinema-posters',{auth:{token:cfg.token}});
+    posterSocket.on('poster',p=>posterNotice(cfg,p));
+  }
+  window.HubCinema={start,open,stop,openNotice,fallback};
 })();

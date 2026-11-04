@@ -133,6 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentRole = data.role || 'user';
         HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+      HubRoyale.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
         localStorage.setItem('support_hub_user', data.username);
@@ -4835,6 +4836,7 @@ document.addEventListener('keydown', (e) => {
       currentRole = data.role || 'user';
       HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+      HubRoyale.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);
       localStorage.setItem('support_hub_user', data.username);
@@ -4854,6 +4856,7 @@ document.addEventListener('keydown', (e) => {
 
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
+  HubRoyale.close();
   await HubVoxels.leave();
   localStorage.clear();
   location.reload();

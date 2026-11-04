@@ -818,7 +818,7 @@
 
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: false, powerPreference:'low-power' });
-    canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();worldReady=false;resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
+    canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();if(royaleActive){HubRoyale.close();}worldReady=false;resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
     canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';qualityMode='low';adaptive.setMode('low');try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1600);
@@ -895,6 +895,7 @@
   function placePlayerSpawn(pos){const base=me.team==='t'?[curMap==='inferno'?206:194,0,curMap==='inferno'?422:434]:[230,0,38];const safe=CS16Props.safeSpawn(grid,pos||base);P.x=safe[0];P.y=CS16Terrain.walkHeight(grid,safe[0],safe[2]);P.z=safe[2];P.vx=P.vy=P.vz=0;P.onGround=true;}
   function resize3() {
     if (!renderer3) return;
+    if(royaleActive)return;
     const w = canvasEl.clientWidth || 800, h = canvasEl.clientHeight || 500;
     renderer3.setSize(w, h, false);
     camera.aspect = w / h;
@@ -1338,7 +1339,20 @@
     const box=document.createElement('div');box.className='cs16-class-panel';box.innerHTML='<h3>Выбор класса</h3><p>Стартовый комплект при следующем возрождении. B — выбор во время матча.</p>';const list=document.createElement('div');list.className='cs16-class-grid';box.append(list);const selected=state.players.find(p=>p.nick===myNick)?.nextClass||'assault';
     for(const [id,spec]of Object.entries(CS16Classes.profiles)){const b=document.createElement('button');b.className='cs16-class-card'+(id===selected?' selected':'');b.innerHTML='<span>'+spec.icon+'</span><strong>'+spec.name+'</strong><small>'+spec.detail+'</small>';b.onclick=()=>sock?.emit('cs16_class',id);list.append(b);}parent.append(box);
   }
+  let royaleActive=false;
+  function enterRoyale(){
+    if(royaleActive||!window.HubRoyale||!renderer3)return;
+    royaleActive=true;++worldLoadEpoch;worldReady=false;
+    if(sock){sock.emit('cs16_leave');sock.removeAllListeners();sock.disconnect();sock=null;}
+    joined=false;for(const key of Object.keys(keys))keys[key]=false;
+    releaseLostGraphics();ui.lobby.style.display='none';ui.hud.style.display='none';ui.loading.style.display='none';
+    HubRoyale.open({root:root(),canvas:canvasEl,renderer:renderer3,quality:graphicsQuality,qualityMode,onExit:()=>{
+      royaleActive=false;pointerLocked=false;state={...state,phase:'lobby',players:[],host:null};
+      CS16Graphics.configureRenderer(renderer3,{quality:graphicsQuality});renderLobby();if(!renderer3.getContext().isContextLost())buildWorld();
+    }});
+  }
   function renderLobby() {
+    if(royaleActive)return;
     const inMatch = state.phase !== 'lobby';
     const isFiff = myNick.toLowerCase() === 'fifflaren';
     ui.lobby.style.display = 'block';
@@ -1410,6 +1424,9 @@
         </div>
       </div>`;
     characterChoices(ui.lobby.firstElementChild);
+    const brButton=document.createElement('button');brButton.className='cs16-br-entry';brButton.type='button';
+    brButton.textContent='Королевская битва · Каменный Берег';const brInfo=document.createElement('small');brInfo.textContent='СОЛО / ДУЭТЫ  ·  24 УЧАСТНИКА  ·  КАРТА 2 × 2 КМ';brButton.append(brInfo);
+    brButton.onclick=enterRoyale;ui.lobby.firstElementChild.prepend(brButton);
     const jt = document.getElementById('cs16JoinT'), jc = document.getElementById('cs16JoinCT');
     if (jt) jt.onclick = () => sock && sock.emit('cs16_team', 't');
     if (jc) jc.onclick = () => sock && sock.emit('cs16_team', 'ct');
@@ -2756,9 +2773,11 @@
   let unlockForShop = false; // 3.24.1: мышь отпущена специально для магазина — не открывать ESC-меню
   function bindInput() {
     document.addEventListener('pointerlockerror', () => {
+      if(royaleActive)return;
       centerMsg('🖱️ Не удалось захватить мышь — кликни по игре ещё раз', 2500);
     });
     document.addEventListener('pointerlockchange', () => {
+      if(royaleActive)return;
       pointerLocked = document.pointerLockElement === canvasEl;
       if (!pointerLocked && !unlockForShop && (state.phase === 'live' || state.phase === 'freeze' || state.phase === 'roundend')) {
         // 3.15.9: ESC (или потеря мыши) — открываем меню паузы
@@ -2769,6 +2788,7 @@
       }
     });
     canvasEl.addEventListener('mousedown', (e) => {
+      if(royaleActive)return;
       if(conquestUI?.blocked)return;
       if (state.phase === 'lobby') return;
       if (!pointerLocked) { canvasEl.requestPointerLock(); return; }
@@ -2794,6 +2814,7 @@
       cycleSlot(e.deltaY > 0 ? 1 : -1);
     }, { passive: false });
     window.addEventListener('mousemove', (e) => {
+      if(royaleActive)return;
       if(conquestUI?.blocked)return;
       if (!pointerLocked || !me.alive) return;
       const sens = scoped ? 0.0009 : 0.0023;
@@ -2808,6 +2829,7 @@
       'я':'z','ч':'x','с':'c','м':'v','и':'b','т':'n','ь':'m' };
     const normK = k => RU2EN[k] || k;
     window.addEventListener('keydown', (e) => {
+      if(royaleActive)return;
       if(conquestUI?.blocked){if(e.key==='Escape'){e.preventDefault();conquestUI.abort();}return;}
       if (state.phase === 'lobby' || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
       keys[normK(e.key.toLowerCase())] = true;
@@ -2969,6 +2991,7 @@
       const vis = !!(canvasEl && canvasEl.clientWidth > 0 && canvasEl.clientHeight > 0);
       if (vis !== fsActive) { fsActive = vis; document.getElementById('tab-cs16').classList.toggle('cs16-fullscreen',vis);resize3();try { if(ipcR)ipcR.send('cs16-fullscreen',vis); } catch(e){} }
     }
+    if(royaleActive){lastT=t;return;}
     if(ui.flash&&performance.now()>Math.max(flashUntil+1200,flashExpires)){flashAlpha=0;ui.flash.style.opacity='0';}
     if(!canvasEl||canvasEl.clientWidth===0||canvasEl.clientHeight===0){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
@@ -3138,6 +3161,7 @@
   // ---------- ВХОД ВО ВКЛАДКУ ----------
   window.__cs16Open = function (nick) {
     myNick = nick;
+    if(royaleActive)return;
     if (!inited) {
       inited = true;
       buildUI();

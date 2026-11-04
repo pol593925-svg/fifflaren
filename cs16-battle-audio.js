@@ -81,7 +81,7 @@
       src.start();
     }
     return {
-      shot(id, pos) {
+      shot(id, pos, gain=1) {
         sound(
           ['awp', 'scout', 'tankgun'].includes(id)
             ? 'sniper'
@@ -89,7 +89,7 @@
               ? 'pistol'
               : 'rifle',
           pos,
-          0.65,
+          0.65*gain,
         );
       },
       impact(kind, pos) {

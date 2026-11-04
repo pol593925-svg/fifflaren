@@ -23,3 +23,7 @@ Existing assets outside `models/csgo` predate this graphics update.
 ## Nature used in 3.44.1
 
 Original Quaternius Ultimate Stylized Nature Pack (CC0): https://quaternius.com/packs/ultimatestylizednature.html . Same source models as the Evolution prototype. Oak, birch, pine, flowering bush and rock are normalized and exported by tools/blender/build_nature.py, with 512/1024px textures. models/csgo/nature.glb is the compact runtime asset; its license is included alongside it. Terrain shader, rolling ridges and grass batching are original Support Hub code.
+
+## Каменный Берег
+
+The Battle Royale facade and street atlases are original generated artwork. The city also reuses the Poly Haven surface scans credited above. The transport plane, canopy, MP7, Vector and Bizon were modeled with the included Blender script.

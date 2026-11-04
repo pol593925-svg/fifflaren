@@ -111,6 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await makeAuthRequest(4);
 
         if (!data || !data.success) {
+          if(data?.offboarded)await HubAccess.offer(false);
           authErrorMsg.innerText = data?.message || "Ошибка авторизации!";
           authSubmitBtn.disabled = false;
           return;
@@ -494,8 +495,10 @@ function initSocketConnection(username) {
     }
   });
 
+  HubAccess.subscribe(socket);
   socket.on('user_banned', (data) => {
     if (data.username && data.username.toLowerCase() === currentUser.toLowerCase()) {
+      if(data.offboarded){HubAccess.offer();return;}
       alert("❌ Ваш аккаунт заблокирован администратором.");
       localStorage.clear();
       location.reload();
@@ -2207,7 +2210,7 @@ window.pwdModalConfirm = async () => {
   try {
     const res = await fetch(`${SERVER_API_URL}/api/admin/password`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',Authorization:HubAccess.authorization() },
       body: JSON.stringify({ adminUsername: currentUser, username, newPassword })
     });
     const data = await res.json();
@@ -4829,7 +4832,8 @@ document.addEventListener('keydown', (e) => {
       const data = await response.json();
       if (!data || !data.success) {
         localStorage.removeItem('sh_auth');
-        if (err) err.innerText = '';
+        if(data?.offboarded)await HubAccess.offer(false);
+        if (err) err.innerText = data?.message||'';
         return;
       }
       currentUser = data.username;
@@ -4858,7 +4862,7 @@ document.addEventListener('keydown', (e) => {
 bindClick("logoutBtn", async () => {
   HubRoyale.close();
   await HubVoxels.leave();
-  localStorage.clear();
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:'))localStorage.removeItem(key);
   location.reload();
 });
 

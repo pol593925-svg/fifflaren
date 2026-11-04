@@ -4,7 +4,7 @@
  let options=null,timer=null,sequence=0,checking=false,rows=[],seen=new Set();
  const el=id=>document.getElementById(id);
  function safeLink(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}}
- const statusNames={pending:'В ожидании',done:'Сделан',rejected:'Отклонён'};
+ const statusNames={pending:'В ожидании',done:'Сделан',rejected:'Отклонён',returned:'На доработке'};
  let personal=[],minePage=0,mineSeq=0,mineMore=false,owner=false;
  function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
  async function api(path,init={}){if(!options?.token)throw Error('Войди заново, чтобы загрузить колы.');const response=await fetch(options.server+path,{...init,headers:{Authorization:'Bearer '+options.token,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok||!data.success)throw Error(data.message||'Не удалось выполнить запрос');return data;}
@@ -15,14 +15,14 @@
   const link=node('button',row.link||'Ссылка не указана','call-copy-link');link.type='button';link.title='Нажми, чтобы скопировать ссылку';link.disabled=!row.link;
   link.onclick=async()=>{try{await navigator.clipboard.writeText(row.link);link.textContent='✓ Ссылка скопирована';setTimeout(()=>link.textContent=row.link,1600);}catch{link.textContent='Не удалось скопировать — попробуй ещё раз';}};article.append(link);
   if(row.note)article.append(node('p',row.note));
-  if(status==='rejected'&&row.reason)article.append(node('p','Причина: '+row.reason,'call-reason'));
+  if(['rejected','returned'].includes(status)&&row.reason)article.append(node('p','Причина: '+row.reason,'call-reason'));
   if(editable){const controls=node('div',undefined,'call-review'),select=node('select'),reason=node('textarea'),save=node('button','Сохранить статус','call-save'),message=node('small');
    select.setAttribute('aria-label','Статус колла');for(const [id,label] of Object.entries(statusNames)){const o=node('option',label);o.value=id;select.append(o);}select.value=status;
-   reason.placeholder='Причина отклонения — увидит автор';reason.setAttribute('aria-label','Причина отклонения');reason.maxLength=500;reason.rows=2;reason.value=row.reason||'';reason.hidden=status!=='rejected';
-   select.onchange=()=>{reason.hidden=select.value!=='rejected';};save.type='button';
-   save.onclick=async()=>{if(select.value==='rejected'&&!reason.value.trim()){message.textContent='Укажи причину отклонения';reason.focus();return;}save.disabled=true;message.textContent='Сохраняем…';try{const data=await api('/api/fifflaren/calls/'+encodeURIComponent(row.id),{method:'PATCH',body:JSON.stringify({status:select.value,reason:reason.value.trim()})});rows=rows.map(r=>r.id===row.id?data.call:r);render();loadMine().catch(()=>{});}catch(e){message.textContent=e.message;save.disabled=false;}};
+   reason.placeholder='Причина решения — увидит автор';reason.setAttribute('aria-label','Причина отклонения');reason.maxLength=500;reason.rows=2;reason.value=row.reason||'';reason.hidden=!['rejected','returned'].includes(status);
+   select.onchange=()=>{reason.hidden=!['rejected','returned'].includes(select.value);};save.type='button';
+   save.onclick=async()=>{if(['rejected','returned'].includes(select.value)&&!reason.value.trim()){message.textContent='Укажи причину для автора';reason.focus();return;}save.disabled=true;message.textContent='Сохраняем…';try{const data=await api('/api/fifflaren/calls/'+encodeURIComponent(row.id),{method:'PATCH',body:JSON.stringify({status:select.value,reason:reason.value.trim(),version:row.version||0})});rows=rows.map(r=>r.id===row.id?data.call:r);render();loadMine().catch(()=>{});}catch(e){message.textContent=e.message;save.disabled=false;}};
    controls.append(select,save,reason,message);article.append(controls);
-  }return article;
+  }HubWork.history(article,row);if(!editable&&status==='returned')HubWork.repair(article,row,()=>loadMine());return article;
  }
  function render(){const list=el('callsList');list.replaceChildren();el('callsCount').textContent=rows.length;if(!rows.length){list.textContent='За выбранный день колов пока нет.';return;}for(const row of rows)list.append(card(row,true));}
  function setupMine(){if(el('myCallsList'))return;const tab=el('tab-shift'),form=el('sendCallBtn').closest('.card'),aside=node('aside',undefined,'my-calls-panel shift-calls-panel');
@@ -35,8 +35,8 @@
  let logs=[];
  function renderLogs(){let panel=el('teamLogFeed');if(!panel){panel=node('section',undefined,'team-log-feed card');panel.id='teamLogFeed';panel.append(node('h3','Живая лента команды'));const list=node('div');list.id='teamLogList';list.setAttribute('aria-live','polite');panel.append(list);el('tab-shift').insertBefore(panel,el('tab-shift').children[1]||null);}const list=el('teamLogList');list.replaceChildren();for(const row of logs.slice(0,60)){const item=node('article',undefined,'team-log-entry');item.append(node('strong',row.user),node('small',new Date(row.createdAt).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})),node('p',row.comment));const url=safeLink(row.link);if(url){const a=node('a',row.link);a.href=url;a.target='_blank';a.rel='noopener noreferrer';item.append(a);}list.append(item);}if(!logs.length)list.append(node('p','Здесь появятся новые логи твоей команды.'));}
  async function loadLogs(){const config=options;try{const data=await api('/api/logs/team');if(config!==options)return;logs=[...new Map([...(data.logs||[]),...logs].map(r=>[r.id,r])).values()].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,60);renderLogs();}catch(e){renderLogs();el('teamLogList').textContent=e.message;}}
- async function submitLog(fields){const data=await api('/api/logs',{method:'POST',body:JSON.stringify(fields)});if(data.log){logs=[data.log,...logs.filter(r=>r.id!==data.log.id)].slice(0,60);renderLogs();}return data;}
- async function submit(fields){await api('/api/events',{method:'POST',body:JSON.stringify({user:options.username,type:'call',...fields})});await loadMine().catch(()=>{});}
+ async function submitLog(fields){await HubWork.checkLink(fields.link);const data=await api('/api/logs',{method:'POST',body:JSON.stringify(fields)});if(data.log){logs=[data.log,...logs.filter(r=>r.id!==data.log.id)].slice(0,60);renderLogs();}return data;}
+ async function submit(fields){await HubWork.checkLink(fields.callLink);await api('/api/events',{method:'POST',body:JSON.stringify({user:options.username,type:'call',...fields})});await loadMine().catch(()=>{});}
  async function fetchDay(date){
   const all=[];let page=0;
   while(true){const r=await fetch(options.server+'/api/fifflaren/calls?date='+encodeURIComponent(date)+'&page='+page,{headers:{Authorization:'Bearer '+options.token},signal:AbortSignal.timeout(15000)});const d=await r.json();
@@ -60,7 +60,7 @@
  function start(config){
   clearInterval(timer);sequence++;seen.clear();options=null;
   owner=String(config.username).toLowerCase()==='fifflaren';el('callsTabBtn').style.display=owner?'':'none';
-  options=config;logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-shift').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
+  options=config;HubWork.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-shift').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
   el('callsRefresh').onclick=()=>load().catch(()=>{});el('callsDate').onchange=()=>load().catch(()=>{});
   el('callsCopy').onclick=async()=>{try{await navigator.clipboard.writeText(rows.map(r=>[r.service||r.kind,r.link,r.user].join(' — ')).join('\n'));el('callsStatus').textContent='Список скопирован';}catch{el('callsStatus').textContent='Не удалось скопировать список';}};
   if(!config.token){el('callsStatus').textContent='Для личной вкладки нужен новый сервер. После его обновления войди заново.';return;}
@@ -72,7 +72,7 @@
   socket.on('connect',()=>{if(options?.token){socket.emit('calls_subscribe',options.token);loadLogs();}});
   socket.on('team_log',row=>{logs=[row,...logs.filter(r=>r.id!==row.id)].slice(0,60);renderLogs();});
   socket.on('my_call',()=>{loadMine().catch(()=>{});});
-  socket.on('call_updated',()=>{loadMine().catch(()=>{});if(owner)load().catch(()=>{});});
+  socket.on('call_updated',row=>{if(owner&&row?.history?.at(-1)?.action==='resubmitted'){options.notify({title:'Исправлен колл · '+row.user,text:row.service,date:clock(Date.parse(row.createdAt)).day});}loadMine().catch(()=>{});if(owner)load().catch(()=>{});});
   socket.on('fifflaren_call',row=>{
    if(!options||!owner||seen.has(row.id))return;seen.add(row.id);if(seen.size>1000)seen.delete(seen.values().next().value);
    if(row.user.toLowerCase()!=='fifflaren')options.notify({title:'Новый колл · '+row.user,text:(row.service||row.kind)+'\n'+row.link,date:clock().day});

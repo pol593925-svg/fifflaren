@@ -1419,7 +1419,7 @@
         </div>
         ${isFiff ? `<div class="cs16-adminHint">Управление комнатой: назначай хоста или исключай игроков, в том числе без команды.</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
-          Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть (вентиляции) · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · ПКМ (AWP) — прицел · I — осмотр оружия · E у двери — открыть или закрыть ·
+          Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть (вентиляции) · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · удерживать ПКМ — коллиматор · X — оптическое увеличение или режим очереди · I — осмотр оружия · E у двери — открыть или закрыть ·
           R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить
         </div>
       </div>`;
@@ -2195,6 +2195,7 @@
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
   let inspectStart=-Infinity,fieldOptical=null,fieldAim=false,fieldAimMix=0;
   let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmKickVelocity = 0, vmSwayX = 0, vmSwayY = 0;
+  const sightPoint = new THREE.Vector3();
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
@@ -2204,7 +2205,7 @@
       vm = buildGun(current, mySkin, 1.8);
       if(CS16FieldView.supported(current)&&vm.userData.grip){
         if(!fieldOptical)fieldOptical=CS16FieldView.optic(THREE);
-        CS16FieldView.mount(vm,fieldOptical.root);
+        vm.userData.reticle=CS16FieldView.mount(vm,fieldOptical.root,['cup','twin'].includes(vm.userData.grip.style));
       }
       vmKick=0;vmKickVelocity=0;
       vm.userData.animation=CS16WeaponAnimation.bind(vm);inspectStart=-Infinity;
@@ -2213,12 +2214,12 @@
     }
     if (!vm) return;
     const moving = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
-    const ads=fieldAim&&pointerLocked&&me.alive&&!reloading&&!myVeh?.inside&&CS16FieldView.supported(current);
+    const ads=vm.userData.reticle&&fieldAim&&pointerLocked&&me.alive&&!reloading&&!myVeh?.inside&&CS16FieldView.supported(current);
     fieldAimMix+=((ads?1:0)-fieldAimMix)*Math.min(1,dt*16);
     CS16FieldView.frame(vm.position,fieldAimMix,true,vm.userData.grip);
     vm.position.y+=(moving?Math.abs(Math.sin(t/110))*.011:0)*(1-fieldAimMix);
     vm.position.x+=(moving?Math.sin(t/220)*.007:0)*(1-fieldAimMix);
-    const dot=vm.getObjectByName('fieldReticle');if(dot)dot.visible=fieldAimMix>.92;
+    const dot=vm.userData.reticle;if(dot)dot.visible=ads&&fieldAimMix>.92;
     // отводка за мышью (ствол чуть отстаёт от движения)
     vmSwayX *= Math.max(0, 1 - dt * 7);
     vmSwayY *= Math.max(0, 1 - dt * 7);
@@ -2240,6 +2241,7 @@
     const progress=reloading>0?1-reloading/WEAPONS[current].reload:-1;
     const inspect=Math.max(0,(t-inspectStart)/2300);
     CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastShot)/1000),inspect<1?inspect:0);
+    CS16FieldView.align(vm,dot,Math.min(1,Math.max(0,(fieldAimMix-.72)/.20)),sightPoint);
     vm.visible = me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
   }
 
@@ -2247,7 +2249,7 @@
   const keys = {};
   // Слоты оружия и переключение (колесико/клавиши — как в CS)
   let lastWeaponSlot = '';
-  let burstOn = false; // очередь Glock/FAMAS (ПКМ)
+  let burstOn = false; // очередь Glock/FAMAS (X)
   let burstTimers = [];
   function ownedSlots() {
     const pistol = secondary && WEAPONS[secondary] ? secondary : (me.team === 't' ? 'glock' : 'usp');
@@ -2292,7 +2294,7 @@
     const w = WEAPONS[current];
     const now = performance.now();
     if (reloading > 0 || now - lastShot < 60000 / w.rpm) return;
-    // 3.24.1: Glock/FAMAS — режим очереди (ПКМ переключает): 3 выстрела за один клик
+    // 3.24.1: Glock/FAMAS — режим очереди (X переключает): 3 выстрела за один клик
     if (w.burst && burstOn) {
       if (burstTimers.length) return; // очередь уже идёт
       lastShot = now;
@@ -2321,7 +2323,7 @@
       return;
     }
     // Spread is centered on the crosshair; apply this shot's bloom afterwards.
-    const spreadDeg = Combat.spread(w, {scoped,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
+    const spreadDeg = Combat.spread(w, {scoped:scoped||fieldAimMix>.92,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
     const d = Combat.direction(P.yaw,P.pitch,spreadDeg);
     sprayN = Math.min(14,sprayN+1);
     if(sprayTimer)clearTimeout(sprayTimer);
@@ -2802,12 +2804,10 @@
         if (w.auto) { keys.fire = true; tryShoot(); } else tryShoot();
       } else if (e.button === 2) {
         const w = WEAPONS[current];
-        // 3.24.1: механика каждого оружия — нож: тяжёлый удар; Glock/FAMAS: очередь/авто; снайперки: прицел
+        // RMB uses the reflex sight on any firearm. The knife retains its secondary attack.
         if (myVeh && myVeh.inside) { return; }
         if (w.melee) heavySlash();
-        else if (w.burst) { burstOn = !burstOn; killfeed(burstOn ? '🔥 Режим очереди ВКЛ' : '🔥 Режим очереди ВЫКЛ'); }
-        else if (w.scope) scoped = !scoped;
-        else if(CS16FieldView.supported(current))fieldAim=true;
+        else if(me.alive&&CS16FieldView.supported(current)){scoped=false;fieldAim=true;inspectStart=-Infinity;}
       }
     });
     window.addEventListener('mouseup', (e) => { if (e.button === 0) keys.fire = false;if(e.button===2)fieldAim=false; });
@@ -2822,7 +2822,7 @@
       if(royaleActive)return;
       if(conquestUI?.blocked)return;
       if (!pointerLocked || !me.alive) return;
-      const sens = scoped ? 0.0009 : 0.0023;
+      const sens = scoped ? 0.0009 : 0.0023*(1-.35*fieldAimMix);
       P.yaw -= e.movementX * sens;
       P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - e.movementY * sens));
       vmSwayX = Math.max(-0.09, Math.min(0.09, vmSwayX + e.movementX * 0.00035));
@@ -2859,7 +2859,12 @@
         if (k === 'b' || k === 'escape') closeBuy();
         return;
       }
-      if(e.code==='KeyI'&&!e.repeat&&me.alive&&!scoped&&!myVeh?.inside&&!reloading){inspectStart=performance.now();return;}
+      if(e.code==='KeyX'&&!e.repeat&&pointerLocked&&me.alive&&!myVeh?.inside&&!reloading){
+        const w=WEAPONS[current];if(w.scope){fieldAim=false;fieldAimMix=0;scoped=!scoped;}
+        else if(w.burst){burstOn=!burstOn;killfeed(burstOn?'Режим очереди включён':'Режим очереди выключен');}
+        return;
+      }
+      if(e.code==='KeyI'&&!e.repeat&&me.alive&&!scoped&&!fieldAim&&!myVeh?.inside&&!reloading){inspectStart=performance.now();return;}
       if(k==='e'&&!e.repeat&&me.alive&&state.phase==='live'&&!myVeh?.inside){
         const door=CS16Environment.nearest(CS16Buildings.layout(grid,curMap),P);
         if(door){sock?.emit('cs16_door',door.id);keys.e=false;return;}
@@ -2914,7 +2919,7 @@
     ui.location.textContent = MAP_META[curMap].name.toUpperCase();
     ui.bearing.textContent=CS16FieldView.bearing(P.yaw);
     ui.crosshair.style.display = (scoped || !me.alive || fieldAimMix>.92) ? 'none' : 'block';
-    const cone=Combat.spread(w,{scoped,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
+    const cone=Combat.spread(w,{scoped:scoped||fieldAimMix>.92,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
     ui.crosshair.style.transform='translate(-50%,-50%) scale('+Math.min(3,1+cone*.22)+')';
     ui.scope.style.display = scoped ? 'block' : 'none';
     ui.flash.style.opacity = String(Math.min(1, flashAlpha));

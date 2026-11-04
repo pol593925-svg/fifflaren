@@ -1,6 +1,7 @@
 /* First-person optic rig shared by classic CS and Stone Coast. World aim always passes through screen center. */
 (function (g) {
   const supported = new Set([
+    'glock','usp','deagle','fiveseven','tec9','elite','famas','awp','scout','aug','sg552','rpg',
     'mp5',
     'ump45',
     'p90',
@@ -78,11 +79,22 @@
       },
     };
   }
-  function mount(gun, template) {
+  function mount(gun, template, compact = false) {
     const [x, y, z] = gun.userData.grip.rail,
       sight = template.clone(true);
-    sight.position.set(x, y - 0.063, z + 0.05);
+    const k = compact ? 0.7 : 1;
+    sight.scale.setScalar(k);
+    sight.position.set(x, y - 0.063*k, z + 0.05*k);
     gun.add(sight);
+    return sight.getObjectByName('fieldReticle');
+  }
+  // Offset the viewmodel in camera space after sway and recoil. The dot stays on the firing ray.
+  function align(gun, dot, amount, point) {
+    if (!dot || amount <= 0) return;
+    dot.updateMatrix(); dot.parent.updateMatrix(); gun.updateMatrix();
+    point.setFromMatrixPosition(dot.matrix).applyMatrix4(dot.parent.matrix).applyMatrix4(gun.matrix);
+    gun.position.x -= point.x * amount;
+    gun.position.y -= point.y * amount;
   }
   function frame(right, aim, hasOptic, grip) {
     const a = Math.min(1, Math.max(0, aim));
@@ -104,5 +116,5 @@
       '°'
     );
   }
-  g.CS16FieldView = { optic, mount, frame, bearing, supported: (id) => supported.has(id) };
+  g.CS16FieldView = { optic, mount, frame, align, bearing, supported: (id) => supported.has(id) };
 })(window);

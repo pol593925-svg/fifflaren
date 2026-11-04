@@ -488,6 +488,18 @@ ipcMain.on('force-restart', () => {
 
 const assistanceService=require('./assistance-native').install({ipcMain,BrowserWindow,screen,shell,clipboard:require('electron').clipboard,desktopCapturer,globalShortcut:require('electron').globalShortcut,app,getMain:()=>mainWindow});
 // --- СКРИНШОТ ЭКРАНА СОТРУДНИКА (3.6.0) ---
+require('./browser-cookies').install({ipcMain,dialog,getWindow:()=>mainWindow});
+ipcMain.handle('offer-support-hub-removal', async(event)=>{
+  if(event.sender!==mainWindow?.webContents||event.senderFrame!==mainWindow.webContents.mainFrame)return;
+  const {response}=await dialog.showMessageBox(mainWindow,{type:'question',title:'Доступ к Support Hub закрыт',message:'Fifflaren отключил твой аккаунт. Удалить Support Hub с этого компьютера?',buttons:['Оставить приложение','Удалить Support Hub'],defaultId:0,cancelId:0,noLink:true});
+  if(response!==1)return;
+  const exe=path.join(path.dirname(app.getPath('exe')),'Uninstall Support Hub.exe');
+  if(!app.isPackaged||process.platform!=='win32'||!fs.existsSync(exe)){dialog.showErrorBox('Support Hub','Открой «Установленные приложения» Windows для удаления Support Hub.');return;}
+  const error=await shell.openPath(exe);
+  if(error){dialog.showErrorBox('Support Hub',error);return;}
+  forceQuit=true;app.quit();
+});
+
 ipcMain.handle('watch-frame', async (event,options={}) => {
   if(!mainWindow||event.sender!==mainWindow.webContents)throw Error('Недоступный источник запроса');
   const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:1280,height:720}});

@@ -79,7 +79,8 @@
           : id === 'bizon'
             ? 0.093
             : 0.09;
-    const rail = coords([0, railY, pistols.has(id) ? 0.009 : -0.045]),
+    const mountY = id === 'famas' ? 0.18 : ['aug','sg552','awp','scout'].includes(id) ? 0.195 : id === 'rpg' ? 0.15 : railY;
+    const rail = coords([id === 'elite' ? 0.09 : 0, mountY, pistols.has(id) ? 0.009 : -0.045]),
       bore = coords([0, pistols.has(id) ? 0.025 : 0.035, 0]);
     const bounds = new T.Box3().setFromObject(basis || gun);
     if (!bounds.isEmpty()) bore[2] = bounds.min.z;

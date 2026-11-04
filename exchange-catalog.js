@@ -19,7 +19,11 @@
   const q=norm(query),matches=entries.filter(r=>filter==='all'||r.section===filter).map(r=>({r,score:rank(r,q)})).filter(x=>x.score).sort((a,b)=>b.score-a.score||a.r.name.localeCompare(b.r.name));
   grid.replaceChildren();document.getElementById('exchangeResultsCount').textContent=matches.length+' из '+entries.length;
   const exact=matches.filter(m=>m.score===4),chosen=matches.find(m=>selectedKey===m.r.name+'|'+m.r.section)||(exact.length===1?exact[0]:matches.length===1&&q?matches[0]:null);
-  if(!q){const p=document.createElement('p');p.className='exchange-prompt';p.textContent='Введи название биржи или её ссылку. Здесь появится крупный ответ из справочника команды, условия и официальный сайт.';grid.append(p);}
+  if(!q){const p=document.createElement('p');p.className='exchange-prompt';p.textContent='Введи название биржи или её ссылку. Здесь появится крупный ответ из справочника команды, условия и официальный сайт.';grid.append(p);
+   if(config?.isAdmin()){
+     const flagged=entries.filter(r=>r.needsReview);if(flagged.length){const h=document.createElement('h3');h.textContent='На пересмотр · '+flagged.length;grid.append(h);}
+     for(const r of flagged){const b=document.createElement('button');b.className='exchange-choice';b.textContent=r.name;b.onclick=()=>{filter='all';document.getElementById('exchangeSearchInput').value=r.name;selectedKey=r.name+'|'+r.section;render();};grid.append(b);}
+   }}
   else if(!chosen){for(const {r}of matches.slice(0,shown)){const b=document.createElement('button');b.className='exchange-choice';const title=document.createElement('strong');title.textContent=r.name;const label=document.createElement('small');label.textContent=labels[r.section];b.append(title,label);b.onclick=()=>{selectedKey=r.name+'|'+r.section;render();};grid.append(b);}}
   for(const {r} of chosen?[chosen]:[]){
    const card=document.createElement('article');card.className='exchange-card';card.dataset.section=r.section;
@@ -35,7 +39,7 @@
     const logoRaw=prompt('Ссылка на логотип (HTTPS). Оставь пустой для иконки сайта.',r.logo||'');if(logoRaw===null)return;if(logoRaw&&!safeUrl(logoRaw)){alert('Некорректный адрес логотипа');return;}
     try{await config.save(r,link,logoRaw);r.website=link;r.logo=logoRaw;render();}catch(e){alert(e.message);}
    };foot.append(edit);}
-   card.append(foot);grid.append(card);
+   window.HubWork.exchange(card,r,!!config?.isAdmin(),render);card.append(foot);grid.append(card);
   }
   if(!matches.length){grid.textContent='Нет данных в справочнике. Проверь название или уточни у руководителя.';}
   document.getElementById('exchangeMore').hidden=!q||!!chosen||shown>=matches.length;

@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="cs16-graphics.css"><link rel="stylesheet" href="royale.css">
   <link rel="stylesheet" href="voxel-game.css">
-  <link rel="stylesheet" href="app-theme.css">
+  <link rel="stylesheet" href="app-theme.css"><link rel="stylesheet" href="radio.css">
   <link rel="stylesheet" href="hero-navigation.css">
   <link rel="stylesheet" href="hub-experience.css">
   <link rel="stylesheet" href="hub-features.css">
@@ -63,6 +63,7 @@
     <!-- Вкладка ТЛ-панели (видна только ТЛ — ник совпадает с названием команды) -->
     <button class="tab-btn" data-tab="tlpanel" id="tlTabBtn" style="display: none; background: #1e2a3d; color: #4da6ff; border: 1px solid #4da6ff;">🎯 ТЛ-панель</button>
     <!-- Вкладка админки (видна только админу) -->
+    <button class="tab-btn" data-tab="radio" id="radioTabButton" style="display:none">Радио</button>
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display: none; background: #3d1e1e; color: #ff6b6b; border: 1px solid #ff6b6b;">👑 Админка</button>
   </div>
 
@@ -342,10 +343,22 @@
   </div>
 
   <!-- 9. ВКЛАДКА: Админ-панель -->
+  <div id="tab-radio" class="content" style="display:none">
+    <section class="card"><small>СТУДИЯ FIFFLAREN · ПРЯМОЙ ЭФИР</small><h2>Радио команды</h2><p>Кнопка ▶ в шапке подключает сотрудников к одной и той же секунде эфира. Громкость у каждого своя.</p>
+    <label>Добавить треки с компьютера <input id="radioFiles" type="file" multiple accept=".mp3,.ogg,.wav"></label><small> MP3, OGG, WAV · до 12 МБ на трек</small>
+    <div class="radio-controls"><button id="radioPrev">Предыдущий</button><button id="radioBroadcast">Начать эфир</button><button id="radioNext">Следующий</button></div>
+    <label class="radio-controls">Позиция эфира <input id="radioSeek" type="range" min="0" step="1" value="0"><span id="radioTime"></span></label>
+    <small id="radioNotice" role="status"></small><h3>Очередь эфира</h3><ol id="radioQueue"></ol></section>
+  </div>
   <div id="tab-admin" class="content" style="display: none;">
     <div class="card admin-card">
       <h3>👑 Панель управления администратора</h3>
 
+      <section class="admin-section" id="ownerAccess" hidden><h4>Доступ сотрудников</h4><p>Отключённый сотрудник получит предложение удалить Support Hub со своего ПК.</p>
+        <select id="offboardUser" aria-label="Сотрудник"><option value="">Выбрать сотрудника</option></select> <button id="offboardBtn" class="template-btn">Отключить аккаунт</button><hr><h4>Очистка cookies рабочего сайта</h4><p>Запрос придёт выбранному сотруднику. Он выберет профиль и подтвердит очистку на своём ПК.</p>
+        <select id="cookieBrowser" aria-label="Браузер"><option value="chrome">Chrome</option><option value="brave">Brave</option><option value="edge">Edge</option><option value="firefox">Firefox</option></select>
+        <input type="text" id="cookieSite" placeholder="example.com" aria-label="Домен рабочего сайта">
+        <button id="cookieOffer" class="template-btn">Запросить очистку</button><button id="cookieHere" class="template-btn">На моём ПК</button><p id="accessStatus" role="status"></p></section>
       <!-- Секция уведомлений поверх окон -->
       <div class="admin-section">
         <h4>🚀 Уведомление поверх окон</h4>
@@ -1044,7 +1057,7 @@
   <script src="cs16-props.js"></script>
   <script src="cs16-conquest-ui.js"></script>
   <script src="royale-core.js"></script><script src="royale-landscape.js"></script><script src="royale-city.js"></script><script src="royale-view.js"></script><script src="royale-client.js"></script><script src="cs16.js"></script>
-  <script src="calls-inbox.js"></script>
+  <script src="cookie-dialog.js"></script><script src="team-access.js"></script><script src="radio.js"></script><script src="work-tools.js"></script><script src="calls-inbox.js"></script>
   <script src="exchange-catalog.js"></script>
   <script src="voxel-core.js"></script>
   <script src="voxel-life.js"></script>

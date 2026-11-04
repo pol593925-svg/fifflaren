@@ -75,11 +75,62 @@
       el('officeStatus').textContent = '';
     } catch (e) { if (req === seq) el('officeStatus').textContent = e.message; }
   }
+  let deviceSeq = 0;
+  const busyDevices = new Set();
+  const deviceRows = new Map();
+  function paintDevice(row,device) {
+    const button = row.querySelector('button');
+    button.setAttribute('aria-pressed',String(device.inWork));
+    button.setAttribute('aria-label','В работе — ' + device.name);
+    row.classList.toggle('in-work',device.inWork);
+    row.querySelector('strong').textContent = device.name;
+    row.querySelector('small').textContent = device.inWork ? 'Отметил: ' + device.markedBy : 'Добавил: ' + device.registeredBy;
+  }
+  function makeDeviceRow(device) {
+    const row = node('article'), button = node('button','В работе');
+    row.className = 'office-device'; button.type = 'button';
+    row.append(button,node('strong'),node('small'));
+    button.onclick = async () => {
+      const cfg=session, id=device._id;
+      if (busyDevices.has(id)) return;
+      busyDevices.add(id); button.disabled = true; ++deviceSeq;
+      try {
+        const data = await api('devices/'+encodeURIComponent(id),'PATCH',{inWork:button.getAttribute('aria-pressed')!=='true'});
+        if (cfg===session) {
+          ++deviceSeq; paintDevice(row,data.device);
+          el('officeDeviceStatus').textContent = data.device.inWork ? 'Отметка сохранена.' : 'Отметка снята.';
+        }
+      } catch (e) { if (cfg===session) el('officeDeviceStatus').textContent=e.message; }
+      finally { if (cfg===session) busyDevices.delete(id); button.disabled=false; }
+    };
+    return row;
+  }
+  async function refreshDevices() {
+    if (!session || !el('tab-hq').getClientRects().length || document.hidden) return;
+    const seq = ++deviceSeq;
+    try {
+      const {devices} = await api('devices');
+      if (seq!==deviceSeq) return;
+      const list = el('officeDevices'), found = new Set();
+      for (const [i,device] of devices.entries()) {
+        found.add(device._id);
+        let row = deviceRows.get(device._id);
+        if (!row) { row=makeDeviceRow(device); deviceRows.set(device._id,row); }
+        if (!busyDevices.has(device._id)) paintDevice(row,device);
+        if (list.children[i]!==row) list.insertBefore(row,list.children[i]||null);
+      }
+      for (const [id,row] of deviceRows) if (!found.has(id)) { row.remove(); deviceRows.delete(id); }
+      el('officeDeviceEmpty').hidden=devices.length>0;
+    } catch (e) { if (seq===deviceSeq) el('officeDeviceStatus').textContent=e.message; }
+  }
+  function refreshOffice() { refresh(); refreshDevices(); }
   function start(options) {
     session = options;
     clearInterval(timer); ++seq;
-    timer = setInterval(refresh, 15000);
-    refresh();
+    ++deviceSeq; deviceRows.clear(); busyDevices.clear(); el('officeDevices').replaceChildren();
+    el('officeDeviceStatus').textContent=''; el('officeDeviceEmpty').hidden=true;
+    timer = setInterval(refreshOffice, 15000);
+    refreshOffice();
   }
   function offer(card, row) {
     if (row.status !== 'done' || session?.username.toLowerCase() !== 'fifflaren') return;
@@ -98,8 +149,27 @@
   }
   document.addEventListener('DOMContentLoaded', () => {
     const hq = el('tab-hq');
-    new MutationObserver(refresh).observe(hq,{attributes:true,attributeFilter:['style','class']});
-    document.addEventListener('visibilitychange', refresh);
+    new MutationObserver(refreshOffice).observe(hq,{attributes:true,attributeFilter:['style','class']});
+    document.addEventListener('visibilitychange', refreshOffice);
+    el('adminOpenOfficeDevices').onclick = () => {
+      document.querySelector('.tabs [data-tab="hq"]').click();
+      el('officeDeviceTitle').focus(); el('officeDeviceTitle').scrollIntoView({block:'nearest'});
+    };
+    el('officeDeviceForm').onsubmit = async e => {
+      e.preventDefault();
+      const b=el('officeDeviceAdd'), input=el('officeDeviceName'), cfg=session;
+      if (b.disabled || !cfg) return;
+      b.disabled=true;
+      try {
+        let installation = localStorage.getItem('hub-office-installation');
+        if (!installation) { installation=randomId(); localStorage.setItem('hub-office-installation',installation); }
+        const data=await api('devices','POST',{installation,name:input.value.trim()});
+        if (cfg!==session) return;
+        input.value=''; el('officeDeviceStatus').textContent='Этот компьютер в списке — '+data.device.name;
+        await refreshDevices();
+      } catch (err) { if (cfg===session) el('officeDeviceStatus').textContent=err.message; }
+      finally { b.disabled=false; }
+    };
     el('officeFind').oninput = () => { clearTimeout(searchTimer); ++seq; searchTimer = setTimeout(refresh,220); };
     el('officeGatherForm').onsubmit = async e => {
       e.preventDefault();

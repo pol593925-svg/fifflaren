@@ -4861,7 +4861,7 @@ document.addEventListener('keydown', (e) => {
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
   await HubGames.close();
-  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:') && key !== 'hub-brave-install-seen')localStorage.removeItem(key);
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);
   location.reload();
 });
 

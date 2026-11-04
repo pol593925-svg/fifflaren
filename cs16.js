@@ -811,7 +811,7 @@
   let missileView=null,frontView=null,frontNet={epoch:-1,ids:new Set(),rows:[],map:null},frontSeat=null,frontRocket=false,lastFrontControl=0;
   const frontPilots=new Map();let preparedArmy=-1,preparingArmy=-1,ownedStrike=false,radarDirty=false,lastArmyRadar=0;
   function prepareArmy(){
-    if(!sock?.connected||!worldReady||!frontView||frontNet.map!==curMap||frontNet.rows?.length!==100||preparedArmy===frontNet.epoch||preparingArmy===frontNet.epoch)return;
+    if(!sock?.connected||!worldReady||!frontView||!frontNet.army||frontNet.map!==curMap||frontNet.rows?.length!==100||preparedArmy===frontNet.epoch||preparingArmy===frontNet.epoch)return;
     const epoch=frontNet.epoch;preparingArmy=epoch;
     requestAnimationFrame(async()=>{try{
       if(epoch!==frontNet.epoch||!worldReady||frontNet.map!==curMap)return;
@@ -1261,7 +1261,7 @@
     for (const [i, it] of items.entries()) {
       const w = WEAPONS[it.id];
       const teamGate = (w && w.team) || it.team;
-      let dis = (teamGate && teamGate !== me.team) || me.money < it.price || (it.id==='veh_jet'&&(!state.army||frontSeat!=null));
+      let dis = (teamGate && teamGate !== me.team) || me.money < it.price || (it.id==='veh_jet'&&(state.gm==='gg'||frontSeat!=null));
       if (it.id === 'defuser' && me.kit) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
@@ -2394,7 +2394,7 @@
     let hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wallT);
     const vhit = rayVehicles(P.x, P.y + eyeH(), P.z, d, wallT);
     const origin=[P.x,P.y+eyeH(),P.z],nearest=Math.min(wallT,hit?.t??wallT,vhit?.t??wallT);
-    const armyT=state.army&&frontView?frontView.intersect(origin,d,nearest,me.team):nearest;
+    const armyT=frontView&&frontNet.rows?.length?frontView.intersect(origin,d,nearest,me.team):nearest;
     const hitArmy=armyT<nearest;if(hitArmy)hit=null;
     if (!hitArmy && vhit && (!hit || vhit.t < hit.t)) {
       // 3.32.0: попали в чужую технику — трейсер, звук и урон по HP техники

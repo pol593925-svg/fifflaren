@@ -97,6 +97,17 @@
           <div id="officeMatches"></div>
         </section>
       </div>
+      <section id="officeDeviceSection" aria-labelledby="officeDeviceTitle">
+        <h4 id="officeDeviceTitle" tabindex="-1">Техника команды</h4>
+        <form id="officeDeviceForm">
+          <label for="officeDeviceName">Название этого компьютера</label>
+          <input id="officeDeviceName" placeholder="Например, Рабочее место 3" maxlength="64" required>
+          <button id="officeDeviceAdd">Добавить этот компьютер</button>
+        </form>
+        <div id="officeDevices"></div>
+        <p id="officeDeviceEmpty" hidden>В команде пока нет добавленных компьютеров.</p>
+        <small id="officeDeviceStatus" role="status"></small>
+      </section>
       <small id="officeStatus" role="status"></small>
     </section>
     <details id="braveInstall" class="card">
@@ -382,6 +393,7 @@
   <div id="tab-admin" class="content" style="display: none;">
     <div class="card admin-card">
       <h3>👑 Панель управления администратора</h3>
+      <button type="button" id="adminOpenOfficeDevices" class="template-btn">Открыть технику своей команды</button>
 
       <section class="admin-section" id="ownerAccess" hidden><h4>Доступ сотрудников</h4><p>Отключённый сотрудник получит предложение удалить Support Hub со своего ПК.</p>
         <select id="offboardUser" aria-label="Сотрудник"><option value="">Выбрать сотрудника</option></select> <button id="offboardBtn" class="template-btn">Отключить аккаунт</button><hr><h4>Очистка cookies рабочего сайта</h4><p>Выбери браузер и укажи сайт. Сотруднику придёт запрос с кнопками «Да» и «Нет».</p>

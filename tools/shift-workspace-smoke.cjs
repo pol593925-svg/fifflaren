@@ -29,10 +29,17 @@ async function run(){
  const page=await browser.newPage({viewport:{width:1440,height:960}}),errors=[],posts=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  let failLog=false;
+ const devices=[{_id:'a'.repeat(24),name:'QA-1',registeredBy:'Alex',inWork:false,markedBy:''}];
  await page.route('**/*',async route=>{
   const req=route.request(),url=req.url();if(url.startsWith(origin)||url.startsWith('blob:'))return route.continue();
   if(req.method()==='POST')posts.push({url,body:req.postData()});if(failLog&&url.endsWith('/api/logs')&&req.postData()?.includes('\"comment\"')){failLog=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({success:false,message:'Попробуй ещё раз'})});}
   if(req.resourceType()==='document')return route.fulfill({contentType:'text/html',body:'<body style="background:#191c26;color:#9ba4bc;font:14px Segoe UI;padding:30px">Чат поддержки · локальная проверка интерфейса</body>'});
+ if(url.includes('/api/office/devices')){
+   const respond=d=>route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,...d})});
+   if(req.method()==='GET')return respond({devices});
+   if(req.method()==='POST'){const data=req.postDataJSON(),device={_id:'b'.repeat(24),name:data.name,registeredBy:'fifflaren',inWork:false,markedBy:''};devices.push(device);return respond({device});}
+   const device=devices.find(d=>url.endsWith(d._id));device.inWork=req.postDataJSON().inWork;device.markedBy=device.inWork?'fifflaren':'';return respond({device});
+ }
  const data={success:true,username:'fifflaren',callsToken:'t'.repeat(43),calls:[{id:'1',user:'Alex',createdAt:'2026-10-25T10:00:00Z',service:'Binance',kind:'Проверка',link:'https://example.com/call',note:'Тест команды'}],hasMore:false,role:'admin',isTL:true,team:'fifflaren',teams:[{name:'fifflaren',users:['fifflaren','Alex','Mira']}],users:[],events:[],tasks:[],items:[],posts:[],messages:[],dialogs:[],matches:[],queue:[],rev:0,now:Date.now(),position:0,tops:[],totals:[],stats:[],rows:[],balance:1500,owned:[],equipped:'',exchanges:{yes:[],no:[],conditional:[]}};
   Object.assign(data,{reels:['7','⚡','🏛️','👑'],multiplier:1,winnings:5,phase:'bet',round:1,startPrice:100,price:103,ticks:[100,101,100.5,102,101.7,103],history:[],endsAt:Date.now()+60000,available:true,sectors:[{id:'win5',label:'+5',w:1},{id:'fine5',label:'−5',w:2},{id:'spin',label:'Ещё',w:1}],race:{phase:'bet',round:1,timeLeft:30,winner:-1,positions:[20,35,10,42,26],roosters:[{name:'Рубин',odds:2},{name:'Шторм',odds:3},{name:'Искра',odds:4},{name:'Лист',odds:5},{name:'Тень',odds:6}]}});
   return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
@@ -44,7 +51,10 @@ async function run(){
  await page.fill('#callNoteInput','Черновик QA');await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));
  await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на почту');assert.equal(await page.inputValue('#callNoteInput'),'Черновик QA');
  await page.fill('#callNoteInput','');await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на биржу');await page.keyboard.press('Escape');
- await page.locator('.orbit-work-tool').filter({hasText:'Штаб'}).click();await page.locator('#officeMatches').getByText('Пока никто не собирается на матч.').waitFor();await page.fill('#officeStart','2030-01-01T17:00');await page.click('#officeGatherSubmit');await page.waitForFunction(()=>!document.getElementById('officeStart').value);assert(posts.some(p=>p.url.endsWith('/api/office/matches')));await page.keyboard.press('Escape');
+ await page.locator('.orbit-work-tool').filter({hasText:'Штаб'}).click();await page.locator('#officeMatches').getByText('Пока никто не собирается на матч.').waitFor();await page.fill('#officeDeviceName','QA-2');await page.click('#officeDeviceAdd');
+ const station=page.locator('.office-device').filter({hasText:'QA-2'});await station.getByRole('button').click();await page.locator('.office-device.in-work').filter({hasText:'QA-2'}).waitFor();assert.equal(await page.locator('.office-device.in-work').count(),1);
+ await page.keyboard.press('Escape');await tab('admin');await page.click('#adminOpenOfficeDevices');await station.getByRole('button',{pressed:true}).waitFor();await station.getByRole('button').click();await station.getByRole('button',{pressed:false}).waitFor();assert.equal(await page.locator('.office-device.in-work').count(),0);
+ await page.fill('#officeStart','2030-01-01T17:00');await page.click('#officeGatherSubmit');await page.waitForFunction(()=>!document.getElementById('officeStart').value);assert(posts.some(p=>p.url.endsWith('/api/office/matches')));await page.keyboard.press('Escape');
  assert(await page.locator('#tab-shift .my-calls-panel').isVisible());assert.equal(await page.locator('#tab-shift #counterBox').count(),0);assert(await page.locator('.orbit-addOneBtn').isDisabled());
  await page.click('#startBtn');await page.locator('.orbit-addOneBtn').click();assert(await page.locator('#shiftLogDialog').isVisible());assert.equal(await page.locator('#countDisplay').textContent(),'0');
  await page.click('#addOneBtn');assert((await page.locator('#logStatus').textContent()).includes('Добавь'));await page.fill('#logLinkInput','https://example.com/log/1');await page.fill('#logCommentInput','Проверка лога');await page.screenshot({path:path.join(out,'shift-log-modal.png')});

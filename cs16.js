@@ -304,6 +304,7 @@
       for (let x = 0; x < MW; x++) row.push(CH2C[rows[y][x]] != null ? CH2C[rows[y][x]] : 1);
       grid.push(row);
     }
+    CS16Passages.install(grid);
     // направления лестниц: соседний мост определяет, куда «вверх»
     for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
       if (grid[y][x] !== 10) continue;
@@ -1050,7 +1051,7 @@
     if(!battleAudio)battleAudio=CS16BattleAudio.create(context,{
       listener:()=>({x:P.x,y:P.y+eyeH(),z:P.z,yaw:P.yaw}),
       blocked:(from,to)=>!losClear(...from,...to),
-      indoor:p=>p[1]<0||(p[1]<7.2&&CS16Buildings.contains(grid,curMap,p[0],p[2]))
+      indoor:p=>p[1]<0||(p[1]<7.2&&CS16Buildings.contains(grid,curMap,p[0],p[2]))||(p[1]<3.58&&cellAt(p[0],p[2])===12)
     });
     return battleAudio;
   }
@@ -1078,6 +1079,7 @@
   function stepSurface() {
     const c = cellAt(P.x, P.z);
     if (c === 8 && P.y < VENT_CEIL) return 'metal';
+    if (c===12) return 'stone';
     if (P.y < -.1 || P.y > .25 || CS16Buildings.contains(grid,curMap,P.x,P.z,.2)) return 'stone';
     return worldGraphics?.groundSurface(P.x,P.z) || 'stone';
   }

@@ -94,7 +94,9 @@
       parent.add(m);
       return m;
     }
-    for (const d of state.doors) {
+    const legacyDoors = state.doors.filter((d) => !d.kind),
+      streetView = g.CS16PassageView.create(T, root, box, wood, steel, state);
+    for (const d of legacyDoors) {
       const pivots = [];
       for (const side of [-1, 1]) {
         const pivot = new T.Group();
@@ -121,6 +123,11 @@
         part(root, lamp, b.x + 5, y, b.z + 6, 0.45, 0.035, 0.45);
         lampPlaces.push(new T.Vector3(b.x + 5, y - 0.12, b.z + 6));
       }
+    for (const cell of data.passages?.cells || []) {
+      const x = cell % 126,
+        z = Math.floor(cell / 126);
+      if ((x + z) % 4 === 0) lampPlaces.push(new T.Vector3(x * 4 + 2, 3.25, z * 4 + 2));
+    }
     const lights = Array.from({ length: 2 }, () => {
       const l = new T.PointLight(0xffd9a4, 0, 9, 2);
       root.add(l);
@@ -134,7 +141,8 @@
     let last = 0;
     return {
       update(dt, t, camera) {
-        for (const d of state.doors)
+        streetView.update(dt);
+        for (const d of legacyDoors)
           for (const { pivot, side } of doors.get(d.id)) {
             const target = d.open ? (side * Math.PI) / 2 : 0;
             pivot.rotation.y += (target - pivot.rotation.y) * (1 - Math.exp(-dt * 12));
@@ -157,8 +165,16 @@
           const p = getPlayer(),
             near = g.CS16Environment.nearest(data, p);
           hint.style.display = getActive() && near ? 'block' : 'none';
-          if (near) hint.textContent = 'E · ' + (near.open ? 'Закрыть дверь' : 'Открыть дверь');
-          const indoor = g.CS16Buildings.contains(grid, map, p.x, p.z) && p.y < 7.2,
+          if (near)
+            hint.textContent =
+              near.kind === 'secret'
+                ? near.open
+                  ? 'E · Закрыть тайник'
+                  : 'E · Осмотреть кладку'
+                : 'E · ' + (near.open ? 'Закрыть дверь' : 'Открыть дверь');
+          const indoor =
+              (g.CS16Buildings.contains(grid, map, p.x, p.z) && p.y < 7.2) ||
+              (grid[Math.floor(p.z / 4)]?.[Math.floor(p.x / 4)] === 12 && p.y < 3.58),
             limit = getQuality() === 'low' ? 0 : getQuality() === 'high' ? 2 : 1;
           const closest = lampPlaces
             .slice()
@@ -170,6 +186,7 @@
         }
       },
       applyMaterials(find) {
+        streetView.apply(find);
         const base = find('wood');
         if (base) {
           wood.map = base.map;
@@ -181,6 +198,7 @@
       dispose() {
         hint.remove();
         root.removeFromParent();
+        streetView.dispose();
         panes.dispose();
         box.dispose();
         [wood, glass, steel, lamp].forEach((m) => m.dispose());

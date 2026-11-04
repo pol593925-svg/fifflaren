@@ -3,8 +3,8 @@
   "maps": {
     "dust2": {
       "file": "dust2.glb",
-      "bytes": 49984548,
-      "triangles": 345031,
+      "bytes": 52373276,
+      "triangles": 370435,
       "meshBatches": 66,
       "materials": 17,
       "textureImages": 52,

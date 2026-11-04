@@ -11,6 +11,7 @@ import json
 import math
 import re
 import sys
+import subprocess
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -528,6 +529,10 @@ def skyline(theme):
 def build_map(theme,rows):
     BATCHES.clear()
     lamps=[];beacons=[]
+    plan={'boxes':[],'doors':[],'routes':[],'cells':[]}
+    if theme=='dust2':
+        plan=json.loads(subprocess.check_output(['node',str(ROOT/'tools/export-dust-passages.cjs')],cwd=ROOT,encoding='utf-8'))
+    portals={(d['cell']%SIZE,d['cell']//SIZE,d['nx'],d['nz']) for d in plan['doors'] if d['kind']=='street'}
     for z in range(SIZE):
         for x in range(SIZE):
             ch=rows[z][x];px,pz=x*4+2,z*4+2
@@ -539,10 +544,13 @@ def build_map(theme,rows):
                 face('limestone',[(x*4,4,z*4+4),(x*4+4,4,z*4+4),(x*4+4,4,z*4),(x*4,4,z*4)],tint=tint)
                 for dx,dz in ((1,0),(-1,0),(0,1),(0,-1)):
                     if cell(rows,x+dx,z+dz)=='#':continue
+                    if (x,z,dx,dz) in portals:continue  # physical jambs and a movable leaf fill this opening
                     a=(px+dx*2-dz*2,0,pz+dz*2+dx*2)
                     b=(px+dx*2+dz*2,0,pz+dz*2-dx*2)
                     face(('plaster_light','plaster','plaster_blue','plaster_light')[(x//6+z//6)%4],[a,b,(b[0],4,b[2]),(a[0],4,a[2])],tint=tint)
-                    wall_details(x,z,dx,dz,x*7+z*11+(dx+dz),theme)
+                    variant=x*7+z*11+(dx+dz)
+                    if theme=='dust2' and variant%4==2:variant+=1  # panels relocated away from solid obstructions
+                    wall_details(x,z,dx,dz,variant,theme)
             elif ch in ('C','D'): cover_object(x,z,ch)
             elif ch=='T':
                 box('limestone',px,TOWER_H/2,pz,4,TOWER_H,4)
@@ -584,6 +592,31 @@ def build_map(theme,rows):
                 if (x+z)%3==0:
                     box('lamp_green',px,VENT_CEIL-.025,pz,.45,.03,.16)
                     lamps.append({'position':[px,1.1,pz],'color':10477802,'intensity':.7,'distance':6})
+    for record in plan['boxes']:
+        lo,hi,part=record['min'],record['max'],record['part']
+        x,y,z=[(a+b)/2 for a,b in zip(lo,hi)]
+        w,h,d=[b-a for a,b in zip(lo,hi)]
+        if part=='floor':
+            face('wood',[(lo[0],hi[1],hi[2]),(hi[0],hi[1],hi[2]),(hi[0],hi[1],lo[2]),(lo[0],hi[1],lo[2])])
+        elif part=='ceiling':
+            face('plaster_light',[(lo[0],lo[1],lo[2]),(hi[0],lo[1],lo[2]),(hi[0],lo[1],hi[2]),(lo[0],lo[1],hi[2])])
+        else:
+            mat='limestone' if part in ('jamb','approach') else ('plaster_light','plaster','tunnel')[(int(x//12)+int(z//12))%3]
+            box(mat,x,y,z,w,h,d)
+    # Recessed lights and a brass threshold give the passages a readable route.
+    for cell_id in plan['cells']:
+        x,z=cell_id%SIZE,cell_id//SIZE
+        if (x+z)%4==0:
+            box('steel',x*4+2,3.54,z*4+2,.65,.08,.31)
+            box('lamp_warm',x*4+2,3.49,z*4+2,.52,.025,.21)
+    for gate in plan['doors']:
+        if gate['kind']!='street':continue
+        x,z,dx,dz=gate['x'],gate['z'],gate['nx'],gate['nz']
+        box('plaster_light',x,3.79,z,.19 if dx else 4,.42,4 if dx else .19)
+        box('trim',x,3.94,z,.24 if dx else 4,.12,4 if dx else .24)
+        box('trim',x,2.79,z,.30 if dx else 2.55,.17,2.55 if dx else .30)
+        for side in (-1,1):
+            box('limestone',x-dz*side*1.16,1.35,z+dx*side*1.16,.26 if dx else .14,2.70,.14 if dx else .26)
     site_markers(theme,rows)
     skyline(theme)
     return lamps,beacons

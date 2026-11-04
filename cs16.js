@@ -808,7 +808,7 @@
     skinTexCache[id] = t;
     return t;
   }
-  let missileView=null,frontView=null,frontNet={epoch:-1,ids:new Set(),rows:[],map:null},frontSeat=null,frontRocket=false,lastFrontControl=0;
+  let heatScope=null,missileView=null,frontView=null,frontNet={epoch:-1,ids:new Set(),rows:[],map:null},frontSeat=null,frontRocket=false,lastFrontControl=0;
   const frontPilots=new Map();let preparedArmy=-1,preparingArmy=-1,ownedStrike=false,radarDirty=false,lastArmyRadar=0;
   function prepareArmy(){
     if(!sock?.connected||!worldReady||!frontView||!frontNet.army||frontNet.map!==curMap||frontNet.rows?.length!==100||preparedArmy===frontNet.epoch||preparingArmy===frontNet.epoch)return;
@@ -849,7 +849,7 @@
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1600);
     buildWorld();
   }
-  function releaseLostGraphics(){fieldOptical?.dispose();fieldOptical=null;fieldAim=false;fieldAimMix=0;
+  function releaseLostGraphics(){heatScope?.dispose();heatScope=null;if(ui.thermalLens)ui.thermalLens.style.display='none';fieldOptical?.dispose();fieldOptical=null;fieldAim=false;fieldAimMix=0;
     clearFieldPresentation();
     remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
@@ -1153,6 +1153,7 @@
     ui.hitmark = el('div', 'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:bold 20px monospace; color:#ff4444; display:none;', ui.hud, '✕');
     ui.banner = el('div', 'position:absolute; top:22%; left:50%; transform:translateX(-50%); font:bold 26px monospace; color:#ffc107; text-shadow:0 2px 6px #000; display:none; text-align:center;', ui.hud);
     ui.centerMsg = el('div', 'position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font:bold 18px monospace; color:#fff; text-shadow:0 2px 6px #000; display:none; text-align:center;', ui.hud);
+    ui.thermalLens = el('div','position:absolute;display:none;border-radius:50%;pointer-events:none;background:rgba(26,62,78,.13);box-shadow:inset 0 0 8px #18435555;',ui.hud);
     ui.scope = el('div', 'position:absolute; inset:0; display:none; background:radial-gradient(circle at center, transparent 26%, #000 27%);', ui.hud);
     el('div', 'position:absolute; left:0; right:0; top:50%; height:1px; background:#000;', ui.scope);
     el('div', 'position:absolute; top:0; bottom:0; left:50%; width:1px; background:#000;', ui.scope);
@@ -1876,6 +1877,7 @@
     if (prev) { disposeOperator(prev); remotes.delete(nick); }
     const g = CS16Graphics.createOperator(team,characterId);
     if (!g) throw new Error('Operator assets must load before joining a match');
+    const heatBody=[];g.traverse(part=>{if(part.isMesh)heatBody.push(part);});
     const torso = g.getObjectByName('torso'), head = g.getObjectByName('head');
     const legL = g.getObjectByName('legL'), legR = g.getObjectByName('legR');
     const armL = g.getObjectByName('armL'), armR = g.getObjectByName('armR');
@@ -1894,7 +1896,7 @@
     // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
     if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { nick, characterId, group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
+    const r = { nick, characterId, heatBody,group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);
@@ -3107,10 +3109,10 @@
       else stepPlayer(dt, canMove ? keys : { w: 0 });
       if (frontSeat==null&&keys.fire) { if (myVeh && myVeh.inside) vehFireGun(); else tryShoot(); }
     }
-    const thermal=me.alive&&me.goldWeapon===current&&frontSeat==null&&!myVeh?.inside&&(fieldAim||scoped);
-    if(canvasEl)canvasEl.classList.toggle('cs16-thermal-active',!!thermal);
+    const thermal=me.alive&&!reloading&&me.goldWeapon===current&&frontSeat==null&&!myVeh?.inside&&pointerLocked&&(scoped||(fieldAim&&fieldAimMix>.92&&vm?.userData.reticle?.visible));
+    ui.thermalLens.style.display='none';
     if(radarDirty&&t-lastArmyRadar>280){lastArmyRadar=t;radarDirty=false;frontView?.sync();buildRadarBase();}
-    frontView?.update(t,graphicsQuality,frontSeat,P,thermal?me.team:null,remotes);
+    frontView?.update(t,graphicsQuality,frontSeat,P);
     const seeking=pointerLocked&&me.alive&&state.phase==='live'&&!escOpen()?(frontSeat!=null?(frontRocket?'front':null):myVeh?.inside?(myVeh.mode==='rocket'?'vehicle':null):current==='rpg'?'rpg':null):null;
     missileView?.update(t,seeking,dirFromCam(),packet=>sock?.emit('cs16_seek',packet));
     // интерполяция удалённых + анимация ног
@@ -3251,6 +3253,17 @@
     if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);
+    if(thermal){
+      heatScope||=CS16HeatScope.create(THREE);
+      const glass=vm?.userData.reticle?.parent.getObjectByName('fieldLens');
+      const lens=heatScope.aperture(canvasEl,camera,scoped,glass);
+      if(lens){
+        const style=ui.thermalLens.style,w=canvasEl.width,h=canvasEl.height;
+        style.left=(lens.x-lens.z)/w*100+'%';style.top=(h-lens.y-lens.z)/h*100+'%';
+        style.width=2*lens.z/w*100+'%';style.height=2*lens.z/h*100+'%';style.display='block';
+        heatScope.render(renderer3,scene,camera,remotes);
+      }
+    }
     } catch (err) {
       // 3.24.2: ошибка кадра не должна ронять рендер-процесс — логируем и идём дальше
       window.__cs16Err = (window.__cs16Err || 0) + 1;

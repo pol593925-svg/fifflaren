@@ -22,8 +22,10 @@
    const depth=own(new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking}));
    function bind(){
      for(const node of scene.children){
-       if(!['CS16 Blender world: '+map,'Walkable two-storey buildings','Interactive interiors','CS16 destructible field','Evolution valley landscape'].includes(node.name))continue;
-       node.traverse(o=>{if(!o.isMesh||o.name==='CS16 sky')return;for(const m of [].concat(o.material))patch(m);
+       if(!['CS16 Blender world: '+map,'CS16 destructible field','Evolution valley landscape'].includes(node.name))continue;
+       node.traverse(o=>{if(!o.isMesh||o.name==='CS16 sky')return;
+         if(node.name.startsWith('CS16 Blender world')&&!/ground|crate/i.test(o.name+' '+[].concat(o.material).map(m=>m.name).join(' ')))return;
+         for(const m of [].concat(o.material))patch(m);
          if(o.castShadow){if(!o.customDepthMaterial){depths.set(o,null);o.customDepthMaterial=depth;}patch(o.customDepthMaterial);}
        });
      }
@@ -57,7 +59,7 @@
    function material(color,roughness=.8){return own(new T.MeshStandardMaterial({color,roughness,metalness:roughness<.6?.45:.08}));}
    const uniform=material(0xffffff),gear=material(0x343e36),skin=material(0xb99678),steel=material(0x303635,.38);
    function body(geo,m,x,y,z,sx,sy,sz,leg=0){
-     const mesh=new T.InstancedMesh(own(geo),m,92);mesh.count=0;mesh.frustumCulled=false;root.add(mesh);
+     const mesh=new T.InstancedMesh(own(geo),m,92);mesh.count=0;mesh.frustumCulled=false;mesh.layers.enable(g.CS16HeatScope.layer);root.add(mesh);
      parts.push({mesh,x,y,z,sx,sy,sz,leg});return mesh;
    }
    const oval=()=>new T.SphereGeometry(1,8,6),box=()=>new T.BoxGeometry(1,1,1);
@@ -79,30 +81,25 @@
    }
    const ring=new T.Mesh(own(new T.TorusGeometry(4.4,.09,5,40)),own(new T.MeshBasicMaterial({color:0xf8be56})));ring.rotation.x=-Math.PI/2;root.add(ring);ring.visible=false;
    function objective(s){ring.visible=!!s;if(s)ring.position.set(s.x,s.y+.17,s.z);}
-   const colors=[new T.Color(0xb49c6b),new T.Color(0x769aaa)],hot=new T.Color(0xffcc62);
-   const distant=own(new T.InstancedMesh(own(new T.SphereGeometry(1,6,4)),uniform,92));distant.frustumCulled=false;distant.count=0;root.add(distant);
+   const colors=[new T.Color(0xb49c6b),new T.Color(0x769aaa)];
+   const distant=own(new T.InstancedMesh(own(new T.SphereGeometry(1,6,4)),uniform,92));distant.frustumCulled=false;distant.count=0;distant.layers.enable(g.CS16HeatScope.layer);root.add(distant);
    const chest=new T.Mesh(own(new T.BoxGeometry(1.55,.8,.94)),own(new T.MeshStandardMaterial({color:0xf9bd44,metalness:.52,roughness:.38,emissive:0x885512})));chest.visible=false;root.add(chest);
    function loot(v){chest.visible=!!v;if(v)chest.position.set(v.x,v.y+.43,v.z);}
-   const heatMarks=own(new T.InstancedMesh(own(new T.SphereGeometry(1,8,6)),own(new T.MeshBasicMaterial({color:0xffe49f,depthTest:true})),32));heatMarks.count=0;heatMarks.frustumCulled=false;root.add(heatMarks);
+
    function ingest(rows){previous=current;current=rows||[];netAt=performance.now();}
    function point(id,at=performance.now()){
      const r=current[id];if(!r||r[4]<=0)return null;const old=previous[id],q=old?.[4]>0&&Math.hypot(old[0]-r[0],old[2]-r[2])<140?old:r,k=Math.min(1,Math.max(0,(at-netAt)/200));
      return {x:(q[0]+(r[0]-q[0])*k)/10,y:(q[1]+(r[1]-q[1])*k)/10,z:(q[2]+(r[2]-q[2])*k)/10,yaw:r[3]/100,hp:r[4]};
    }
-   function update(t,quality,seat,viewer,thermalTeam,remotes){
+   function update(t,quality,seat,viewer){
      if(t-lastDraw<(quality==='low'?70:40))return;lastDraw=t;
      for(const k of Array.from(dirtyChunks).slice(0,quality==='low'?1:3)){dirtyChunks.delete(k);rebuildChunk(k);}
-     let count=0,far=0,marks=0;
-     if(thermalTeam&&viewer&&remotes)for(const r of remotes.values()){
-       if(marks>=32||!r.alive||r.team===thermalTeam||!r.group?.visible||viewer&&Math.hypot(r.group.position.x-viewer.x,r.group.position.z-viewer.z)>110)continue;
-       dummy.position.copy(r.group.position);dummy.position.y+=1;dummy.rotation.set(0,0,0);dummy.scale.set(.29,.65,.21);dummy.updateMatrix();heatMarks.setMatrixAt(marks++,dummy.matrix);
-     }
-     heatMarks.count=marks;heatMarks.instanceMatrix.needsUpdate=true;
+     let count=0,far=0;
      for(let id=0;id<100;id++){const v=point(id,t),j=id%50,foot=j<46;
        if(!v||id===seat){if(vehicles.has(id))vehicles.get(id).visible=false;continue;}
        const dist=viewer?Math.hypot(v.x-viewer.x,v.z-viewer.z):0;
        if(foot&&dist>(quality==='low'?130:230))continue;
-       const tint=thermalTeam&&(id<50?'t':'ct')!==thermalTeam?hot:colors[id<50?0:1];
+       const tint=colors[id<50?0:1];
        if(foot&&dist>(quality==='low'?40:78)){
          dummy.position.set(v.x,v.y+.9,v.z);dummy.rotation.set(0,v.yaw,0);dummy.scale.set(.33,.9,.27);dummy.updateMatrix();
          distant.setMatrixAt(far,dummy.matrix);distant.setColorAt(far++,tint);continue;

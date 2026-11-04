@@ -1,5 +1,5 @@
 /* Local, resolution-independent HUD. Gameplay and bindings stay in cs16.js. */
-canvas.cs16-thermal-active {filter:grayscale(.85) contrast(1.25);}
+
 #tab-cs16 { --cs-ink:#edf1ed; --cs-gold:#d4b777; --cs-blue:#91b8d4; font-family:'Segoe UI',Arial,sans-serif; }
 #tab-cs16 .cs16-hud { color:var(--cs-ink); text-shadow:0 2px 3px #0009; }
 #tab-cs16 .cs16-hud > div { font-family:'Segoe UI',Arial,sans-serif!important; }

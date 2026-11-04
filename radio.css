@@ -6,3 +6,23 @@
 @media(max-width:860px){#hubRadio{max-width:170px}#radioVolume{width:36px}}@media(max-width:650px){#hubRadio{padding:2px}#hubRadio>div,#radioVolume{display:none}}
 
 #radioUploadStatus{white-space:pre-line}
+#hubRadio{max-width:440px;min-width:0;gap:8px}
+#hubRadio #radioLights,#radioAudience summary{display:inline-flex;flex:none;align-items:center;justify-content:center;height:30px;border:1px solid var(--hub-line);border-radius:16px;background:transparent;color:var(--hub-text);cursor:pointer;box-sizing:border-box}
+#hubRadio #radioLights{width:30px;padding:0;font-size:17px;color:#a393ea}
+#hubRadio #radioLights[aria-pressed=true]{background:#46335f;border-color:#aa8ce5;color:#fff}
+#radioToggle,#radioVolume{flex:none}#radioAudience{position:relative;flex:none}
+#radioAudience summary{gap:5px;padding:0 8px;list-style:none}#radioAudience summary::-webkit-details-marker{display:none}
+#radioAudience summary>[aria-hidden]{color:var(--hub-muted)}#radioPreview{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+#radioPreview:empty{display:none}
+.radio-audience-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:1000;min-width:170px;max-width:min(260px,75vw);padding:14px 16px;border:1px solid var(--hub-line);border-radius:12px;color:var(--hub-text);background:var(--hub-panel,var(--hub-bg));box-shadow:0 10px 30px #0004}
+.radio-audience-pop strong{font-size:13px}#radioListeners{list-style:none;padding:0;margin:8px 0 0;max-height:35vh;overflow-y:auto}#radioListeners li{padding:3px 0;font-size:12px;overflow-wrap:anywhere}
+#radioGlow{position:fixed;inset:0;z-index:32000;overflow:hidden;pointer-events:none;--beat:.22}
+#radioGlow[hidden]{display:none}
+#radioGlow::before,#radioGlow::after{content:"";position:absolute;inset:-6%;pointer-events:none;opacity:calc(.35 + var(--beat)*.32);transition:opacity .28s ease;animation:radio-drift 7s ease-in-out infinite alternate}
+#radioGlow::before{background:radial-gradient(ellipse at 0% 30%,#8a65ec99,transparent 45%),radial-gradient(ellipse at 100% 75%,#079cbe99,transparent 43%)}
+#radioGlow::after{background:radial-gradient(ellipse at 85% 0%,#e6a84285,transparent 38%),radial-gradient(ellipse at 25% 100%,#c55b9380,transparent 36%);animation-duration:9s;animation-direction:alternate-reverse}
+@keyframes radio-drift{from{transform:translate(-3%,2%) scale(.98)}to{transform:translate(3%,-2%) scale(1.06)}}
+@media(max-width:1050px){#hubRadio #radioPreview{display:none}}
+@media(max-width:860px){#hubRadio{max-width:230px;gap:5px}}
+@media(max-width:650px){#hubRadio{max-width:none}#radioAudience summary{padding:0 6px}}
+@media(prefers-reduced-motion:reduce){#radioGlow::before,#radioGlow::after{animation:none;transition:none;opacity:.35}}

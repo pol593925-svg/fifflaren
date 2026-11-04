@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         currentUser = data.username;
         currentRole = data.role || 'user';
-        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
+        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
@@ -4838,7 +4838,7 @@ document.addEventListener('keydown', (e) => {
       }
       currentUser = data.username;
       currentRole = data.role || 'user';
-      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
+      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);
@@ -4860,8 +4860,9 @@ document.addEventListener('keydown', (e) => {
 
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
+  HubRadio.stop();
   await HubGames.close();
-  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:')&&!key.startsWith('hub-cinema-upload:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);
   location.reload();
 });
 

@@ -65,7 +65,7 @@
       const a = (i * Math.PI) / 4;
       box(edge, 0.053, 0.137 + Math.cos(a) * 0.014, -0.057 + Math.sin(a) * 0.014, 0.007, 0.004, 0.004);
     }
-    part(new T.CircleGeometry(0.036, 24), glass, 0, 0.144, -0.071);
+    part(new T.CircleGeometry(0.036, 24), glass, 0, 0.144, -0.071).name='fieldLens';
     part(new T.CylinderGeometry(0.016, 0.016, 0.012, 12).rotateZ(Math.PI / 2), edge, 0.048, 0.137, -0.057);
     const reticle = part(new T.CircleGeometry(0.00125, 10), dot, 0, 0.144, -0.031);
     reticle.name = 'fieldReticle';

@@ -10,13 +10,13 @@
   let session, searchTimer, timer, seq = 0, matchId, draftCall;
   let matchTimeOffset = 0;
   async function api(path, method = 'GET', body) {
-    if (!session?.token) throw Error('Войди в аккаунт команды.');
+    if (!session?.token) throw Object.assign(Error('Сессия недействительна. Войди в Support Hub заново.'),{status:401});
     const response = await fetch(session.server + '/api/office/' + path, {
       method, headers:{Authorization:'Bearer ' + session.token,'Content-Type':'application/json'},
       body:body && JSON.stringify(body), signal:AbortSignal.timeout(12000)
     });
     const data = await response.json();
-    if (!response.ok || !data.success) throw Error(data.message || 'Не удалось выполнить запрос.');
+    if (!response.ok || !data.success) throw Object.assign(Error(data.message || 'Не удалось выполнить запрос.'),{status:response.status});
     return data;
   }
   function action(text, fn) {
@@ -121,7 +121,7 @@
       }
       for (const [id,row] of deviceRows) if (!found.has(id)) { row.remove(); deviceRows.delete(id); }
       el('officeDeviceEmpty').hidden=devices.length>0;
-    } catch (e) { if (seq===deviceSeq) el('officeDeviceStatus').textContent=e.message; }
+    } catch (e) { if (seq===deviceSeq){if(e.status===401||e.status===403){el('officeStatus').textContent=e.message;el('officeDeviceStatus').textContent='';}else el('officeDeviceStatus').textContent=e.message;} }
   }
   function refreshOffice() { refresh(); refreshDevices(); }
   function start(options) {

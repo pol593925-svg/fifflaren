@@ -9,7 +9,7 @@ for(const file of ['royale-core.js','cs16-weapon-grip.js','cs16-field-view.js','
  assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),'Packaged source differs: '+file);
 }
 for (const file of ['brave-shortcuts-main.js','brave-shortcuts.js','team-office.js','team-office.css','voxel-bedrock-data.js','voxel-bedrock.js','voxel-florist.js','voxel-life.js']) assert(asar.extractFile(archive,file).equals(fs.readFileSync(path.join(root,file))));
-for (const file of ['manifest.json','content.js']) assert(fs.readFileSync(path.join(dist,'win-unpacked/resources/brave-extension',file)).equals(fs.readFileSync(path.join(root,'brave-extension',file))));
+for (const file of ['manifest.json','content.js','popup.html']) assert(fs.readFileSync(path.join(dist,'win-unpacked/resources/brave-extension',file)).equals(fs.readFileSync(path.join(root,'brave-extension',file))));
 const entries=asar.listPackage(archive).map(n=>n.replace(/\\/g,'/'));
 assert(!entries.some(n=>/support2|models\/s2\//i.test(n)),'Removed Support2 files must not be packaged');
 assert(!entries.includes('/toolbar.html')&&!entries.includes('/quick.html'),'Pet windows must not be packaged');

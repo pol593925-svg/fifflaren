@@ -10,10 +10,14 @@ function bridge() {
   const app = new EventEmitter(), handlers = {}, frame = {url:pathToFileURL(path.join(root,'index.html')).href};
   const wc = {mainFrame:frame, send(){}}, win = {webContents:wc,isDestroyed:()=>false,isMinimized:()=>true,restore(){},show(){},focus(){}};
   Object.assign(app,{isPackaged:true,requestSingleInstanceLock:()=>true,whenReady:()=>Promise.resolve(),setAsDefaultProtocolClient(){}});
-  require('../brave-shortcuts-main').install({app,ipcMain:{handle:(name,fn)=>handlers[name]=fn},shell:{},getWindow:()=>win,argv:['exe','supporthub://work/call-email']});
+  require('../brave-shortcuts-main').install({app,ipcMain:{handle:(name,fn)=>handlers[name]=fn},shell:{},getWindow:()=>win,argv:['exe','supporthub://work/exchanges']});
   const event = {sender:wc,senderFrame:frame};
   const take = handlers['hub-shortcut:take'];
   assert.equal(take({...event,senderFrame:{}}),null);
+  assert.equal(take(event),'catalog');
+  app.emit('second-instance',{},['exe','supporthub://work/exchanges?url=test']);
+  assert.equal(take(event),null);
+  app.emit('second-instance',{},['exe','supporthub://work/call-email']);
   assert.equal(take(event),'email');
   assert.equal(take(event),null);
   app.emit('second-instance',{},['exe','supporthub://work/call-exchange?x=1']);
@@ -31,8 +35,21 @@ async function run() {
     headless:true, ignoreDefaultArgs:['--disable-extensions'],args:['--disable-extensions-except='+extension,'--load-extension='+extension]
   });
   try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(extension,'manifest.json'),'utf8'));
+    const management = await ctx.newPage();
+    await management.goto('brave://extensions');
+    const entry = management.locator('extensions-item').filter({hasText:manifest.name});
+    await entry.waitFor();
+    const id = await entry.getAttribute('id');
+    assert.match(id,/^[a-p]{32}$/);
+    const popup = await ctx.newPage();
+    await popup.goto('chrome-extension://'+id+'/'+manifest.action.default_popup);
+    const exchangeLink=popup.getByRole('link',{name:'Биржи — открыть справочник в Support Hub'});
+    assert.equal(await exchangeLink.getAttribute('href'),'supporthub://work/exchanges');
+    assert(!manifest.permissions&&!manifest.host_permissions);
+    await popup.close();await management.close();
     const page = await ctx.newPage();
-    await ctx.route('**/*', route => route.fulfill({contentType:'text/html',body:'<main></main>'}));
+    await ctx.route(/^https?:\/\//, route => route.fulfill({contentType:'text/html',body:'<main></main>'}));
     await page.goto('https://admin.standard-margin.com/computers/test-record#filters=test');
     const controls = '<button>AI chat</button><button>View activity</button>';
     await page.locator('main').evaluate((el,html)=>el.innerHTML=html,controls);

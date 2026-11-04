@@ -1,6 +1,6 @@
 {
   "name": "support-hub-desktop",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Support Hub Tool",
   "main": "main.js",
   "scripts": {
@@ -13,7 +13,7 @@
   "build": {
     "appId": "com.supporthub.app",
     "protocols": [{"name":"Support Hub", "schemes":["supporthub"]}],
-    "extraResources": [{"from":"brave-extension", "to":"brave-extension", "filter":["manifest.json","content.js"]}],
+    "extraResources": [{"from":"brave-extension", "to":"brave-extension", "filter":["manifest.json","content.js","popup.html"]}],
     "productName": "Support Hub",
     "directories": {
       "output": "dist"

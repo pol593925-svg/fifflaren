@@ -7,6 +7,23 @@
   let consuming = false;
   let again = false;
 
+  async function openExchangeDirectory() {
+    const search = el('exchangeSearchInput');
+    const dialog = document.querySelector('.orbit-tool-dialog');
+    if (dialog?.open) {
+      if (dialog.contains(search)) {
+        search.focus();
+        if (document.activeElement === search) return;
+      }
+      // Let the orbit restore the current tool to its tab before opening another.
+      const closed = new Promise(resolve => dialog.addEventListener('close', resolve, {once:true}));
+      dialog.close();
+      await closed;
+    }
+    document.querySelector('.tabs [data-tab="exchanges"]').click();
+    search.focus();
+  }
+
   async function openPending() {
     if (!ready || el('authScreen')?.style.display !== 'none' || !el('shiftCallDialog')) return;
     if (consuming) { again = true; return; }
@@ -15,6 +32,10 @@
       do {
         again = false;
         const kind = await ipc.invoke('hub-shortcut:take');
+        if (kind === 'catalog') {
+          await openExchangeDirectory();
+          continue;
+        }
         if (!Object.hasOwn(titles, kind)) continue;
         document.querySelector('.tabs [data-tab="shift"]').click();
         const type = el('callTypeSelect');
@@ -28,7 +49,7 @@
         document.querySelector('.orbit-call').click();
       } while (again);
     } catch (error) {
-      console.warn('Не удалось открыть форму колла из Brave', error);
+      console.warn('Не удалось открыть раздел из Brave', error);
     } finally { consuming = false; }
   }
 

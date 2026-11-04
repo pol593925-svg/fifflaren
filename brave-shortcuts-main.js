@@ -4,7 +4,8 @@ const { pathToFileURL } = require('url');
 
 const actions = new Map([
   ['supporthub://work/call-exchange', 'exchange'],
-  ['supporthub://work/call-email', 'email']
+  ['supporthub://work/call-email', 'email'],
+  ['supporthub://work/exchanges', 'catalog']
 ]);
 
 function install({ app, ipcMain, shell, getWindow, argv = process.argv }) {

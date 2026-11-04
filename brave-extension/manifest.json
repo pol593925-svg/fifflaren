@@ -1,8 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Support Hub — Коллы",
-  "version": "1.1.0",
-  "description": "Открывает форму колла Support Hub из меню рядом с AI chat или View activity на рабочей странице.",
+  "name": "Support Hub — Коллы и биржи",
+  "version": "1.2.0",
+  "description": "Меню расширения открывает справочник бирж в Support Hub. На рабочей странице доступна кнопка колла.",
+  "action": {
+    "default_title": "Support Hub — Биржи",
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": [

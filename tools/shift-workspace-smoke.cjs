@@ -50,6 +50,11 @@ async function run(){
  await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на почту');
  await page.fill('#callNoteInput','Черновик QA');await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));
  await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на почту');assert.equal(await page.inputValue('#callNoteInput'),'Черновик QA');
+ await page.keyboard.press('Escape');await page.locator('.orbit-work-tool').filter({hasText:'Штаб'}).click();
+ await page.evaluate(()=>window.__braveLink('catalog'));const catalog=page.locator('.orbit-tool-dialog[open] #exchangeSearchInput');await catalog.waitFor();
+ assert.equal(await page.inputValue('#callNoteInput'),'Черновик QA');assert.equal(await page.inputValue('#callTypeSelect'),'Колл на почту');
+ await catalog.fill('Deribit');await page.evaluate(()=>window.__braveLink('catalog'));await page.waitForFunction(()=>document.activeElement.id==='exchangeSearchInput');assert.equal(await catalog.inputValue(),'Deribit');
+ await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));await page.locator('#shiftCallDialog[open]').waitFor();
  await page.fill('#callNoteInput','');await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на биржу');await page.keyboard.press('Escape');
  await page.locator('.orbit-work-tool').filter({hasText:'Штаб'}).click();await page.locator('#officeMatches').getByText('Пока никто не собирается на матч.').waitFor();await page.fill('#officeDeviceName','QA-2');await page.click('#officeDeviceAdd');
  const station=page.locator('.office-device').filter({hasText:'QA-2'});await station.getByRole('button').click();await page.locator('.office-device.in-work').filter({hasText:'QA-2'}).waitFor();assert.equal(await page.locator('.office-device.in-work').count(),1);

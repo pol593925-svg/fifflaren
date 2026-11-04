@@ -1,3 +1,4 @@
+.vx-florist-hint{position:absolute;bottom:92px;left:50%;transform:translateX(-50%);z-index:4;background:#182d23e8;color:#fff;padding:7px 12px;border-radius:6px;pointer-events:none}.vx-florist-hint[hidden]{display:none}
 #tab-voxel{padding:18px;box-sizing:border-box;flex-direction:column;min-height:640px;color:#edf4e8;font-family:Segoe UI,sans-serif}
 #tab-voxel [hidden]{display:none!important}
 .vx-lobby{max-width:960px;width:100%;margin:30px auto;background:linear-gradient(145deg,#223c32,#101c23);border:1px solid #466652;border-radius:22px;padding:38px;box-sizing:border-box;box-shadow:0 24px 80px #0005}

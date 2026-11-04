@@ -34,6 +34,20 @@ def metal(name,color,rough=.36,metallic=.8):
     m.node_tree.links.new(nt.outputs['Color'],nm.inputs['Color']);m.node_tree.links.new(nm.outputs['Normal'],bsdf.inputs['Normal'])
     return m
 
+def polymer(name, color):
+    # A moulded stipple is isotropic and matte; only the gloves and sleeves carry a weave.
+    m=a.surface(name,color,.67,.04);n=192;rng=np.random.default_rng(sum(map(ord,name)))
+    grain=rng.normal(0,.006,(n,n)); px=np.ones((n,n,4),dtype=np.float32)
+    px[:,:,:3]=np.clip(np.asarray(color)[None,None,:]+grain[:,:,None],.005,.95)
+    nodes=m.node_tree.nodes;links=m.node_tree.links;bsdf=nodes.get('Principled BSDF')
+    tex=nodes.new('ShaderNodeTexImage');tex.image=a.image(name+' stipple',px);links.new(tex.outputs['Color'],bsdf.inputs['Base Color'])
+    relief=np.ones_like(px);relief[:,:,0]=.5+np.clip((np.roll(grain,1,1)-grain)*4,-.18,.18)
+    relief[:,:,1]=.5+np.clip((np.roll(grain,1,0)-grain)*4,-.18,.18)
+    bump=nodes.new('ShaderNodeTexImage');bump.image=a.image(name+' relief',relief,False)
+    nm=nodes.new('ShaderNodeNormalMap');nm.inputs['Strength'].default_value=.38
+    links.new(bump.outputs['Color'],nm.inputs['Color']);links.new(nm.outputs['Normal'],bsdf.inputs['Normal'])
+    return m
+
 def cyl(name,pos,radius,length,mat,parent,axis='z',vertices=24):
     bpy.ops.mesh.primitive_cylinder_add(vertices=vertices,radius=radius,depth=length)
     o=bpy.context.object;o.name=name;o.parent=parent;o.location=a.xyz(pos)
@@ -49,7 +63,7 @@ def build(kind):
     root=a.empty(kind);p=a.empty('weapon',parent=root)
     steel=metal('Parkerized steel',(.095,.11,.12),.4)
     edge=metal('Machined edges',(.23,.25,.26),.3)
-    black=a.surface('Polymer',(.026,.032,.033),.68,fabric=True)
+    black=polymer('Polymer',(.046,.052,.050))
     wood=metal('Walnut laminate',(.27,.105,.04),.5,.0)
     green=a.surface('Olive rifle finish',(.18,.23,.14),.6)
     glass=a.surface('Coated scope glass',(.035,.12,.17),.08,.5)
@@ -238,35 +252,80 @@ def build(kind):
     return root
 
 def hands():
+    """Palm roots are the physical centres of the grips, in metres, forward along -Z."""
     root=a.empty('viewmodel_hands')
-    cloth=a.surface('Tactical sleeve',(.16,.20,.19),fabric=True)
-    leather=a.surface('Reinforced leather gloves',(.065,.072,.064),.64,fabric=True)
-    rubber=a.surface('Knuckle protection',(.033,.037,.031),.8)
-    thread=a.surface('Glove stitching',(.34,.32,.25),.8)
-    for side,x,y,z in [('right',.012,-.15,.045),('left',-.025,-.075,-.22)]:
-        p=a.empty(side+'Hand',(x,y,z),root)
-        a.orb('Glove palm',(0,0,0),(.049,.031,.067),leather,p,24,14)
-        for k in range(4):
-            xx=(k-1.5)*.022
-            a.orb('Curled finger',(xx,.018,-.04),(.012,.032,.027),leather,p,16,10)
-            a.orb('Knuckle',(xx,-.023,-.028),(.011,.008,.012),rubber,p,12,8)
-            a.line('Finger seam',[(xx-.007,-.025,-.018),(xx-.007,-.027,-.04),(xx+.007,-.025,-.055)],.001,thread,p)
-        a.orb('Thumb',(-.045,.008,.003),(.022,.018,.033),leather,p,16,10)
-        a.box('Velcro wrist',(0,-.006,.055),(.088,.048,.035),rubber,p,.007)
-        # A continuous sewn sleeve with asymmetric folds instead of intersecting ellipsoids.
-        verts=[];faces=[];rings=15;sides=16
-        for ring in range(rings):
-            t=ring/(rings-1);cx=(.045 if side=='right' else -.135)*t;cy=-.008-.068*t
-            for j in range(sides):
-                ang=j*math.tau/sides
-                fold=.0045*math.sin(t*28+ang*1.5)*(.2+.8*t)
-                verts.append((cx+(.043+.025*t+fold)*math.cos(ang),cy+(.032+.028*t+fold)*math.sin(ang),.065+t*.264))
-        for ring in range(rings-1):
-            for j in range(sides):
-                n=ring*sides+j;k=ring*sides+(j+1)%sides;faces.append((n,k,k+sides,n+sides))
-        faces.append(tuple(range((rings-1)*sides,rings*sides)))
-        a.mesh('Ripstop sleeve',verts,faces,cloth,p)
-        a.line('Cuff binding',[(-.036,-.016,.078),(-.018,-.034,.081),(.018,-.034,.081),(.04,-.010,.078)],.002,thread,p)
+    cloth=a.surface('Faded field ripstop',(.21,.23,.16),.90,fabric=True)
+    leather=a.surface('Goatskin palm',(.18,.15,.102),.82,fabric=True)
+    back=a.surface('Olive glove textile',(.17,.18,.125),.92,fabric=True)
+    rubber=a.surface('Moulded finger protection',(.061,.066,.054),.74)
+    stitch=a.surface('Waxed seam',(.32,.30,.21),.91)
+    # Bake a low-contrast, seamless field pattern into the sleeve's existing texture slot.
+    yy,xx=np.mgrid[:384,:384]*math.tau/384
+    noise=np.sin(xx*2+np.cos(yy*3))*np.sin(yy*2+.68*np.sin(xx*4))+.44*np.cos(xx*5+yy*3+np.sin(yy*2))
+    colors=np.where((noise>.42)[:,:,None],[.233,.227,.148],np.where((noise<-.46)[:,:,None],[.098,.112,.079],[.171,.186,.121]))
+    px=np.ones((384,384,4),dtype=np.float32)
+    px[:,:,:3]=colors*(.96+.045*np.sin(xx*96)*np.cos(yy*96))[:,:,None]
+    dye=next(n for n in cloth.node_tree.nodes if n.type=='TEX_IMAGE' and n.image.colorspace_settings.name!='Non-Color')
+    dye.image=a.image('Olive field cloth weave',px)
+
+    def tube(name,points,radii,mat,parent,segments=12,flatten=.83):
+        # Join articulated finger sections by an unbroken surface with tapered fingertips.
+        verts=[];faces=[];guide=None
+        for i,(p,r) in enumerate(zip(points,radii)):
+            axis=(Vector(points[min(i+1,len(points)-1)])-Vector(points[max(i-1,0)])).normalized()
+            if guide is None:guide=Vector((0,1,0)) if abs(axis.y)<.85 else Vector((1,0,0))
+            tangent=(guide-axis*guide.dot(axis)).normalized();guide=tangent;bitangent=axis.cross(tangent).normalized()
+            for j in range(segments):
+                theta=j*math.tau/segments
+                verts.append(tuple(Vector(p)+r*math.cos(theta)*tangent+r*flatten*math.sin(theta)*bitangent))
+        for i in range(len(points)-1):
+            for j in range(segments):
+                k=i*segments+j;n=i*segments+(j+1)%segments
+                faces.append((k,n,n+segments,k+segments))
+        faces.extend([tuple(reversed(range(segments))),tuple(range(len(verts)-segments,len(verts)))])
+        return a.mesh(name,verts,faces,mat,parent)
+
+    def sleeve(parent,side,wrist):
+        # Offset forearms outward from the weapon. The sleeve overlaps the glove cuff at every pose.
+        x,y,z=wrist;points=[];radii=[]
+        for i in range(23):
+            t=i/22;r=.043+.029*t+.0034*math.sin(t*31)
+            reach=.41 if side<0 else .16
+            points.append((x+side*(reach*t+.045*t*t+(.094*math.sin(math.pi*t) if side<0 else 0)),y-(.115 if side<0 else .155)*t+.012*math.sin(t*5),z+.54*t))
+            radii.append(r)
+        tube('Shaped forearm sleeve',points,radii,cloth,parent,20,.81)
+        tube('Wrist fastening',points[:3],[.043,.046,.044],rubber,parent,16,.82)
+        a.box('Hook and loop tab',(x+side*.039,y+.007,z+.025),(.012,.032,.042),back,parent,.004)
+        tube('Outer sleeve seam',[(p[0]+side*r*.82,p[1]+r*.18,p[2]) for p,r in zip(points[1::2],radii[1::2])],[.0016]*11,stitch,parent,6)
+
+    def upright(name,side,cup=False):
+        p=a.empty(name,parent=root)
+        spread=.013 if cup else 0
+        def pt(x,y,z):return (side*(x+spread),y,z)
+        tube('Glove palm',[pt(.032,-.045,.061),pt(.038,-.020,.044),pt(.038,.002,.017),pt(.033,.017,-.009)],
+             [.027,.038,.040,.030],leather,p,16,.69)
+        for j in range(4):
+            yy=.029-.019*j
+            if j==0 and not cup:path=[pt(.034,yy,-.010),pt(.038,yy+.008,-.034),pt(.029,yy+.011,-.052),pt(.013,yy+.012,-.061),pt(.003,yy+.008,-.061)]
+            else:path=[pt(.035,yy,-.007),pt(.038,yy,-.026),pt(.023,yy-.003,-.042),pt(.002,yy-.006,-.041),pt(-.015+(j==3)*.006,yy-.004,-.030)]
+            mul=1-j*.055
+            tube('Curled digit',path,[i*mul for i in [.011,.012,.011,.009,.005]],back,p)
+            a.orb('Segmented knuckle pad',pt(.043,yy,-.014),(.005,.008,.013),rubber,p,10,6)
+        tube('Opposing thumb',[pt(.028,.010,.046),pt(.014,.025,.038),pt(-.010,.032,.026),pt(-.027,.027,.006),pt(-.029,.025,-.009)],[.015,.015,.013,.011,.007],leather,p)
+        sleeve(p,side,pt(.037,-.036,.060))
+
+    upright('rightHand',1)
+    upright('leftCup',-1,True)
+    upright('leftVertical',-1)
+    p=a.empty('leftHand',parent=root)
+    tube('Support palm heel',[(-.034,-.037,.062),(-.031,-.036,.044),(-.020,-.038,.016),(-.013,-.033,-.012)],[.026,.035,.038,.027],leather,p,16,.69)
+    for j in range(4):
+        z=-.026+j*.020;mul=1-j*.055
+        path=[(-.034,-.027,z),(-.017,-.041,z-.004),(.009,-.042,z-.006),(.030,-.029,z-.006),(.036,-.012+j*.001,z-.004)]
+        tube('Fore-end finger',path,[v*mul for v in [.0105,.011,.010,.009,.0055]],back,p)
+        a.orb('Finger grip patch',(.019,-.036,z-.005),(.008,.004,.008),rubber,p,10,6)
+    tube('Thumb along left rail',[(-.035,-.019,.035),(-.045,-.003,.020),(-.044,.015,-.004),(-.034,.026,-.033),(-.028,.026,-.050)],[.014,.014,.012,.010,.006],leather,p)
+    sleeve(p,-1,(-.039,-.037,.060))
     a.join_parts(root)
     return root
 

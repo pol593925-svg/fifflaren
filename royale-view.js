@@ -91,14 +91,28 @@
         asset.scale.setScalar(C.profile(id, tier).length / (Math.max(size.x, size.y, size.z) || 1));
         asset.updateMatrixWorld(true);
         asset.position.sub(new T.Box3().setFromObject(asset).getCenter(new T.Vector3()));
+        asset.name = 'weaponBasis';
         root.add(asset);
+        global.CS16Grip.bindGun(T, root, asset, id);
         if (tier >= 1) {
-          root.add(optical.root.clone(true));
+          global.CS16FieldView.mount(root, optical.root);
         }
-        if (tier >= 2) part(root, cube, steel, 0, -0.16, -0.038, 0.045, 0.065, 0.068);
-        if (tier >= 3) part(root, cylinder, steel, 0, -0.085, -0.2, 0.022, 0.046, 0.05);
-        if (tier >= 4)
-          part(root, cylinder, steel, 0, 0.035, -C.profile(id, tier).length * 0.51, 0.026, 0.026, 0.14);
+        const grip = root.userData.grip,
+          mag = grip.mag,
+          forward = grip.left;
+        if (tier >= 2 && mag) {
+          const extension = part(root, cube, steel, mag[0], mag[1] - 0.045, mag[2], 0.045, 0.075, 0.064);
+          asset.getObjectByName('magazine')?.attach(extension);
+        }
+        if (tier >= 3 && forward && grip.style === 'tube') {
+          part(root, cube, steel, forward[0], forward[1] - 0.051, forward[2], 0.038, 0.089, 0.049);
+          grip.left = [forward[0], forward[1] - 0.065, forward[2]];
+          grip.style = 'vertical';
+        }
+        if (tier >= 4) {
+          const [x, y, z] = grip.bore;
+          part(root, cylinder, steel, x, y, z - 0.055, 0.026, 0.026, 0.13);
+        }
         guns.set(key, root);
       }
       return guns.get(key).clone(true);
@@ -215,6 +229,9 @@
         const mesh = models.get(actor.team % 2 ? 't' : 'ct').clone(true),
           chute = models.get('canopy').clone(true),
           root = new T.Group();
+        const holder = new T.Group();
+        mesh.add(holder);
+        const hold = global.CS16Grip.operator(T, mesh, holder, 0.54);
         root.add(mesh, chute);
         parent.add(root);
         a = {
@@ -225,7 +242,8 @@
           gunID: '',
           legL: mesh.getObjectByName('legL'),
           legR: mesh.getObjectByName('legR'),
-          arm: mesh.getObjectByName('armR'),
+          hold,
+          holder,
           first: true,
           phase: 0,
         };
@@ -241,6 +259,7 @@
       if (!latest || !!latest.self?.duel !== !!data.arena || (data.arena && data.arena !== latest.self?.duel))
         return;
       if (data.by === latest.self?.id) shotAt = t;
+      else if (operators.has(data.by)) operators.get(data.by).shotAt = t;
       const g = new T.BufferGeometry().setFromPoints([
           new T.Vector3(...data.o),
           new T.Vector3(...data.o.map((v, i) => v + data.d[i] * data.len)),
@@ -373,10 +392,19 @@
           if (model.gunID !== a.gun && a.gun && C.weapons[a.gun]) {
             model.gun?.removeFromParent();
             model.gun = gun(a.gun, 0);
-            model.gun.position.set(0.24, 1.24, -0.3);
-            model.root.add(model.gun);
+            model.holder.add(model.gun);
             model.gunID = a.gun;
           }
+          const holding = ['ground', 'duel', 'down'].includes(a.s);
+          model.holder.visible = holding;
+          if (holding)
+            model.hold.update(
+              model.gun,
+              a.pitch || 0,
+              Math.max(0, 1 - (t - (model.shotAt ?? -Infinity)) / 140),
+              travel > 0.005 ? Math.abs(stride) * 0.025 : 0,
+            );
+          else model.hold.relax();
         }
       } else {
         focusID = '';
@@ -388,6 +416,7 @@
       for (const [id, a] of operators)
         if (!keep.has(id)) {
           a.root.removeFromParent();
+          a.hold.dispose();
           operators.delete(id);
         }
       const held = me?.gear?.[me.slot],
@@ -398,8 +427,7 @@
         vmKey = key;
         if (held) {
           vm = gun(held.id, held.tier);
-          const hands = models.get('hands').clone(true);
-          vm.add(hands);
+          global.CS16Grip.fitHands(vm, models.get('hands'));
           camera.add(vm);
           animation = global.CS16WeaponAnimation.bind(vm);
         }
@@ -409,11 +437,12 @@
         vm.rotation.set(0, 0, 0);
         const recoil = Math.max(0, 1 - (t - shotAt) / 140);
         aimBlend += ((view.aim ? 1 : 0) - aimBlend) * Math.min(1, dt * 16);
-        global.CS16FieldView.frame(vm.position, aimBlend, held.tier > 0);
+        global.CS16FieldView.frame(vm.position, aimBlend, held.tier > 0, vm.userData.grip);
         vm.position.z += recoil * 0.04;
         const dot = vm.getObjectByName('fieldReticle');
         if (dot) dot.visible = aimBlend > 0.92;
         vm.rotation.x = recoil * 0.09;
+        vm.rotation.y = 0.14 * (1 - aimBlend);
         const spec = C.profile(held.id, held.tier);
         global.CS16WeaponAnimation.update(
           animation,
@@ -465,6 +494,7 @@
         freeModels(models);
         scene.clear();
         second.clear();
+        for (const a of operators.values()) a.hold.dispose();
         operators.clear();
         markers.clear();
         guns.clear();

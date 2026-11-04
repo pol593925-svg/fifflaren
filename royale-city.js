@@ -137,6 +137,7 @@
       normalMap: wallN,
       normalScale: new T.Vector2(0.59, 0.59),
     });
+    global.CS16Graphics.finishPlaster(mats.painted, 3.8);
     material('tile', {
       map: tile,
       color: 0xb4b8ac,
@@ -189,8 +190,15 @@
             const nx = cube.attributes.normal.getX(j),
               ny = cube.attributes.normal.getY(j),
               nz = cube.attributes.normal.getZ(j);
-            a.pos.push(px, py, pz);
-            a.norm.push(nx, ny, nz);
+            if (b.rise) {
+              // Shear a single length of wood along the entire stair flight.
+              a.pos.push(px, py + (pz - b.z) * b.rise, pz);
+              const length = Math.hypot(nx, ny, nz - ny * b.rise);
+              a.norm.push(nx / length, ny / length, (nz - ny * b.rise) / length);
+            } else {
+              a.pos.push(px, py, pz);
+              a.norm.push(nx, ny, nz);
+            }
             if (baseMat === 'roofSign') {
               a.uv.push(cube.attributes.uv.getX(j), cube.attributes.uv.getY(j));
               continue;
@@ -553,7 +561,18 @@
           for (let i = 0; i < 20; i++) {
             const z = b.z - 4 + (i + 0.5) * 0.4,
               y = (i + 1) * 0.19;
-            records.push({ x: rail, y: y + 0.98, z, w: 0.09, h: 0.09, d: 0.42, mat: 'crate' });
+            if (!i)
+              records.push({
+                x: rail,
+                y: 3.02,
+                z: b.z,
+                w: 0.09,
+                h: 0.075,
+                d: 8.06,
+                rise: 3.8 / 8,
+                mat: 'crate',
+              });
+            records.push({ x: sx, y: y + 0.003, z: z - 0.166, w: 3.04, h: 0.012, d: 0.042, mat: 'trim' });
             if (i % 3 === 0) records.push({ x: rail, y, z, w: 0.045, h: 1.02, d: 0.045, mat: 'rail' });
           }
           // The boarded service door is on the side wall, outside the two street entrances.

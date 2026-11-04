@@ -120,6 +120,7 @@ async function run() {
     p.y = 1;
     p.vy = -7;
     await page.waitForFunction(() => __royaleQA.state()?.self?.s === 'ground');
+    await page.waitForTimeout(130);
     await page.keyboard.press('KeyE');
     await page.waitForFunction(() => __royaleQA.state()?.self?.climb);
     assert(p.climb);
@@ -127,6 +128,7 @@ async function run() {
     await page.waitForFunction(() => __royaleQA.state()?.self?.climb === false);
     assert(Math.abs(p.y - b.h) < 0.1);
     await page.screenshot({ path: path.join(out, 'royale-roof.png') });
+    await page.waitForTimeout(130);
     await page.keyboard.press('KeyE');
     await page.waitForFunction(() => __royaleQA.state()?.self?.climb);
     assert(p.climb.down);
@@ -137,8 +139,10 @@ async function run() {
     p.x = box.x + 1;
     p.y = box.y;
     p.z = box.z;
+    await page.waitForTimeout(130);
     await page.keyboard.press('KeyE');
     await page.waitForFunction(() => __royaleQA.loot().drops.length > 0);
+    await page.waitForTimeout(130);
     await page.keyboard.press('KeyE');
     await page.waitForFunction(() => __royaleQA.state().self.gear.some((x) => x?.tier === 4));
     await page.keyboard.press('KeyM');
@@ -185,6 +189,37 @@ async function run() {
       return Math.hypot(v.x, v.y);
     });
     assert(center < 0.015, 'BR sight misses center: ' + center);
+    await page.evaluate(() => __royaleQA.ads(false));
+    p.gear[p.slot].mag = 10;
+    await page.keyboard.press('KeyR');
+    await page.waitForFunction(() => __royaleQA.state()?.self?.reload > 300);
+    await page.waitForTimeout(550);
+    await page.screenshot({ path: path.join(out, 'br-grip-reload.png') });
+    await page.waitForFunction(() => __royaleQA.state()?.self?.reload === 0);
+    const teammate = [...room.members.values()].find((a) => a.bot && a.team === p.team);
+    Object.assign(p, { x: 900, y: 0, z: 898, vy: 0 });
+    Object.assign(teammate, {
+      x: 901.1,
+      y: 0,
+      z: 901,
+      vy: 0,
+      hp: 100,
+      status: 'ground',
+      bot: false,
+      input: {},
+      yaw: -1.18,
+      pitch: 0.08,
+      slot: 0,
+    });
+    teammate.gear = [{ id: 'm4a1', tier: 0, mag: 30, reserve: 90 }, null];
+    await page.evaluate(() => __royaleQA.look(Math.PI + 0.34, -0.075));
+    await page.waitForFunction(
+      (id) =>
+        __royaleQA.state().actors.some((a) => a.id === id && a.gun === 'm4a1' && a.x > 901 && a.x < 902),
+      teammate.id,
+    );
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(out, 'br-squad-grip.png') });
     await page.locator('.br-exit').click();
     await page.waitForSelector('.cs16-br-entry', { timeout: 120000 });
     assert.equal(await page.locator('.br-stage').count(), 0);

@@ -7,12 +7,12 @@
   const types = {
     glock:'pistol', usp:'pistol', deagle:'pistol', fiveseven:'pistol', tec9:'pistol', elite:'pistol',
     p90:'top', m249:'box', awp:'bolt', scout:'bolt', famas:'bullpup', aug:'bullpup',
-    ak47:'curved', galil:'curved', mp5:'smg', ump45:'smg', rpg:'launcher',
+    ak47:'curved', galil:'curved', mp5:'smg', ump45:'smg', mp7:'smg', vector:'smg', bizon:'helical', rpg:'launcher',
   };
   const reloadPath = {
     rifle:[-.27,.025,.12], curved:[-.27,.07,.60], pistol:[-.18,.025,.12], box:[-.23,.09,.21],
     smg:[-.22,-.025,.08], bolt:[-.15,.04,.09], top:[.22,.025,-.20], bullpup:[-.24,.16,.12],
-    launcher:[.055,-.32,-.07],
+    launcher:[.055,-.32,-.07], helical:[-.08,-.23,-.18],
   };
   function family(id) { return types[id] || 'rifle'; }
   const smooth = (x) => {
@@ -50,6 +50,12 @@
       const n = model.getObjectByName(name);
       if (n) nodes[name] = { n, pos: n.position.clone(), rotation: n.rotation.clone(), visible: n.visible };
     }
+    const left=nodes.leftHand,mag=nodes.magazine;
+    if(left?.n.userData.magazineContact && mag){
+      const contact=model.position.clone().fromArray(left.n.userData.magazineContact);contact.x-=.020;
+      left.magContact=mag.n.worldToLocal(model.localToWorld(contact));
+      left.target=left.magContact.clone();
+    }
     return nodes;
   }
   function update(nodes, model, id, progress, shotAge, inspect) {
@@ -71,9 +77,14 @@
     if (nodes.leftHand && p.active) {
       const n = nodes.leftHand.n;
       n.visible = true;
-      n.position.y += p.magY * 0.75;
-      n.position.z += p.magZ + 0.06;
-      n.rotation.x += p.magAngle * 0.4;
+      if(nodes.leftHand.magContact){
+        const blend=smooth(progress/.18)*(1-smooth((progress-.72)/.21));
+        const target=nodes.leftHand.target.copy(nodes.leftHand.magContact);
+        n.position.lerp(model.worldToLocal(nodes.magazine.n.localToWorld(target)),blend);
+        n.rotation.x+=p.magAngle*blend;
+      }else{
+        n.position.y+=p.magY*.75;n.position.z+=p.magZ+.06;n.rotation.x+=p.magAngle*.4;
+      }
     }
     model.rotation.x += p.tilt;
     model.rotation.y += p.inspectYaw;

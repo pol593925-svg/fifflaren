@@ -12,7 +12,7 @@ def fresh():bpy.ops.wm.read_factory_settings(use_empty=True)
 def gun(kind):
     fresh();root=a.empty(kind);body=a.empty('weapon',parent=root);mag=a.empty('magazine',parent=root);bolt=a.empty('bolt',parent=root)
     steel=w.metal('Manganese phosphate',(.10,.117,.13),.43);edge=w.metal('Milled fasteners',(.27,.29,.29),.39)
-    poly=a.surface('Reinforced polymer',(.045,.051,.046),.72,fabric=True);olive=a.surface('Ceramic green',(.19,.215,.15),.6)
+    poly=w.polymer('Reinforced polymer',(.055,.064,.055));olive=a.surface('Ceramic green',(.19,.215,.15),.6)
     def box(name,pos,size,mat=steel,parent=body,bevel=.004):return a.box(name,pos,size,mat,parent,bevel)
     def barrel(name,pos,r,l,mat=steel,parent=body):return w.cyl(name,pos,r,l,mat,parent)
     if kind=='mp7':
@@ -85,5 +85,6 @@ def canopy():
     for x in [-2.8,-1.4,1.4,2.8]:
         for z in [-1,1]:a.line('Riser',[(x,2.28,z),(x*.07,.20,z*.12)],.010,cord,p)
     a.join_parts(root);w.export(root,OUT/'canopy.glb')
-for kind in ['mp7','vector','bizon']:gun(kind)
-plane();canopy();print('ROYALE_ASSETS_READY')
+if __name__=='__main__':
+    for kind in ['mp7','vector','bizon']:gun(kind)
+    plane();canopy();print('ROYALE_ASSETS_READY')

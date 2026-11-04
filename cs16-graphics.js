@@ -12,6 +12,21 @@
   let operatorEpoch = 0;
   const operators = new Map();
 
+  // Painted lower wall band and grime at skirting height; reuse the existing plaster albedo.
+  function finishPlaster(material,storey){
+    material.onBeforeCompile=shader=>{
+      shader.uniforms.storeyHeight={value:storey};
+      shader.vertexShader='varying vec3 plasterPos;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nplasterPos=(modelMatrix*vec4(transformed,1.)).xyz;');
+      shader.fragmentShader='uniform float storeyHeight;varying vec3 plasterPos;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+        float wallY=mod(plasterPos.y+.008,storeyHeight);
+        float wear=dot(diffuseColor.rgb,vec3(.27,.55,.18));
+        float seam=smoothstep(1.04,1.065,wallY+clamp(wear-.29,-.11,.11)*.16);
+        float base=smoothstep(.025,.30,wallY);
+        diffuseColor.rgb*=mix(vec3(.65,.76,.72),vec3(1.),seam)*mix(.78,1.,base);`);
+    };
+    material.customProgramCacheKey=()=> 'painted-plaster-band';material.needsUpdate=true;
+  }
+
   function qualityOf(name) { return QUALITY[name] || QUALITY.high; }
 
   function configureRenderer(renderer, options) {
@@ -351,5 +366,5 @@
   }
 
   function createPet(id){const source=operators.get('pet-'+id);return source?source.clone(true):null;}
-  global.CS16Graphics = Object.freeze({createPet, configureRenderer, createWorld, loadOperators, createOperator });
+  global.CS16Graphics = Object.freeze({createPet, finishPlaster, configureRenderer, createWorld, loadOperators, createOperator });
 })(window);

@@ -37,8 +37,33 @@
     }
     box(metal, 0, 0.075, -0.05, 0.072, 0.024, 0.125);
     box(edge, 0, 0.096, -0.057, 0.046, 0.023, 0.075);
+    // Open machined housing. Both walls of the shell are visible through the lens.
+    const profile = [
+      [0.034, -0.028],
+      [0.039, -0.028],
+      [0.043, -0.03],
+      [0.044, -0.038],
+      [0.042, -0.043],
+      [0.042, -0.073],
+      [0.045, -0.077],
+      [0.045, -0.084],
+      [0.039, -0.088],
+      [0.034, -0.087],
+      [0.034, -0.028],
+    ];
+    const housing = new T.LatheGeometry(
+      profile.map(([r, z]) => new T.Vector2(r, z)),
+      36,
+    ).rotateX(Math.PI / 2);
+    part(housing, metal, 0, 0.144, 0);
     for (const z of [-0.035, -0.077]) part(new T.TorusGeometry(0.04, 0.0058, 7, 28), metal, 0, 0.144, z);
     for (const x of [-0.039, 0.039]) box(metal, x, 0.143, -0.056, 0.008, 0.023, 0.046);
+    box(edge, -0.026, 0.069, -0.045, 0.014, 0.018, 0.09);
+    box(edge, 0.026, 0.069, -0.045, 0.014, 0.018, 0.09);
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      box(edge, 0.053, 0.137 + Math.cos(a) * 0.014, -0.057 + Math.sin(a) * 0.014, 0.007, 0.004, 0.004);
+    }
     part(new T.CircleGeometry(0.036, 24), glass, 0, 0.144, -0.071);
     part(new T.CylinderGeometry(0.016, 0.016, 0.012, 12).rotateZ(Math.PI / 2), edge, 0.048, 0.137, -0.057);
     const reticle = part(new T.CircleGeometry(0.00125, 10), dot, 0, 0.144, -0.031);
@@ -53,9 +78,22 @@
       },
     };
   }
-  function frame(right, aim, hasOptic) {
+  function mount(gun, template) {
+    const [x, y, z] = gun.userData.grip.rail,
+      sight = template.clone(true);
+    sight.position.set(x, y - 0.063, z + 0.05);
+    gun.add(sight);
+  }
+  function frame(right, aim, hasOptic, grip) {
     const a = Math.min(1, Math.max(0, aim));
-    right.set(0.216 * (1 - a), -0.197 * (1 - a) - (hasOptic ? 0.144 : 0.058) * a, -0.6 + 0.085 * a);
+    const rail = grip?.rail,
+      x = rail?.[0] || 0,
+      y = rail?.[1] ?? 0.063;
+    right.set(
+      0.198 * (1 - a) - x * a,
+      -0.17 * (1 - a) - (hasOptic ? y + 0.081 : y + 0.012) * a,
+      -0.515 + 0.042 * a,
+    );
   }
   function bearing(yaw) {
     const deg = ((Math.round((-yaw * 180) / Math.PI) % 360) + 360) % 360;
@@ -66,5 +104,5 @@
       '°'
     );
   }
-  g.CS16FieldView = { optic, frame, bearing, supported: (id) => supported.has(id) };
+  g.CS16FieldView = { optic, mount, frame, bearing, supported: (id) => supported.has(id) };
 })(window);

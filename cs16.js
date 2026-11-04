@@ -601,7 +601,7 @@
       glbCache[id] = { model: null };
       try {
         const asset = await loader.loadAsync(cfg.url);
-        const model = new THREE.Group();
+        const model = new THREE.Group();model.name='weaponBasis';
         model.add(asset.scene);
         if (cfg.rotY) model.rotation.y = cfg.rotY;
         if (cfg.rotX) model.rotation.x = cfg.rotX;
@@ -1823,8 +1823,8 @@
     const armL = g.getObjectByName('armL'), armR = g.getObjectByName('armR');
     // крепление оружия в правую руку
     const gunHolder = new THREE.Group();
-    gunHolder.position.set(0, -0.52, -0.15);
-    armR.add(gunHolder);
+    g.add(gunHolder);
+    const hold=CS16Grip.operator(THREE,g,gunHolder,.51);
     // 3.22.0: вспышка на дуле чужого стрелка (видна всем)
     const muzzleFx = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
     muzzleFx.scale.set(0.5, 0.5, 1);
@@ -1836,7 +1836,7 @@
     // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
     if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { characterId, group: g, torso, head, legL, legR, armL, armR, gunHolder, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
+    const r = { characterId, group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);
@@ -1850,6 +1850,7 @@
     if (r.gun) { disposeGun(r.gun); r.gunHolder.remove(r.gun); }
     r.gun = buildGun(r.weapon || 'usp', r.skin, 1);
     r.gunHolder.add(r.gun);
+    const grip=r.gun.userData.grip;if(grip)r.muzzleFx.position.set(grip.bore[0]-grip.right[0],grip.bore[1]-grip.right[1],grip.bore[2]-grip.right[2]-.03);
   }
   // Модель оружия из примитивов по мотивам CS:GO (АК с изогнутым магазином, AWP с прицелом и затвором),
   // красится скином. scale>1.5 — вид от первого лица (более детально).
@@ -1874,14 +1875,9 @@
     const group = new THREE.Group();
     const model = weapon==='rpg'?makeRPGModel():glbGunClone(weapon, skin);
     if (model) group.add(model);
-    if (scale > 1.5 && handsModel) {
-      const hands = handsModel.clone(true);
-      const left = hands.getObjectByName('leftHand');
-      const pistol = ['glock','usp','deagle','fiveseven','tec9','elite'].includes(weapon);
-      if (left && (pistol || weapon === 'knife' || weapon === 'smokegrenade')) left.visible = false;
-      if (pistol) hands.position.z = -.055;
-      group.add(hands);
-      group.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+    if(model){
+      CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon);
+      if(scale>1.5){CS16Grip.fitHands(group,handsModel);group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
     }
     return group;
   }
@@ -1892,7 +1888,7 @@
       if (o.isMesh) for (const m of [].concat(o.material)) if (m.userData.cs16Owned) m.dispose();
     });
   }
-  function disposeOperator(r){disposeGun(r.gun);r.group.traverse(o=>{if(o.isSkinnedMesh)o.skeleton?.dispose();if(o.isSprite){if(o!==r.muzzleFx)o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
+  function disposeOperator(r){disposeGun(r.gun);r.hold.dispose();r.group.traverse(o=>{if(o.isSprite){if(o!==r.muzzleFx)o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
   function removeRemote(nick) {
     const r = remotes.get(nick);
     if (r) { disposeOperator(r); remotes.delete(nick); }
@@ -2206,9 +2202,9 @@
       vmWeapon = current; vmSkin = mySkin; vmGlb = !!(glbCache[current] && glbCache[current].model);
       if (vm) { disposeGun(vm); camera.remove(vm); }
       vm = buildGun(current, mySkin, 1.8);
-      if(CS16FieldView.supported(current)){
+      if(CS16FieldView.supported(current)&&vm.userData.grip){
         if(!fieldOptical)fieldOptical=CS16FieldView.optic(THREE);
-        vm.add(fieldOptical.root.clone(true));
+        CS16FieldView.mount(vm,fieldOptical.root);
       }
       vmKick=0;vmKickVelocity=0;
       vm.userData.animation=CS16WeaponAnimation.bind(vm);inspectStart=-Infinity;
@@ -2219,14 +2215,14 @@
     const moving = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
     const ads=fieldAim&&pointerLocked&&me.alive&&!reloading&&!myVeh?.inside&&CS16FieldView.supported(current);
     fieldAimMix+=((ads?1:0)-fieldAimMix)*Math.min(1,dt*16);
-    CS16FieldView.frame(vm.position,fieldAimMix,true);
+    CS16FieldView.frame(vm.position,fieldAimMix,true,vm.userData.grip);
     vm.position.y+=(moving?Math.abs(Math.sin(t/110))*.011:0)*(1-fieldAimMix);
     vm.position.x+=(moving?Math.sin(t/220)*.007:0)*(1-fieldAimMix);
     const dot=vm.getObjectByName('fieldReticle');if(dot)dot.visible=fieldAimMix>.92;
     // отводка за мышью (ствол чуть отстаёт от движения)
     vmSwayX *= Math.max(0, 1 - dt * 7);
     vmSwayY *= Math.max(0, 1 - dt * 7);
-    vm.rotation.y = -vmSwayX * 2.2;
+    vm.rotation.y = .14*(1-fieldAimMix)-vmSwayX*2.2;
     if (reloading > 0 && WEAPONS[current].reload) {
       const k = 1 - reloading / WEAPONS[current].reload;
       vm.rotation.x = -0.7 * Math.sin(Math.min(1, k) * Math.PI) - vmSwayY * 1.4;
@@ -3045,8 +3041,8 @@
         const sw = r.moving ? Math.sin(r.walkPhase) * 0.65 : 0;
         r.legL.rotation.x = sw;              // ноги ходят вразножку
         r.legR.rotation.x = -sw;
-        r.armL.rotation.x = -sw * 0.6;
-        r.armR.rotation.x = -1.15 - Math.max(0,1-(performance.now()-r.muzzle)/160)*.15;
+        r.armL.rotation.x=0;r.armR.rotation.x=0;
+        r.hold.update(r.gun,r.pitch,Math.max(0,1-(performance.now()-r.muzzle)/160),r.moving?Math.abs(sw)*.035:0);
         const bob = r.moving ? Math.abs(Math.sin(r.walkPhase)) * 0.05 : 0;
         r.torso.position.y = 1.18 + bob;
         r.head.position.y = 1.72 + bob;
@@ -3055,7 +3051,7 @@
         r.group.rotation.z = -Math.PI / 2;   // убитый — лежит
         r.group.position.y = r.y + 0.35;
         r.legL.rotation.x = 0.15; r.legR.rotation.x = -0.1;
-        r.armL.rotation.x = 0.3; r.armR.rotation.x = 0.2;
+        r.hold.relax();r.armL.rotation.x = 0.3; r.armR.rotation.x = 0.2;
       }
     }
     stepNades(dt);

@@ -79,10 +79,12 @@ async function run() {
     p = r.members.get('Host');
   assert.equal(state.actors.length, 24);
   assert.equal(p.team, r.members.get('Mate').team);
-  host.emit('input', { id: 'Mate', x: -9999, z: -9999, yaw: 0.4, pitch: 0 });
+  host.emit('input', { id: 'Mate', x: -9999, z: -9999, yaw: 0.4, pitch: 0.22 });
   await pause(80);
   assert(p.x > 0 && p.x < 2000);
   assert.notEqual(r.members.get('Mate').yaw, 0.4);
+  const peer=await once(mate,'state');
+  assert.equal(peer.actors.find(a=>a.id==='Host').pitch,0.22);
   assert((await ack(host, 'action', { kind: 'jump' })).ok);
   host.disconnect();
   const re = await login('Host'),

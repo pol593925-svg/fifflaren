@@ -10,9 +10,9 @@
   const time=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
   const say=s=>{$('radioNotice').textContent=s;$('radioToggle').title=s||'Подключиться к эфиру';};
   function button(text,action){const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=action;return b;}
-  async function request(path,init={},kind='radio'){
+  async function request(path,init={}){
     const session=cfg;
-    const r=await fetch(session.server+'/api/'+kind+'/'+path,{...init,headers:{Authorization:'Bearer '+session.token,...init.headers},signal:init.signal||AbortSignal.timeout(30000)});
+    const r=await fetch(session.server+'/api/radio/'+path,{...init,headers:{Authorization:'Bearer '+session.token,...init.headers},signal:init.signal||AbortSignal.timeout(30000)});
     if(session!==cfg)throw Error('Аккаунт изменился.');
     if(!r.ok){let msg;try{msg=(await r.json()).message;}catch{}throw Object.assign(Error(msg||'Радио временно недоступно.'),{status:r.status});}return r;
   }
@@ -157,17 +157,17 @@
     try{const s=await (await request('control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op,rev:station.rev,...extra})})).json();installState(s);say('');}
     catch(e){say(e.message);await pull();}
   }
-  function duration(file,kind){return new Promise((resolve,reject)=>{
-    const a=kind==='cinema'?document.createElement('video'):new Audio(), url=URL.createObjectURL(file);
-    function finish(ok){clearTimeout(timeout);a.onloadedmetadata=a.onerror=null;const d=a.duration,valid=kind!=='cinema'||a.videoWidth>0;a.removeAttribute('src');a.load();URL.revokeObjectURL(url);ok&&valid&&Number.isFinite(d)&&d>0?resolve(d):reject(Error('Формат не воспроизводится или длительность не определена.'));}
+  function duration(file){return new Promise((resolve,reject)=>{
+    const a=new Audio(), url=URL.createObjectURL(file);
+    function finish(ok){clearTimeout(timeout);a.onloadedmetadata=a.onerror=null;const d=a.duration;a.removeAttribute('src');a.load();URL.revokeObjectURL(url);ok&&Number.isFinite(d)&&d>0?resolve(d):reject(Error('Формат не воспроизводится или длительность не определена.'));}
     const timeout=setTimeout(()=>finish(false),60000);a.onloadedmetadata=()=>finish(true);a.onerror=()=>finish(false);a.preload='metadata';a.src=url;
   });}
-  async function uploadFile(file,progress,kind='radio'){
-    const session=cfg,d=await duration(file,kind),title=file.name.replace(/\.[a-z0-9]+$/i,'').slice(0,200)||file.name.slice(0,200);
+  async function uploadFile(file,progress){
+    const session=cfg,d=await duration(file),title=file.name.replace(/\.[a-z0-9]+$/i,'').slice(0,200)||file.name.slice(0,200);
     // Remember the upload ID across restarts without retaining a full file in renderer memory.
     const sample=new Blob([JSON.stringify([file.name,file.size,file.lastModified]),file.slice(0,65536),file.slice(-65536)]);
     const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await sample.arrayBuffer())),v=>v.toString(16).padStart(2,'0')).join('');
-    const key='hub-'+kind+'-upload:'+session.username+':'+digest;
+    const key='hub-radio-upload:'+session.username+':'+digest;
     let id;try{id=localStorage.getItem(key);}catch{}
     if(!/^[a-f0-9]{24}$/.test(id)){
       id=Math.floor(Date.now()/1000).toString(16).padStart(8,'0')+Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>v.toString(16).padStart(2,'0')).join('');
@@ -177,7 +177,7 @@
     async function step(path,init){
       for(let attempt=0;;attempt++){
         if(session!==cfg)throw Error('Аккаунт изменился.');
-        try{return await (await request(path,init,kind)).json();}catch(e){
+        try{return await (await request(path,init)).json();}catch(e){
           if(attempt>=3||e.status&&e.status<500&&e.status!==429)throw e;
           await new Promise(ok=>setTimeout(ok,700*2**attempt));
         }
@@ -189,7 +189,7 @@
       await step(uri+'/parts/'+n,{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:file.slice(start,end)});
       progress(Math.floor(end/file.size*100));
     }
-    const result=await step(uri+'/finish',{method:'POST'});if(kind==='radio')installState(result);try{localStorage.removeItem(key);}catch{}return result;
+    const result=await step(uri+'/finish',{method:'POST'});installState(result);try{localStorage.removeItem(key);}catch{}return result;
   }
   async function upload(){
     const input=$('radioFiles'),files=Array.from(input.files);input.disabled=true;
@@ -237,5 +237,5 @@
     if(owner()){pull();loadLibrary();}
   }
   window.addEventListener('pagehide',stop);
-  window.HubRadio={start,stop,uploadFilm:(file,progress)=>uploadFile(file,progress,'cinema')};
+  window.HubRadio={start,stop};
 })();

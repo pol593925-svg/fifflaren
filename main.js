@@ -5,6 +5,7 @@ const fs = require('fs');
 const { execFile } = require('child_process');
 
 let mainWindow = null;
+require('./cinema-host-main').install({app,ipcMain,getWindow:()=>mainWindow});
 require('./brave-shortcuts-main').install({app, ipcMain, shell, getWindow: () => mainWindow});
 let notifyWindow = null;
 let tray = null;

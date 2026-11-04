@@ -6,7 +6,16 @@ const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby1q1rhdewBwtjCGPQ9
 
 const fs = require('fs');
 const path = require('path');
-const { ipcRenderer, desktopCapturer } = require('electron');
+const { ipcRenderer, desktopCapturer, webUtils } = require('electron');
+const cinemaPC={
+  connect:(token,bind=false)=>ipcRenderer.invoke('cinema-pc-connect',{token,bind}),
+  stop:()=>ipcRenderer.send('cinema-pc-stop'),
+  async add(file,meta,onProgress){
+    const progress=(_event,p)=>onProgress(p);ipcRenderer.on('cinema-pc-progress',progress);
+    try{return await ipcRenderer.invoke('cinema-pc-add',{source:webUtils.getPathForFile(file),meta});}
+    finally{ipcRenderer.removeListener('cinema-pc-progress',progress);}
+  }
+};
 const { io } = require("socket.io-client");
 ipcRenderer.on('open-calls',(_event,date)=>HubCalls.open(date));
 ipcRenderer.on('open-cinema',(_event,nick)=>window.HubCinema?.openNotice(nick));
@@ -134,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         currentUser = data.username;
         currentRole = data.role || 'user';
-        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
+        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
@@ -4840,7 +4849,7 @@ document.addEventListener('keydown', (e) => {
       }
       currentUser = data.username;
       currentRole = data.role || 'user';
-      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
+      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);

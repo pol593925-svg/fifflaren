@@ -133,8 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser = data.username;
         currentRole = data.role || 'user';
         HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
-      HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
-      HubRoyale.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+      HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
         localStorage.setItem('support_hub_user', data.username);
@@ -189,8 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tabName === 'swipe') loadSwipeQueue();
       if (tabName === 'tops') loadTops();
       if (tabName === 'battleship') bsTabOpen();
-      if (tabName === 'voxel') HubVoxels.open();
-      if (tabName === 'cs16' && typeof window.__cs16Open === 'function') window.__cs16Open(currentUser);
+      if (tabName === 'voxel' || tabName === 'cs16') HubGames.open(tabName,currentUser);
     });
   });
 
@@ -549,6 +547,7 @@ function escapeHtml(s) {
 
 // Точки онлайна в Штабе
 function updateHQStatusDots() {
+  if(!document.getElementById('tab-hq')?.getClientRects().length)return;
   document.querySelectorAll('.team-list li[data-nick]').forEach(li => {
     const nick = (li.getAttribute('data-nick') || '').toLowerCase();
     const online = onlineNicks.some(n => n.toLowerCase() === nick);
@@ -1721,13 +1720,13 @@ async function loadPmInbox() {
     const res = await fetch(`${SERVER_API_URL}/api/messages/inbox?user=${encodeURIComponent(currentUser)}`);
     const data = await res.json();
     const dialogs = data.dialogs || [];
-    let totalUnread = 0;
-    if (!dialogs.length) {
+    const totalUnread=dialogs.reduce((sum,d)=>sum+(Number(d.unread)||0),0);
+    const visible=!document.hidden&&document.getElementById('tab-pm')?.classList.contains('active');
+    if (visible&&!dialogs.length) {
       box.innerHTML = '<p style="color:#777; font-size:11px;">Диалогов пока нет.<br><br>Написать можно из карточки профиля (клик по нику в Штабе → «✉️ Написать»).</p>';
-    } else {
+    } else if(visible) {
       box.innerHTML = "";
       dialogs.forEach(d => {
-        totalUnread += d.unread;
         const row = document.createElement('div');
         row.style.cssText = 'padding:6px 4px; border-bottom:1px solid #333; cursor:pointer; font-size:12px;';
         row.innerHTML = `<b>${escapeHtml(d.with)}</b>${d.unread ? ` <span style="background:#dc3545; border-radius:8px; padding:0 5px; font-size:9px; color:#fff;">${d.unread}</span>` : ''}<br><small style="color:#888;">${escapeHtml(String(d.lastText).slice(0, 28))}</small>`;
@@ -4839,8 +4838,7 @@ document.addEventListener('keydown', (e) => {
       currentUser = data.username;
       currentRole = data.role || 'user';
       HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,notify:payload=>ipcRenderer.send('call-notification',payload)});
-      HubVoxels.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
-      HubRoyale.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+      HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);
       localStorage.setItem('support_hub_user', data.username);
@@ -4860,9 +4858,8 @@ document.addEventListener('keydown', (e) => {
 
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
-  HubRoyale.close();
-  await HubVoxels.leave();
-  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:'))localStorage.removeItem(key);
+  await HubGames.close();
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:'))localStorage.removeItem(key);
   location.reload();
 });
 

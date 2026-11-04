@@ -19,7 +19,7 @@ const server=http.createServer((req,res)=>{
  const file=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname);
  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.statusCode=404;return res.end();}
  res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png'})[path.extname(file)]||'application/octet-stream');
- if(file.endsWith('index.html'))return res.end(fs.readFileSync(file,'utf8').replace('<script src="three.min.js">',mocks+'<script src="three.min.js">'));
+ if(file.endsWith('index.html'))return res.end(fs.readFileSync(file,'utf8').replace('<script src="game-loader.js">',mocks+'<script src="game-loader.js">'));
  fs.createReadStream(file).pipe(res);
 });
 async function run(){

@@ -1,6 +1,7 @@
 (function(){
   'use strict';
-  let cfg, station, revisionTime=0, timer, reading=false, listening=false, loadedId='', blobURL='', pending;
+  let cfg, station, revisionTime=0, timer, reading=false, listening=false, loadedId='', pending;
+  let library=[], before=null, listing=0;
   const player=new Audio(), $=id=>document.getElementById(id);
   const owner=()=>cfg?.username.toLowerCase()==='fifflaren';
   const time=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
@@ -10,10 +11,11 @@
     const session=cfg;
     const r=await fetch(session.server+'/api/radio/'+path,{...init,headers:{Authorization:'Bearer '+session.token,...init.headers},signal:init.signal||AbortSignal.timeout(30000)});
     if(session!==cfg)throw Error('Аккаунт изменился.');
-    if(!r.ok){let msg;try{msg=(await r.json()).message;}catch{}throw Error(msg||'Радио временно недоступно.');}return r;
+    if(!r.ok){let msg;try{msg=(await r.json()).message;}catch{}throw Object.assign(Error(msg||'Радио временно недоступно.'),{status:r.status});}return r;
   }
   function installState(s,transit=0){
     if(station&&(s.rev<station.rev||(s.rev===station.rev&&s.now<station.now)))return;
+    if(!s.queue)s.queue=owner()&&station?.rev===s.rev?station.queue:(s.track?[s.track]:[]);
     const redraw=!station||s.rev!==station.rev||s.current!==station.current;
     station=s;revisionTime=performance.now()-transit;draw(redraw);sync().catch(e=>say(e.message));
   }
@@ -31,14 +33,32 @@
     const list=$('radioQueue');list.replaceChildren();station.queue.forEach((item,i)=>{
       const li=document.createElement('li'), title=document.createElement('span');li.classList.toggle('on-air',item.id===station.current);
       title.textContent=(i+1)+'. '+item.title+' · '+time(item.duration);li.append(title,button('В эфир',()=>control('select',{id:item.id})));
-      for(const [label,op,off] of [['↑','up',i===0],['↓','down',i===station.queue.length-1],['Удалить','remove',false]]){
+      for(const [label,op,off] of [['↑','up',i===0],['↓','down',i===station.queue.length-1],['Из очереди','remove',false]]){
         const b=button(label,()=>control(op,{id:item.id}));b.disabled=off;li.append(b);
       }list.append(li);
-    });
+    });drawLibrary();
+  }
+  function drawLibrary(){
+    const list=$('radioLibrary');list.replaceChildren();const queued=new Set((station?.queue||[]).map(t=>t.id));
+    for(const t of library){
+      const li=document.createElement('li'),title=document.createElement('span');title.textContent=t.title+' · '+time(t.duration);
+      const b=button(queued.has(t.id)?'В очереди':'Добавить в очередь',async()=>{
+        b.disabled=true;try{installState(await (await request('library/'+t.id+'/queue',{method:'POST'})).json());}
+        catch(e){b.disabled=false;say(e.message);}
+      });b.disabled=queued.has(t.id);li.append(title,b);list.append(li);
+    }
+    $('radioMore').hidden=!before;
+  }
+  async function loadLibrary(append=false){
+    if(!owner())return;
+    const seq=++listing;
+    try{const data=await (await request('library'+(append&&before?'?before='+before:''))).json();
+      if(seq!==listing)return;
+      library=append?[...library,...data.tracks]:data.tracks;before=data.before;drawLibrary();
+    }catch(e){if(seq===listing)say(e.message);}
   }
   function release(){
-    if(!pending&&!loadedId&&!blobURL)return;pending?.abort();pending=null;player.pause();player.removeAttribute('src');player.load();loadedId='';
-    if(blobURL)URL.revokeObjectURL(blobURL);blobURL='';
+    if(!pending&&!loadedId)return;pending?.abort();pending=null;player.pause();player.removeAttribute('src');player.load();loadedId='';
   }
   async function sync(){
     if(!listening||!station?.current){if(loadedId||pending)release();return;}
@@ -47,9 +67,9 @@
     if(loadedId!==id){
       if(pending?.track===id)return;release();const job=new AbortController();job.track=id;pending=job;
       try{
-        const data=await (await request('audio/'+id,{signal:job.signal})).blob();
+        const {ticket}=await (await request('audio/'+id+'/ticket',{method:'POST',signal:job.signal})).json();
         if(job.signal.aborted||pending!==job||station.current!==id||!listening)return;
-        blobURL=URL.createObjectURL(data);loadedId=id;player.src=blobURL;
+        loadedId=id;player.src=cfg.server+'/api/radio/audio/'+id+'?ticket='+encodeURIComponent(ticket);
       }catch(e){if(job.signal.aborted)return;throw e;}finally{if(pending===job)pending=null;}
     }
     if(!player.readyState)return;
@@ -60,7 +80,8 @@
   }
   async function pull(){
     if(!cfg||reading)return;reading=true;
-    try{const t=performance.now(),s=await (await request('state')).json();installState(s,Math.min(500,(performance.now()-t)/2));}
+    try{const t=performance.now(),query=owner()?(station?'?since='+station.rev:''):'?compact=1';
+      const s=await (await request('state'+query)).json();installState(s,Math.min(500,(performance.now()-t)/2));}
     catch(e){say(e.message);}finally{reading=false;}
   }
   async function control(op,extra={}){
@@ -70,20 +91,49 @@
   }
   function duration(file){return new Promise((resolve,reject)=>{
     const a=new Audio(), url=URL.createObjectURL(file);
-    function finish(ok){clearTimeout(timeout);const d=a.duration;a.removeAttribute('src');a.load();URL.revokeObjectURL(url);ok&&Number.isFinite(d)&&d>=1&&d<=3600?resolve(d):reject(Error('Не удалось прочитать длительность трека.'));}
-    const timeout=setTimeout(()=>finish(false),8000);a.onloadedmetadata=()=>{a.onloadedmetadata=a.onerror=null;finish(true);};a.onerror=()=>{a.onloadedmetadata=a.onerror=null;finish(false);};a.preload='metadata';a.src=url;
+    function finish(ok){clearTimeout(timeout);a.onloadedmetadata=a.onerror=null;const d=a.duration;a.removeAttribute('src');a.load();URL.revokeObjectURL(url);ok&&Number.isFinite(d)&&d>0?resolve(d):reject(Error('Формат не воспроизводится или длительность не определена.'));}
+    const timeout=setTimeout(()=>finish(false),60000);a.onloadedmetadata=()=>finish(true);a.onerror=()=>finish(false);a.preload='metadata';a.src=url;
   });}
+  async function uploadFile(file,progress){
+    const session=cfg,d=await duration(file),title=file.name.replace(/\.[a-z0-9]+$/i,'').slice(0,200)||file.name.slice(0,200);
+    // Remember the upload ID across restarts without retaining a full file in renderer memory.
+    const sample=new Blob([JSON.stringify([file.name,file.size,file.lastModified]),file.slice(0,65536),file.slice(-65536)]);
+    const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await sample.arrayBuffer())),v=>v.toString(16).padStart(2,'0')).join('');
+    const key='hub-radio-upload:'+session.username+':'+digest;
+    let id;try{id=localStorage.getItem(key);}catch{}
+    if(!/^[a-f0-9]{24}$/.test(id)){
+      id=Math.floor(Date.now()/1000).toString(16).padStart(8,'0')+Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>v.toString(16).padStart(2,'0')).join('');
+      try{localStorage.setItem(key,id);}catch{}
+    }
+    const uri='uploads/'+id;
+    async function step(path,init){
+      for(let attempt=0;;attempt++){
+        if(session!==cfg)throw Error('Аккаунт изменился.');
+        try{return await (await request(path,init)).json();}catch(e){
+          if(attempt>=3||e.status&&e.status<500&&e.status!==429)throw e;
+          await new Promise(ok=>setTimeout(ok,700*2**attempt));
+        }
+      }
+    }
+    const state=await step(uri,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,size:file.size,duration:d})});
+    for(let n=state.next;n<Math.ceil(file.size/state.partSize);n++){
+      const start=n*state.partSize,end=Math.min(file.size,start+state.partSize);
+      await step(uri+'/parts/'+n,{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:file.slice(start,end)});
+      progress(Math.floor(end/file.size*100));
+    }
+    installState(await step(uri+'/finish',{method:'POST'}));try{localStorage.removeItem(key);}catch{}
+  }
   async function upload(){
     const input=$('radioFiles'),files=Array.from(input.files);input.disabled=true;
-    try{for(const f of files){
-      if(f.size>12*1024*1024)throw Error(f.name+' больше 12 МБ.');
-      say('Загрузка · '+f.name);const d=await duration(f);
-      const query=new URLSearchParams({title:f.name.replace(/\.(mp3|ogg|wav)$/i,''),duration:String(d)});
-      installState(await (await request('tracks?'+query,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:f})).json());
-    }say('Треки добавлены в очередь.');}catch(e){say(e.message);}finally{input.value='';input.disabled=false;}
+    let ok=0;const errors=[];
+    try{for(const [i,f] of files.entries()){
+      const progress=p=>{$('radioUploadStatus').textContent=(i+1)+' из '+files.length+' · '+f.name+' · '+p+'%';};progress(0);
+      try{await uploadFile(f,progress);ok++;}catch(e){errors.push(f.name+' — '+e.message);}
+    }$('radioUploadStatus').textContent='Сохранено: '+ok+' из '+files.length+(errors.length?'\n'+errors.join('\n'):'');await loadLibrary();}
+    finally{input.value='';input.disabled=false;}
   }
   function start(session){
-    clearInterval(timer);release();listening=false;station=null;cfg=session;
+    clearInterval(timer);release();listening=false;station=null;cfg=session;listing++;library=[];before=null;
     $('radioTabButton').style.display=owner()?'':'none';
     if(!$('hubRadio')){const tools=document.querySelector('.hub-tools');if(!tools)return;
       const box=document.createElement('div');box.id='hubRadio';
@@ -95,10 +145,11 @@
     $('radioFiles').onchange=upload;$('radioBroadcast').onclick=()=>control(station?.playing?'pause':'play');
     $('radioPrev').onclick=()=>control('previous');$('radioNext').onclick=()=>control('next');
     $('radioSeek').onchange=e=>control('seek',{id:station?.current,position:Number(e.target.value)});
-    $('radioTabButton').addEventListener('click',pull);player.onloadedmetadata=()=>sync().catch(e=>say(e.message));
-    player.onended=pull;player.onerror=()=>{if(listening&&loadedId)say('Не удалось воспроизвести файл.');};
+    $('radioTabButton').onclick=()=>{pull();loadLibrary();};$('radioMore').onclick=()=>loadLibrary(true);
+    player.onloadedmetadata=()=>sync().catch(e=>say(e.message));
+    player.onended=pull;player.onerror=()=>{if(listening&&loadedId){release();say('Не удалось получить аудио. Переподключаемся к эфиру.');}};
     timer=setInterval(()=>{if(listening||owner()&&$('tab-radio').classList.contains('active'))pull();},2000);
-    if(owner())pull();
+    if(owner()){pull();loadLibrary();}
   }
   window.HubRadio={start};
 })();

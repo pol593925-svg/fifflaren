@@ -806,7 +806,8 @@
     return t;
   }
   let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null;
-  let graphicsQuality = navigator.deviceMemory && navigator.deviceMemory<=4 ? 'low' : 'balanced';
+  const modestHardware=(navigator.deviceMemory>0&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency>0&&navigator.hardwareConcurrency<=4);
+  let graphicsQuality = modestHardware ? 'low' : 'balanced';
   let qualityMode='auto',environmentView=null,fieldEffects=null,battleAudio=null,lastDust=0;
   try{const preference=localStorage.getItem('cs16-graphics-quality');if(['low','balanced','high'].includes(preference)){qualityMode=preference;graphicsQuality=preference;}}catch{}
   function applyQuality(value){
@@ -2936,7 +2937,15 @@
   }
 
   // ---------- ГЛАВНЫЙ ЦИКЛ ----------
-  let lastT = 0, posAcc = 0;
+  let lastT = 0, posAcc = 0, nextRadar=0, nextHud=0, frameId=0, idleTimer=0;
+  function refreshHud(t){
+    if(t<nextHud)return;
+    updateHud();nextHud=t+(graphicsQuality==='low'?60:16);
+  }
+  function wakeLoop(){
+    clearTimeout(idleTimer);
+    if(!frameId)frameId=requestAnimationFrame(loop);
+  }
   // 3.24.0: радар (как в CS:GO) — база рисуется один раз на карту, точки — каждый кадр
   function buildRadarBase() {
     radarBase = document.createElement('canvas');
@@ -2995,14 +3004,16 @@
   }
 
   function loop(t) {
-    requestAnimationFrame(loop);
+    frameId=0;
+    const active=!document.hidden&&root()?.getClientRects().length>0;
+    if(active&&!royaleActive)wakeLoop();else idleTimer=setTimeout(wakeLoop,400);
     // 3.32.0: полный экран пока вкладка CS 1.6 открыта (проверка раз в 0.5 с)
     if (t - fsCheckAt > 500) {
       fsCheckAt = t;
       const vis = !!(canvasEl && canvasEl.clientWidth > 0 && canvasEl.clientHeight > 0);
       if (vis !== fsActive) { fsActive = vis; document.getElementById('tab-cs16').classList.toggle('cs16-fullscreen',vis);resize3();try { if(ipcR)ipcR.send('cs16-fullscreen',vis); } catch(e){} }
     }
-    if(royaleActive){lastT=t;return;}
+    if(royaleActive||!active){lastT=t;if(!royaleActive)for(const key of Object.keys(keys))keys[key]=false;return;}
     if(ui.flash&&performance.now()>Math.max(flashUntil+1200,flashExpires)){flashAlpha=0;ui.flash.style.opacity='0';}
     if(!canvasEl||canvasEl.clientWidth===0||canvasEl.clientHeight===0){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
     if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
@@ -3088,7 +3099,7 @@
         sock?.emit('cs16_step',{pos:[P.x,P.y,P.z],surf});
       }
     }else stepAcc=0;
-    drawRadar();
+    if(t>=nextRadar){drawRadar();nextRadar=t+(graphicsQuality==='low'?100:40);}
     // 3.24.3: числа урона — взлетают и гаснут
     for (let i = dmgNums.length - 1; i >= 0; i--) {
       const dn = dmgNums[i], age = (performance.now() - dn.born) / 1000;
@@ -3127,7 +3138,7 @@
           camera.rotation.y = r.yaw; camera.rotation.x = r.pitch * 0.6;
           camera.fov += (75 - camera.fov) * Math.min(1, dt * 10);
           camera.updateProjectionMatrix();
-          updateHud();
+          refreshHud(t);
           if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
           renderer3.render(scene, camera);
@@ -3144,7 +3155,7 @@
     camera.rotation.x = P.pitch;
     camera.fov += ((scoped ? (current==='awp'?16:current==='scout'?22:40) : 75-fieldAimMix*25) - camera.fov) * Math.min(1, dt * 10);
     camera.updateProjectionMatrix();
-    updateHud();
+    refreshHud(t);
     // отправка позиции 15 раз/сек
     posAcc += dt;
     if (posAcc > 1 / 15 && sock && sock.connected && me.alive) {
@@ -3179,8 +3190,9 @@
       try{initScene();}catch(error){inited=false;ui.loading.style.display='flex';ui.loadingText.textContent='Не удалось запустить графику: '+error.message;ui.loadingRetry.hidden=false;ui.loadingRetry.onclick=()=>location.reload();console.error(error);return;}
       bindInput();
       loadSkins();
-      requestAnimationFrame(loop);
+      document.addEventListener('visibilitychange',wakeLoop);
     }
+    wakeLoop();
     doJoin();
   };
 })();

@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
  const file=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname);
  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.statusCode=404;return res.end();}
  res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png'})[path.extname(file)]||'application/octet-stream');
- if(file.endsWith('index.html'))return res.end(fs.readFileSync(file,'utf8').replace('<script src="three.min.js">',mocks+'<script src="three.min.js">'));
+ if(file.endsWith('index.html'))return res.end(fs.readFileSync(file,'utf8').replace('<script src="game-loader.js">',mocks+'<script src="game-loader.js">'));
  fs.createReadStream(file).pipe(res);
 });
 async function run(){
@@ -52,7 +52,11 @@ async function run(){
  assert(posts.some(p=>p.url.endsWith('/api/logs')&&JSON.parse(p.body).comment==='Проверка лога'));
  await page.getByRole('button',{name:'Биржи',exact:true}).click();await page.locator('#exchangeSearchInput').fill('Deribit');assert(await page.locator('.orbit-tool-dialog').isVisible());await page.keyboard.press('Escape');await page.waitForFunction(()=>document.getElementById('tab-exchanges').parentElement.tagName!=='DIALOG');assert.equal(await page.locator('#tab-exchanges').evaluate(e=>e.parentElement.tagName==='DIALOG'),false);assert(await page.locator('#teamLogFeed').isVisible());await page.evaluate(()=>{const h={};HubCalls.subscribe({emit(){},on:(n,f)=>h[n]=f});const row={id:'live-1',user:'Alex',createdAt:new Date().toISOString(),link:'https://example.com/log',comment:'Новый лог команды'};h.team_log(row);h.team_log(row);});assert.equal(await page.locator('.team-log-entry').count(),1);await page.screenshot({path:path.join(out,'shift-combined.png')});await page.click('#stopBtn');assert(await page.locator('#reportBox').isVisible());assert(await page.locator('.orbit-addOneBtn').isDisabled());
  await page.locator('.orbit-call').click();assert(await page.locator('#shiftCallDialog').isVisible());await page.keyboard.press('Escape');
- await page.setViewportSize({width:900,height:650});await page.screenshot({path:path.join(out,'shift-combined-900.png')});assert.deepEqual(errors,[]);console.log('SHIFT PASS: unified navigation, personal call statuses, log modal validation/cancel/retry, one increment on success, call submission, finish and responsive layout');
+ await page.setViewportSize({width:900,height:650});await page.screenshot({path:path.join(out,'shift-combined-900.png')});assert.equal(await page.evaluate(()=>typeof window.THREE),'undefined');
+ await page.locator('.tabs [data-tab=voxel]').click();await page.locator('.vx-lobby').waitFor();assert.equal(await page.evaluate(()=>typeof window.__cs16Open),'undefined');
+ await page.locator('.tabs [data-tab=cs16]').click();await page.waitForFunction(()=>typeof window.__cs16Open==='function'&&!!document.querySelector('#tab-cs16 canvas'),null,{timeout:60000});
+ await page.locator('.tabs [data-tab=shift]').click();assert.equal(await page.evaluate(()=>performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname==='/three.min.js').length),1);
+ assert.deepEqual(errors,[]);console.log('SHIFT PASS: unified navigation, personal call statuses, log modal validation/cancel/retry, one increment on success, call submission, finish and responsive layout');
  }catch(error){console.error('BROWSER_ERRORS',JSON.stringify(errors));console.error('AUTH_STATUS',await page.locator('#authErrorMsg').textContent());await page.screenshot({path:path.join(out,'hub-ui-failure.png')});throw error;}finally{await browser.close();server.close();}
 }
 run().catch(e=>{console.error(e);server.close();process.exitCode=1;});

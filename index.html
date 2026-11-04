@@ -345,10 +345,12 @@
   <!-- 9. ВКЛАДКА: Админ-панель -->
   <div id="tab-radio" class="content" style="display:none">
     <section class="card"><small>СТУДИЯ FIFFLAREN · ПРЯМОЙ ЭФИР</small><h2>Радио команды</h2><p>Кнопка ▶ в шапке подключает сотрудников к одной и той же секунде эфира. Громкость у каждого своя.</p>
-    <label>Добавить треки с компьютера <input id="radioFiles" type="file" multiple accept=".mp3,.ogg,.wav"></label><small> MP3, OGG, WAV · до 12 МБ на трек</small>
+    <label>Добавить треки с компьютера <input id="radioFiles" type="file" multiple accept="audio/*,.mp3,.ogg,.opus,.wav,.flac,.m4a,.mp4,.aac,.weba,.webm,.aiff,.aif"></label>
+    <small>Можно выбрать несколько файлов сразу. Треки сохраняются в медиатеке и добавляются в эфир.</small><p id="radioUploadStatus" role="status"></p>
     <div class="radio-controls"><button id="radioPrev">Предыдущий</button><button id="radioBroadcast">Начать эфир</button><button id="radioNext">Следующий</button></div>
     <label class="radio-controls">Позиция эфира <input id="radioSeek" type="range" min="0" step="1" value="0"><span id="radioTime"></span></label>
-    <small id="radioNotice" role="status"></small><h3>Очередь эфира</h3><ol id="radioQueue"></ol></section>
+    <small id="radioNotice" role="status"></small><h3>Очередь эфира</h3><ol id="radioQueue"></ol>
+    <h3>Медиатека</h3><p>Треки остаются здесь и после снятия с эфира.</p><ul id="radioLibrary"></ul><button id="radioMore" hidden>Показать ещё</button></section>
   </div>
   <div id="tab-admin" class="content" style="display: none;">
     <div class="card admin-card">
@@ -1045,7 +1047,9 @@
     </div>
   </div>
 
-  <script src="three.min.js"></script>
+  <script src="game-loader.js"></script>
+  <template id="game-scripts-engine"><script src="three.min.js"></script></template>
+  <template id="game-scripts-cs16">
   <script src="GLTFLoader.js"></script>
   <script src="SkeletonUtils.js"></script>
   <script src="cs16-combat.js"></script><script src="cs16-characters.js"></script>
@@ -1057,11 +1061,12 @@
   <script src="cs16-props.js"></script>
   <script src="cs16-conquest-ui.js"></script>
   <script src="royale-core.js"></script><script src="royale-landscape.js"></script><script src="royale-city.js"></script><script src="royale-view.js"></script><script src="royale-client.js"></script><script src="cs16.js"></script>
+  </template>
   <script src="cookie-dialog.js"></script><script src="team-access.js"></script><script src="radio.js"></script><script src="work-tools.js"></script><script src="calls-inbox.js"></script>
   <script src="exchange-catalog.js"></script>
-  <script src="voxel-core.js"></script>
+  <template id="game-scripts-voxel"><script src="voxel-core.js"></script>
   <script src="voxel-life.js"></script>
-<script src="voxel-game.js"></script>
+<script src="voxel-game.js"></script></template>
   <script src="assistance-client.js"></script><script src="renderer.js"></script>
   <script src="casino-design.js"></script>
   <script src="casino-art.js"></script>

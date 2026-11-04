@@ -3,7 +3,7 @@
   'use strict';
 
   const QUALITY = Object.freeze({
-    low: { dpr: 1, shadow: 1024, anisotropy: 2, lamps: 2 },
+    low: { dpr: 0.78, shadow: 512, anisotropy: 2, lamps: 1 },
     balanced: { dpr: 1, shadow: 1024, anisotropy: 4, lamps: 3 },
     high: { dpr: 1.5, shadow: 2048, anisotropy: 8, lamps: 4 },
   });

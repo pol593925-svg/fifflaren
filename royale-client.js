@@ -319,7 +319,6 @@
       loadError = false;
       try {
         global.CS16Graphics.configureRenderer(renderer, { quality: gpuQuality });
-        if (gpuQuality === 'low') renderer.setPixelRatio(0.78);
         const ready = await global.RoyaleView.create(T, renderer, () => gpuQuality);
         if (closed) {
           ready.dispose();
@@ -345,7 +344,6 @@
       apply: (q) => {
         gpuQuality = q;
         global.CS16Graphics.configureRenderer(renderer, { quality: q });
-        if (q === 'low') renderer.setPixelRatio(0.78);
         w = 0;
       },
     });

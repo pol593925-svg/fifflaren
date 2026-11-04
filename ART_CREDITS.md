@@ -27,3 +27,7 @@ Original Quaternius Ultimate Stylized Nature Pack (CC0): https://quaternius.com/
 ## Каменный Берег
 
 The Battle Royale facade and street atlases are original generated artwork. The city also reuses the Poly Haven surface scans credited above. The transport plane, canopy, MP7, Vector and Bizon were modeled with the included Blender script.
+
+## Winter valley and interiors
+
+The photographed sky is Greg Zaal and Jarod Guest's [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky). The following local surface scans are from Poly Haven under CC0: [Forest ground](https://polyhaven.com/a/forrest_ground_01), [snow](https://polyhaven.com/a/snow_02), [rock face](https://polyhaven.com/a/rock_face_03), [painted plaster](https://polyhaven.com/a/painted_plaster_wall) and [floor tiles](https://polyhaven.com/a/floor_tiles_06). The two-tree alpha atlas is original generated art. The landmark meshes, articulated carbine details, sleeves and reflex sight are made for Support Hub.

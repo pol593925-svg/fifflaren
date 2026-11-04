@@ -73,7 +73,6 @@
       mat = (m) => (ownedM.add(m), m),
       cube = geo(new T.BoxGeometry(1, 1, 1)),
       steel = mat(new T.MeshStandardMaterial({ color: 0x343c40, roughness: 0.4, metalness: 0.64 })),
-      glass = mat(new T.MeshStandardMaterial({ color: 0x395f70, roughness: 0.12, metalness: 0.5 })),
       cylinder = geo(new T.CylinderGeometry(1, 1, 1, 16).rotateX(Math.PI / 2));
     function part(parent, g, m, x, y, z, w, h, d) {
       const mesh = new T.Mesh(g, m);
@@ -94,8 +93,7 @@
         asset.position.sub(new T.Box3().setFromObject(asset).getCenter(new T.Vector3()));
         root.add(asset);
         if (tier >= 1) {
-          part(root, cube, steel, 0, 0.105, -0.02, 0.065, 0.045, 0.095);
-          part(root, cube, glass, 0, 0.139, -0.04, 0.052, 0.042, 0.01);
+          root.add(optical.root.clone(true));
         }
         if (tier >= 2) part(root, cube, steel, 0, -0.16, -0.038, 0.045, 0.065, 0.068);
         if (tier >= 3) part(root, cylinder, steel, 0, -0.085, -0.2, 0.022, 0.046, 0.05);
@@ -105,6 +103,8 @@
       }
       return guns.get(key).clone(true);
     }
+    const optical = global.CS16FieldView.optic(T);
+    let aimBlend = 0;
     const plane = models.get('transport').clone(true);
     scene.add(plane);
     const caseMat = mat(new T.MeshStandardMaterial({ color: 0x475345, roughness: 0.69, metalness: 0.27 })),
@@ -254,7 +254,33 @@
         r.line.geometry.dispose();
       }
     }
+    let previousActors = new Map(),
+      receivedAt = 0,
+      interval = 100;
+    function actorPoint(actor, local, clock) {
+      target.set(actor.x, actor.y, actor.z);
+      const old = previousActors.get(actor.id);
+      if (!old || actor.s !== old.s || actor.arena !== old.arena) return target;
+      const dx = actor.x - old.x,
+        dy = actor.y - old.y,
+        dz = actor.z - old.z;
+      if (Math.hypot(dx, dy, dz) > (actor.s === 'chute' || actor.s === 'fall' ? 8 : 2.8)) return target;
+      const fraction = Math.min(1, Math.max(0, clock / interval));
+      if (!local) return target.set(old.x + dx * fraction, old.y + dy * fraction, old.z + dz * fraction);
+      if (local.moving && actor.s === 'ground') {
+        const x = actor.x + dx * fraction,
+          z = actor.z + dz * fraction;
+        if (C.clear(x, actor.y, z) && Math.abs(C.floor(x, z, actor.y) - actor.y) < 0.4)
+          target.set(x, actor.y, z);
+      }
+      return target;
+    }
     function update(state, view, t, dt) {
+      if (state !== latest) {
+        previousActors = new Map((latest?.actors || []).map((a) => [a.id, a]));
+        interval = C.clamp(view.snapshotAt - receivedAt, 60, 180);
+        receivedAt = view.snapshotAt;
+      }
       latest = state;
       const me = state?.self,
         actors = state?.actors || [],
@@ -293,7 +319,7 @@
             Math.hypot(look.x - focus.x, look.z - focus.z) > 25,
           alpha = first ? 1 : 1 - Math.exp(-dt * 21);
         focusID = focus.id;
-        look.lerp(target.set(focus.x, focus.y, focus.z), alpha);
+        look.lerp(actorPoint(focus, playing ? view : null, t - receivedAt), alpha);
         const yaw = view.yaw,
           pitch = view.pitch;
         if (focus.s === 'plane') {
@@ -334,7 +360,7 @@
           const model = operator(a, parent),
             x = model.root.position.x,
             z = model.root.position.z;
-          model.root.position.lerp(target.set(a.x, a.y, a.z), model.first ? 1 : 1 - Math.exp(-dt * 15));
+          model.root.position.copy(actorPoint(a, null, t - receivedAt));
           model.first = false;
           model.root.rotation.y = a.yaw;
           model.root.rotation.z = a.s === 'down' ? 1.18 : 0;
@@ -382,7 +408,11 @@
         vm.visible = playing && ['ground', 'duel'].includes(focus?.s);
         vm.rotation.set(0, 0, 0);
         const recoil = Math.max(0, 1 - (t - shotAt) / 140);
-        vm.position.set(view.aim ? 0.04 : 0.235, -0.23, -0.56 + recoil * 0.055);
+        aimBlend += ((view.aim ? 1 : 0) - aimBlend) * Math.min(1, dt * 16);
+        global.CS16FieldView.frame(vm.position, aimBlend, held.tier > 0);
+        vm.position.z += recoil * 0.04;
+        const dot = vm.getObjectByName('fieldReticle');
+        if (dot) dot.visible = aimBlend > 0.92;
         vm.rotation.x = recoil * 0.09;
         const spec = C.profile(held.id, held.tier);
         global.CS16WeaponAnimation.update(
@@ -425,6 +455,7 @@
           r.line.geometry.dispose();
           r.line.removeFromParent();
         }
+        optical.dispose();
         city.dispose();
         cases.dispose();
         bands.dispose();

@@ -28,8 +28,8 @@
     },
     {
       "file": "m4a1.glb",
-      "triangles": 18428,
-      "bytes": 1443984
+      "triangles": 26188,
+      "bytes": 1651680
     },
     {
       "file": "awp.glb",
@@ -98,8 +98,8 @@
     },
     {
       "file": "hands.glb",
-      "triangles": 12248,
-      "bytes": 548556
+      "triangles": 7644,
+      "bytes": 432852
     }
   ]
 }

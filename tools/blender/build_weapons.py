@@ -157,10 +157,29 @@ def build(kind):
                 for x in (-.024,.024):a.box('Magazine pressed channel',(x,yy,zz-.017),(.002,.030,.004),edge,p,.001)
         # Shoulder stock with a rubberized cheek weld and separate butt pad.
         cyl('Stock buffer',(0,.023,.15),.022,.13,steel,p)
-        a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),painted_wood if ak else painted_black,p,.012)
-        a.box('Butt pad',(0,-.005,.346),(.066,.13,.018),black,p,.004)
-        a.box('Cheek rest',(0,.065,.24),(.064,.025,.17),painted_wood if ak else painted_black,p,.006)
-        for z in (.16,.20,.24,.28):a.box('Stock texture',(.03,.015,z),(.001,.048,.012),steel,p,.001)
+        if kind=='m4a1':
+            # Open-frame telescoping stock; the tube, braces and rear rubber pad form the actual silhouette.
+            cyl('Adjustable buffer tube',(0,.039,.221),.026,.265,painted_steel,p)
+            cyl('Cheek saddle',(0,.046,.237),.034,.152,painted_black,p)
+            a.box('Rubber rear pad',(0,-.015,.348),(.073,.125,.022),black,p,.009)
+            for x in [-.026,.026]:
+                a.line('Sloped stock brace',[(x,.016,.186),(x,-.058,.333),(x,.037,.333)],.010,painted_black,p)
+                a.line('Release lever',[(x,-.002,.212),(x,-.012,.273)],.006,steel,p)
+            for i in range(8):a.box('Pad grooves',(0,-.062+i*.013,.361),(.064,.003,.005),edge,p,.001)
+            # Charging latch, forward assist and bolted rails read from the player's right shoulder.
+            a.box('Charging handle',(0,.074,.057),(.098,.012,.019),edge,p,.003)
+            a.box('Release latch',(-.044,.068,.047),(.014,.018,.039),black,p,.002)
+            for x in [-.04,.04]:
+                a.box('Side rail',(x,.023,-.233),(.012,.031,.154),steel,p,.002)
+                for i in range(8):
+                    a.box('Handguard rail lug',(x*1.18,.024,-.295+i*.017),(.008,.040,.007),edge,p,.001)
+                for z in [-.121,.036]:cyl('Lower pin',(x,.013,z),.0048,.009,edge,p,'x',10)
+            for i in range(10):a.box('Receiver rail tooth',(0,.086,-.12+i*.017),(.052,.009,.008),edge,p,.001)
+        else:
+            a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),painted_wood if ak else painted_black,p,.012)
+            a.box('Butt pad',(0,-.005,.346),(.066,.13,.018),black,p,.004)
+            a.box('Cheek rest',(0,.065,.24),(.064,.025,.17),painted_wood if ak else painted_black,p,.006)
+            for z in (.16,.20,.24,.28):a.box('Stock texture',(.03,.015,z),(.001,.048,.012),steel,p,.001)
         # Iron sights, gas block and barrel band.
         a.box('Front sight tower',(0,.071,-.37),(.025,.072,.025),steel,p,.002)
         cyl('Sight hood',(0,.113,-.37),.018,.018,steel,p)
@@ -234,10 +253,20 @@ def hands():
             a.line('Finger seam',[(xx-.007,-.025,-.018),(xx-.007,-.027,-.04),(xx+.007,-.025,-.055)],.001,thread,p)
         a.orb('Thumb',(-.045,.008,.003),(.022,.018,.033),leather,p,16,10)
         a.box('Velcro wrist',(0,-.006,.055),(.088,.048,.035),rubber,p,.007)
-        # Sleeve runs toward the camera, bent inward toward the hand.
-        for i in range(7):
-            zz=.078+i*.038;xx=(.02 if side=='right' else -.11)*i/6;yy=-.025-i*.013
-            a.orb('Sleeve',(xx,yy,zz),(.052+i*.003,.044+i*.002,.040),cloth,p,20,10)
+        # A continuous sewn sleeve with asymmetric folds instead of intersecting ellipsoids.
+        verts=[];faces=[];rings=15;sides=16
+        for ring in range(rings):
+            t=ring/(rings-1);cx=(.045 if side=='right' else -.135)*t;cy=-.008-.068*t
+            for j in range(sides):
+                ang=j*math.tau/sides
+                fold=.0045*math.sin(t*28+ang*1.5)*(.2+.8*t)
+                verts.append((cx+(.043+.025*t+fold)*math.cos(ang),cy+(.032+.028*t+fold)*math.sin(ang),.065+t*.264))
+        for ring in range(rings-1):
+            for j in range(sides):
+                n=ring*sides+j;k=ring*sides+(j+1)%sides;faces.append((n,k,k+sides,n+sides))
+        faces.append(tuple(range((rings-1)*sides,rings*sides)))
+        a.mesh('Ripstop sleeve',verts,faces,cloth,p)
+        a.line('Cuff binding',[(-.036,-.016,.078),(-.018,-.034,.081),(.018,-.034,.081),(.04,-.010,.078)],.002,thread,p)
     a.join_parts(root)
     return root
 

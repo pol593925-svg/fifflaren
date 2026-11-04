@@ -824,7 +824,7 @@
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1600);
     buildWorld();
   }
-  function releaseLostGraphics(){
+  function releaseLostGraphics(){fieldOptical?.dispose();fieldOptical=null;fieldAim=false;fieldAimMix=0;
     clearFieldPresentation();
     remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
@@ -1175,7 +1175,7 @@
       setTimeout(() => doJoin(), 400); // вернёмся в лобби зрителем
     };
     for (const [name, node] of Object.entries(ui)) node.classList.add('cs16-' + name);
-    ui.crosshair.textContent = '';
+    ui.crosshair.textContent = '';ui.bearing=el('div','',ui.hud);ui.bearing.className='field-bearing';
     ui.weaponName = el('div', '', ui.hud); ui.weaponName.className = 'cs16-weaponName';
     ui.location = el('div', '', ui.hud); ui.location.className = 'cs16-location';
     const qualityLabel = el('label', '', ew, 'Графика '); qualityLabel.className = 'cs16-quality';
@@ -2197,7 +2197,7 @@
   }
 
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
-  let inspectStart=-Infinity;
+  let inspectStart=-Infinity,fieldOptical=null,fieldAim=false,fieldAimMix=0;
   let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmKickVelocity = 0, vmSwayX = 0, vmSwayY = 0;
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
@@ -2206,6 +2206,10 @@
       vmWeapon = current; vmSkin = mySkin; vmGlb = !!(glbCache[current] && glbCache[current].model);
       if (vm) { disposeGun(vm); camera.remove(vm); }
       vm = buildGun(current, mySkin, 1.8);
+      if(CS16FieldView.supported(current)){
+        if(!fieldOptical)fieldOptical=CS16FieldView.optic(THREE);
+        vm.add(fieldOptical.root.clone(true));
+      }
       vmKick=0;vmKickVelocity=0;
       vm.userData.animation=CS16WeaponAnimation.bind(vm);inspectStart=-Infinity;
       vm.position.set(0.24, -0.25, -0.55);
@@ -2213,8 +2217,12 @@
     }
     if (!vm) return;
     const moving = (keys.w || keys.a || keys.s || keys.d) && P.onGround;
-    vm.position.y = -0.25 + (moving ? Math.abs(Math.sin(t / 110)) * 0.014 : 0);
-    vm.position.x = 0.24 + (moving ? Math.sin(t / 220) * 0.008 : 0);
+    const ads=fieldAim&&pointerLocked&&me.alive&&!reloading&&!myVeh?.inside&&CS16FieldView.supported(current);
+    fieldAimMix+=((ads?1:0)-fieldAimMix)*Math.min(1,dt*16);
+    CS16FieldView.frame(vm.position,fieldAimMix,true);
+    vm.position.y+=(moving?Math.abs(Math.sin(t/110))*.011:0)*(1-fieldAimMix);
+    vm.position.x+=(moving?Math.sin(t/220)*.007:0)*(1-fieldAimMix);
+    const dot=vm.getObjectByName('fieldReticle');if(dot)dot.visible=fieldAimMix>.92;
     // отводка за мышью (ствол чуть отстаёт от движения)
     vmSwayX *= Math.max(0, 1 - dt * 7);
     vmSwayY *= Math.max(0, 1 - dt * 7);
@@ -2228,7 +2236,7 @@
     vmKick=(vmKick+impulse*dt)*decay;
     vmKickVelocity=(vmKickVelocity-22*impulse*dt)*decay;
     const melee=WEAPONS[current].melee;
-    vm.position.z = -0.55 + vmKick * (melee ? -.25 : .16);
+    vm.position.z += vmKick * (melee ? -.25 : .16);
     vm.position.y += vmKick*.035;
     vm.rotation.x += vmKick*(melee ? -.7 : .23);
     vm.rotation.z = vmKick*(melee ? -.9 : -.06);
@@ -2255,7 +2263,7 @@
   function switchSlot(id) {
     if (!WEAPONS[id] || id === current) return;
     burstTimers.forEach(clearTimeout); burstTimers.length = 0;
-    sprayN = 0; bloom = 0; scoped = false;
+    sprayN = 0; bloom = 0; scoped = false;fieldAim=false;fieldAimMix=0;
     lastWeaponSlot = current;
     current = id;
     inspectStart=-Infinity;reloading = 0;
@@ -2778,7 +2786,7 @@
     });
     document.addEventListener('pointerlockchange', () => {
       if(royaleActive)return;
-      pointerLocked = document.pointerLockElement === canvasEl;
+      pointerLocked = document.pointerLockElement === canvasEl;if(!pointerLocked)fieldAim=false;
       if (!pointerLocked && !unlockForShop && (state.phase === 'live' || state.phase === 'freeze' || state.phase === 'roundend')) {
         // 3.15.9: ESC (или потеря мыши) — открываем меню паузы
         openEsc();
@@ -2803,9 +2811,10 @@
         if (w.melee) heavySlash();
         else if (w.burst) { burstOn = !burstOn; killfeed(burstOn ? '🔥 Режим очереди ВКЛ' : '🔥 Режим очереди ВЫКЛ'); }
         else if (w.scope) scoped = !scoped;
+        else if(CS16FieldView.supported(current))fieldAim=true;
       }
     });
-    window.addEventListener('mouseup', (e) => { if (e.button === 0) keys.fire = false; });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) keys.fire = false;if(e.button===2)fieldAim=false; });
     canvasEl.addEventListener('contextmenu', e => e.preventDefault());
     // 3.15.2: колесико мыши — перебор оружия как в CS 1.6
     canvasEl.addEventListener('wheel', (e) => {
@@ -2907,7 +2916,8 @@
     ui.nadeTxt.textContent = `HE  ${nades.he}    FLASH  ${nades.flash}    SMOKE  ${nades.smoke}`;
     ui.weaponName.textContent = w.name;
     ui.location.textContent = MAP_META[curMap].name.toUpperCase();
-    ui.crosshair.style.display = (scoped || !me.alive) ? 'none' : 'block';
+    ui.bearing.textContent=CS16FieldView.bearing(P.yaw);
+    ui.crosshair.style.display = (scoped || !me.alive || fieldAimMix>.92) ? 'none' : 'block';
     const cone=Combat.spread(w,{scoped,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
     ui.crosshair.style.transform='translate(-50%,-50%) scale('+Math.min(3,1+cone*.22)+')';
     ui.scope.style.display = scoped ? 'block' : 'none';
@@ -3131,7 +3141,7 @@
     camera.rotation.order = 'YXZ';
     camera.rotation.y = P.yaw;
     camera.rotation.x = P.pitch;
-    camera.fov += ((scoped ? (current==='awp'?16:current==='scout'?22:40) : 75) - camera.fov) * Math.min(1, dt * 10);
+    camera.fov += ((scoped ? (current==='awp'?16:current==='scout'?22:40) : 75-fieldAimMix*25) - camera.fov) * Math.min(1, dt * 10);
     camera.updateProjectionMatrix();
     updateHud();
     // отправка позиции 15 раз/сек

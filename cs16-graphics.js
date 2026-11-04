@@ -178,6 +178,12 @@
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
+    // Keep the procedural sky as a fallback while the local photographic panorama loads.
+    let photoSky=null;
+    new T.TextureLoader().load('assets/royale/daylight.jpg',texture=>{
+      if(disposed){texture.dispose();return;}texture.mapping=T.EquirectangularReflectionMapping;texture.colorSpace=T.SRGBColorSpace;
+      photoSky=texture;scene.background=scene.environment=texture;sky.mesh.visible=false;
+    });
     // Reuse the same atmosphere for metal reflections; no remote HDR dependency.
     const envScene = new T.Scene();
     const envSky = makeSky(T, mapName === 'inferno', 10);
@@ -203,6 +209,9 @@
         power: cell === 4 ? 12 : 6,
         distance: cell === 4 ? 10 : 7,
       });
+    }
+    for(const b of global.CS16Buildings.layout(grid,mapName).buildings)for(const deck of [0,3.6]){
+      lampCandidates.push({x:b.x+9.8,y:deck+2.9,z:b.z+8.2,color:0xffd3a5,power:19,distance:8});
     }
     const lamps = Array.from({ length: 4 }, () => {
       const light = new T.PointLight(0xffd19a, 0, 10, 2);
@@ -290,7 +299,7 @@
       if(landscape){landscape.dispose();landscape=null;}
       if(nature){disposeTree(nature);nature=null;}
       if (model) { disposeTree(model); model = null; }
-      disposeTree(sky.mesh);
+      disposeTree(sky.mesh);if(photoSky){if(scene.background===photoSky)scene.background=null;if(scene.environment===photoSky)scene.environment=null;photoSky.dispose();photoSky=null;}
       if (sun.shadow.map) sun.shadow.map.dispose();
       if (sun.shadow.mapPass) sun.shadow.mapPass.dispose();
       if (environmentTarget) {

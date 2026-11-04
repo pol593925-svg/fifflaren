@@ -18,14 +18,15 @@
    maskBytes[i]=trail?0:Math.round(meadow*255);maskBytes[i+1]=Math.round(Math.max(0,1-(clearance[z*size+x]-1)*.55)*255);if(trail)maskBytes[i+1]=224;maskBytes[i+2]=0;maskBytes[i+3]=255;
   }
   const mask=new T.DataTexture(maskBytes,size,size,T.RGBAFormat);mask.magFilter=mask.minFilter=T.LinearFilter;mask.needsUpdate=true;
+  const snow=new T.TextureLoader().load('assets/royale/snow.jpg');snow.wrapS=snow.wrapT=T.RepeatWrapping;snow.colorSpace=T.SRGBColorSpace;
   const patched=new Set();
   model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material])){
    if(!m||m.name!=='ground'||patched.has(m))continue;patched.add(m);
    m.onBeforeCompile=shader=>{
-    shader.uniforms.meadowMask={value:mask};shader.uniforms.meadowSize={value:world};
+    shader.uniforms.fieldSnow={value:snow};shader.uniforms.meadowMask={value:mask};shader.uniforms.meadowSize={value:world};
     shader.vertexShader='varying vec3 meadowWorld;\n'+shader.vertexShader;
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nmeadowWorld=(modelMatrix*vec4(position,1.)).xyz;');
-    shader.fragmentShader='uniform sampler2D meadowMask;uniform float meadowSize;varying vec3 meadowWorld;\nfloat meadowHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat meadowNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(meadowHash(i),meadowHash(i+vec2(1,0)),f.x),mix(meadowHash(i+vec2(0,1)),meadowHash(i+vec2(1,1)),f.x),f.y);}\n'+shader.fragmentShader;
+    shader.fragmentShader='uniform sampler2D fieldSnow;uniform sampler2D meadowMask;uniform float meadowSize;varying vec3 meadowWorld;\nfloat meadowHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat meadowNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(meadowHash(i),meadowHash(i+vec2(1,0)),f.x),mix(meadowHash(i+vec2(0,1)),meadowHash(i+vec2(1,1)),f.x),f.y);}\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
      float meadowBroad=meadowNoise(meadowWorld.xz*.065),meadowFine=meadowNoise(meadowWorld.xz*8.);
      float meadowMix=texture2D(meadowMask,meadowWorld.xz/meadowSize).r;
@@ -34,6 +35,8 @@
      float meadowPaving=texture2D(meadowMask,meadowWorld.xz/meadowSize).g;
      vec3 earthColor=mix(vec3(.19,.135,.073),vec3(.33,.25,.14),meadowBroad)*(.82+meadowFine*.35);
      diffuseColor.rgb=mix(mix(earthColor,diffuseColor.rgb*(.86+meadowBroad*.25),meadowPaving),meadowColor,meadowMix);
+     float drift=(1.-smoothstep(.28,.60,meadowWorld.z/meadowSize+(meadowBroad-.5)*.22))*(1.-meadowPaving*.88);
+     diffuseColor.rgb=mix(diffuseColor.rgb,texture2D(fieldSnow,meadowWorld.xz*.15).rgb,drift*.92);
     `);
     shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=normalize(mix(normal,nonPerturbedNormal,max(meadowMix*.96,(1.-meadowPaving)*.82)));');
    };
@@ -47,6 +50,15 @@
    vertices.push(wx,h-.35,wz);const c=new T.Color().lerpColors(new T.Color('#587b44'),new T.Color('#abb9b7'),rock);c.multiplyScalar(.85+noise(x,z)*.18);colors.push(c.r,c.g,c.b);
    if(x<res&&z<res){const mx=wx+extent/res/2,mz=wz+extent/res/2;if(mx>=-3&&mx<=world+3&&mz>=-3&&mz<=world+3)continue;const n=z*(res+1)+x;indices.push(n,n+res+1,n+1,n+1,n+res+1,n+res+2);}
   }
+  const treeAtlas=new T.TextureLoader().load('assets/royale/winter-trees.png');treeAtlas.colorSpace=T.SRGBColorSpace;
+  const treePos=[],treeUv=[],treeIx=[];for(let i=0;i<720;i++){
+    const x=center+(noise(i,3)-.5)*extent,z=center+(noise(i,11)-.5)*extent;
+    if(x>=-8&&x<=world+8&&z>=-8&&z<=world+8)continue;
+    const y=Math.max(-.4,height(x,z))-.7,h=8+noise(i,15)*9,w=h*.34,u=(i%2)*.5;
+    for(const a of [i*2.4,i*2.4+Math.PI/2]){const dx=Math.cos(a)*w,dz=Math.sin(a)*w,n=treePos.length/3;treePos.push(x-dx,y,z-dz,x+dx,y,z+dz,x-dx,y+h,z-dz,x+dx,y+h,z+dz);treeUv.push(u,0,u+.5,0,u,1,u+.5,1);treeIx.push(n,n+1,n+2,n+1,n+3,n+2);}
+  }
+  const treeGeo=new T.BufferGeometry();treeGeo.setAttribute('position',new T.Float32BufferAttribute(treePos,3));treeGeo.setAttribute('uv',new T.Float32BufferAttribute(treeUv,2));treeGeo.setIndex(treeIx);
+  const treeMat=new T.MeshBasicMaterial({map:treeAtlas,side:T.DoubleSide,alphaTest:.44});group.add(new T.Mesh(treeGeo,treeMat));
   const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.setIndex(indices);geo.computeVertexNormals();geo.computeBoundingSphere();
   const mat=new T.MeshStandardMaterial({vertexColors:true,roughness:1});const hills=new T.Mesh(geo,mat);hills.name='Soft distant ridges';hills.receiveShadow=false;group.add(hills);
   // Local, pooled grass blades: only nearby meadow patches enter the draw call.
@@ -64,7 +76,7 @@
    vec2 offset=instanceMatrix[3].xz-meadowActor;float reach=1.-smoothstep(.05,1.7,length(offset));transformed.xz+=offset/max(.05,length(offset))*reach*position.y*.8;
    transformed.x+=sin(meadowTime*1.7+instanceMatrix[3].x*.5+instanceMatrix[3].z*.3)*position.y*.22;`);};
   const grass=new T.InstancedMesh(blade,grassMat,700);grass.count=0;grass.name='Nearby meadow grass';grass.frustumCulled=false;grass.receiveShadow=true;group.add(grass);const dummy=new T.Object3D();let last=-Infinity;
-  return {mask,groundSurface(x,z){const i=(Math.max(0,Math.min(size-1,Math.floor(z/4)))*size+Math.max(0,Math.min(size-1,Math.floor(x/4))))*4;return maskBytes[i]>.45*255?'grass':maskBytes[i+1]>.5*255?'stone':'earth';},update(camera,time,quality){wind.value=time*.001;actor.value.set(camera.position.x,camera.position.z);if(time-last<250)return;last=time;const max=quality==='low'?220:quality==='high'?700:420,near=[];const cx=Math.floor(camera.position.x/32),cz=Math.floor(camera.position.z/32);for(let z=cz-2;z<=cz+2;z++)for(let x=cx-2;x<=cx+2;x++)for(const p of pointsByCell.get(x+','+z)||[]){const d=(p.x-camera.position.x)**2+(p.z-camera.position.z)**2;if(d<(quality==='low'?28*28:quality==='high'?55*55:44*44))near.push({p,d});}near.sort((a,b)=>a.d-b.d);grass.count=Math.min(max,near.length);for(let i=0;i<grass.count;i++){const p=near[i].p;dummy.position.set(p.x,global.CS16Terrain.height(grid,p.x,p.z)+.012,p.z);dummy.rotation.y=noise(p.x,p.z)*6.28;dummy.scale.setScalar(1);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}grass.instanceMatrix.needsUpdate=true;},dispose(){mask.dispose();geo.dispose();mat.dispose();blade.dispose();grassMat.dispose();group.removeFromParent();}};
+  return {mask,groundSurface(x,z){const i=(Math.max(0,Math.min(size-1,Math.floor(z/4)))*size+Math.max(0,Math.min(size-1,Math.floor(x/4))))*4;return maskBytes[i]>.45*255?'grass':maskBytes[i+1]>.5*255?'stone':'earth';},update(camera,time,quality){wind.value=time*.001;actor.value.set(camera.position.x,camera.position.z);if(time-last<250)return;last=time;const max=quality==='low'?220:quality==='high'?700:420,near=[];const cx=Math.floor(camera.position.x/32),cz=Math.floor(camera.position.z/32);for(let z=cz-2;z<=cz+2;z++)for(let x=cx-2;x<=cx+2;x++)for(const p of pointsByCell.get(x+','+z)||[]){const d=(p.x-camera.position.x)**2+(p.z-camera.position.z)**2;if(d<(quality==='low'?28*28:quality==='high'?55*55:44*44))near.push({p,d});}near.sort((a,b)=>a.d-b.d);grass.count=Math.min(max,near.length);for(let i=0;i<grass.count;i++){const p=near[i].p;dummy.position.set(p.x,global.CS16Terrain.height(grid,p.x,p.z)+.012,p.z);dummy.rotation.y=noise(p.x,p.z)*6.28;dummy.scale.setScalar(1);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}grass.instanceMatrix.needsUpdate=true;},dispose(){treeGeo.dispose();treeMat.dispose();treeAtlas.dispose();snow.dispose();mask.dispose();geo.dispose();mat.dispose();blade.dispose();grassMat.dispose();group.removeFromParent();}};
  }
  function vegetation({T,group,nature,items,slots,broken,grid}){
   const root=new T.Group();root.name='Evolution detailed vegetation';group.add(root);nature.updateMatrixWorld(true);

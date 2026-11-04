@@ -1,6 +1,6 @@
 {
   "name": "support-hub-desktop",
-  "version": "3.46.0",
+  "version": "3.47.0-preview.1",
   "description": "Support Hub Tool",
   "main": "main.js",
   "scripts": {
@@ -22,7 +22,8 @@
     "publish": {
       "provider": "github",
       "owner": "pol593925-svg",
-      "repo": "fifflaren"
+      "repo": "fifflaren",
+      "channel": "preview"
     },
     "artifactName": "Support-Hub-Setup-${version}.${ext}",
     "files": [

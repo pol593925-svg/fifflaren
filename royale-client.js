@@ -125,6 +125,7 @@
       context = null,
       joining = 0,
       loading = false;
+    const compass = el('div', 'field-bearing', hud);
     const keys = new Set(),
       on = (target, name, fn) => target.addEventListener(name, fn, { signal });
     function notice(msg) {
@@ -219,8 +220,8 @@
         status.textContent = 'Для входа нужен действующий сеанс Support Hub';
         return;
       }
-      socket = config.io(config.server + '/royale', {
-        auth: { token: config.token, protocol: 1 },
+      socket = config.io(config.server + '/royale-v2', {
+        auth: { token: config.token, protocol: 2 },
         autoConnect: false,
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -318,6 +319,7 @@
       loadError = false;
       try {
         global.CS16Graphics.configureRenderer(renderer, { quality: gpuQuality });
+        if (gpuQuality === 'low') renderer.setPixelRatio(0.78);
         const ready = await global.RoyaleView.create(T, renderer, () => gpuQuality);
         if (closed) {
           ready.dispose();
@@ -343,6 +345,7 @@
       apply: (q) => {
         gpuQuality = q;
         global.CS16Graphics.configureRenderer(renderer, { quality: q });
+        if (q === 'low') renderer.setPixelRatio(0.78);
         w = 0;
       },
     });
@@ -387,6 +390,37 @@
         });
       } catch {}
     }
+    let mapBase = null;
+    function baseMap() {
+      if (mapBase) return mapBase;
+      mapBase = document.createElement('canvas');
+      mapBase.width = mapBase.height = 1000;
+      const g = mapBase.getContext('2d');
+      g.scale(0.5, 0.5);
+      g.fillStyle = '#3c4848';
+      g.fillRect(0, 0, 2000, 2000);
+      for (let z = 0; z < 300; z += 10)
+        for (let x = 0; x < 600; x += 10) {
+          const h = C.terrainHeight(x, z),
+            v = Math.round(88 + h * 1.5);
+          g.fillStyle =
+            Math.abs(z - C.riverZ(x)) < 14 ? '#839da4' : 'rgb(' + v + ',' + (v + 8) + ',' + (v + 6) + ')';
+          g.fillRect(x, z, 10, 10);
+        }
+      for (const b of C.buildings) {
+        g.fillStyle = ['#889189', '#71848b', '#907f6e', '#a69a83'][b.kind];
+        g.fillRect(b.left, b.front, b.w, b.d);
+      }
+      for (const r of C.metro) {
+        g.fillStyle = '#7798a5';
+        g.fillRect(r.x1, r.z1, r.x2 - r.x1, r.z2 - r.z1);
+      }
+      for (const l of C.landmarks) {
+        g.fillStyle = '#e0c77e';
+        g.fillRect(l.x - 6, l.z - 6, 12, 12);
+      }
+      return mapBase;
+    }
     function drawMap(can, big) {
       const ctx = can.getContext('2d'),
         size = can.width,
@@ -399,25 +433,12 @@
         Z = (z) => (z - minZ) * k;
       ctx.fillStyle = '#243335';
       ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = '#586162';
-      for (const b of C.buildings) {
-        if (b.right < minX || b.left > minX + field || b.back < minZ || b.front > minZ + field) continue;
-        ctx.fillStyle = ['#6e7771', '#75868b', '#84776a', '#717b75'][b.kind];
-        ctx.fillRect(X(b.left), Z(b.front), b.w * k, b.d * k);
-      }
-      ctx.strokeStyle = '#73979e';
-      ctx.lineWidth = 2;
-      for (const m of C.metro) {
-        ctx.beginPath();
-        ctx.moveTo(X(m.x1), Z(m.z1));
-        ctx.lineTo(X(m.x2), Z(m.z2));
-        ctx.stroke();
-      }
+      ctx.drawImage(baseMap(), -minX * k, -minZ * k, 2000 * k, 2000 * k);
       if (big) {
         ctx.font = 'bold 10px Segoe UI';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#e4dfca';
-        for (const d of C.districts) ctx.fillText(d.name, X(d.x), Z(d.z));
+        for (const d of C.landmarks) ctx.fillText(d.name, X(d.x), Z(d.z));
       }
       if (state) {
         const z = state.zone;
@@ -498,6 +519,7 @@
       weapon.style.borderColor = held ? C.colors[held.tier] : '#6e7e81';
       prompt.textContent = nearestPrompt(p);
       prompt.hidden = !prompt.textContent;
+      compass.textContent = global.CS16FieldView.bearing(yaw);
       const mate = state.actors.find((a) => a.team === me.team && a.id !== me.id);
       ally.hidden = !mate || mode !== 'duo';
       if (mate)
@@ -549,7 +571,19 @@
           jump: keys.has('Space'),
         });
       }
-      view?.update(state, { yaw, pitch, aim, spectator, snapshotAt }, t, dt);
+      view?.update(
+        state,
+        {
+          yaw,
+          pitch,
+          aim,
+          spectator,
+          snapshotAt,
+          moving: board.hidden && ['KeyW', 'KeyS', 'KeyA', 'KeyD'].some((k) => keys.has(k)),
+        },
+        t,
+        dt,
+      );
       if (t > nextUI) {
         nextUI = t + 150;
         updateUI(t);

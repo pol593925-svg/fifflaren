@@ -16,7 +16,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8'),
         /^(?:three.min|GLTFLoader|SkeletonUtils|cs16(?:[.-].*)?|royale-.*)\.js$/.test(n) || n === 'cs16.js',
     );
 const harness =
-  '<!doctype html><meta charset=utf-8><link rel=stylesheet href="/royale.css"><link rel=stylesheet href="/cs16-graphics.css"><style>body{margin:0}#tab-cs16{height:100vh;position:relative}</style><div id=tab-cs16></div><script src="/socket.io/socket.io.js"></script><script>const real=io;window.io=(url,opts)=>String(url).endsWith("/royale")?real(url,opts):({connected:true,on(n,f){if(n==="cs16_state")setTimeout(()=>f({phase:"lobby",map:"dust2",gm:"cq",mode:5,host:"Tester",scores:{t:0,ct:0},players:[{nick:"Tester",team:null,alive:false,money:800}]}),0);return this},emit(){},removeAllListeners(){},disconnect(){}});</script>' +
+  '<!doctype html><meta charset=utf-8><link rel=stylesheet href="/royale.css"><link rel=stylesheet href="/cs16-graphics.css"><style>body{margin:0}#tab-cs16{height:100vh;position:relative}</style><div id=tab-cs16></div><script src="/socket.io/socket.io.js"></script><script>const real=io;window.io=(url,opts)=>String(url).endsWith("/royale-v2")?real(url,opts):({connected:true,on(n,f){if(n==="cs16_state")setTimeout(()=>f({phase:"lobby",map:"dust2",gm:"cq",mode:5,host:"Tester",scores:{t:0,ct:0},players:[{nick:"Tester",team:null,alive:false,money:800}]}),0);return this},emit(){},removeAllListeners(){},disconnect(){}});</script>' +
   matchScripts.map((n) => '<script src="/' + n + '"></script>').join('') +
   '<script>HubRoyale.configure({username:"Tester",token:"qa-token",server:location.origin,io});__cs16Open("Tester");</script>';
 const web = http.createServer((req, res) => {
@@ -46,7 +46,7 @@ const web = http.createServer((req, res) => {
         .readFileSync(target, 'utf8')
         .replace(
           /active\s*=\s*\{\s*close\s*\}\s*;/,
-          'global.__royaleQA={state:()=>state,view:()=>view,loot:()=>loot,look:v=>{yaw=v;}};active={close};',
+          'global.__royaleQA={state:()=>state,view:()=>view,loot:()=>loot,look:(v,vertical=0)=>{yaw=v;pitch=vertical;},ads:v=>{aim=v;}};active={close};',
         ),
     );
     return;
@@ -164,6 +164,27 @@ async function run() {
     await page.keyboard.up('KeyW');
     assert(p.z > b.front && p.z < b.back);
     await page.screenshot({ path: path.join(out, 'royale-interior.png') });
+    const home = require('../../support-hub-server/royale-core').buildings.find(
+      (h) => h.hasStairs && h.x > 600,
+    );
+    Object.assign(p, { x: home.stairX + 0.13, y: 0, z: home.z - 5.05, vy: 0, status: 'ground' });
+    p.gear[p.slot] = { id: 'm4a1', tier: 4, mag: 42, reserve: 100 };
+    await page.evaluate(() => {
+      __royaleQA.look(Math.PI, 0.17);
+      __royaleQA.ads(false);
+    });
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(out, 'br-corridor-hip.png') });
+    await page.evaluate(() => __royaleQA.ads(true));
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(out, 'br-corridor-ads.png') });
+    const center = await page.evaluate(() => {
+      const view = __royaleQA.view(),
+        dot = view.camera.getObjectByName('fieldReticle'),
+        v = dot.getWorldPosition(new THREE.Vector3()).project(view.camera);
+      return Math.hypot(v.x, v.y);
+    });
+    assert(center < 0.015, 'BR sight misses center: ' + center);
     await page.locator('.br-exit').click();
     await page.waitForSelector('.cs16-br-entry', { timeout: 120000 });
     assert.equal(await page.locator('.br-stage').count(), 0);

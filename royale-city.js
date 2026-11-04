@@ -121,19 +121,63 @@
       g.computeBoundingSphere();
       return g;
     };
+    const landscape = await global.RoyaleLandscape.create(T, root, renderer);
+    scene.background = scene.environment = landscape.sky;
+    material('pavers', { map: landscape.cobbles, roughness: 0.88 });
+    material('yard', { map: landscape.gravel, roughness: 0.91 });
+    const [wall, wallN, tile, tileN] = await Promise.all(
+      ['plaster-Diffuse', 'plaster-nor_gl', 'tile-Diffuse', 'tile-nor_gl'].map((n, i) =>
+        textureLoader.loadAsync('assets/royale/' + n + '.jpg').then((t) => tex(t, i % 2 === 0)),
+      ),
+    );
+    material('painted', {
+      map: wall,
+      color: 0x879d94,
+      roughness: 0.93,
+      normalMap: wallN,
+      normalScale: new T.Vector2(0.59, 0.59),
+    });
+    material('tile', {
+      map: tile,
+      color: 0xb4b8ac,
+      roughness: 0.63,
+      normalMap: tileN,
+      normalScale: new T.Vector2(0.46, 0.46),
+    });
+    material('stair', { map: concrete, color: 0x787775, roughness: 0.95 });
     const cube = new T.BoxGeometry(1, 1, 1);
     function batches(records, parent, shadow = true) {
       const groups = new Map();
       for (const b of records) {
         const baseMat = b.mat || 'base';
         for (let f = 0; f < 6; f++) {
+          if ((baseMat === 'line' || ['sidewalk', 'pavers', 'yard', 'tile'].includes(baseMat)) && f !== 2)
+            continue;
           const owner = C.buildings[b.owner],
-            facadeBase = baseMat === 'base' && owner && b.d < 0.5 && b.w > 4 &&
+            facadeBase =
+              baseMat === 'base' &&
+              owner &&
+              b.d < 0.5 &&
+              b.w > 4 &&
               ((f === 4 && b.z === owner.back) || (f === 5 && b.z === owner.front));
           let faceMaterial = baseMat;
+          if (
+            owner &&
+            baseMat === 'base' &&
+            ((b.z === owner.back && f === 5) ||
+              (b.z === owner.front && f === 4) ||
+              (b.x === owner.left && f === 0) ||
+              (b.x === owner.right && f === 1))
+          )
+            faceMaterial = 'painted';
+          if (owner?.cabin && baseMat.startsWith('facade')) faceMaterial = 'crate';
           if (facadeBase) faceMaterial = owner.kind === 2 ? 'shutter' : 'shop';
           if (baseMat.startsWith('facade') && f === 2) faceMaterial = 'roof';
-          if (baseMat.startsWith('facade') && f === 3) faceMaterial = 'base';
+          if (baseMat.startsWith('facade') && f === 3) faceMaterial = 'painted';
+          if (owner && b.d < 0.5 && ((b.z === owner.back && f === 5) || (b.z === owner.front && f === 4)))
+            faceMaterial = 'painted';
+          if (owner && b.w < 0.5 && ((b.x === owner.left && f === 0) || (b.x === owner.right && f === 1)))
+            faceMaterial = 'painted';
           if (!groups.has(faceMaterial)) groups.set(faceMaterial, { pos: [], norm: [], uv: [], idx: [] });
           const a = groups.get(faceMaterial),
             base = a.pos.length / 3;
@@ -177,7 +221,7 @@
       edgesX = new Set([0, 2000]),
       edgesZ = new Set([0, 2000]);
     for (let i = 0; i < 20; i++)
-      for (const off of [11, 89]) {
+      for (const off of [0, 11, 89, 100]) {
         edgesX.add(i * 100 + off);
         edgesZ.add(i * 100 + off);
       }
@@ -212,6 +256,7 @@
           midZ = (c + d) / 2;
         if (
           C.rampAt(midX, midZ) !== null ||
+          C.vacant.has(Math.floor(midZ / 100) * 20 + Math.floor(midX / 100)) ||
           (midX % 100 > 11 && midX % 100 < 89 && midZ % 100 > 11 && midZ % 100 < 89)
         )
           continue;
@@ -267,7 +312,17 @@
       for (let j = 0; j < 20; j++) {
         const x = i * 100 + 50,
           z = j * 100 + 50;
-        roads.push({ x, y: 0.005, z, w: 78, h: 0.1, d: 78, mat: 'sidewalk' });
+        if (!C.vacant.has(j * 20 + i))
+          roads.push({
+            x,
+            y: 0.005,
+            z,
+            w: 78,
+            h: 0.1,
+            d: 78,
+            mat: i >= 14 ? 'yard' : j > 9 ? 'pavers' : 'sidewalk',
+          });
+        if (C.alpine(x, z)) continue;
         for (let k = 0; k < 6; k++) {
           const px = i * 100 + 8 + k * 15,
             pz = j * 100 + 8 + k * 15;
@@ -316,86 +371,54 @@
             });
         }
     }
-    const streetShapes = new Set(['vehicleBody', 'vehicleCab', 'trunk', 'chimney']);
-    batches(
-      C.boxes.filter((b) => !streetShapes.has(b.mat)),
-      root,
-    );
+    const shellRecords = [],
+      interiorRecords = new Map();
+    function enqueue(map, key, value) {
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(value);
+    }
+    for (const rec of C.boxes) {
+      if (rec.owner < 0) continue;
+      const h = C.buildings[rec.owner],
+        shell =
+          rec.mat.startsWith('facade') ||
+          (rec.mat === 'base' &&
+            (rec.x === h.left || rec.x === h.right || rec.z === h.front || rec.z === h.back));
+      if (shell) shellRecords.push(rec);
+      else enqueue(interiorRecords, Math.floor(h.z / 100) * 20 + Math.floor(h.x / 100), rec);
+    }
+    batches(shellRecords, root);
     batches(roads, root, false);
-    batches(floors, root, false);
-    // Distant ridges and a layered atmospheric sky frame the city during the flight.
-    // Fill the entire horizon outside the combat boundary without covering metro openings.
-    const terrainPts = [],
-      terrainUV = [],
-      terrainIx = [];
-    for (let z = -1100; z < 3100; z += 100)
-      for (let x = -1100; x < 3100; x += 100) {
-        if (x >= 0 && x < 2000 && z >= 0 && z < 2000) continue;
-        const start = terrainPts.length / 3;
-        for (const [xx, zz] of [
-          [x, z],
-          [x, z + 100],
-          [x + 100, z + 100],
-          [x + 100, z],
-        ]) {
-          const dist = Math.max(0, -xx, xx - 2000, -zz, zz - 2000),
-            h =
-              -0.28 +
-              Math.min(1, dist / 550) *
-                (20 + 18 * Math.sin(xx * 0.008) * Math.cos(zz * 0.006) + 12 * Math.sin((xx + zz) * 0.004));
-          terrainPts.push(xx, h, zz);
-          terrainUV.push(xx / 28, zz / 28);
-        }
-        terrainIx.push(start, start + 1, start + 2, start, start + 2, start + 3);
-      }
-    material('outskirts', { map: concrete, color: 0x7c8469, roughness: 1 });
-    root.add(new T.Mesh(geom(terrainPts, terrainUV, terrainIx), mats.outskirts));
-    const hillside = [],
-      hidx = [];
-    for (let band = 0; band < 4; band++)
-      for (let i = 0; i <= 100; i++) {
-        const a = (i / 100) * Math.PI * 2,
-          r = 1610 + band * 145,
-          h = band === 0 ? -8 : band === 3 ? 30 : 65 + 50 * Math.sin(a * 7 + 0.4) + 25 * Math.cos(a * 13);
-        hillside.push(1000 + Math.cos(a) * r, h, 1000 + Math.sin(a) * r);
-        if (i && band) {
-          const n = band * 101 + i;
-          hidx.push(n - 102, n - 101, n, n - 102, n, n - 1);
-        }
-      }
-    const ridgeGeo = new T.BufferGeometry();
-    ridgeGeo.setAttribute('position', new T.Float32BufferAttribute(hillside, 3));
-    ridgeGeo.setIndex(hidx);
-    ridgeGeo.computeVertexNormals();
-    const ridgeMat = new T.MeshStandardMaterial({ color: 0x727b75, side: T.DoubleSide, roughness: 1 });
-    resources.add(ridgeMat);
-    root.add(new T.Mesh(ridgeGeo, ridgeMat));
-    const skyMat = new T.ShaderMaterial({
-      side: T.BackSide,
-      depthWrite: false,
-      vertexShader:
-        'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader: `varying vec3 vDir;void main(){vec3 d=normalize(vDir);float h=clamp(d.y*1.5,0.,1.);vec3 sky=mix(vec3(.65,.68,.68),vec3(.20,.36,.52),pow(h,.55));float cloud=sin(d.x*18.+d.z*9.)*.5+sin(d.z*29.-d.x*7.)*.3+sin(d.x*51.+d.z*37.)*.2;sky=mix(sky,vec3(.82,.82,.79),smoothstep(.15,.80,cloud)*.32*h);float sun=max(0.,dot(d,normalize(vec3(-.65,.48,.38))));sky+=vec3(.57,.43,.25)*pow(sun,40.)+vec3(.8,.7,.55)*pow(sun,1200.);gl_FragColor=vec4(sky,1.);
-   #include <tonemapping_fragment>
-   #include <colorspace_fragment>
-   }`,
+    const skyline = new T.Group();
+    const shells = C.buildings.map((h) => ({
+      x: h.x,
+      y: 0,
+      z: h.z,
+      w: h.w,
+      h: h.h,
+      d: h.d,
+      mat: 'facade' + h.kind,
+    }));
+    batches(shells, skyline, false);
+    batches(
+      roads.filter((r) => ['sidewalk', 'pavers', 'yard'].includes(r.mat)),
+      skyline,
+      false,
+    );
+    skyline.traverse((o) => {
+      if (!o.isMesh) return;
+      const old = o.material,
+        m = new T.MeshLambertMaterial({ map: old.map, color: old.color });
+      resources.add(m);
+      o.material = m;
     });
-    resources.add(skyMat);
-    const sky = new T.Mesh(new T.SphereGeometry(4400, 32, 16), skyMat);
-    sky.frustumCulled = false;
-    root.add(sky);
-    // A small baked sky probe supplies reflections for windows, painted metal and the first-person weapon.
-    const probe = new T.PMREMGenerator(renderer),
-      probeScene = new T.Scene(),
-      probeSky = new T.Mesh(new T.SphereGeometry(4, 24, 12), skyMat);
-    probeScene.add(probeSky);
-    const env = probe.fromScene(probeScene, 0, 0.1, 12);
-    scene.environment = env.texture;
-    scene.environmentIntensity = 0.65;
-    probeSky.geometry.dispose();
-    probe.dispose();
-    scene.fog = new T.FogExp2(0xaab7b8, 0.00066);
-    scene.add(new T.HemisphereLight(0xe5eff7, 0x7c7770, 1.2));
+    root.add(skyline);
+    const cityShells = root.children.filter((o) => o.isMesh && o.name.startsWith('BR '));
+    const metroGroup = new T.Group();
+    batches(floors, metroGroup, false);
+    root.add(metroGroup);
+    scene.fog = new T.FogExp2(0xa3b4c2, 0.00086);
+    scene.add(new T.HemisphereLight(0xdce8f6, 0x696250, 1.04));
     const sun = new T.DirectionalLight(0xffe8c5, 2.5);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -404,10 +427,13 @@
     sun.shadow.normalBias = 0.06;
     sun.shadow.bias = -0.0004;
     scene.add(sun, sun.target);
+    const landingLamp = new T.PointLight(0xffcb8a, 0, 12, 2);
+    scene.add(landingLamp);
     const metroLight = new T.PointLight(0xffddac, 0, 26, 2);
     scene.add(metroLight);
     // Batch street furniture city-wide. Visible silhouettes use the same positions as the authoritative cover.
-    const props = C.props,
+    const streetMeshes = [],
+      props = C.props,
       dummy = new T.Object3D(),
       propGroups = new Map(),
       shapes = new Map();
@@ -418,7 +444,6 @@
       metal = material('carTrim', { color: 0x88928d, metalness: 0.65, roughness: 0.36 }),
       paint = material('carPaint', { color: 0xffffff, metalness: 0.42, roughness: 0.32 }),
       glass = material('autoGlass', { color: 0x3d555b, metalness: 0.6, roughness: 0.19 }),
-      foliage = material('leaves', { color: 0xffffff, flatShading: true, roughness: 0.97 }),
       brick = material('stackBrick', { map: concrete, color: 0xa4816d, roughness: 0.9 });
     const cab = new T.BoxGeometry(1, 1, 1),
       v = cab.attributes.position;
@@ -435,10 +460,7 @@
     propShape('lights', new T.BoxGeometry(1, 1, 1), mats.lamp);
     propShape('stack', new T.CylinderGeometry(0.4, 0.5, 1, 14), brick);
     propShape('band', new T.CylinderGeometry(0.5, 0.5, 1, 14), metal);
-    propShape('bark', new T.CylinderGeometry(0.35, 0.5, 1, 8), mats.crate);
-    propShape('leaf', new T.IcosahedronGeometry(0.55, 1), foliage);
-    const palette = [0x526b77, 0x7c483b, 0xa6a89f, 0x5c6557, 0x494e53],
-      greens = [0x647b4e, 0x536b43, 0x839155, 0x48644c];
+    const palette = [0x526b77, 0x7c483b, 0xa6a89f, 0x5c6557, 0x494e53];
     function addShape(p, key, dx, y, dz, w, h, d, color = 0xffffff, roll = 0) {
       const cs = Math.cos(p.angle),
         sn = Math.sin(p.angle);
@@ -450,26 +472,8 @@
       propGroups.get(key).push([dummy.matrix.clone(), color]);
     }
     for (const p of props) {
-      if (p.kind === 'tree') {
-        addShape(p, 'bark', 0, 2.1, 0, 0.48, 4.2, 0.48);
-        const r = C.rng(p.block + 81);
-        for (let i = 0; i < 6; i++) {
-          const a = i * 2.4,
-            x = Math.cos(a) * (i ? 1.03 : 0),
-            z = Math.sin(a) * (i ? 1.03 : 0);
-          addShape(
-            p,
-            'leaf',
-            x,
-            4.1 + r() * 1.2 + (i === 0 ? 0.8 : 0),
-            z,
-            2.7 + r(),
-            3.0 + r(),
-            2.7 + r(),
-            greens[(p.block + i) % 4],
-          );
-        }
-      } else if (p.kind === 'stack') {
+      if (p.kind === 'tree' || p.kind === 'rock') continue;
+      if (p.kind === 'stack') {
         addShape(p, 'stack', 0, 9, 0, 1.65, 18, 1.65);
         for (const y of [1, 8.5, 15.2, 17.8])
           addShape(p, 'band', 0, y, 0, y < 12 ? 1.6 : 1.4, 0.28, y < 12 ? 1.6 : 1.4);
@@ -491,19 +495,98 @@
     for (const [key, instances] of propGroups) {
       const { geometry, material } = shapes.get(key),
         mesh = new T.InstancedMesh(geometry, material, instances.length);
-      for (let i = 0; i < instances.length; i++) {
-        mesh.setMatrixAt(i, instances[i][0]);
-        mesh.setColorAt(i, new T.Color(instances[i][1]));
-      }
-      mesh.computeBoundingSphere();
+      mesh.count = 0;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
       root.add(mesh);
+      streetMeshes.push({ mesh, instances });
+    }
+    const tint = new T.Color();
+    let propsX = Infinity,
+      propsZ = Infinity,
+      propsAir = null;
+    function refreshProps(cam, fly) {
+      if (propsAir === fly && Math.hypot(cam.position.x - propsX, cam.position.z - propsZ) < 28) return;
+      propsAir = fly;
+      propsX = cam.position.x;
+      propsZ = cam.position.z;
+      for (const { mesh, instances } of streetMeshes) {
+        mesh.visible = !fly;
+        if (fly) continue;
+        let count = 0;
+        for (const [matrix, color] of instances) {
+          const e = matrix.elements;
+          if ((e[12] - propsX) ** 2 + (e[14] - propsZ) ** 2 > 350 ** 2) continue;
+          mesh.setMatrixAt(count, matrix);
+          mesh.setColorAt(count++, tint.setHex(color));
+        }
+        mesh.count = count;
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      }
     }
     function blockDetail(cx, cz) {
-      const records = [];
+      const records = [...(interiorRecords.get(cz * 20 + cx) || [])];
       for (const b of C.buildings) {
         if (Math.floor(b.x / 100) !== cx || Math.floor(b.z / 100) !== cz) continue;
+        records.push({ x: b.x, y: 0.106, z: b.z, w: b.w - 0.35, h: 0.006, d: b.d - 0.35, mat: 'tile' });
+        if (b.cabin) {
+          for (let y = 0.48; y < b.h; y += 0.55)
+            for (const side of [-1, 1]) {
+              const zz = side < 0 ? b.front - 0.21 : b.back + 0.21;
+              for (const dir of [-1, 1])
+                records.push({
+                  x: b.x + dir * (b.w / 4 + 0.9),
+                  y,
+                  z: zz,
+                  w: (b.w - 3.6) / 2,
+                  h: 0.08,
+                  d: 0.16,
+                  mat: 'crate',
+                });
+            }
+        }
+        if (b.hasStairs) {
+          const sx = b.stairX,
+            rail = sx + 1.46;
+          for (let i = 0; i < 20; i++) {
+            const z = b.z - 4 + (i + 0.5) * 0.4,
+              y = (i + 1) * 0.19;
+            records.push({ x: rail, y: y + 0.98, z, w: 0.09, h: 0.09, d: 0.42, mat: 'crate' });
+            if (i % 3 === 0) records.push({ x: rail, y, z, w: 0.045, h: 1.02, d: 0.045, mat: 'rail' });
+          }
+          // The boarded service door is on the side wall, outside the two street entrances.
+          const zz = b.z + 8,
+            xx = b.left + 0.25;
+          records.push({ x: xx, y: 0.11, z: zz, w: 0.12, h: 2.48, d: 1.55, mat: 'crate' });
+          for (const side of [-1, 1])
+            records.push({
+              x: xx + 0.1,
+              y: 0.11,
+              z: zz + side * 0.79,
+              w: 0.11,
+              h: 2.55,
+              d: 0.1,
+              mat: 'trim',
+            });
+          for (const y of [0.72, 1.56])
+            records.push({ x: xx + 0.14, y, z: zz, w: 0.12, h: 0.13, d: 1.83, mat: 'crate' });
+          records.push(
+            { x: xx + 0.12, y: 2.59, z: zz, w: 0.13, h: 0.12, d: 1.67, mat: 'trim' },
+            { x: sx, y: 6.5, z: b.z + 6, w: 0.36, h: 0.15, d: 0.36, mat: 'lamp' },
+          );
+        }
+        for (const sign of [-1, 1]) {
+          // Residential cornices and projecting tiled awnings give the street a readable silhouette.
+          const zz = sign < 0 ? b.front - 0.4 : b.back + 0.4;
+          if (b.kind === 0 || b.kind === 3)
+            for (let xx = b.left + 4; xx < b.right - 2; xx += 8) {
+              records.push({ x: xx, y: 3.32, z: zz, w: 3.7, h: 0.22, d: 1.45, mat: 'crate' });
+              for (const side of [-1, 1])
+                records.push({ x: xx + side * 1.5, y: 2.9, z: zz, w: 0.11, h: 0.53, d: 0.65, mat: 'rail' });
+            }
+        }
         for (const z of [b.z - 0.48, b.z + 0.48])
           records.push({ x: b.ladder.x, y: 0.1, z, w: 0.07, h: b.h + 0.85, d: 0.07, mat: 'rail' });
         for (let y = 0.35; y < b.h + 0.6; y += 0.39)
@@ -572,18 +655,51 @@
       });
       group.removeFromParent();
     }
-    let last = -Infinity;
+    let last = -Infinity,
+      shadowX = Infinity,
+      shadowZ = Infinity,
+      shadowY = Infinity;
+    sun.shadow.autoUpdate = false;
     return {
       root,
       update(cam, t, quality) {
-        sky.position.copy(cam.position);
+        const flying = cam.position.y > 105;
+        skyline.visible = flying;
+        for (const m of cityShells) m.visible = !flying;
+        const room = C.buildingAt(cam.position.x, cam.position.z);
+        const inside = !!room && cam.position.y < room.h;
+        landingLamp.intensity = inside ? 38 : 0;
+        if (inside)
+          landingLamp.position.set(
+            room.hasStairs ? room.stairX : room.x,
+            room.hasStairs ? 6.25 : 3.4,
+            room.z + (room.hasStairs ? 6 : 0),
+          );
+        metroGroup.visible =
+          cam.position.y < 0 ||
+          C.ramps.some((r) => Math.hypot(cam.position.x - r.x, cam.position.z - r.z) < 70);
+        refreshProps(cam, flying);
         sun.target.position.set(
           cam.position.x,
           Math.max(0, cam.position.y < 80 ? cam.position.y : 0),
           cam.position.z,
         );
-        sun.position.copy(sun.target.position).add(new T.Vector3(-110, 115, 75));
+        sun.position.set(
+          sun.target.position.x - 100,
+          sun.target.position.y + 135,
+          sun.target.position.z + 80,
+        );
         sun.castShadow = quality !== 'low' && cam.position.y < 95;
+        if (
+          sun.castShadow &&
+          (Math.hypot(cam.position.x - shadowX, cam.position.z - shadowZ) > 2 ||
+            Math.abs(cam.position.y - shadowY) > 1)
+        ) {
+          sun.shadow.needsUpdate = true;
+          shadowX = cam.position.x;
+          shadowZ = cam.position.z;
+          shadowY = cam.position.y;
+        }
         metroLight.position.copy(cam.position);
         metroLight.position.y += 1;
         metroLight.intensity = cam.position.y < -0.3 ? 19 : 0;
@@ -598,9 +714,22 @@
             for (let x = cx - radius; x <= cx + radius; x++) {
               if (x < 0 || x >= 20 || z < 0 || z >= 20) continue;
               const key = x + ',' + z;
+              // Only nearby street dressing needs full geometry; long-range shells remain visible.
+              if (
+                Math.hypot(cam.position.x - (x * 100 + 50), cam.position.z - (z * 100 + 50)) >
+                  (quality === 'high' ? 145 : 100) &&
+                !(x === cx && z === cz)
+              )
+                continue;
               want.add(key);
-              if (!detail.has(key)) detail.set(key, blockDetail(x, z));
+              if (!detail.has(key) && Math.abs(x - cx) + Math.abs(z - cz) < 2)
+                detail.set(key, blockDetail(x, z));
             }
+        const pending = [...want].filter((k) => !detail.has(k));
+        if (pending.length) {
+          const [x, z] = pending[0].split(',').map(Number);
+          detail.set(pending[0], blockDetail(x, z));
+        }
         for (const [k, v] of detail)
           if (!want.has(k)) {
             free(v);
@@ -609,8 +738,8 @@
       },
       dispose() {
         free(root);
-        env.dispose();
-        scene.environment = null;
+        landscape.dispose();
+        scene.environment = scene.background = null;
         cube.dispose();
         for (const m of Object.values(mats)) m.dispose();
         textures.forEach((t) => t.dispose());
@@ -619,6 +748,7 @@
         sun.removeFromParent();
         sun.target.removeFromParent();
         metroLight.removeFromParent();
+        landingLamp.removeFromParent();
       },
     };
   }

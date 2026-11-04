@@ -290,3 +290,7 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+#tab-cs16 .field-bearing,#tab-cs16 .cs16-bearing{position:absolute;top:62px;left:50%;transform:translateX(-50%);padding:8px 24px 2px;background:repeating-linear-gradient(90deg,#e9e5da9c 0 1px,transparent 1px 12px) top/100% 4px no-repeat;color:#e2c576;font:bold 12px/1.25 "Segoe UI",sans-serif;letter-spacing:2px;text-shadow:0 1px 4px #111;pointer-events:none}
+#tab-cs16 .br-radar,#tab-cs16 .cs16-radar{border-radius:3px!important;box-shadow:0 1px 8px #0005}
+#tab-cs16 .br-cross{font-size:0;width:14px;height:14px;background:linear-gradient(#eee,#eee) center top/1px 4px,linear-gradient(#eee,#eee) center bottom/1px 4px,linear-gradient(#eee,#eee) left center/4px 1px,linear-gradient(#eee,#eee) right center/4px 1px;background-repeat:no-repeat}

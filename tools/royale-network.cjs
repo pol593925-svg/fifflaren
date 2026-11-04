@@ -14,13 +14,16 @@ const service = require('../../support-hub-server/royale-service')({
     ['Host', 'Mate', 'Solo', 'Guest'].includes(token) ? { username: token } : null,
 });
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-function open(origin, name) {
-  const s = connect(origin + '/royale', {
+const legacy = require('../../support-hub-server/royale-service')({
+  io: server, protocol: 1, authenticate: async token => token === 'Host' ? {username: token} : null,
+});
+function open(origin, name, protocol = 2) {
+  const s = connect(origin + (protocol === 1 ? '/royale' : '/royale-v2'), {
     forceNew: true,
     reconnection: false,
     autoConnect: false,
     transports: ['websocket'],
-    auth: { protocol: 1, token: name },
+    auth: { protocol, token: name },
   });
   sockets.push(s);
   return s;
@@ -59,6 +62,12 @@ async function run() {
   assert((await ack(host, 'join', 'duo')).ok);
   assert((await ack(mate, 'join', 'duo')).ok);
   assert((await ack(other, 'join', 'solo')).ok);
+  const old = open(origin, 'Host', 1), connected = once(old, 'connect');
+  old.connect(); await connected;
+  assert((await ack(old, 'join', 'solo')).ok);
+  assert((await ack(old, 'start', {})).ok);
+  assert.equal((await once(old, 'state')).actors.length,24);
+  assert.equal(service.rooms.get('solo').phase,'lobby');
   let leaked = 0;
   other.on('start', () => leaked++);
   other.on('shot', () => leaked++);
@@ -104,5 +113,6 @@ run()
   .finally(async () => {
     for (const s of sockets) s.disconnect();
     service.dispose();
+    legacy.dispose();
     await new Promise((r) => server.close(r));
   });

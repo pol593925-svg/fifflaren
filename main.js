@@ -40,7 +40,11 @@ function createWindow() {
   mainWindow.loadFile('index.html');
   mainWindow.maximize();
   // 3.24.2/3.30.1: рендер убит (GPU/OOM/краш) — не вылетаем: перезагружаем окно, а если оно уничтожено — пересоздаём
+  mainWindow.webContents.on('did-start-navigation',(_event,_url,inPlace,isMainFrame)=>{
+    if(isMainFrame&&!inPlace)setCinemaFullscreen(mainWindow,false);
+  });
   mainWindow.webContents.on('render-process-gone', (e, details) => {
+    setCinemaFullscreen(mainWindow,false);
     crashLog('render-process-gone: reason=' + (details && details.reason) + ' exitCode=' + (details && details.exitCode));
     if (forceQuit) return;
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -251,6 +255,19 @@ ipcMain.on('set-muted', (event, m) => {
 
 
 // CS 1.6: полный экран пока открыта вкладка игры
+const cinemaScreens=new WeakMap();
+function setCinemaFullscreen(win,on){
+  if(!win||win.isDestroyed())return;
+  if(on){
+    if(cinemaScreens.has(win))return;
+    cinemaScreens.set(win,win.isFullScreen());win.setFullScreen(true);
+  }else if(cinemaScreens.has(win)){
+    const previous=cinemaScreens.get(win);cinemaScreens.delete(win);win.setFullScreen(previous);
+  }
+}
+ipcMain.on('cinema-fullscreen',(event,on)=>{
+  if(mainWindow&&event.sender===mainWindow.webContents)setCinemaFullscreen(mainWindow,on===true);
+});
 ipcMain.on('cs16-fullscreen', (event, on) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win && !win.isDestroyed()) win.setFullScreen(!!on);

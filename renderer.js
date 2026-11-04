@@ -134,7 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         currentUser = data.username;
         currentRole = data.role || 'user';
-        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,notify:payload=>ipcRenderer.send('call-notification',payload)});
+        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
@@ -4840,7 +4840,7 @@ document.addEventListener('keydown', (e) => {
       }
       currentUser = data.username;
       currentRole = data.role || 'user';
-      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,notify:payload=>ipcRenderer.send('call-notification',payload)});
+      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);

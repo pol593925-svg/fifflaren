@@ -19,3 +19,13 @@
 #hubCinema aside{display:flex;flex-direction:column;min-height:270px;max-height:78vh;padding:12px;gap:10px;border-radius:12px;background:#191d2c}#hubCinema aside h3{margin:0;font-size:15px}#cinMessages{flex:1;min-height:110px;overflow-y:auto;margin:0;padding:0;list-style:none}#cinMessages li{padding:5px 0;overflow-wrap:anywhere}#cinMessages b{display:block;color:#dbbd8e;font-size:11px}#cinChat input{flex:1;min-width:65px}#cinNote{color:#e4c49c;min-height:1em}
 @media(max-width:760px){.cin-layout{grid-template-columns:minmax(0,1fr);padding:9px}.cin-layout aside{max-height:230px;min-height:160px!important}#hubRadio #cinemaButton{font-size:11px;padding:0 5px}#hubRadio{max-width:300px}}
 @media(max-width:650px){#hubRadio{max-width:none}}
+#hubCinema.cin-max[open]{display:flex;flex-direction:column;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;border:0;border-radius:0;overflow:hidden}
+#hubCinema.cin-max>header{flex:none}
+#hubCinema.cin-max .cin-layout{flex:1;min-height:0;grid-template-columns:minmax(0,1fr) clamp(245px,25vw,360px)}
+#hubCinema.cin-max main{overflow:auto;min-height:0}
+#hubCinema .cin-layout aside{align-self:end;box-sizing:border-box;height:min(54vh,440px);min-height:200px;max-height:100%;background:#161b2a}
+#hubCinema #cinMessages{min-height:35px}
+.cin-voice{border-bottom:1px solid #393e52;padding-bottom:8px}.cin-voice small{display:block;color:#bca8cc;margin:4px 0;overflow-wrap:anywhere}.cin-voice div{display:flex;flex-wrap:wrap;gap:4px}.cin-voice button{font-size:12px!important}
+#hubCinema.cin-screening .cin-marquee{padding:9px 14px}#hubCinema.cin-screening .cin-marquee small,#hubCinema.cin-screening #cinWhen{display:none}#hubCinema.cin-screening .cin-marquee h2{font-size:20px;margin:2px}#hubCinema.cin-screening .cin-marquee strong,#hubCinema.cin-screening .cin-marquee output{display:inline;padding:0 4px;font:13px/1.5 "Segoe UI",sans-serif}
+#hubCinema.cin-max #cinVideo{max-height:calc(100dvh - 215px)}
+@media(max-width:700px){#hubCinema.cin-max .cin-layout{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}#hubCinema.cin-max aside{width:min(100%,360px);justify-self:end;height:34vh;min-height:150px!important}#hubCinema.cin-max #cinVideo{max-height:45vh}}

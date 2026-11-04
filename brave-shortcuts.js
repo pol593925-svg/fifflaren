@@ -39,7 +39,7 @@
     try { if (localStorage.getItem('hub-brave-install-seen')) return; } catch { return; }
     const offer = document.createElement('aside');
     offer.id = 'braveIntro'; offer.className = 'card brave-intro';
-    offer.innerHTML = '<strong>Коллы из Brave</strong><span>Добавь «Заколить» рядом с AI chat в рабочей панели.</span><button type="button">Подключить</button><button type="button">Позже</button>';
+    offer.innerHTML = '<strong>Коллы из Brave</strong><span>Добавь «Заколить» рядом с AI chat или View activity в рабочей панели.</span><button type="button">Подключить</button><button type="button">Позже</button>';
     const [connect, later] = offer.querySelectorAll('button');
     const finish = () => { offer.remove(); try { localStorage.setItem('hub-brave-install-seen', '1'); } catch {} };
     later.onclick = finish;

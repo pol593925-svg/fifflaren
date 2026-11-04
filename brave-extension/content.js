@@ -2,11 +2,11 @@
   'use strict';
   const route = /^\/computers\/[^/]+\/?$/;
   const controls = 'button, [role="button"], a';
-  let host, anchor, toggle, menu, scheduled = false;
+  let host, anchor, toggle, menu, scheduled = false, reconsider = true;
 
-  function isChatButton(button) {
+  function labelled(button, text) {
     return [button.getAttribute('aria-label'), button.title, button.textContent]
-      .some(label => label?.trim().replace(/\s+/g, ' ').toLowerCase() === 'ai chat');
+      .some(label => label?.trim().replace(/\s+/g, ' ').toLowerCase() === text);
   }
 
   function closeMenu() {
@@ -84,8 +84,10 @@
       anchor = null;
       return;
     }
-    if (!anchor?.isConnected || !isChatButton(anchor)) {
-      anchor = Array.from(document.querySelectorAll(controls)).find(isChatButton);
+    if (reconsider || !anchor?.isConnected || !(labelled(anchor, 'ai chat') || labelled(anchor, 'view activity'))) {
+      reconsider = false;
+      const buttons = Array.from(document.querySelectorAll(controls));
+      anchor = buttons.find(b => labelled(b, 'ai chat')) || buttons.find(b => labelled(b, 'view activity'));
     }
     if (!anchor) {
       closeMenu(); host?.remove(); return;
@@ -107,6 +109,11 @@
   window.addEventListener('popstate', schedule);
   window.addEventListener('hashchange', schedule);
   window.navigation?.addEventListener('currententrychange', schedule);
-  new MutationObserver(schedule).observe(document.documentElement, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['aria-label','title','role']});
+  new MutationObserver(records => {
+    if (anchor?.isConnected && !labelled(anchor, 'ai chat')) reconsider ||= records.some(m =>
+      m.type === 'attributes' || m.target.parentElement?.closest(controls) ||
+      Array.from(m.addedNodes).some(n => n.nodeType === 1 && (n.matches(controls) || n.querySelector(controls))));
+    schedule();
+  }).observe(document.documentElement, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['aria-label','title','role']});
   mount();
 })();

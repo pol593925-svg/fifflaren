@@ -447,6 +447,7 @@
   const Combat = window.CS16Combat;
   for (const [id, profile] of Object.entries(Combat.weapons)) Object.assign(WEAPONS[id], profile);
   const BUY_ITEMS = [
+    {id:'veh_jet',label:'✈ Ударный самолёт · ракеты и спецбоеприпас',price:4500},
     {id:'rpg',label:'🚀 РПГ-7 · 4 ракеты',price:2200},
     { id: 'kevlar',     label: '🦺 Бронежилет',    price: 650 },
     { id: 'deagle',     label: '🔫 Desert Eagle',  price: 650 },
@@ -808,12 +809,25 @@
     return t;
   }
   let missileView=null,frontView=null,frontNet={epoch:-1,ids:new Set(),rows:[],map:null},frontSeat=null,frontRocket=false,lastFrontControl=0;
-  const frontPilots=new Map();
+  const frontPilots=new Map();let preparedArmy=-1,preparingArmy=-1,ownedStrike=false,radarDirty=false,lastArmyRadar=0;
+  function prepareArmy(){
+    if(!sock?.connected||!worldReady||!frontView||frontNet.map!==curMap||frontNet.rows?.length!==100||preparedArmy===frontNet.epoch||preparingArmy===frontNet.epoch)return;
+    const epoch=frontNet.epoch;preparingArmy=epoch;
+    requestAnimationFrame(async()=>{try{
+      if(epoch!==frontNet.epoch||!worldReady||frontNet.map!==curMap)return;
+      const active=scene;
+      frontView.prepare();frontView.update(performance.now()+100,graphicsQuality,frontSeat,P);
+      if(renderer3.compileAsync)await renderer3.compileAsync(active,camera);
+      if(active!==scene||epoch!==frontNet.epoch||!worldReady)return;
+      renderer3.render(scene,camera);preparedArmy=epoch;sock.emit('cs16_army_ready',{epoch,map:curMap});
+    }catch(error){console.warn('Подготовка армии:',error);if(epoch===frontNet.epoch)centerMsg('Не удалось подготовить армию. Проверь качество графики.',2500);}
+    finally{if(preparingArmy===epoch)preparingArmy=-1;}});
+  }
   function applyFront(reset=false){
     if(frontNet.map!==curMap)return;
     if(reset)CS16Front.reset(grid);
     CS16Terrain.layout(grid);CS16Buildings.layout(grid,curMap);
-    CS16Front.apply(grid,frontNet.ids);frontView?.sync();frontView?.objective(frontNet.objective);
+    CS16Front.apply(grid,frontNet.ids);CS16Front.setCrater(grid,frontNet.crater||null);frontView?.sync();frontView?.objective(frontNet.objective);frontView?.loot(frontNet.gold);
   }
   let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null;
   const modestHardware=(navigator.deviceMemory>0&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency>0&&navigator.hardwareConcurrency<=4);
@@ -895,7 +909,7 @@
       renderer3.render(scene, camera);
       if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
       worldReady = true; ui.loading.style.display = 'none';
-      ensureSocket(); doJoin();sock?.emit("cs16_environment_get");
+      ensureSocket(); doJoin();prepareArmy();sock?.emit("cs16_environment_get");
     } catch(error) {
       if(epoch !== worldLoadEpoch)return;
       worldReady = false;
@@ -1247,7 +1261,7 @@
     for (const [i, it] of items.entries()) {
       const w = WEAPONS[it.id];
       const teamGate = (w && w.team) || it.team;
-      let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
+      let dis = (teamGate && teamGate !== me.team) || me.money < it.price || (it.id==='veh_jet'&&(!state.army||frontSeat!=null));
       if (it.id === 'defuser' && me.kit) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
@@ -1489,16 +1503,21 @@
     sock.on('cs16_missile_start',d=>missileView?.start(d));
     sock.on('cs16_missile_frame',d=>missileView?.frame(d));
     sock.on('cs16_missile_end',d=>missileView?.end(d.id));
-    sock.on('cs16_front_reset',d=>{missileView?.reset();frontPilots.clear();for(const [nick,id] of d.pilots||[])frontPilots.set(nick,id);frontSeat=frontPilots.get(myNick)??null;frontNet={...d,ids:new Set(d.ids||[]),rows:[]};applyFront(true);frontView?.ingest([]);});
+    sock.on('cs16_front_reset',d=>{missileView?.reset();frontPilots.clear();for(const [nick,id] of d.pilots||[])frontPilots.set(nick,id);frontSeat=frontPilots.get(myNick)??null;frontNet={...d,ids:new Set(d.ids||[]),rows:d.rows||[]};applyFront(true);frontView?.ingest(frontNet.rows);prepareArmy();});
     sock.on('cs16_front_status',d=>{if(d.epoch===frontNet.epoch){Object.assign(frontNet,d);frontView?.objective(d.objective);}});
-    sock.on('cs16_front_break',d=>{if(d.epoch!==frontNet.epoch||d.map!==curMap)return;for(const id of d.ids)frontNet.ids.add(id);CS16Front.apply(grid,d.ids);frontView?.sync();flightHeights.clear();buildRadarBase();});
+    sock.on('cs16_front_break',d=>{if(d.epoch!==frontNet.epoch||d.map!==curMap)return;for(const id of d.ids)frontNet.ids.add(id);CS16Front.apply(grid,d.ids);flightHeights.clear();radarDirty=true;});
     sock.on('cs16_front_frame',d=>{if(d.epoch!==frontNet.epoch)return;frontNet.rows=d.rows;frontView?.ingest(d.rows);if(!scene||!worldReady||document.hidden||!root()?.getClientRects().length)return;
       for(const [id,x,y,z] of (d.shots||[]).slice(0,graphicsQuality==='low'?5:14)){const u=frontView?.point(id);if(!u||Math.hypot(P.x-u.x,P.z-u.z)>100)continue;const o=[u.x,u.y+1.4,u.z],dir=[x-o[0],y-o[1],z-o[2]],l=Math.hypot(...dir);if(l>.1)spawnTracer(o,dir.map(v=>v/l),l,true);}
     });
     sock.on('cs16_front_seat',d=>{if(d.id==null)frontPilots.delete(d.nick);else frontPilots.set(d.nick,d.id);
-      if(d.nick!==myNick)return;frontSeat=d.id;frontRocket=false;fieldAim=scoped=false;keys.fire=false;
+      if(d.nick!==myNick)return;frontSeat=d.id;ownedStrike=false;frontRocket=false;fieldAim=scoped=false;keys.fire=false;
       if(d.pos){[P.x,P.y,P.z]=d.pos;P.vy=0;}if(d.id!=null){P.yaw=d.yaw;killfeed('Пилот · WASD, Space/Ctrl — высота · Q — оружие · E — выход');}
     });
+    sock.on('cs16_army_wait',d=>{if(d.epoch===frontNet.epoch){prepareArmy();centerMsg('Загружают карту и армию: '+d.count,700);}});
+    sock.on('cs16_army_hit',d=>{if(d.by===myNick){ui.hitmark.style.display='block';clearTimeout(ui.hitmark._t);ui.hitmark._t=setTimeout(()=>ui.hitmark.style.display='none',110);}});
+    sock.on('cs16_army_drop',d=>{if(d.epoch===frontNet.epoch){frontNet.bombUsed=true;banner('Удар с воздуха через 3 секунды','#ff9964',2400);}});
+    sock.on('cs16_army_impact',d=>{if(d.epoch!==frontNet.epoch)return;frontNet.crater=d.crater;frontNet.gold=d.gold;if(frontNet.map===curMap){CS16Front.setCrater(grid,d.crater);radarDirty=true;frontView?.loot(d.gold);if(worldReady){explodeFx(d.pos,'he');sfxExplosion();}}killfeed('В воронке золотой ящик · E рядом, чтобы подобрать');});
+    sock.on('cs16_army_loot',d=>{if(d.epoch!==frontNet.epoch)return;frontNet.gold=null;frontView?.loot(null);if(d.nick===myNick){buyOk(d.weapon);me.goldWeapon=d.weapon;killfeed('Золотая винтовка · +35% урона · тепловизор при прицеливании');}});
     sock.on('cs16_front_kill',d=>{if(d.by===myNick)killfeed('Цель уничтожена · +$350');});
     sock.on('cs16_front_sector',d=>{if(d.epoch===frontNet.epoch)killfeed('Сектор взят! Передовая и точки возрождения перенесены.');});
     sock.on('cs16_front_fx',d=>{if(!worldReady||!scene||!Array.isArray(d.pos)||Math.hypot(P.x-d.pos[0],P.z-d.pos[2])>95)return;if(d.kind==='charge'){killfeed('Установлен подрывной заряд');return;}explodeFx(d.pos,'he');sfxExplosion();});
@@ -1522,7 +1541,7 @@
     sock.on('cs16_character_selected',d=>{if(!CS16Characters.valid(d.id))return;chosenCharacter=d.id;try{localStorage.setItem('cs16-character',d.id);}catch{}const p=state.players.find(p=>p.nick===myNick);if(p)p.characterId=d.id;if(ui.lobby.style.display!=='none')renderLobby();});
     sock.on('cs16_class_selected',d=>{const p=state.players.find(p=>p.nick===myNick);if(p)p.nextClass=d.id;if(ui.buy.style.display==='block')renderBuyList();killfeed('Класс выбран · применяется при следующем возрождении');});
     sock.on('cs16_you', (y) => {
-      me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
+      me.goldWeapon=y.goldWeapon||null;me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
       if (y.weapon && y.weapon !== current && WEAPONS[y.weapon]) { primary = y.weapon; }
     });
     sock.on('cs16_err', (m) => { killfeed('⚠️ ' + esc(m)); if (ui.buy.style.display === 'block') renderBuyList(); });
@@ -1533,6 +1552,7 @@
       if (ui.buy.style.display === 'block') renderBuyList();
     });
     sock.on('cs16_bought', (d) => {
+      if(d.item==='veh_jet'){ownedStrike=true;closeBuy();killfeed('Ударный самолёт · Q переключает ракеты · G сбрасывает спецбоеприпас');}
       buyOk(d.item);
       me.money = d.money;
       killfeed('🛒 Куплено: ' + esc(WEAPONS[d.item] ? WEAPONS[d.item].name : d.item));
@@ -1830,7 +1850,7 @@
   }
   function doJoin() {
     if (Date.now() < kickUntil) return; // кик от Fifflaren — пауза 30 сек
-    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick); sock.emit('cs16_character',chosenCharacter);sock.emit('cs16_pet',chosenPet);sock.emit('cs16_magic_info'); joined = true; }
+    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick);sock.emit('cs16_army_loader'); sock.emit('cs16_character',chosenCharacter);sock.emit('cs16_pet',chosenPet);sock.emit('cs16_magic_info'); joined = true; }
   }
 
   // ---------- УДАЛЁННЫЕ ИГРОКИ ----------
@@ -2902,7 +2922,7 @@
       if(me.alive&&pointerLocked&&!e.repeat&&['live','freeze'].includes(state.phase)){
         if(e.code==='KeyK'&&state.phase==='live'&&frontSeat==null){sock?.emit('cs16_front_charge',{dir:dirFromCam()});return;}
         if(state.army&&['KeyH','KeyN'].includes(e.code)&&!myVeh?.inside){sock?.emit('cs16_front_board',e.code==='KeyH'?'jet':'heli');return;}
-        if(frontSeat!=null){if(e.code==='KeyE')sock?.emit('cs16_front_board','exit');if(e.code==='KeyQ'){frontRocket=!frontRocket;keys.fire=false;}return;}
+        if(frontSeat!=null){if(e.code==='KeyG'&&!e.repeat&&ownedStrike){sock?.emit('cs16_army_bomb');return;}if(e.code==='KeyE')sock?.emit('cs16_front_board','exit');if(e.code==='KeyQ'){frontRocket=!frontRocket;keys.fire=false;}return;}
       }
       if(frontSeat!=null)return;
       if(e.code==='KeyX'&&!e.repeat&&pointerLocked&&me.alive&&!myVeh?.inside&&!reloading){
@@ -2912,6 +2932,7 @@
       }
       if(e.code==='KeyI'&&!e.repeat&&me.alive&&!scoped&&!fieldAim&&!myVeh?.inside&&!reloading){inspectStart=performance.now();return;}
       if(k==='e'&&!e.repeat&&me.alive&&state.phase==='live'&&!myVeh?.inside){
+        const gold=frontNet.gold;if(gold&&Math.hypot(P.x-gold.x,P.y-gold.y,P.z-gold.z)<=4){sock?.emit('cs16_army_claim');return;}
         const door=CS16Environment.nearest(CS16Buildings.layout(grid,curMap),P);
         if(door){sock?.emit('cs16_door',door.id);keys.e=false;return;}
       }
@@ -2956,7 +2977,7 @@
     ui.hpTxt.textContent = '+ ' + Math.max(0, me.hp);
     ui.armorTxt.textContent = 'БРОНЯ  ' + Math.max(0, me.armor);
     ui.money.textContent = '$' + me.money;
-    ui.frontFlight.hidden=frontSeat==null;if(frontSeat!=null){ui.frontFlight.firstChild.textContent=(frontSeat%50===49?'САМОЛЁТ':'ВЕРТОЛЁТ')+'   ·   '+Math.round(P.y)+' м   ·   '+(frontRocket?'РАКЕТЫ':'ПУЛЕМЁТ');}else if(state.army&&frontNet.counts)ui.topBar.textContent+=' · армия '+frontNet.counts.join(' / ');
+    ui.frontFlight.hidden=frontSeat==null;if(frontSeat!=null){ui.frontFlight.firstChild.textContent=(frontSeat%50===49?'САМОЛЁТ':'ВЕРТОЛЁТ')+'   ·   '+Math.round(P.y)+' м   ·   '+(frontRocket?'РАКЕТЫ':'ПУЛЕМЁТ')+(ownedStrike?(frontNet.bombUsed?' · заряд израсходован':' · G: спецбоеприпас'):'');}else if(state.army&&frontNet.counts)ui.topBar.textContent+=' · армия '+frontNet.counts.join(' / ');
     if(frontSeat!=null)ui.topBar.textContent+=' · ПИЛОТ · '+(frontRocket?'ракеты':'пулемёт')+' · '+Math.round(P.y)+' м';
     if(myVeh)ui.topBar.textContent+=' · '+VEH_TYPES[myVeh.variant||myVeh.kind].name+' '+Math.max(0,myVehHp)+' HP'+(myVeh.inside?' · '+(myVeh.passenger?'СТРЕЛОК':'ПИЛОТ')+' · Q: '+VEH_WEAPON_NAMES[myVeh.mode]:' · E: сесть');
     const w = WEAPONS[current];
@@ -3086,7 +3107,10 @@
       else stepPlayer(dt, canMove ? keys : { w: 0 });
       if (frontSeat==null&&keys.fire) { if (myVeh && myVeh.inside) vehFireGun(); else tryShoot(); }
     }
-    frontView?.update(t,graphicsQuality,frontSeat);
+    const thermal=me.alive&&me.goldWeapon===current&&frontSeat==null&&!myVeh?.inside&&(fieldAim||scoped);
+    if(canvasEl)canvasEl.classList.toggle('cs16-thermal-active',!!thermal);
+    if(radarDirty&&t-lastArmyRadar>280){lastArmyRadar=t;radarDirty=false;frontView?.sync();buildRadarBase();}
+    frontView?.update(t,graphicsQuality,frontSeat,P,thermal?me.team:null,remotes);
     const seeking=pointerLocked&&me.alive&&state.phase==='live'&&!escOpen()?(frontSeat!=null?(frontRocket?'front':null):myVeh?.inside?(myVeh.mode==='rocket'?'vehicle':null):current==='rpg'?'rpg':null):null;
     missileView?.update(t,seeking,dirFromCam(),packet=>sock?.emit('cs16_seek',packet));
     // интерполяция удалённых + анимация ног

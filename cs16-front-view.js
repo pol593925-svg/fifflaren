@@ -6,7 +6,8 @@
    const dummy=new T.Object3D(),damageMap=new Uint8Array(grid.length*grid[0].length);
    const mask=own(new T.DataTexture(damageMap,grid[0].length,grid.length,T.RedFormat));
    mask.minFilter=mask.magFilter=T.NearestFilter;mask.needsUpdate=true;
-   let lastRev=-1,lastDraw=-1,previous=[],current=[],netAt=0;
+   let lastRev=-1,lastDraw=-1,previous=[],current=[],netAt=0,lastCrater=null;
+   const dirtyChunks=new Set();
    function patch(material){
      if(!material||patched.has(material)||material.isShaderMaterial)return;
      const before=material.onBeforeCompile,cache=material.customProgramCacheKey,base=cache.call(material);
@@ -50,7 +51,8 @@
        const value=state.original.has(id)?255:0;if(value===damageMap[id])continue;damageMap[id]=value;
        changed.add(Math.floor((id%grid[0].length)/8)+','+Math.floor(Math.floor(id/grid[0].length)/8));
      }
-     if(changed.size){mask.needsUpdate=true;for(const k of changed)rebuildChunk(k);}
+     if(state.crater!==lastCrater){lastCrater=state.crater;for(const k of chunks.keys())changed.add(k);}
+     if(changed.size){mask.needsUpdate=true;for(const k of changed)dirtyChunks.add(k);}
    }
    function material(color,roughness=.8){return own(new T.MeshStandardMaterial({color,roughness,metalness:roughness<.6?.45:.08}));}
    const uniform=material(0xffffff),gear=material(0x343e36),skin=material(0xb99678),steel=material(0x303635,.38);
@@ -77,18 +79,37 @@
    }
    const ring=new T.Mesh(own(new T.TorusGeometry(4.4,.09,5,40)),own(new T.MeshBasicMaterial({color:0xf8be56})));ring.rotation.x=-Math.PI/2;root.add(ring);ring.visible=false;
    function objective(s){ring.visible=!!s;if(s)ring.position.set(s.x,s.y+.17,s.z);}
-   const colors=[new T.Color(0xb49c6b),new T.Color(0x769aaa)];
+   const colors=[new T.Color(0xb49c6b),new T.Color(0x769aaa)],hot=new T.Color(0xffcc62);
+   const distant=own(new T.InstancedMesh(own(new T.SphereGeometry(1,6,4)),uniform,92));distant.frustumCulled=false;distant.count=0;root.add(distant);
+   const chest=new T.Mesh(own(new T.BoxGeometry(1.55,.8,.94)),own(new T.MeshStandardMaterial({color:0xf9bd44,metalness:.52,roughness:.38,emissive:0x885512})));chest.visible=false;root.add(chest);
+   function loot(v){chest.visible=!!v;if(v)chest.position.set(v.x,v.y+.43,v.z);}
+   const heatMarks=own(new T.InstancedMesh(own(new T.SphereGeometry(1,8,6)),own(new T.MeshBasicMaterial({color:0xffe49f,depthTest:true})),32));heatMarks.count=0;heatMarks.frustumCulled=false;root.add(heatMarks);
    function ingest(rows){previous=current;current=rows||[];netAt=performance.now();}
    function point(id,at=performance.now()){
      const r=current[id];if(!r||r[4]<=0)return null;const old=previous[id],q=old?.[4]>0&&Math.hypot(old[0]-r[0],old[2]-r[2])<140?old:r,k=Math.min(1,Math.max(0,(at-netAt)/200));
      return {x:(q[0]+(r[0]-q[0])*k)/10,y:(q[1]+(r[1]-q[1])*k)/10,z:(q[2]+(r[2]-q[2])*k)/10,yaw:r[3]/100,hp:r[4]};
    }
-   function update(t,quality,seat){
-     if(t-lastDraw<(quality==='low'?65:32))return;lastDraw=t;let count=0;
+   function update(t,quality,seat,viewer,thermalTeam,remotes){
+     if(t-lastDraw<(quality==='low'?70:40))return;lastDraw=t;
+     for(const k of Array.from(dirtyChunks).slice(0,quality==='low'?1:3)){dirtyChunks.delete(k);rebuildChunk(k);}
+     let count=0,far=0,marks=0;
+     if(thermalTeam&&viewer&&remotes)for(const r of remotes.values()){
+       if(marks>=32||!r.alive||r.team===thermalTeam||!r.group?.visible||viewer&&Math.hypot(r.group.position.x-viewer.x,r.group.position.z-viewer.z)>110)continue;
+       dummy.position.copy(r.group.position);dummy.position.y+=1;dummy.rotation.set(0,0,0);dummy.scale.set(.29,.65,.21);dummy.updateMatrix();heatMarks.setMatrixAt(marks++,dummy.matrix);
+     }
+     heatMarks.count=marks;heatMarks.instanceMatrix.needsUpdate=true;
      for(let id=0;id<100;id++){const v=point(id,t),j=id%50,foot=j<46;
        if(!v||id===seat){if(vehicles.has(id))vehicles.get(id).visible=false;continue;}
+       const dist=viewer?Math.hypot(v.x-viewer.x,v.z-viewer.z):0;
+       if(foot&&dist>(quality==='low'?130:230))continue;
+       const tint=thermalTeam&&(id<50?'t':'ct')!==thermalTeam?hot:colors[id<50?0:1];
+       if(foot&&dist>(quality==='low'?40:78)){
+         dummy.position.set(v.x,v.y+.9,v.z);dummy.rotation.set(0,v.yaw,0);dummy.scale.set(.33,.9,.27);dummy.updateMatrix();
+         distant.setMatrixAt(far,dummy.matrix);distant.setColorAt(far++,tint);continue;
+       }
        if(!foot){
-         let o=vehicles.get(id);if(!o){const kind=j<48?(j===46?'tank':'bastion'):j===48?'heli':'jet';o=kind==='jet'?jet():assets[kind]?.clone(true);if(!o)continue;root.add(o);vehicles.set(id,o);}
+         if(viewer&&dist>(quality==='low'?155:260)&&j!==49){if(vehicles.has(id))vehicles.get(id).visible=false;continue;}
+         let o=vehicles.get(id);if(!o){const kind=j<48?(j===46?'tank':'bastion'):j===48?'heli':'jet';o=kind==='jet'?jet():assets[kind]?.clone(true);if(!o)continue;o.traverse(m=>{if(m.isMesh)m.castShadow=false;});root.add(o);vehicles.set(id,o);}
          o.visible=true;o.position.set(v.x,v.y,v.z);o.rotation.y=j===49?v.yaw:v.yaw+Math.PI/2;
          if(j===48){const rotor=o.getObjectByName('MainRotor'),tail=o.getObjectByName('TailRotor');if(rotor)rotor.rotation.y=t*.027;if(tail)tail.rotation.x=t*.046;}
          continue;
@@ -96,9 +117,10 @@
        const yaw=v.yaw,cs=Math.cos(yaw),sn=Math.sin(yaw),walk=previous[id]&&Math.abs(current[id][0]-previous[id][0])+Math.abs(current[id][2]-previous[id][2])>0;
        for(const b of parts){const stride=b.leg&&walk?Math.sin(t*.011+id)*b.leg:0;
          dummy.position.set(v.x+b.x*cs+(b.z+stride*.12)*sn,v.y+b.y,v.z-b.x*sn+(b.z+stride*.12)*cs);dummy.rotation.set(stride*.33,yaw,0,'YXZ');dummy.scale.set(b.sx,b.sy,b.sz);dummy.updateMatrix();
-         b.mesh.setMatrixAt(count,dummy.matrix);if(b.mesh.material===uniform)b.mesh.setColorAt(count,colors[id<50?0:1]);
+         b.mesh.setMatrixAt(count,dummy.matrix);if(b.mesh.material===uniform)b.mesh.setColorAt(count,tint);
        }count++;
      }
+     distant.count=far;distant.instanceMatrix.needsUpdate=true;if(distant.instanceColor)distant.instanceColor.needsUpdate=true;
      for(const p of parts){p.mesh.count=count;p.mesh.instanceMatrix.needsUpdate=true;if(p.mesh.instanceColor)p.mesh.instanceColor.needsUpdate=true;}
    }
    function dispose(){for(const [m,old] of patched){m.onBeforeCompile=old.before;m.customProgramCacheKey=old.cache;m.needsUpdate=true;}for(const [o,old] of depths)o.customDepthMaterial=old;
@@ -112,7 +134,7 @@
        if(t!==null&&t<nearest)nearest=t;
      }return nearest;
    }
-   return {sync,ingest,point,update,objective,intersect,dispose};
+   return {sync,ingest,point,update,objective,intersect,dispose,loot,prepare:bind};
  }
  g.CS16FrontView={create};
 })(window);

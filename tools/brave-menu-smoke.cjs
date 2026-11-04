@@ -52,6 +52,10 @@ async function run() {
     await button.waitFor({state:'detached'});
     await page.evaluate(()=>history.pushState({},'', '/computers/another'));
     await button.waitFor();
+    await page.locator('main').evaluate(el=>el.innerHTML='<button>View activity</button>');
+    await button.waitFor(); assert.equal(await beside(),true);
+    await page.locator('main').evaluate((el,html)=>el.innerHTML=html,controls);
+    await button.waitFor(); assert.equal(await beside(),true);
     await page.goto('https://example.org/computers/test');
     await page.locator('main').evaluate((el,html)=>el.innerHTML=html,controls);
     assert.equal(await button.count(),0);

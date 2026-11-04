@@ -22,6 +22,7 @@
    select.onchange=()=>{reason.hidden=!['rejected','returned'].includes(select.value);};save.type='button';
    save.onclick=async()=>{if(['rejected','returned'].includes(select.value)&&!reason.value.trim()){message.textContent='Укажи причину для автора';reason.focus();return;}save.disabled=true;message.textContent='Сохраняем…';try{const data=await api('/api/fifflaren/calls/'+encodeURIComponent(row.id),{method:'PATCH',body:JSON.stringify({status:select.value,reason:reason.value.trim(),version:row.version||0})});rows=rows.map(r=>r.id===row.id?data.call:r);render();loadMine().catch(()=>{});}catch(e){message.textContent=e.message;save.disabled=false;}};
    controls.append(select,save,reason,message);article.append(controls);
+    window.HubOffice?.offer(article,row);
   }HubWork.history(article,row);if(!editable&&status==='returned')HubWork.repair(article,row,()=>loadMine());return article;
  }
  function render(){const list=el('callsList');list.replaceChildren();el('callsCount').textContent=rows.length;if(!rows.length){list.textContent='За выбранный день колов пока нет.';return;}for(const row of rows)list.append(card(row,true));}
@@ -60,7 +61,7 @@
  function start(config){
   clearInterval(timer);sequence++;seen.clear();options=null;
   owner=String(config.username).toLowerCase()==='fifflaren';el('callsTabBtn').style.display=owner?'':'none';
-  options=config;HubWork.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-shift').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
+  options=config;HubWork.start(config);window.HubOffice?.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-shift').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
   el('callsRefresh').onclick=()=>load().catch(()=>{});el('callsDate').onchange=()=>load().catch(()=>{});
   el('callsCopy').onclick=async()=>{try{await navigator.clipboard.writeText(rows.map(r=>[r.service||r.kind,r.link,r.user].join(' — ')).join('\n'));el('callsStatus').textContent='Список скопирован';}catch{el('callsStatus').textContent='Не удалось скопировать список';}};
   if(!config.token){el('callsStatus').textContent='Для личной вкладки нужен новый сервер. После его обновления войди заново.';return;}

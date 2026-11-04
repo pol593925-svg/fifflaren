@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),out=process.env.GRAPHICS_OUTPUT||path.jo
 fs.mkdirSync(out,{recursive:true});
 const mocks=`<script>
 window.__writes={};window.__ipc=[];window.process={cwd:()=>'/isolated-test'};
-const ipc={on(){},send:(...a)=>__ipc.push(a),invoke:async()=>null};
+const ieee={};window.__braveKind='email';const ipc={on:(n,f)=>{ieee[n]=f},send:(...a)=>__ipc.push(a),invoke:async n=>{if(n!=='hub-shortcut:take')return null;const k=window.__braveKind;window.__braveKind=null;return k}};window.__braveLink=k=>{window.__braveKind=k;ieee['hub-shortcut:available']()};
 window.require=n=>{
  if(n==='fs')return {existsSync:p=>p in __writes,readFileSync:p=>__writes[p],writeFileSync:(p,v)=>__writes[p]=v};
  if(n==='path')return {join:(...a)=>a.join('/')};
@@ -40,7 +40,11 @@ async function run(){
  const tab=async id=>{await page.locator('.tabs [data-tab='+id+']').click();};
  try{
  await page.goto(origin+'/index.html');await page.locator('.comic-skip').click();await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
- await page.locator('.tabs [data-tab=shift]').click();
+ await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на почту');
+ await page.fill('#callNoteInput','Черновик QA');await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));
+ await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на почту');assert.equal(await page.inputValue('#callNoteInput'),'Черновик QA');
+ await page.fill('#callNoteInput','');await page.keyboard.press('Escape');await page.evaluate(()=>window.__braveLink('exchange'));await page.locator('#shiftCallDialog[open]').waitFor();assert.equal(await page.inputValue('#callTypeSelect'),'Колл на биржу');await page.keyboard.press('Escape');
+ await page.locator('.orbit-work-tool').filter({hasText:'Штаб'}).click();await page.locator('#officeMatches').getByText('Пока никто не собирается на матч.').waitFor();await page.fill('#officeStart','2030-01-01T17:00');await page.click('#officeGatherSubmit');await page.waitForFunction(()=>!document.getElementById('officeStart').value);assert(posts.some(p=>p.url.endsWith('/api/office/matches')));await page.keyboard.press('Escape');
  assert(await page.locator('#tab-shift .my-calls-panel').isVisible());assert.equal(await page.locator('#tab-shift #counterBox').count(),0);assert(await page.locator('.orbit-addOneBtn').isDisabled());
  await page.click('#startBtn');await page.locator('.orbit-addOneBtn').click();assert(await page.locator('#shiftLogDialog').isVisible());assert.equal(await page.locator('#countDisplay').textContent(),'0');
  await page.click('#addOneBtn');assert((await page.locator('#logStatus').textContent()).includes('Добавь'));await page.fill('#logLinkInput','https://example.com/log/1');await page.fill('#logCommentInput','Проверка лога');await page.screenshot({path:path.join(out,'shift-log-modal.png')});

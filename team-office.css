@@ -1,0 +1,14 @@
+.team-office {text-align:left}
+.team-office .office-columns {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(245px,100%),1fr));gap:1rem}
+.team-office section,.team-office article {min-width:0}
+.team-office article {padding:.7rem 0;border-bottom:1px solid #65708955;overflow-wrap:anywhere}
+.team-office input,.team-office select,.team-office textarea {box-sizing:border-box;max-width:100%}
+.team-office label {display:block;margin:.5rem 0}
+.team-office button,#braveInstall button {cursor:pointer;padding:.35rem .7rem;margin:.2rem .3rem .2rem 0;border-radius:6px}
+#officeDecisions,#officeMatches {max-height:22rem;overflow:auto}
+#officePublish form {display:grid;gap:.3rem}
+#officePublish label>* {display:block;width:100%}
+#officeStatus,#officeDecisionStatus {display:block}
+#braveInstall summary {cursor:pointer;font-weight:600}
+.brave-intro {grid-column:1/-1;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.brave-intro button {cursor:pointer}

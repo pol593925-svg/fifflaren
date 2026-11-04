@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Support Hub — Коллы",
+  "version": "1.0.0",
+  "description": "Открывает форму колла Support Hub из меню рядом с AI chat на рабочей странице.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://admin.standard-margin.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

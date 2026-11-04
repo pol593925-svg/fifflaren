@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="app-theme.css"><link rel="stylesheet" href="radio.css">
   <link rel="stylesheet" href="hero-navigation.css">
   <link rel="stylesheet" href="hub-experience.css">
+  <link rel="stylesheet" href="team-office.css">
   <link rel="stylesheet" href="hub-features.css">
 </head>
 <body>
@@ -80,6 +81,32 @@
 
   <!-- 0. ВКЛАДКА: Штаб -->
   <div id="tab-hq" class="content" style="display: none;">
+    <section id="officeSection" class="card team-office">
+      <h3>Живой офис команды</h3>
+      <div class="office-columns">
+        <section><h4>Доска решений</h4>
+          <input id="officeFind" type="search" aria-label="Найти решение" maxlength="120" placeholder="Найти биржу или ситуацию">
+          <div id="officeDecisions"></div>
+        </section>
+        <section><h4>Сбор на матч</h4>
+          <form id="officeGatherForm">
+            <label>Карта <select id="officeMap"><option value="dust2">Dust2</option><option value="inferno">Inferno</option></select></label>
+            <label>Начало по местному времени <input id="officeStart" type="datetime-local" required></label>
+            <button id="officeGatherSubmit">Создать сбор</button>
+          </form>
+          <div id="officeMatches"></div>
+        </section>
+      </div>
+      <small id="officeStatus" role="status"></small>
+    </section>
+    <details id="braveInstall" class="card">
+      <summary>Brave · Подключить кнопку «Заколить»</summary>
+      <p>На рабочей странице рядом с AI chat появится меню коллов Support Hub.</p>
+      <p>Открой <code>brave://extensions</code>, включи «Режим разработчика», нажми «Загрузить распакованное» и выбери папку расширения.</p>
+      <button id="braveInstallFolder" type="button">Открыть папку расширения</button>
+      <button id="braveInstallLater" type="button">Позже</button>
+      <small id="braveInstallStatus" role="status"></small>
+    </details>
     <div class="card card-hq-box">
         <h3>Штаб команды</h3>
         <p style="font-size:11px; color:#888; margin-top:2px;">Команды и состав подтягиваются с сервера автоматически. Зелёная точка — онлайн.</p>
@@ -1072,7 +1099,19 @@
   <script src="casino-art.js"></script>
   <script src="app-ui.js"></script>
   <script src="navigation-icons.js"></script><script src="hero-navigation.js"></script>
+  <dialog id="officePublish" class="hub-work-dialog team-office" aria-labelledby="officeDialogHeading">
+    <h3 id="officeDialogHeading">Опубликовать решение команды</h3>
+    <form id="officeDecisionForm">
+      <label>Название <input id="officeDecisionTitle" maxlength="100" required></label>
+      <label>Когда использовать <textarea id="officeSituation" maxlength="1000" required></textarea></label>
+      <label>Что помогло <textarea id="officeSolution" maxlength="1500" required></textarea></label>
+      <small id="officeDecisionStatus" role="status"></small>
+      <button id="officePublishSubmit">Опубликовать</button><button type="button" id="officePublishClose">Закрыть</button>
+    </form>
+  </dialog>
+  <script src="team-office.js"></script>
   <script src="hub-experience.js"></script>
+  <script src="brave-shortcuts.js"></script>
 <script src="solar-orbit.js"></script>
   <script src="support-chat.js"></script><script src="startup-voice.js"></script>
 </body>

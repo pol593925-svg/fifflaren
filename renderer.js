@@ -146,6 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (authScreen) authScreen.style.display = "none";
+        document.dispatchEvent(new Event('hub:work-ready'));
         authSubmitBtn.disabled = false;
 
         applyNickToApp(data.username);
@@ -4843,6 +4844,7 @@ document.addEventListener('keydown', (e) => {
       localStorage.setItem('global_worker_nick', data.username);
       localStorage.setItem('support_hub_user', data.username);
       if (authScreen) authScreen.style.display = 'none';
+      document.dispatchEvent(new Event('hub:work-ready'));
       applyNickToApp(data.username);
       loadHQRoster();
       if (currentRole === 'admin') setupAdminPanel();
@@ -4859,7 +4861,7 @@ document.addEventListener('keydown', (e) => {
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
   await HubGames.close();
-  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:'))localStorage.removeItem(key);
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:') && key !== 'hub-brave-install-seen')localStorage.removeItem(key);
   location.reload();
 });
 

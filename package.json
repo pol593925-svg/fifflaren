@@ -1,6 +1,6 @@
 {
   "name": "support-hub-desktop",
-  "version": "3.51.0",
+  "version": "4.0.0-alpha.1",
   "description": "Support Hub Tool",
   "main": "main.js",
   "scripts": {
@@ -12,6 +12,8 @@
   },
   "build": {
     "appId": "com.supporthub.app",
+    "protocols": [{"name":"Support Hub", "schemes":["supporthub"]}],
+    "extraResources": [{"from":"brave-extension", "to":"brave-extension", "filter":["manifest.json","content.js"]}],
     "productName": "Support Hub",
     "directories": {
       "output": "dist"
@@ -28,6 +30,7 @@
     "files": [
       "**/*",
       "!tools/**",
+      "!brave-extension/**",
       "!models/csgo/textures/**",
       "!graphics-qa/**",
       "!support2*.js",

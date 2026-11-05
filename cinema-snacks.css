@@ -1,0 +1,19 @@
+.cin-snackbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 16px}.cin-snackbar>span{font-size:10px;letter-spacing:.2em;color:#c8ae83;margin-right:6px}
+#hubCinema .cin-snackbar button{padding:10px 14px;border-color:#706045;background:linear-gradient(130deg,#30283d,#282331)}
+.cin-snack-dialog{box-sizing:border-box;width:min(720px,92vw);max-height:90dvh;margin:auto;padding:24px;border:1px solid #79623f;border-radius:22px;background:radial-gradient(ellipse at top,#3e2d38,#191c2a 65%);color:#f8ecd8;overflow:auto;box-shadow:0 30px 120px #000b;font-family:"Segoe UI",sans-serif}
+.cin-snack-dialog::backdrop{background:#060911b8;backdrop-filter:blur(5px)}
+.cin-snack-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.cin-snack-dialog h2{margin:5px 0;font-size:25px}.cin-snack-dialog header small{letter-spacing:.16em;color:#c3a577;font-size:10px}
+.cin-snack-dialog p{font-size:13px;color:#bdc2d0}.cin-snack-dialog button{cursor:pointer}
+#cinDrinkCards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:20px}
+#hubCinema .cin-drink-card{display:flex;align-items:center;flex-direction:column;gap:8px;padding:14px 9px 18px;background:linear-gradient(155deg,#353448aa,#171e2e);border:1px solid #555268;border-radius:16px;transition:transform .15s,border-color .15s;min-width:0}
+#hubCinema .cin-drink-card:hover:not(:disabled){transform:translateY(-4px);border-color:#e1bd86}
+.cin-drink-card img{width:100%;height:190px;object-fit:contain;filter:drop-shadow(0 12px 12px #0007)}.cin-drink-card strong{font-size:18px}.cin-drink-card small{font-size:11px;word-break:break-word;color:#b7bed0}
+.cin-popcorn{width:min(390px,90vw);text-align:center;padding:30px}.cin-pop-art{font-size:88px;display:block;filter:drop-shadow(0 9px 9px #0005)}
+.cin-popcorn output{display:block;font:600 44px/1.6 "Segoe UI",sans-serif;color:#efca83}.cin-popcorn output[hidden]{display:none}
+#hubCinema .cin-popcorn button{margin-top:14px;width:100%;padding:12px;border-color:#87724d;background:#3b3041}
+.cin-drink-settings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.cin-drink-settings label{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--hub-surface,#1b2030);border:1px solid var(--hub-line,#384154);border-radius:14px;min-width:0}
+.cin-drink-settings img{height:105px;width:100%;object-fit:contain}.cin-drink-settings span{font-weight:600}.cin-drink-settings input{box-sizing:border-box;min-width:0;width:100%}
+.cin-bar-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.cin-bar-actions button{padding:10px 14px;border:1px solid #615581;border-radius:8px;background:#443564;color:#f4efff;cursor:pointer}
+#cinDrinkStatus{min-height:1.4em;overflow-wrap:anywhere}
+@media(max-width:550px){.cin-snack-dialog{padding:16px}#cinDrinkCards{gap:6px}.cin-drink-card img{height:135px}.cin-drink-card strong{font-size:15px}.cin-drink-settings{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){#hubCinema .cin-drink-card{transition:none}}

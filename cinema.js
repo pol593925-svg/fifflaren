@@ -151,7 +151,7 @@
       <div class="cin-actions"><button id="cinSchedule">Объявить показ</button><button id="cinAttach">Прикрепить к анонсу</button><button id="cinPlay">Пуск</button><button id="cinPause">Пауза</button><button id="cinClear">Снять с афиши</button></div>
       <label>Перемотать <input id="cinSeek" type="range" min="0" step="1"></label></div></details></main>
       <aside><section class="cin-voice"><h3>Голосовой звонок</h3><small id="cinVoicePeople">В звонке пока никого</small><div><button type="button" id="cinVoiceJoin">Присоединиться к звонку</button><button type="button" id="cinVoiceMute" hidden>Выключить микрофон</button><button type="button" id="cinVoiceLeave" hidden>Выйти из звонка</button></div></section><h3>Чат кинозала</h3><ol id="cinMessages" aria-label="Сообщения зала"></ol><form id="cinChat"><input id="cinText" placeholder="Сообщение в зал…" maxlength="600" aria-label="Сообщение"><button type="submit">Отправить</button></form></aside></div>`;
-    document.body.append(room);$('cinExit').onclick=()=>room.close();room.addEventListener('close',cleanup);
+    document.body.append(room);window.HubCinemaSnacks?.attach(room);$('cinExit').onclick=()=>room.close();room.addEventListener('close',cleanup);
     $('cinVideo').crossOrigin='anonymous';$('cinVideo').volume=.7;$('cinVolume').oninput=e=>{$('cinVideo').volume=e.target.value/100;};
     $('cinVideo').onloadedmetadata=tick;$('cinVideo').onerror=()=>{if(!requested)return;notice('Не удалось воспроизвести фильм. Проверь подключение ПК Fifflaren и видеокодек.');retryAt=performance.now()+8000;stopVideo();};
     $('cinUnmute').onclick=()=>{blocked=false;$('cinUnmute').hidden=true;notice('');play();};
@@ -182,7 +182,7 @@
     };
   }
   function cleanup(){
-    if(room?.open)return;closeTest();fullscreen(false);++openId;clearInterval(timer);voice?.close();voice=null;socket?.disconnect();socket=null;stopVideo();show=null;retryAt=0;
+    if(room?.open)return;window.HubCinemaSnacks?.close();closeTest();fullscreen(false);++openId;clearInterval(timer);voice?.close();voice=null;socket?.disconnect();socket=null;stopVideo();show=null;retryAt=0;
     messages.clear();$('cinMessages').replaceChildren();$('cinText').value='';$('cinHost').open=false;notice('');
   }
   function open(){
@@ -197,11 +197,11 @@
     if(owner())library();
   }
   function stop(){
-    if(owner())session?.cinemaPC?.stop();posterSocket?.disconnect();posterSocket=null;clearTimeout(bannerTimer);banner?.remove();
+    window.HubCinemaSnacks?.stop();if(owner())session?.cinemaPC?.stop();posterSocket?.disconnect();posterSocket=null;clearTimeout(bannerTimer);banner?.remove();
     if(room?.open){room.close();cleanup();}session=null;
   }
   function start(cfg){
-    stop();session=cfg;if(!cfg?.token||!cfg.io)return;
+    stop();session=cfg;if(!cfg?.token||!cfg.io)return;window.HubCinemaSnacks?.start(cfg);
     if(owner()&&cfg.cinemaPC)cfg.cinemaPC.connect(cfg.token,false).then(()=>{if(session===cfg&&room?.open)library();}).catch(e=>{if(session===cfg&&room?.open)notice(e.message);});
     posterSocket=cfg.io(cfg.server+'/cinema-posters',{auth:{token:cfg.token}});
     posterSocket.on('poster',p=>posterNotice(cfg,p));

@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { ipcRenderer, desktopCapturer, webUtils } = require('electron');
 const openCinemaDrink=url=>ipcRenderer.invoke('cinema-open-drink',url);
+const radioPC={connect:token=>ipcRenderer.invoke('radio-pc-connect',token),stop:()=>ipcRenderer.send('radio-pc-stop')};
 const cinemaPC={
   connect:(token,bind=false)=>ipcRenderer.invoke('cinema-pc-connect',{token,bind}),
   stop:()=>ipcRenderer.send('cinema-pc-stop'),
@@ -144,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         currentUser = data.username;
         currentRole = data.role || 'user';
-        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
+        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
         localStorage.setItem('global_worker_nick', data.username);
@@ -4850,7 +4851,7 @@ document.addEventListener('keydown', (e) => {
       }
       currentUser = data.username;
       currentRole = data.role || 'user';
-      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
+      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
       HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
       localStorage.setItem('global_worker_nick', data.username);

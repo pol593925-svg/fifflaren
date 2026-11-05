@@ -35,7 +35,7 @@
     if(!queueChanged)return;
     const list=$('radioQueue');list.replaceChildren();station.queue.forEach((item,i)=>{
       const li=document.createElement('li'), title=document.createElement('span');li.classList.toggle('on-air',item.id===station.current);
-      title.textContent=(i+1)+'. '+item.title+' · '+time(item.duration);li.append(title,button('В эфир',()=>control('select',{id:item.id})));
+      title.textContent=(i+1)+'. '+item.title+' · '+time(item.duration)+(item.addedBy?' · '+item.addedBy:'');li.append(title,button('В эфир',()=>control('select',{id:item.id})));
       for(const [label,op,off] of [['↑','up',i===0],['↓','down',i===station.queue.length-1],['Из очереди','remove',false]]){
         const b=button(label,()=>control(op,{id:item.id}));b.disabled=off;li.append(b);
       }list.append(li);
@@ -189,19 +189,34 @@
       await step(uri+'/parts/'+n,{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:file.slice(start,end)});
       progress(Math.floor(end/file.size*100));
     }
-    const result=await step(uri+'/finish',{method:'POST'});installState(result);try{localStorage.removeItem(key);}catch{}return result;
+    const result=await step(uri+'/finish',{method:'POST'});if(session!==cfg)throw Error('Аккаунт изменился.');installState(result);try{localStorage.removeItem(key);}catch{}return result;
   }
-  async function upload(){
-    const input=$('radioFiles'),files=Array.from(input.files);input.disabled=true;
+  let uploading=false;
+  function uploadDialog(){
+    let dialog=$('radioUploadDialog');
+    if(!dialog){
+      dialog=document.createElement('dialog');dialog.id='radioUploadDialog';dialog.setAttribute('aria-labelledby','radioUploadTitle');
+      dialog.innerHTML='<header><div><small>КОМАНДНОЕ РАДИО</small><h2 id="radioUploadTitle">Добавить свои песни</h2></div><button id="radioUploadClose" type="button" aria-label="Закрыть">✕</button></header><p>Выбери один или несколько аудиофайлов. После загрузки они попадут в конец общей очереди. Текущая песня продолжит играть. Музыка сохраняется на ПК Fifflaren — его приложение должно быть открыто.</p><label class="radio-upload-picker">Выбрать песни<input id="radioGuestFiles" type="file" multiple accept="audio/*,.mp3,.ogg,.opus,.wav,.flac,.m4a,.mp4,.aac,.weba,.webm,.aiff,.aif"></label><p id="radioGuestStatus" role="status"></p>';
+      document.body.append(dialog);$('radioUploadClose').onclick=()=>dialog.close();$('radioGuestFiles').onchange=upload;
+    }
+    $('radioGuestFiles').disabled=uploading;if(uploading)$('radioGuestStatus').textContent='Загрузка уже идёт. Дождись её завершения.';dialog.showModal();
+  }
+  async function upload(event){
+    const input=event?.currentTarget||$('radioFiles'),files=Array.from(input.files),session=cfg;
+    if(uploading||!files.length)return;uploading=true;
+    const output=input.id==='radioGuestFiles'?$('radioGuestStatus'):$('radioUploadStatus');
+    for(const id of ['radioFiles','radioGuestFiles'])if($(id))$(id).disabled=true;
     let ok=0;const errors=[];
     try{for(const [i,f] of files.entries()){
-      const progress=p=>{$('radioUploadStatus').textContent=(i+1)+' из '+files.length+' · '+f.name+' · '+p+'%';};progress(0);
+      if(cfg!==session)break;
+      const progress=p=>{if(cfg===session)output.textContent=(i+1)+' из '+files.length+' · '+f.name+' · '+p+'%';};progress(0);
       try{await uploadFile(f,progress);ok++;}catch(e){errors.push(f.name+' — '+e.message);}
-    }$('radioUploadStatus').textContent='Сохранено: '+ok+' из '+files.length+(errors.length?'\n'+errors.join('\n'):'');await loadLibrary();}
-    finally{input.value='';input.disabled=false;}
+    }if(cfg===session){output.textContent='В очередь добавлено '+ok+' из '+files.length+(errors.length?'\n'+errors.join('\n'):'');await loadLibrary();}}
+    finally{input.value='';uploading=false;for(const id of ['radioFiles','radioGuestFiles'])if($(id))$(id).disabled=false;}
   }
   function stop(){
-    window.HubCinema?.stop();clearInterval(timer);listening=false;station=null;release();setLights(false);
+    if($('radioUploadDialog')?.open)$('radioUploadDialog').close();if($('radioGuestStatus'))$('radioGuestStatus').textContent='';
+    if(owner())cfg?.radioPC?.stop();window.HubCinema?.stop();clearInterval(timer);listening=false;station=null;release();setLights(false);
     presence?.disconnect();presence=null;reported=null;showAudience(null);cfg=null;listing++;
   }
   function start(session){
@@ -217,6 +232,7 @@
       const people=document.createElement('details');people.id='radioAudience';
       people.innerHTML='<summary title="Кто слушает радио"><span aria-hidden="true">♬</span><b id="radioCount">—</b><span id="radioPreview"></span></summary><div class="radio-audience-pop"><strong>Сейчас слушают</strong><ul id="radioListeners"></ul></div>';
       box.append(people);
+      const addSong=button('＋ Песня',uploadDialog);addSong.id='radioAddSong';addSong.title='Добавить свои песни в общую очередь';box.append(addSong);
       if(window.HubCinema){const cinema=button('Кинозал',()=>{if(listening){listening=false;release();setLights(false);draw(false);}HubCinema.open();});cinema.id='cinemaButton';cinema.title='Кинотеатр команды';box.append(cinema);}
       tools.before(box);
       const glow=document.createElement('div');glow.id='radioGlow';glow.hidden=true;glow.setAttribute('aria-hidden','true');document.body.append(glow);
@@ -234,7 +250,7 @@
     player.onloadedmetadata=()=>sync().catch(e=>say(e.message));
     player.onended=pull;player.onerror=()=>{if(listening&&loadedId){release();say('Не удалось получить аудио. Переподключаемся к эфиру.');}};
     timer=setInterval(()=>{if(listening||owner()&&$('tab-radio').classList.contains('active'))pull();},2000);
-    if(owner()){pull();loadLibrary();}
+    if(owner()){pull();loadLibrary();if(session.radioPC)session.radioPC.connect(session.token).catch(e=>{if(cfg===session)say(e.message);});}
   }
   window.addEventListener('pagehide',stop);
   window.HubRadio={start,stop};

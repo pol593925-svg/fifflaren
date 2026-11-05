@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   let cfg, station, revisionTime=0, timer, reading=false, listening=false, loadedId='', pending;
-  let library=[], before=null, listing=0;
+  let library=[], before=null, listing=0, volumeControl;
   const player=new Audio(), $=id=>document.getElementById(id);
   player.crossOrigin='anonymous';
   let presence,reported=null,sounding=false,lights=false,context,meter,lightTimer;
@@ -216,6 +216,7 @@
   }
   function stop(){
     if($('radioUploadDialog')?.open)$('radioUploadDialog').close();if($('radioGuestStatus'))$('radioGuestStatus').textContent='';
+    volumeControl?.destroy();volumeControl=null;
     if(owner())cfg?.radioPC?.stop();window.HubCinema?.stop();clearInterval(timer);listening=false;station=null;release();setLights(false);
     presence?.disconnect();presence=null;reported=null;showAudience(null);cfg=null;listing++;
   }
@@ -224,7 +225,7 @@
     $('radioTabButton').style.display=owner()?'':'none';
     if(!$('hubRadio')){const tools=document.querySelector('.hub-tools');if(!tools)return;
       const box=document.createElement('div');box.id='hubRadio';
-      box.innerHTML='<button id="radioToggle" type="button" aria-label="Слушать общий эфир">▶</button><div><small>КОМАНДНОЕ РАДИО</small><span id="radioTitle">Подключиться к эфиру</span></div><input id="radioVolume" type="range" min="0" max="100" aria-label="Громкость радио">';
+      box.innerHTML='<button id="radioToggle" type="button" aria-label="Слушать общий эфир">▶</button><div><small>КОМАНДНОЕ РАДИО</small><span id="radioTitle">Подключиться к эфиру</span></div><span id="radioVolumeControls"></span>';
       const light=button('✦',()=>{
         setLights(!lights);
         if(lights&&!listening){listening=true;draw(false);pull();}
@@ -240,8 +241,7 @@
       people.addEventListener('keydown',e=>{if(e.key==='Escape'){people.open=false;people.querySelector('summary').focus();}});
     }
     showAudience(null);connectAudience(session);
-    const volume=$('radioVolume');let saved=null;try{saved=localStorage.getItem('hub-radio-volume:'+session.username);}catch{}
-    volume.value=saved??40;player.volume=Number(volume.value)/100;volume.oninput=()=>{player.volume=volume.value/100;try{localStorage.setItem('hub-radio-volume:'+session.username,volume.value);}catch{}};
+    volumeControl=HubMediaVolume.mount($('radioVolumeControls'),player,{id:'radioVolume',label:'радио',key:'hub-radio-volume:'+session.username,initial:40});
     draw(false);$('radioToggle').onclick=()=>{listening=!listening;if(!listening){release();setLights(false);}draw(false);if(listening)pull();};
     $('radioFiles').onchange=upload;$('radioBroadcast').onclick=()=>control(station?.playing?'pause':'play');
     $('radioPrev').onclick=()=>control('previous');$('radioNext').onclick=()=>control('next');

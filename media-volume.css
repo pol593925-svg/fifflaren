@@ -1,0 +1,11 @@
+#hubRadio .hub-volume,#hubCinema .hub-volume{display:inline-flex;align-items:center;gap:3px;flex:none;padding:3px;border:1px solid #435368;border-radius:20px;background:#0c152280;color:#e9f1f6;white-space:nowrap}
+#hubRadio .hub-volume button,#hubCinema .hub-volume button{display:grid;place-items:center;box-sizing:border-box;flex:none;width:26px;height:28px;min-width:0;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font:600 19px/1 "Segoe UI",sans-serif;cursor:pointer}
+#hubRadio .hub-volume button:hover:not(:disabled),#hubCinema .hub-volume button:hover:not(:disabled){background:#415467}
+#hubRadio .hub-volume button:focus-visible,#hubCinema .hub-volume button:focus-visible{outline:2px solid #8bd8c5;outline-offset:2px}
+#hubRadio .hub-volume button:disabled,#hubCinema .hub-volume button:disabled{opacity:.3;cursor:default}
+.hub-volume svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.hub-volume [data-mute]{color:#9ee2ce!important}.hub-volume [data-silent]{display:none}.hub-volume [aria-pressed=true] [data-silent]{display:block}.hub-volume [aria-pressed=true] [data-sound]{display:none}
+#hubRadio .hub-volume output,#hubCinema .hub-volume output{width:39px;min-width:39px;text-align:center;font:600 12px/1 "Segoe UI",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:0}
+#hubRadio:has(#radioAddSong){max-width:680px;gap:8px}#hubRadio>div{flex:1;min-width:0}
+@media(max-width:1100px){.hub-header{flex-wrap:wrap}.hub-header #hubRadio{order:5;flex-basis:100%;max-width:none;margin-left:0}.hub-header .hub-tools{margin-left:auto}}
+@media(max-width:650px){#hubRadio:has(#radioAddSong){gap:4px;padding:4px;flex-wrap:wrap}#hubRadio .hub-volume{padding:2px;gap:1px}#hubRadio .hub-volume button{width:24px;height:28px}}

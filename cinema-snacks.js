@@ -27,7 +27,7 @@
       $('cinDrinkSave').disabled=true;$('cinDrinkRefresh').disabled=true;
       try{const links={};for(const d of drinks)links[d.id]=$('cinDrinkURL-'+d.id).value.trim();
         const data=await request({rev:revision,links});if(turn!==serial)return;revision=data.rev;
-        $('cinDrinkStatus').textContent='Сохранено. Сотрудники увидят ссылки при следующем открытии напитков.';
+        $('cinDrinkStatus').textContent='Сохранено. Настройки применятся при следующем открытии напитков.';
       }catch(err){if(cfg===session)$('cinDrinkStatus').textContent=err.message;}
       finally{if(cfg===session){$('cinDrinkSave').disabled=false;$('cinDrinkRefresh').disabled=false;}}
     };
@@ -61,7 +61,7 @@
       for(const d of drinks){
         const url=safeURL(data.links[d.id]),card=document.createElement('button');card.type='button';card.className='cin-drink-card';card.dataset.drink=d.id;card.disabled=!url;
         const img=document.createElement('img');img.src='assets/cinema/'+d.id+'.svg';img.alt=d.name;
-        const label=document.createElement('strong'),site=document.createElement('small');label.textContent=d.name;site.textContent=url?url.hostname:'Ссылка пока не добавлена';card.append(img,label,site);
+        const label=document.createElement('strong');label.textContent=d.name;card.append(img,label);if(!url){const state=document.createElement('small');state.textContent='Скоро появится';card.append(state);}
         card.onclick=async()=>{card.disabled=true;
           try{if(cfg!==session)return;if(session.openCinemaDrink)await session.openCinemaDrink(url.href);else window.open(url.href,'_blank','noopener,noreferrer');
             if(menu.open)menu.close();

@@ -3,7 +3,7 @@
   let session,room,socket,timer,show,received=0,openId=0,requested='',retryAt=0,blocked=false,attempting=false;
   let movies=[],nextPage=null,librarySerial=0,previewSerial=0,previewing=false;
   const messages=new Map(),seenPosters=new Map(),$=id=>room.querySelector('#'+id),owner=()=>session?.username.toLowerCase()==='fifflaren';
-  let posterSocket,banner,bannerTimer,voice,ownsBrowserFullscreen=false;
+  let posterSocket,banner,bannerTimer,voice,ownsBrowserFullscreen=false,volumeControl;
   function posterNotice(cfg,p){
     if(cfg!==session||!cfg.notify||!Number.isSafeInteger(p?.id)||p.id<1||typeof p.title!=='string'||!Number.isFinite(p.startsAt))return;
     const nick=cfg.username.toLowerCase(),key='hub-cinema-poster:'+nick;
@@ -140,7 +140,7 @@
     room=document.createElement('dialog');room.id='hubCinema';room.setAttribute('aria-labelledby','cinTitle');
     room.innerHTML=`<header><span>SUPPORT HUB · КИНОЗАЛ КОМАНДЫ</span><button type="button" id="cinExit" aria-label="Выйти из зала">✕</button></header>
       <div class="cin-layout"><main><section class="cin-marquee"><small>АФИША КИНОЗАЛА</small><h2 id="cinTitle">Скоро на экране</h2><p id="cinWhen"></p><strong id="cinPhase"></strong><output id="cinClock">—</output></section>
-      <video id="cinVideo" preload="metadata" playsinline hidden></video><div class="cin-sound"><button id="cinUnmute" hidden>Смотреть со звуком</button><label>Громкость <input id="cinVolume" type="range" min="0" max="100" value="70"></label><button id="cinFull">Во весь экран</button><button id="cinVideoFull" hidden>Развернуть фильм</button><small id="cinQuality"></small></div>
+      <video id="cinVideo" preload="metadata" playsinline hidden></video><div class="cin-sound"><button id="cinUnmute" hidden>Смотреть со звуком</button><span id="cinVolumeControls"></span><button id="cinFull">Во весь экран</button><button id="cinVideoFull" hidden>Развернуть фильм</button><small id="cinQuality"></small></div>
       <p id="cinNote" role="status"></p><details id="cinHost"><summary>Управление показом · Fifflaren</summary><div>
       <button id="cinBind" type="button">Подключить этот ПК</button><small id="cinSpace">Библиотека · 10 ГБ</small>
       <small>Выбери файл на диске, проверь его кнопкой «Проверить показ», затем объяви сеанс. Во время показа Support Hub должен работать на этом ПК.</small><label>Добавить с моего ПК <input id="cinFiles" type="file" accept="video/mp4,video/webm,.mp4,.webm" multiple></label><small id="cinProgress"></small>
@@ -152,7 +152,7 @@
       <label>Перемотать <input id="cinSeek" type="range" min="0" step="1"></label></div></details></main>
       <aside><section class="cin-voice"><h3>Голосовой звонок</h3><small id="cinVoicePeople">В звонке пока никого</small><div><button type="button" id="cinVoiceJoin">Присоединиться к звонку</button><button type="button" id="cinVoiceMute" hidden>Выключить микрофон</button><button type="button" id="cinVoiceLeave" hidden>Выйти из звонка</button></div></section><h3>Чат кинозала</h3><ol id="cinMessages" aria-label="Сообщения зала"></ol><form id="cinChat"><input id="cinText" placeholder="Сообщение в зал…" maxlength="600" aria-label="Сообщение"><button type="submit">Отправить</button></form></aside></div>`;
     document.body.append(room);window.HubCinemaSnacks?.attach(room);$('cinExit').onclick=()=>room.close();room.addEventListener('close',cleanup);
-    $('cinVideo').crossOrigin='anonymous';$('cinVideo').volume=.7;$('cinVolume').oninput=e=>{$('cinVideo').volume=e.target.value/100;};
+    $('cinVideo').crossOrigin='anonymous';
     $('cinVideo').onloadedmetadata=tick;$('cinVideo').onerror=()=>{if(!requested)return;notice('Не удалось воспроизвести фильм. Проверь подключение ПК Fifflaren и видеокодек.');retryAt=performance.now()+8000;stopVideo();};
     $('cinUnmute').onclick=()=>{blocked=false;$('cinUnmute').hidden=true;notice('');play();};
     $('cinFull').onclick=()=>fullscreen(!room.classList.contains('cin-max'));
@@ -182,11 +182,12 @@
     };
   }
   function cleanup(){
-    if(room?.open)return;window.HubCinemaSnacks?.close();closeTest();fullscreen(false);++openId;clearInterval(timer);voice?.close();voice=null;socket?.disconnect();socket=null;stopVideo();show=null;retryAt=0;
+    if(room?.open)return;volumeControl?.destroy();volumeControl=null;window.HubCinemaSnacks?.close();closeTest();fullscreen(false);++openId;clearInterval(timer);voice?.close();voice=null;socket?.disconnect();socket=null;stopVideo();show=null;retryAt=0;
     messages.clear();$('cinMessages').replaceChildren();$('cinText').value='';$('cinHost').open=false;notice('');
   }
   function open(){
     if(!session?.token)return;if(!room)build();if(room.open)return;
+    volumeControl?.destroy();volumeControl=HubMediaVolume.mount($('cinVolumeControls'),$('cinVideo'),{id:'cinVolume',label:'кинотеатра',key:'hub-cinema-volume:'+session.username,initial:70});
     const epoch=++openId;room.showModal();fullscreen(true);$('cinHost').hidden=!owner();$('cinTitle').textContent='Афиша кинозала';$('cinClock').textContent='—';$('cinPhase').textContent='Подключаемся…';$('cinWhen').textContent='';$('cinVideo').hidden=true;
     const net=session.io(session.server+'/cinema',{auth:{token:session.token}});socket=net;
     voice=HubCinemaVoice.create(net,{join:$('cinVoiceJoin'),mute:$('cinVoiceMute'),leave:$('cinVoiceLeave'),people:$('cinVoicePeople')},notice);

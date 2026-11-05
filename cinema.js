@@ -87,7 +87,7 @@
       sel.replaceChildren(new Option('Только анонс, без файла',''));for(const f of movies)sel.add(new Option(f.title,f.id));if(movies.some(f=>f.id===old))sel.value=old;
       if(result.space){
         const space=result.space,fmt=n=>(n/1e9).toLocaleString('ru',{maximumFractionDigits:2});
-        $('cinSpace').textContent='Занято '+fmt(space.used)+' из 4 ГБ · свободно '+fmt(Math.max(0,space.limit-space.used))+' ГБ. '+(space.online?'ПК на связи.':'ПК с библиотекой не подключён.');
+        $('cinSpace').textContent='Занято '+fmt(space.used)+' из '+fmt(space.limit)+' ГБ · свободно '+fmt(Math.max(0,space.limit-space.used))+' ГБ. '+(space.online?'ПК на связи.':'ПК с библиотекой не подключён.');
         $('cinBind').disabled=space.online;
       }
       selection();$('cinMore').hidden=!nextPage;
@@ -142,7 +142,7 @@
       <div class="cin-layout"><main><section class="cin-marquee"><small>АФИША КИНОЗАЛА</small><h2 id="cinTitle">Скоро на экране</h2><p id="cinWhen"></p><strong id="cinPhase"></strong><output id="cinClock">—</output></section>
       <video id="cinVideo" preload="metadata" playsinline hidden></video><div class="cin-sound"><button id="cinUnmute" hidden>Смотреть со звуком</button><label>Громкость <input id="cinVolume" type="range" min="0" max="100" value="70"></label><button id="cinFull">Во весь экран</button><button id="cinVideoFull" hidden>Развернуть фильм</button><small id="cinQuality"></small></div>
       <p id="cinNote" role="status"></p><details id="cinHost"><summary>Управление показом · Fifflaren</summary><div>
-      <button id="cinBind" type="button">Подключить этот ПК</button><small id="cinSpace">Библиотека · 4 ГБ</small>
+      <button id="cinBind" type="button">Подключить этот ПК</button><small id="cinSpace">Библиотека · 10 ГБ</small>
       <small>Выбери файл на диске, проверь его кнопкой «Проверить показ», затем объяви сеанс. Во время показа Support Hub должен работать на этом ПК.</small><label>Добавить с моего ПК <input id="cinFiles" type="file" accept="video/mp4,video/webm,.mp4,.webm" multiple></label><small id="cinProgress"></small>
       <label>Фильм из библиотеки <select id="cinFilms"></select></label><button id="cinMore" hidden>Ещё фильмы</button><small id="cinFileInfo"></small>
       <div class="cin-actions"><button id="cinTest" type="button">Проверить показ</button><button id="cinDelete" type="button">Удалить из библиотеки</button></div>
@@ -169,7 +169,7 @@
     $('cinFiles').onchange=async e=>{
       const input=e.target,files=[...input.files],cfg=session;input.disabled=true;let count=0;const errors=[];
       try{for(const file of files){if(cfg!==session)break;
-        try{if(!cfg.cinemaPC)throw Error('Открой кинотеатр в приложении на ПК Fifflaren.');if(file.size>4e9)throw Error('Файл больше всей библиотеки (4 ГБ).');
+        try{if(!cfg.cinemaPC)throw Error('Открой кинотеатр в приложении на ПК Fifflaren.');if(file.size>10e9)throw Error('Файл больше всей библиотеки (10 ГБ).');
           const meta=await inspectFile(file);await cfg.cinemaPC.connect(cfg.token,true);
           await cfg.cinemaPC.add(file,meta,p=>{$('cinProgress').textContent=file.name+' · '+p+'%';});count++;}catch(err){errors.push(file.name+' — '+err.message);}
       }if(cfg===session){$('cinProgress').textContent='Сохранено '+count+' из '+files.length+'. '+errors.join(' ');if(room.open)await library();}}

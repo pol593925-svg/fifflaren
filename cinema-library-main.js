@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const {pipeline}=require('node:stream/promises'),{createReadStream,createWriteStream}=require('node:fs'),{Transform}=require('node:stream');
-const LIMIT=4_000_000_000,PART=512*1024,validId=id=>typeof id==='string'&&/^[a-f0-9]{24}$/.test(id);
+const LIMIT=10_000_000_000,PART=512*1024,validId=id=>typeof id==='string'&&/^[a-f0-9]{24}$/.test(id);
 function create(dir){
   const file=(id,ext)=>{if(!validId(id))throw Error('Неверный номер фильма.');return path.join(dir,id+ext);};
   async function list(){
@@ -40,7 +40,7 @@ function create(dir){
       const size=(await fs.stat(source)).size,title=path.basename(source,path.extname(source)).trim().slice(0,200);
       if(!title||!Number.isSafeInteger(size)||size<12||!Number.isFinite(meta.duration)||meta.duration<=0||!(meta.width>0&&meta.height>0))throw Error('Видеофайл не удалось прочитать.');
       const used=(await list()).reduce((n,m)=>n+m.size,legacyBytes);
-      if(used+size>LIMIT)throw Error('Не хватает места в библиотеке на 4 ГБ. Удали старый фильм.');
+      if(used+size>LIMIT)throw Error('Не хватает места в библиотеке на 10 ГБ. Удали старый фильм.');
       const disk=await fs.statfs(dir);if(disk.bavail*disk.bsize<size)throw Error('На диске ПК недостаточно свободного места.');
       const id=crypto.randomBytes(12).toString('hex'),part=file(id,'.part'),final=file(id,'.original'),json=file(id,'.json'),temp=file(id,'.tmp');
       let copied=0,last=-1;

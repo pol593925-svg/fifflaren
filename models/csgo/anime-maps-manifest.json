@@ -1,21 +1,21 @@
 {
   "generator": "tools/blender/build_anime_maps.py",
   "style": "Painterly anime",
-  "collisionSource": "Unmodified MAP_ROWS, CS16Buildings and CS16Passages",
+  "collisionSource": "Authored tactical MAP_ROWS, CS16TacticalMap and CS16Buildings",
   "maps": {
     "dust2": {
       "file": "anime-dust2.glb",
-      "bytes": 39342476,
-      "triangles": 341651,
-      "meshBatches": 76,
-      "layoutSha256": "ad1b2479bf96a400bc6b3566334163d65442098d411b485733eadbf2d7746f21"
+      "bytes": 17996740,
+      "triangles": 173846,
+      "meshBatches": 67,
+      "layoutSha256": "b207403e862acf968e8cf57fa531c5896a1c921a18e948c59260944dc4eb689d"
     },
     "inferno": {
       "file": "anime-inferno.glb",
-      "bytes": 30212736,
-      "triangles": 258661,
-      "meshBatches": 75,
-      "layoutSha256": "8079fe05a4f9d3c9bec8a8034103c03fc84cdc95d4fce142e9116703da86cc40"
+      "bytes": 17998732,
+      "triangles": 174266,
+      "meshBatches": 66,
+      "layoutSha256": "8e9f2308f95430da98ec18c5facc7f89b40e381637febb951d16c07a802af971"
     }
   }
 }

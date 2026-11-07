@@ -7,6 +7,6 @@ const rows = vm.runInNewContext('(' + source.match(/const MAP_ROWS = (\{[\s\S]*?
 const codes = { '#': 1, '.': 0, D: 2, C: 3, 4: 4, 5: 5, 6: 6, 7: 7, V: 8, B: 9, S: 10, T: 11 };
 const grid = rows.map((r) => Array.from(r, (c) => codes[c]));
 const plan = require('../cs16-passages').plan(grid);
-if (!plan.cells.length || !plan.routes.length) throw Error('Dust2 interior generation failed');
+if (!require('../cs16-tactical-map').identify(grid) && (!plan.cells.length || !plan.routes.length)) throw Error('Dust2 interior generation failed');
 if (require.main === module) process.stdout.write(JSON.stringify(plan));
 module.exports = { plan, grid };

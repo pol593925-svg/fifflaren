@@ -8,6 +8,35 @@ HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('anime_weapon_base',HERE/'build_weapons.py')
 w=importlib.util.module_from_spec(spec);sys.modules[spec.name]=w;spec.loader.exec_module(w);a=w.a
 OUT=w.ROOT/'models/csgo'
+join_parts=a.join_parts
+# Keep authoring pieces separate until their curved surfaces have been refined.
+a.join_parts=lambda root:None
+base_box=a.box
+def soft_box(name,pos,size,mat,parent,bevel=.008):
+    return base_box(name,pos,size,mat,parent,min(min(size)*.32,bevel*1.8,.014) if bevel else 0)
+a.box=soft_box
+
+def sculpt(root,kind):
+    for ob in list(root.children_recursive):
+        if ob.type!='MESH':continue
+        if kind=='hands' and any(n in ob.name for n in ['forearm','palm','digit','finger','thumb','Wrist fastening']):
+            bpy.context.view_layer.objects.active=ob
+            mod=ob.modifiers.new('Smooth anatomical surface','SUBSURF');mod.levels=1;mod.render_levels=1
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+        for poly in ob.data.polygons:poly.use_smooth=True
+
+def handguard(parent,mat):
+    verts=[];faces=[]
+    for k in range(18):
+        za=-.335+k*.011;zb=za+.011
+        for j in range(16):
+            if j not in [0,1,6,7,8,9,14,15] and k%5 in [1,2,3]:continue
+            n=len(verts)
+            for z,angle in [(za,j*math.tau/16),(zb,j*math.tau/16),(zb,(j+1)*math.tau/16),(za,(j+1)*math.tau/16)]:
+                verts.append((math.cos(angle)*.043,.021+math.sin(angle)*.043,z))
+            faces.append((n,n+1,n+2,n+3))
+    a.mesh('Curved ventilated fore-end',verts,faces,mat,parent)
+w.open_handguard=handguard
 
 def paint(mat,hexcolor):
     color=np.array([int(hexcolor[i:i+2],16)/255 for i in [1,3,5]])
@@ -33,10 +62,10 @@ def finish(root,kind):
             if name.startswith('Weapon finish /'):
                 c='#d7d1b8' if any(v in name for v in ['steel','edges','Olive']) else '#568e98' if 'Walnut' in name else '#577b91'
                 if kind in ['awp','scout'] and 'Olive' in name:c='#b5c5cf'
-            elif 'field ripstop' in name:c='#6b8999'
-            elif 'glove textile' in name:c='#476079'
+            elif 'field ripstop' in name:c='#b6bab5'
+            elif 'glove textile' in name:c='#4c6477'
             elif 'leather' in name:c='#2e4259'
-            elif 'finger protection' in name:c='#5c7889'
+            elif 'finger protection' in name:c='#607c88'
             elif 'seam' in name:c='#c79e63'
             elif 'Brass' in name:c='#d4a361'
             elif 'edges' in name:c='#8c9fa9'
@@ -86,7 +115,7 @@ def main():
     for kind in kinds:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         root=w.hands() if kind=='hands' else w.build(kind)
-        finish(root,kind);details(root,kind)
+        sculpt(root,kind);finish(root,kind);details(root,kind);join_parts(root)
         results.append(w.export(root,OUT/('anime-'+kind+'.glb')))
         print('ANIME_WEAPON',kind,flush=True)
     (OUT/'anime-weapons-manifest.json').write_text(json.dumps({'generator':'tools/blender/build_anime_weapons.py','assets':results},indent=2)+'\n')

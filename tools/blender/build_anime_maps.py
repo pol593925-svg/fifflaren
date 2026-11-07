@@ -1,4 +1,4 @@
-"""Painterly replacement art for BOTH complete CS layouts; gameplay coordinates unchanged.
+"""Painterly art for BOTH tactical layouts; geometry follows the shared gameplay grid.
 Run via Blender with Node on PATH: --background --python tools/blender/build_anime_maps.py
 The existing map/door/building exporters remain the source of collision footprints.
 """
@@ -81,47 +81,34 @@ def wall_details(x,z,dx,dz,variant,theme):
         panel('steel',1.35,2.8,.24,.38,.20);panel('lamp_warm',1.35,2.81,.16,.25,.22)
 
 def coast(a,theme):
-    count=original_coast(a,theme)
+    import anime_architecture
+    return anime_architecture.build(a,theme)
+
+def site_markers(theme,rows):
     import subprocess
     plan=json.loads(subprocess.check_output(['node',str(ROOT/'tools/export-coast-buildings.cjs'),theme],cwd=ROOT,encoding='utf8'))
-    for b in plan['buildings']:
-        x,z=b['x'],b['z']
-        # Rounded ceramic fascia below roof level; flat roof and stair exit remain accessible.
-        for side in range(4):
-            for j in range(48):
-                u=j*.25+.125
-                for k in range(4):
-                    t=k/4;q=(k+1)/4
-                    def p(v,t):
-                        d=-.24*math.cos(t*math.pi/2);h=6.89+.29*math.sin(t*math.pi/2)
-                        xx,zz=(v,d) if side==0 else (12-d,v) if side==1 else (12-v,12-d) if side==2 else (d,12-v)
-                        return x+xx,h,z+zz
-                    a.face('roof',[p(u-.12,t),p(u-.12,q),p(u+.12,q),p(u+.12,t)],tint=.92+(j%4)*.025)
-        # Curved ornamental canopy within the existing entrance awning, not across the door.
-        for j in range(24):
-            u=3.55+j*.17;v=u+.17
-            for k in range(6):
-                p=-.80+k*.12;q=p+.12
-                def h(vv):return 2.94+.13*math.sin((vv+.8)/.72*math.pi)
-                a.face('roof',[(x+u,h(p),z+p),(x+u,h(q),z+q),(x+v,h(q),z+q),(x+v,h(p),z+p)])
-        # Roses on the solid balcony parapet; windows and firing openings stay clear.
-        for j in range(29):
-            xx=x+1.65+j*.27;zz=z-1.90;yy=4.40+.07*math.sin(j)
-            for k in range(3):
-                ang=j*2.4+k*2.1;r=.10
-                a.face('leaf',[(xx-r,yy,zz),(xx,yy+.16,zz-.03),(xx+r,yy+.02,zz+.04)])
-                a.face('flower',[(xx-.06,yy+.12,zz-.06),(xx,yy+.24,zz-.08),(xx+.06,yy+.12,zz-.06),(xx,yy+.08,zz-.08)])
-    return count
+    for letter,site in plan['tactical']['sites'].items():
+        x=(site['x1']+site['x2']+1)*2;z=(site['y1']+site['y2']+1)*2
+        a.glyph(letter,x,.012,z,3.1)
+        for j in range(48):
+            t=j*math.tau/48;q=(j+1)*math.tau/48
+            a.face('paint',[(x+math.cos(v)*r,.015,z+math.sin(v)*r)for v,r in [(t,3),(t,3.12),(q,3.12),(q,3)]])
+
 
 def main():
     args=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
     ap=argparse.ArgumentParser();ap.add_argument('--map',choices=['dust2','inferno','all'],default='all');cfg=ap.parse_args(args)
-    a.create_materials=materials;a.wall_details=wall_details;coast_architecture.build=coast
-    layouts=a.read_layouts();manifest={'generator':'tools/blender/build_anime_maps.py','style':'Painterly anime','collisionSource':'Unmodified MAP_ROWS, CS16Buildings and CS16Passages','maps':{}}
+    a.create_materials=materials;a.wall_details=wall_details;a.site_markers=site_markers;coast_architecture.build=coast
+    layouts=a.read_layouts();manifest={'generator':'tools/blender/build_anime_maps.py','style':'Painterly anime','collisionSource':'Authored tactical MAP_ROWS, CS16TacticalMap and CS16Buildings','maps':{}}
     for theme,rows in layouts.items():
         if cfg.map not in ['all',theme]:continue
         bpy.ops.wm.read_factory_settings(use_empty=True);materials(theme)
         lamps,beacons=a.build_map(theme,rows);objects=a.bake_batches()
+        import bmesh
+        for ob in objects:
+            if ob.data.materials[0].name not in ['roof','trim']:continue
+            bm=bmesh.new();bm.from_mesh(ob.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001);bm.to_mesh(ob.data);bm.free()
+            for poly in ob.data.polygons:poly.use_smooth=True
         tris=0
         for ob in objects:ob.data.calc_loop_triangles();tris+=len(ob.data.loop_triangles)
         target=OUT/('anime-'+theme+'.glb')

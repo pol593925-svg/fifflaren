@@ -19,7 +19,7 @@
     {
       "file": "anime-deagle.glb",
       "triangles": 7020,
-      "bytes": 353332
+      "bytes": 352072
     },
     {
       "file": "anime-ak47.glb",
@@ -28,13 +28,13 @@
     },
     {
       "file": "anime-m4a1.glb",
-      "triangles": 29040,
-      "bytes": 1020880
+      "triangles": 29240,
+      "bytes": 1034880
     },
     {
       "file": "anime-awp.glb",
       "triangles": 28136,
-      "bytes": 988232
+      "bytes": 988236
     },
     {
       "file": "anime-mp5.glb",
@@ -44,7 +44,7 @@
     {
       "file": "anime-p90.glb",
       "triangles": 23016,
-      "bytes": 900256
+      "bytes": 900288
     },
     {
       "file": "anime-ump45.glb",
@@ -74,12 +74,12 @@
     {
       "file": "anime-aug.glb",
       "triangles": 28136,
-      "bytes": 988728
+      "bytes": 988732
     },
     {
       "file": "anime-m249.glb",
       "triangles": 17296,
-      "bytes": 723540
+      "bytes": 724804
     },
     {
       "file": "anime-fiveseven.glb",
@@ -98,8 +98,8 @@
     },
     {
       "file": "anime-hands.glb",
-      "triangles": 15872,
-      "bytes": 795896
+      "triangles": 39108,
+      "bytes": 1375268
     }
   ]
 }

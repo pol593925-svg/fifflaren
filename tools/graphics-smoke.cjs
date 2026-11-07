@@ -109,6 +109,11 @@ const server=http.createServer((req,res)=>{
  if(!fs.existsSync(name)){res.statusCode=404;res.end('Not found');return;}
  res.setHeader('Content-Type',mime[path.extname(name)]||'application/octet-stream');
  if(name===path.join(root,'cs16.js')){res.end(fs.readFileSync(name,'utf8').replace(/\}\)\(\);\s*$/,hooks+'})();'));return;}
+ if(process.env.TRACE_PROGRAMS && name===path.join(root,'three.min.js')){
+  const source=fs.readFileSync(name,'utf8'),anchor='getParameters:function(s,l,h,v,x){';
+  if(!source.includes(anchor))throw Error('Shader trace hook does not match bundled Three');
+  res.end(source.replace(anchor,anchor+`if(globalThis.__programCounts){const key=[s.name||s.type,!!x.isSkinnedMesh,!!x.isInstancedMesh].join('/');globalThis.__programCounts[key]=(globalThis.__programCounts[key]||0)+1;}`));return;
+ }
  fs.createReadStream(name).pipe(res);
 });
 const state=(map='dust2')=>({phase:'freeze',map,gm:'classic',mode:5,round:1,scores:{t:0,ct:0},players:[{id:'p1',nick:'Preview',team:'ct',money:16000,kills:0,deaths:0},{id:'p2',nick:'Alpha',team:'ct',money:800},{id:'p3',nick:'Bravo',team:'t',money:800}],host:'Preview',freezeEnds:Date.now()+1800000,roundEnds:Date.now()+1800000,buyUntil:Date.now()+1800000,now:Date.now()});

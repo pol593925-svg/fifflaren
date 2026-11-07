@@ -13,6 +13,7 @@ for(let cycle=0;cycle<60;cycle++){
  if(cycle%3===0){time+=8000;fx.update(8,time);assert.equal(fx.metrics().effects,0);}
 }
 assert.equal(pools.size,16);assert.equal(buffers.size,32);assert.equal(materials.size,48);
+for(const m of materials)assert.equal(m.forceSinglePass,true,'unlit transparent VFX should not rebuild back/front shader variants per draw');
 quality='low';for(let i=0;i<35;i++)cast('stone');fx.update(0,time);assert.equal(fx.metrics().effects,8);
 for(const group of scene.children)assert.equal(group.children.find(o=>o.isInstancedMesh).count,14);
 fx.clear();cast('wind');fx.update(.01,time+=10);assert.equal(scene.children[0].children[3].visible,false);

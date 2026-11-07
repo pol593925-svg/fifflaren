@@ -21,7 +21,10 @@
    // render the rings/fire black after drawing the coloured ice geometry.
    if(!geometry.attributes.color)geometry.setAttribute('color',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count*3).fill(1),3));
   }
-  function material(){const m=new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,vertexColors:true}),soft={value:0};m.userData.soft=soft;
+  // Double-sided transparent planes need one pass: Three's default back/front
+  // pair otherwise switches shader parameters twice for every ribbon and ring.
+  // Our unlit colour is identical on both faces and no effect writes depth.
+  function material(){const m=new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,vertexColors:true,forceSinglePass:true}),soft={value:0};m.userData.soft=soft;
    m.onBeforeCompile=s=>{s.uniforms.spellSoft=soft;s.vertexShader='attribute vec2 spellUv; varying vec2 spellTexcoord;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nspellTexcoord=spellUv;');s.fragmentShader='uniform float spellSoft; varying vec2 spellTexcoord;\n'+s.fragmentShader.replace('#include <alphatest_fragment>','float edge=pow(max(0.,1.-abs(spellTexcoord.x*2.-1.)),.65)*smoothstep(0.,.14,spellTexcoord.y)*smoothstep(0.,.16,1.-spellTexcoord.y);diffuseColor.a*=mix(1.,edge,spellSoft);\n#include <alphatest_fragment>');};m.customProgramCacheKey=()=> 'painted-magic-soft-edge-v2';allMaterials.add(m);return m;}
   const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
   // Keep the instance buffers alive between casts. Recreating/discarding them on

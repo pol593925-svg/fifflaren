@@ -24,6 +24,7 @@ module.exports=async function(page,outputs,errors){
    await page.evaluate(q=>{const ui=__qa.ui();ui.quality.value=q;ui.quality.onchange()},quality);
    await page.waitForTimeout(1000);
    reports.push(await page.evaluate(async({quality,x,z})=>{
+    window.__programCounts={};
     const dt=[],spikes=[];let last=performance.now();
     for(let i=0;i<240;i++){
      if(i%45===0)for(let j=0;j<10;j++)__socket.receive('cs16_magic_fx',{
@@ -34,11 +35,17 @@ module.exports=async function(page,outputs,errors){
     const average=dt.reduce((a,b)=>a+b,0)/dt.length;dt.sort((a,b)=>a-b);
     const gl=__qa.renderer().getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');
     return {quality,fps:Math.round(1000/average),p50ms:dt[120],p95ms:dt[228],maxms:dt.at(-1),spikes,
-     gpu:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown',antialias:gl.getContextAttributes().antialias,...__qa.snapshot()};
+     gpu:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown',antialias:gl.getContextAttributes().antialias,
+     programCounts:window.__programCounts,...__qa.snapshot()};
    },{quality,...spot}));
   }
  }
  assert.equal(errors.length,0,errors.join('\n'));assert(reports.every(r=>r.players===9&&r.ready));
+ // Three shares its internal depth material across rigid/skinned/instanced shadow
+ // casters. Check our colour-pass materials here; retain depth counts in the report.
+ if(process.env.TRACE_PROGRAMS)for(const r of reports)
+  assert(Object.entries(r.programCounts).filter(([key])=>!key.startsWith('MeshDepthMaterial/')).reduce((n,[,v])=>n+v,0)<240,
+   'Colour shader variants should settle after loading: '+JSON.stringify(r.programCounts));
  if(process.env.WEAK_PC){for(const r of reports){r.cpuThrottle=4;r.emulatedMemoryGB=4;assert.equal(r.antialias,false,'weak-PC startup disables multisampling');}}
  fs.writeFileSync(path.join(outputs,process.env.WEAK_PC?'rounds-spell-weak-cpu.json':'rounds-spell-performance.json'),JSON.stringify(reports,null,2));
  if(profiler){

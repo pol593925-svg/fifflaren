@@ -52,13 +52,16 @@ def build(a,theme):
         def box(mat,xx,y,zz,w,h,d):rounded_box(mat,x+xx,y,z+zz,w,h,d)
         def height(u):return 7.92+1.7*max(0,1-abs((u-4.5)/4.35))**1.25
         # A curved gable over the front wing gives a true silhouette. Rear rooftop is a terrace.
-        for j in range(48):
-            u=.15+j*8.7/48;v=u+8.7/48
+        for j in range(96):
+            u=.15+j*8.7/96;v=u+8.7/96
             for k in range(14):
                 zz=-.25+k*5.5/14;end=zz+5.5/14
                 # Raised overlapping ceramic courses, welded and smooth-shaded at export.
-                lift=.018*math.sin(k*1.9)+.016*(k%2)
-                a.face('roof',[(x+u,height(u)+lift,z+zz),(x+u,height(u)+lift,z+end),(x+v,height(v)+lift,z+end),(x+v,height(v)+lift,z+zz)])
+                # Small barrel-tile relief stays within the 6cm gameplay roof tolerance.
+                tile=lambda q:.026*(1+math.cos((q-.15)/.54375*math.tau))*.5
+                lift=.009*(k%2)
+                a.face('roof',[(x+u,height(u)+tile(u)+lift,z+zz),(x+u,height(u)+tile(u)+lift,z+end),
+                    (x+v,height(v)+tile(v)+lift,z+end),(x+v,height(v)+tile(v)+lift,z+zz)],tint=.91+(k%3)*.035)
             for zz in [-.25,5.25]:
                 a.face(['plaster_light','plaster_blue','plaster'][bid%3],[(x+u,7.18,z+zz),(x+v,7.18,z+zz),(x+v,height(v),z+zz),(x+u,height(u),z+zz)])
         for zz in [-.28,5.28]:
@@ -74,10 +77,34 @@ def build(a,theme):
         # Rounded corner pilasters with shaped capitals replace stacks of cube stones.
         for xx,zz in [(.12,.10),(11.87,.10),(.12,11.87),(11.87,11.87)]:
             lathe('trim',x+xx,z+zz,[(0,.24),(.16,.29),(.30,.24),(.43,.19),(3.22,.19),(3.32,.25),(3.45,.25),(3.56,.18),(6.83,.18),(6.94,.26),(7.08,.26)],16)
+        # Side elevations receive the same carved masonry as the front, keeping windows clear.
+        for sx in [-.055,12.055]:
+            for yy in [.20,.65,3.42,6.88]:box('trim',sx,yy,6,.12,.10,11.45)
+            for zz in [1.05,5.80,10.80]:
+                box('wood',sx,5.28,zz,.11,2.90,.095)
+        for zz in [3.2,8.5]:
+            for yy in [2.50,6.10]:
+                tube('trim',[(x+12.12,yy+.20*math.sin(j*math.pi/24),z+zz-1.02+j*2.04/24)for j in range(25)],.055)
+        # A cloth guild banner dresses the solid side wall; geometry waves only at authoring time.
+        for zz in [3.0,9.0]:
+            box('wood',-.24,6.45,zz,.48,.075,1.44)
+            for j in range(16):
+                t=j/16;tt=(j+1)/16
+                for k in range(8):
+                    s=k/8;ss=(k+1)/8
+                    def cloth(q,r):return (x-.15-.095*math.sin(q*math.pi*2+r*1.7),6.38-q*2.25,z+zz+(r-.5)*1.20)
+                    a.face('roof' if k in [0,7] else 'shutter',[cloth(t,s),cloth(tt,s),cloth(tt,ss),cloth(t,ss)])
+            # Shallow embroidered star in the plane of the banner.
+            for j in range(8):
+                aa=j*math.tau/8;bb=(j+1)*math.tau/8
+                a.face('trim',[(x-.29,5.30,z+zz),(x-.29,5.30+math.cos(aa)*(.31 if j%2==0 else .13),z+zz+math.sin(aa)*(.31 if j%2==0 else .13)),
+                    (x-.29,5.30+math.cos(bb)*(.13 if j%2==0 else .31),z+zz+math.sin(bb)*(.13 if j%2==0 else .31))])
         # Timber framing and carved brackets distinguish a townhouse from a plaster block.
         for xx in [.55,3.8,7.65,11.4]:
             box('wood',xx,5.27,-.08,.105,3.03,.12)
-        for y in [.68,3.15,6.61]:box('wood',6,y,-.065,11.45,.105,.12)
+        for y in [3.15,6.61]:box('wood',6,y,-.065,11.45,.105,.12)
+        # The low belt must stop at the jambs; a full-width beam crosses the playable doorway.
+        for lo,hi in [(.275,3.80),(7.20,11.725)]:box('wood',(lo+hi)/2,.68,-.065,hi-lo,.105,.12)
         for xx in [1.65,9.05]:
             for j in range(16):
                 t=j/16;tt=(j+1)/16

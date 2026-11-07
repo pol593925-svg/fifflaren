@@ -3,8 +3,24 @@ module.exports = async function tacticalSceneCheck() {
   const previous = {...P}, phase = state.phase, alive = me.alive, weapon = current;
   const actors = [...remotes.values()].map(r => [r, r.alive]);
   const data = CS16Buildings.layout(grid, curMap), reports = [];
+  const staticArt = await worldGraphics.ready;
   const reset = (x,y,z,yaw) => Object.assign(P,{x,y,z,yaw,pitch:0,vx:0,vy:0,vz:0,onGround:true,crouched:false});
   const walk = frames => {for(let i=0;i<frames;i++)stepPlayer(1/60,{w:true});};
+  const doorArt = data.environment.doors.filter(d=>!d.kind);
+  const leafMeshes = [];
+  scene.getObjectByName('Interactive interiors').traverse(o=>{
+    if(o.isInstancedMesh && o.name.startsWith('Painted house doors wood '))leafMeshes.push(o);
+  });
+  if(leafMeshes.length!==2 || leafMeshes.some(m=>m.count!==doorArt.length))throw Error('Door art batching incomplete');
+  const checkLeaf = (door, closed) => {
+    environmentView.update(.9,performance.now(),camera);
+    scene.updateMatrixWorld(true);
+    for(const offset of [-.5,.5]) {
+      const ray=new THREE.Raycaster(new THREE.Vector3(door.x+offset,1.3,door.z-1),new THREE.Vector3(0,0,1),0,1.3);
+      if(Boolean(ray.intersectObjects(leafMeshes,false).length)!==closed)
+        throw Error('Door art/collision mismatch '+door.id+' closed='+closed+' side='+offset);
+    }
+  };
   try {
     state.phase='live';me.alive=true;current='knife';
     for(const [r] of actors)r.alive=false;
@@ -24,6 +40,7 @@ module.exports = async function tacticalSceneCheck() {
       const door=data.environment.doors.find(d=>d.building===house.id),wasOpen=door.open;
       try {
         door.open=false;data.environment.revision++;
+        checkLeaf(door,true);
         reset(door.x,0,door.z-1.5,Math.PI);walk(45);
         if(P.z>door.z-.2)throw Error('Closed door did not stop player '+door.id);
         window.__emitted=[];
@@ -32,6 +49,11 @@ module.exports = async function tacticalSceneCheck() {
         const snap=CS16Environment.snapshot(data);
         window.__socket.receive('cs16_environment',{...snap,map:curMap,revision:snap.revision+1,closed:snap.closed.filter(id=>id!==door.id)});
         if(!door.open)throw Error('Door state did not synchronize '+door.id);
+        checkLeaf(door,false);
+        for(const y of [.68,1.3,2.3]) for(const dx of [-.5,.5]) {
+          const ray=new THREE.Raycaster(new THREE.Vector3(door.x+dx,y,door.z-2),new THREE.Vector3(0,0,1),0,4);
+          if(ray.intersectObject(staticArt,true).length)throw Error('Static decoration crosses entrance '+door.id+' y='+y);
+        }
         reset(door.x,0,door.z-1.5,Math.PI);walk(45);
         if(P.z<door.z+2||Math.abs(P.y-.02)>.03)throw Error('Open entrance blocked '+door.id);
         // Walk up each stair flight and the upper landing using the same capsule as a player.

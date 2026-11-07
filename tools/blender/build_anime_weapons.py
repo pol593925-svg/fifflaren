@@ -1,7 +1,7 @@
 """Complete illustrated weapon set and anatomical four-grip hands for live CS.
 Keeps grip locations, model length, moving magazines, bolts and slides unchanged.
 """
-import bpy, math, json, importlib.util, sys
+import bpy, math, json, importlib.util, sys, argparse
 import numpy as np
 from pathlib import Path
 from mathutils import Vector
@@ -117,6 +117,22 @@ def details(root,kind):
             for row in [0,10]:a.line('Bracer gold piping',[verts[row*9+k] for k in range(9)],.0015,gold,hand)
             for row in [2,5,8]:
                 a.line('Raised bracer seam',[tuple(Vector(verts[row*9+k])+frame(.14+row*.018)[0]*.0015)for k in range(2,7)],.0012,ivory,hand)
+            # Embroidered leaf crest follows the curved cuff, not a floating flat badge.
+            def surface(t,angle,extra=.0045):
+                r=.043+.027*t+.0042*math.sin(t*28)+.0018*math.cos(t*53)+extra
+                up,across=frame(t)
+                return tuple(arm(t)+r*(up*math.cos(angle)+across*.81*math.sin(angle)))
+            for sign in [-1,1]:
+                a.line('Cuff embroidered leaf',[surface(.18+j*.007,sign*.42*math.sin(j*math.pi/16))for j in range(17)],.00125,gold,hand)
+            for t in [.43,.62]:
+                a.line('Curved sleeve topstitch',[surface(t+.009*math.sin(j*math.pi/14),-.65+j*1.30/14,.0015)for j in range(15)],.0011,ivory,hand)
+            # Low leather knuckle shells keep the fingers individually readable.
+            if hand.name in ['rightHand','leftCup','leftVertical']:
+                spread=.013 if hand.name=='leftCup' else 0
+                for j in range(3):
+                    yy=.027-.019*j
+                    a.orb('Tailored knuckle shell',(side*(.046+spread),yy,-.012),(.0045,.0065,.011),teal,hand,12,8)
+                    a.line('Knuckle gold seam',[(side*(.050+spread),yy-.005,-.020),(side*(.052+spread),yy,-.024),(side*(.050+spread),yy+.005,-.020)],.0008,gold,hand)
         a.join_parts(root);return
     if kind in ['knife','elite']:return
     weapon=next(o for o in root.children if o.name=='weapon')
@@ -139,6 +155,10 @@ def details(root,kind):
             for j in range(3):
                 zz=-.095+j*.022
                 a.line('Engraved receiver leaf',[(side*.044,relief_y+.018,zz),(side*.044,relief_y+.007,zz+.008),(side*.044,relief_y+.013,zz+.015)],.0012,copper,weapon)
+            if kind=='m4a1':
+                a.line('Swept cheekrest inlay',[(side*.030,.055+.012*math.sin(j*math.pi/24),.177+j*.005)for j in range(25)],.0022,enamel,weapon)
+                for start in [-.30,-.245,-.19]:
+                    a.line('Machined vent lip',[(side*.044,.020+.010*math.sin(j*math.pi/12),start+j*.0026)for j in range(13)],.0012,copper,weapon)
         else:
             a.line('Slide gold accent',[(side*.024,.043,-.12),(side*.024,.045,-.06),(side*.024,.041,.025)],.0012,copper,weapon)
     a.join_parts(root)
@@ -146,7 +166,13 @@ def details(root,kind):
 def main():
     results=[]
     kinds=['knife','glock','usp','deagle','ak47','m4a1','awp','mp5','p90','ump45','galil','famas','scout','sg552','aug','m249','fiveseven','tec9','elite','hands']
+    ap=argparse.ArgumentParser();ap.add_argument('--only',nargs='+',choices=kinds)
+    cfg=ap.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+    manifest=OUT/'anime-weapons-manifest.json'
+    previous={r['file']:r for r in json.loads(manifest.read_text())['assets']} if cfg.only and manifest.exists() else {}
     for kind in kinds:
+        if cfg.only and kind not in cfg.only:
+            results.append(previous['anime-'+kind+'.glb']);continue
         bpy.ops.wm.read_factory_settings(use_empty=True)
         root=w.hands() if kind=='hands' else w.build(kind)
         sculpt(root,kind);finish(root,kind);details(root,kind);join_parts(root)

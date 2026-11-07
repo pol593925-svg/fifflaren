@@ -25,6 +25,7 @@
         opacity: 0.1,
         depthWrite: false,
         side: T.DoubleSide,
+        forceSinglePass: true,
       }),
       dot = new T.MeshBasicMaterial({ color: 0xff6342, toneMapped: false });
     function part(geo, m, x, y, z) {
@@ -35,7 +36,11 @@
       return o;
     }
     function box(m, x, y, z, w, h, d) {
-      return part(new T.BoxGeometry(w, h, d), m, x, y, z);
+      const bevel=Math.min(.0015,w*.12,h*.12,d*.12);
+      const outline=rounded(w-bevel*2,h-bevel*2,Math.min(w,h)*.16);
+      const geometry=new T.ExtrudeGeometry(outline,{depth:d-bevel*2,steps:1,curveSegments:3,
+        bevelEnabled:true,bevelSegments:2,bevelSize:bevel,bevelThickness:bevel});
+      return part(geometry,m,x,y,z-d/2+bevel);
     }
     box(metal, 0, 0.075, -0.05, 0.072, 0.024, 0.125);
     box(edge, 0, 0.096, -0.057, 0.046, 0.023, 0.075);

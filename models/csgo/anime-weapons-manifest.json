@@ -28,8 +28,8 @@
     },
     {
       "file": "anime-m4a1.glb",
-      "triangles": 30352,
-      "bytes": 1072896
+      "triangles": 31792,
+      "bytes": 1124044
     },
     {
       "file": "anime-awp.glb",
@@ -98,8 +98,8 @@
     },
     {
       "file": "anime-hands.glb",
-      "triangles": 41092,
-      "bytes": 1563464
+      "triangles": 45916,
+      "bytes": 1732760
     }
   ]
 }

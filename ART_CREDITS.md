@@ -44,6 +44,8 @@ The second local polish pass adds original scalloped textile awnings, wisteria, 
 
 The third local pass rounds architectural trim, models arched window surrounds and three-dimensional balcony scrolls, and adds curved flower petals and ceramic medallions. Fitted forearm plates, stitched piping and blue enamel receiver panels with brass engravings are original authored geometry. No new external art sources are used.
 
+The fourth local pass adds barrel-tile roof relief, carved side cornices, cloth guild banners, moulded interactive door leaves and brass ring handles. Cuff embroidery, glove knuckle shells, M4 cheekrest inlays and vent lips are authored in Blender; optic hardware is bevelled in Three.js. Door leaves are instanced across the six houses. These are original assets, with no new external art sources.
+
 Actual gameplay captures and measurement output are produced locally in `graphics-qa` by `ANIME_MATCH_ONLY=1` and `ROUND_FX_ONLY=1` modes of `tools/graphics-smoke.cjs`. These use the real renderer and map assets with a local socket fixture, not a live ten-person network match. Publication remains pending owner review.
 
 ## Winter valley and interiors

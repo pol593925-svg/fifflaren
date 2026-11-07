@@ -18,21 +18,26 @@ def materials(theme):
     palette={'plaster':('#efceac' if theme=='dust2' else '#e6ad9a'),'plaster_light':'#f5dfbb','plaster_blue':'#91b6b5',
       'limestone':'#d9c394','ground':'#ffffff','wood':'#a77d55','shutter':'#478e8f','steel':'#425365','duct':'#93a4b4',
       'tunnel':'#b8b49d','roof':('#438998' if theme=='dust2' else '#627ca4'),'window_glass':'#395d69','dark':'#354959',
-      'trim':'#f1d7aa','paint':'#ad633c','lamp_warm':'#ffdf9b','lamp_green':'#91e0b8','flower':'#e481b2','leaf':'#80a866'}
+      'trim':'#f1d7aa','paint':'#7b4538','lamp_warm':'#ffdf9b','lamp_green':'#91e0b8','flower':'#da8dc0','leaf':'#709852','ceramic':'#b16e54'}
     images={}
     for n in ['plaster-painted','paving-painted']:
         im=bpy.data.images.load(str(ART/(n+'.png')),check_existing=False);im.scale(1024,1024);im.pack();images[n]=im;a.TEX_IMAGES.append(im)
     for name,c in palette.items():
         color=tuple(int(c[i:i+2],16)/255 for i in [1,3,5]);mat=bpy.data.materials.new(name);mat.use_nodes=True
         bs=mat.node_tree.nodes.get('Principled BSDF');bs.inputs['Base Color'].default_value=(*color,1);bs.inputs['Roughness'].default_value=.87;bs.inputs['Metallic'].default_value=0
-        im=images['paving-painted'] if name in ['ground','limestone','tunnel'] else images['plaster-painted'] if name.startswith('plaster') else None
+        im=images['paving-painted'] if name=='ground' else images['plaster-painted'] if name.startswith('plaster') or name in ['limestone','tunnel'] else None
         if im:
+            # Bake the palette into the image: glTF cannot reliably export arbitrary
+            # MixRGB graphs. This also reduces the old orange blotches on every facade.
+            if name.startswith('plaster') or name in ['limestone','tunnel']:
+                n=512;sample=im.copy();sample.scale(n,n)
+                src=np.array(sample.pixels[:],dtype=np.float32).reshape(n,n,4)
+                lum=src[:,:,:3].mean(axis=2);wash=.91+(lum-lum.mean())*.40
+                px=np.ones_like(src);px[:,:,:3]=np.clip(np.array(color)[None,None,:]*wash[:,:,None],0,1)
+                im=bpy.data.images.new('Painted palette '+name,width=n,height=n,alpha=False)
+                im.pixels.foreach_set(px.ravel());im.pack();a.TEX_IMAGES.append(im);bpy.data.images.remove(sample)
             tx=mat.node_tree.nodes.new('ShaderNodeTexImage');tx.image=im;mat.node_tree.links.new(tx.outputs['Color'],bs.inputs['Base Color'])
-            # glTF supports texture multiplied by baseColorFactor without per-material image copies.
-            bs.inputs['Base Color'].default_value=(*color,1)
-            if name!='ground':
-                tint=mat.node_tree.nodes.new('ShaderNodeMixRGB');tint.blend_type='MULTIPLY';tint.inputs[0].default_value=1;tint.inputs[2].default_value=(*color,1)
-                mat.node_tree.links.new(tx.outputs['Color'],tint.inputs[1]);mat.node_tree.links.new(tint.outputs['Color'],bs.inputs['Base Color'])
+            bs.inputs['Base Color'].default_value=(1,1,1,1)
         else:
             n=128;yy,xx=np.mgrid[:n,:n];px=np.ones((n,n,4),dtype=np.float32)
             brush=.96+.025*np.sin(xx*.19+np.sin(yy*.10)*3)+.018*np.sin(yy*.36+xx*.03)
@@ -57,6 +62,20 @@ def wall_details(x,z,dx,dz,variant,theme):
         d=.21*(1-t)+.035;dd=.21*(1-u)+.035
         a.face('roof',[pt(-2,y,d),pt(-2,yy,dd),pt(2,yy,dd),pt(2,y,d)])
     for u in [-1.67,1.67]:panel('wood',u,3.58,.12,.30,.13)
+    # Alternate garden walls, timber lattice and arched windows along the streets.
+    # Details are shallow and never change the route or cover collision silhouette.
+    style=variant%7
+    if style in [2,5]:
+        for u in [-.75,0,.75]:panel('wood',u,2.2,.045,1.7,.075)
+        for y in [1.5,2.05,2.6,3.05]:panel('wood',0,y,1.65,.04,.08)
+        for j in range(27):
+            u=math.sin(j*2.399)*(.35+(j%3)*.18);y=1.15+j*.065
+            a.face('leaf',[pt(u-.13,y,.11),pt(u,y+.20,.17),pt(u+.14,y+.04,.13),pt(u,y-.04,.10)])
+            if j%3==0:
+                for k in range(6):
+                    aa=k*math.tau/6;bb=(k+1)*math.tau/6
+                    a.face('flower',[pt(u,y+.10,.20),pt(u+math.cos(aa)*.07,y+.10+math.sin(aa)*.07,.21),pt(u+math.cos(bb)*.07,y+.10+math.sin(bb)*.07,.21)])
+        return
     # A tall arched recess with carved rim and coloured shutters instead of a rectangular sticker.
     base=1.35;r=.60;center=2.62
     shape=[(-r,base),(-r,center)]+[(math.cos(math.pi-i*math.pi/14)*r,center+math.sin(math.pi-i*math.pi/14)*r) for i in range(15)]+[(r,base)]
@@ -89,10 +108,17 @@ def site_markers(theme,rows):
     plan=json.loads(subprocess.check_output(['node',str(ROOT/'tools/export-coast-buildings.cjs'),theme],cwd=ROOT,encoding='utf8'))
     for letter,site in plan['tactical']['sites'].items():
         x=(site['x1']+site['x2']+1)*2;z=(site['y1']+site['y2']+1)*2
-        a.glyph(letter,x,.012,z,3.1)
+        a.glyph(letter,x,.025,z,5.8)
         for j in range(48):
             t=j*math.tau/48;q=(j+1)*math.tau/48
-            a.face('paint',[(x+math.cos(v)*r,.015,z+math.sin(v)*r)for v,r in [(t,3),(t,3.12),(q,3.12),(q,3)]])
+            a.face('paint',[(x+math.cos(v)*r,.025,z+math.sin(v)*r)for v,r in [(t,4.2),(t,4.38),(q,4.38),(q,4.2)]])
+        # Readable vertical objective plaque on the north wall of each court.
+        zz=46*4+.06;a.box('wood',x,2.3,zz,2.0,2.35,.14);a.box('shutter',x,2.3,zz+.08,1.82,2.17,.04)
+        paths=[[(-.55,-.7),(0,.7),(.55,-.7)],[(-.34,-.12),(.34,-.12)]] if letter=='A' else [[(-.46,-.7),(-.46,.7),(.22,.7),(.48,.48),(.46,.22),(.17,0),(-.46,0)],[(.17,0),(.52,-.23),(.5,-.51),(.21,-.7),(-.46,-.7)]]
+        for path in paths:
+            for (u,v),(uu,vv) in zip(path,path[1:]):
+                length=math.hypot(uu-u,vv-v);du=-(vv-v)/length*.065;dv=(uu-u)/length*.065
+                a.face('trim',[(x+u-du,2.3+v-dv,zz+.11),(x+uu-du,2.3+vv-dv,zz+.11),(x+uu+du,2.3+vv+dv,zz+.11),(x+u+du,2.3+v+dv,zz+.11)])
 
 
 def main():

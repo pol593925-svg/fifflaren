@@ -34,6 +34,8 @@ module.exports=async function(page,outputs,errors){
   await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,'anime-'+map+'-interior.png')});
   await page.evaluate(()=>__qa.aim(53.5*4,-3.2,67*4,-Math.PI/2,0));
   await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,'anime-'+map+'-tunnel.png')});
+  await page.evaluate(()=>{__qa.aim(322,0,220,.38,-.025);__qa.weapon('ak47');});
+  await page.waitForTimeout(650);await page.screenshot({path:path.join(outputs,'anime-'+map+'-site-a.png')});
   await page.evaluate(()=>__qa.tacticalOverview());
   await page.screenshot({path:path.join(outputs,'anime-'+map+'-layout.png')});
   await page.evaluate(()=>__qa.resume());

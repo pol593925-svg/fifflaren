@@ -3,11 +3,11 @@ import json, math, subprocess
 
 def build(a,theme):
     plan=json.loads(subprocess.check_output(['node',str(a.ROOT/'tools/export-coast-buildings.cjs'),theme],cwd=a.ROOT,encoding='utf8'))
-    finishes={'wall':'plaster_light','floor':'wood','roof':'limestone','step':'limestone','rail':'plaster','trim':'trim','wood':'wood','fabric':'shutter'}
+    finishes={'wall':'plaster_light','floor':'wood','roof':'limestone','step':'wood','rail':'plaster','trim':'trim','wood':'wood','fabric':'shutter'}
     for box in plan['boxes']:
         if box.get('animeRoof'):continue
         lo,hi=box['min'],box['max'];kind=box.get('kind','wall');mat=finishes.get(kind,'limestone')
-        if kind=='wall' and box.get('building',0)%3==1:mat='plaster_blue'
+        if kind=='wall':mat=['plaster_light','plaster_blue','plaster'][box.get('building',0)%3]
         a.box(mat,*[(x+y)/2 for x,y in zip(lo,hi)],*[y-x for x,y in zip(lo,hi)])
     def lathe(mat,x,z,rings,n=16):
         for (y,r),(yy,rr) in zip(rings,rings[1:]):
@@ -17,6 +17,12 @@ def build(a,theme):
     def ribbon(mat,points,width):
         for p,q in zip(points,points[1:]):
             a.face(mat,[(p[0],p[1]-width,p[2]),(q[0],q[1]-width,q[2]),(q[0],q[1]+width,q[2]),(p[0],p[1]+width,p[2])])
+    def flower(cx,cy,cz,r=.10):
+        for k in range(6):
+            aa=k*math.tau/6;bb=(k+1)*math.tau/6
+            a.face('flower',[(cx,cy,cz-.018),(cx+math.cos(aa)*r,cy+math.sin(aa)*r,cz),
+                (cx+math.cos((aa+bb)/2)*r*1.4,cy+math.sin((aa+bb)/2)*r*1.4,cz-.035),
+                (cx+math.cos(bb)*r,cy+math.sin(bb)*r,cz)])
     for b in plan['buildings']:
         x,z=b['x'],b['z'];bid=b['id']
         def box(mat,xx,y,zz,w,h,d):a.box(mat,x+xx,y,z+zz,w,h,d)
@@ -30,7 +36,7 @@ def build(a,theme):
                 lift=.018*math.sin(k*1.9)+.016*(k%2)
                 a.face('roof',[(x+u,height(u)+lift,z+zz),(x+u,height(u)+lift,z+end),(x+v,height(v)+lift,z+end),(x+v,height(v)+lift,z+zz)])
             for zz in [-.25,5.25]:
-                a.face('plaster_blue' if bid%3==1 else 'plaster_light',[(x+u,7.18,z+zz),(x+v,7.18,z+zz),(x+v,height(v),z+zz),(x+u,height(u),z+zz)])
+                a.face(['plaster_light','plaster_blue','plaster'][bid%3],[(x+u,7.18,z+zz),(x+v,7.18,z+zz),(x+v,height(v),z+zz),(x+u,height(u),z+zz)])
         for zz in [-.28,5.28]:
             points=[(x+.15+j*8.7/48,height(.15+j*8.7/48)-.09,z+zz) for j in range(49)]
             ribbon('wood',points,.10);ribbon('trim',[(px,py+.14,pz-.01)for px,py,pz in points],.035)
@@ -44,6 +50,17 @@ def build(a,theme):
         # Rounded corner pilasters with shaped capitals replace stacks of cube stones.
         for xx,zz in [(.12,.10),(11.87,.10),(.12,11.87),(11.87,11.87)]:
             lathe('trim',x+xx,z+zz,[(0,.24),(.16,.29),(.30,.24),(.43,.19),(3.22,.19),(3.32,.25),(3.45,.25),(3.56,.18),(6.83,.18),(6.94,.26),(7.08,.26)],16)
+        # Timber framing and carved brackets distinguish a townhouse from a plaster block.
+        for xx in [.55,3.8,7.65,11.4]:
+            box('wood',xx,5.27,-.08,.105,3.03,.12)
+        for y in [.68,3.15,6.61]:box('wood',6,y,-.065,11.45,.105,.12)
+        for xx in [1.65,9.05]:
+            for j in range(16):
+                t=j/16;tt=(j+1)/16
+                a.face('wood',[(x+xx-.065,3.35-1.0*math.sin(t*math.pi/2),z-1.6+1.6*t),
+                 (x+xx-.065,3.35-1.0*math.sin(tt*math.pi/2),z-1.6+1.6*tt),
+                 (x+xx+.065,3.35-1.0*math.sin(tt*math.pi/2),z-1.6+1.6*tt),
+                 (x+xx+.065,3.35-1.0*math.sin(t*math.pi/2),z-1.6+1.6*t)])
         # Two-layer cornices and curved entrance canopy.
         for y in [3.32,6.88]:
             for k in range(4):
@@ -55,6 +72,19 @@ def build(a,theme):
                 zz=-.84+k*.14;end=zz+.14
                 h=lambda q:2.83+.19*math.sin((q+.84)/.84*math.pi/2)
                 a.face('roof',[(x+u,h(zz),z+zz),(x+u,h(end),z+end),(x+v,h(end),z+end),(x+v,h(zz),z+zz)])
+        # Striped, scalloped textile awning above the entry, with 2.7m clear headroom.
+        for j in range(20):
+            u=3.55+j*.20;v=u+.20;mat='roof' if (j//2+bid)%2 else 'trim'
+            for k in range(8):
+                t=k/8;tt=(k+1)/8
+                h=lambda t:3.18-.26*t-.10*math.sin(t*math.pi)
+                a.face(mat,[(x+u,h(t),z-t*1.62),(x+v,h(t),z-t*1.62),
+                    (x+v,h(tt),z-tt*1.62),(x+u,h(tt),z-tt*1.62)])
+            for k in range(4):
+                q=k/4;qq=(k+1)/4
+                a.face(mat,[(x+u+q*.20,2.93,z-1.62),(x+u+qq*.20,2.93,z-1.62),
+                    (x+u+qq*.20,2.76-.07*math.sin(qq*math.pi),z-1.62),
+                    (x+u+q*.20,2.76-.07*math.sin(q*math.pi),z-1.62)])
         # Arched stone door frame lies outside the full 3m x 2.6m opening.
         for j in range(24):
             aa=j*math.pi/24;bb=(j+1)*math.pi/24
@@ -73,9 +103,55 @@ def build(a,theme):
             cx=x+1.8+j*.65
             points=[(cx+.18*math.sin(k*math.tau/24),4.55+.16*math.cos(k*math.tau/24),z-1.84)for k in range(25)]
             ribbon('steel',points,.017)
+        # Wisteria drapes on the balcony; its lowest blossoms stay above the entry.
+        for j in range(29):
+            cx=x+1.65+j*.266;yy=4.38+.10*math.sin(j*.71)
+            for k in range(3):
+                dx=math.sin(j*2.4+k)*.16;dy=k*.14
+                a.face('leaf',[(cx-.16,yy-dy,z-1.94),(cx+dx,yy+.12-dy,z-2.06),(cx+.18,yy-dy,z-1.94),(cx,yy-.07-dy,z-2.00)])
+            if j%2==0:
+                for k in range(4):flower(cx+math.sin(k*2.3)*.07,yy-.12-k*.15,z-2.07,.09-k*.01)
+        # Climbing leaves live on solid corners, not across doors or shooting windows.
+        for xx in [.35,11.65]:
+            points=[(x+xx+.13*math.sin(j*.57),.6+j*.18,z-.15)for j in range(34)]
+            ribbon('wood',points,.018)
+            for j,(cx,yy,zz)in enumerate(points):
+                s=-1 if j%2 else 1
+                a.face('leaf',[(cx,yy,zz-.03),(cx+s*.23,yy+.03,zz-.08),(cx+s*.30,yy+.24,zz-.04),(cx+s*.06,yy+.18,zz-.02)])
+                if j%7==0:flower(cx+s*.16,yy+.12,zz-.12,.10)
+        # Continuous wooden stair stringers; the collision treads stay unchanged.
+        for side in [9.06,10.31]:
+            a.face('wood',[(x+side,.0,z+.5),(x+side,3.48,z+10.5),(x+side,3.67,z+10.5),(x+side,.20,z+.5)])
+        for side in [10.44,11.68]:
+            a.face('wood',[(x+side,3.48,z+10.5),(x+side,6.96,z+.5),(x+side,7.20,z+.5),(x+side,3.70,z+10.5)])
+        # Rounded pale nosings make each timber tread readable without changing its height.
+        for j in range(20):
+            box('trim',9.6875,j*.18+.145,.5+j*.5+.025,1.375,.055,.05)
+            box('trim',11.0625,3.6+j*.18+.145,10-j*.5+.475,1.375,.055,.05)
+        # The return-flight rail hugs the existing side wall, leaving the narrow stairs clear.
+        for j in range(19):
+            z0=10.3-j*.5;z1=z0-.5;y0=4.55+j*.18;y1=y0+.18
+            a.face('wood',[(x+11.68,y0-.035,z+z0),(x+11.68,y1-.035,z+z1),
+                (x+11.68,y1+.035,z+z1),(x+11.68,y0+.035,z+z0)])
+        # Dress the solid rear elevation as a timber-framed garden wall, not fake openings.
+        for xx in [.45,4.1,7.9,11.55]:box('wood',xx,3.62,12.055,.12,6.50,.12)
+        for yy in [.72,3.24,6.66]:box('wood',6,yy,12.055,11.30,.12,.12)
+        for xx in [2.25,9.75]:
+            for j in range(29):
+                cx=x+xx+.32*math.sin(j*.55);yy=.75+j*.195
+                a.face('leaf',[(cx-.16,yy,z+12.14),(cx-.09,yy+.20,z+12.20),
+                    (cx+.20,yy+.14,z+12.16),(cx+.10,yy-.05,z+12.17)])
+                if j%5==0:flower(cx,yy+.12,z+12.25,.12)
+        # An original geometric sun crest breaks the blank rear plaster between the frames.
+        for j in range(32):
+            aa=j*math.tau/32;bb=(j+1)*math.tau/32
+            a.face('trim',[(x+6+math.cos(t)*r,4.85+math.sin(t)*r,z+12.15)
+                for t,r in [(aa,.70),(aa,.78),(bb,.78),(bb,.70)]])
+        a.face('shutter',[(x+6,5.4,z+12.16),(x+6.4,4.85,z+12.16),
+            (x+6,4.3,z+12.16),(x+5.6,4.85,z+12.16)])
         # Sculpted ceramic planters with petal rosettes, not flat triangular flowers.
         for xx,zz in [(.85,-.6),(10.8,-.6)]:
-            lathe('roof',x+xx,z+zz,[(.03,.22),(.12,.28),(.35,.39),(.58,.32),(.63,.34),(.68,.34)],18)
+            lathe('ceramic',x+xx,z+zz,[(.03,.22),(.12,.28),(.35,.39),(.58,.32),(.63,.34),(.68,.34)],18)
             for j in range(9):
                 ang=j*2.399;cx=x+xx+math.sin(ang)*.23;cz=z+zz+math.cos(ang)*.23;cy=.75+(j%3)*.10
                 for k in range(6):

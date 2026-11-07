@@ -16,8 +16,9 @@
   function optic(T) {
     const root = new T.Group(),
       owned = new Set(),
-      metal = new T.MeshStandardMaterial({ color: 0x343a38, metalness: 0.63, roughness: 0.4 }),
-      edge = new T.MeshStandardMaterial({ color: 0x606761, metalness: 0.58, roughness: 0.38 }),
+      metal = new T.MeshStandardMaterial({ color: 0xc9c5b8, metalness: 0.30, roughness: 0.48 }),
+      edge = new T.MeshStandardMaterial({ color: 0x405d6b, metalness: 0.45, roughness: 0.43 }),
+      brass = new T.MeshStandardMaterial({color:0xb69a65,metalness:.6,roughness:.36}),
       glass = new T.MeshBasicMaterial({
         color: 0x6d9695,
         transparent: true,
@@ -46,10 +47,12 @@
       s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);
       s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s;
     }
-    const hood=rounded(.104,.092,.015),opening=rounded(.080,.068,.009);
-    hood.holes.push(new T.Path(opening.getPoints(6).reverse()));
-    const housing=new T.ExtrudeGeometry(hood,{depth:.047,steps:1,curveSegments:6,bevelEnabled:true,bevelSegments:2,bevelSize:.0015,bevelThickness:.0015});
+    const hood=rounded(.104,.092,.021),opening=rounded(.080,.068,.012);
+    hood.holes.push(new T.Path(opening.getPoints(12).reverse()));
+    const housing=new T.ExtrudeGeometry(hood,{depth:.047,steps:1,curveSegments:12,bevelEnabled:true,bevelSegments:3,bevelSize:.0015,bevelThickness:.0015});
     part(housing,metal,0,.144,-.085);
+    const rim=rounded(.098,.086,.018);rim.holes.push(new T.Path(rounded(.090,.078,.014).getPoints(12).reverse()));
+    part(new T.ExtrudeGeometry(rim,{depth:.001,curveSegments:12,bevelEnabled:false}),brass,0,.144,-.035);
     for (const x of [-.045,.045]) {
       box(metal,x,.103,-.057,.013,.018,.080);
       for(const z of [-.034,-.079])part(new T.CylinderGeometry(.003,.003,.002,8).rotateZ(Math.PI/2),edge,x*1.17,.107,z);
@@ -66,11 +69,28 @@
     reticle.name = 'fieldReticle';
     reticle.visible = false;
     root.name = 'Field reflex optic';
+    // All static housings and screws share three batches. Keep lens/dot separate
+    // because thermal clipping and ADS use their transforms and visibility.
+    for(const material of [metal,edge,brass]){
+      const pieces=root.children.filter(o=>o.isMesh&&o.material===material),positions=[],normals=[],uvs=[];
+      for(const piece of pieces){
+        piece.updateMatrix();const geo=piece.geometry.index?piece.geometry.toNonIndexed():piece.geometry.clone();
+        geo.applyMatrix4(piece.matrix);
+        for(const value of geo.attributes.position.array)positions.push(value);
+        for(const value of geo.attributes.normal.array)normals.push(value);
+        if(geo.attributes.uv)for(const value of geo.attributes.uv.array)uvs.push(value);
+        else for(let i=0;i<geo.attributes.position.count*2;i++)uvs.push(0);
+        geo.dispose();piece.removeFromParent();
+      }
+      const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(positions,3));
+      geo.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));
+      geo.computeBoundingSphere();part(geo,material,0,0,0);
+    }
     return {
       root,
       dispose() {
         for (const geo of owned) geo.dispose();
-        for (const m of [metal, edge, glass, dot]) m.dispose();
+        for (const m of [metal, edge, brass, glass, dot]) m.dispose();
       },
     };
   }

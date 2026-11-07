@@ -181,9 +181,9 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xc6d9e5 : 0xc2dfe7, 155, 500);
 
-    const hemisphere = new T.HemisphereLight(0xe3f1ff, 0x9289a5, .95);
+    const hemisphere = new T.HemisphereLight(0xe3f1ff, 0x9289a5, .72);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffe8c5, 1.75);
+    const sun = new T.DirectionalLight(0xffe8c5, 1.55);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);

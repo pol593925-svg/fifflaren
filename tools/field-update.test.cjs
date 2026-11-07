@@ -29,8 +29,13 @@ for (const [map, lines] of Object.entries(rows)) {
     b = replica(),
     features = T.layout(grid);
   console.log(map, features.map((p) => p.kind + '@' + p.x + ',' + p.z).join(' '));
-  assert(features.length >= 3);
-  assert(features.some((p) => p.kind === 'gully'));
+  if(require('../cs16-tactical-map').identify(grid)){
+    assert.equal(features.length,0,'authored round arenas use explicit tunnels, not legacy random gullies');
+    for(const team of ['t','ct']){const pos=require('../cs16-tactical-map').spawn(map,team);assert.equal(T.walkHeight(grid,pos[0],pos[2]),0);}
+  }else{
+    assert(features.length >= 3);
+    assert(features.some((p) => p.kind === 'gully'));
+  }
   for (const p of features) {
     assert(Math.abs(T.height(grid, p.x, p.z) - p.amplitude) < 1e-6);
     assert.equal(T.height(grid, p.x + p.r, p.z), 0);

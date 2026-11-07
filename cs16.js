@@ -826,6 +826,40 @@
     }catch(error){console.warn('Подготовка армии:',error);if(epoch===frontNet.epoch)centerMsg('Не удалось подготовить армию. Проверь качество графики.',2500);}
     finally{if(preparingArmy===epoch)preparingArmy=-1;}});
   }
+  // Prepare real character, hand and optic shader variants behind the loading screen.
+  // Keep the muzzle light at zero intensity so firing cannot change NUM_POINT_LIGHTS.
+  async function warmCombatArt(epoch){
+    const activeScene=scene,fx=magicView,preview=new THREE.Group(),holds=[],guns=[];
+    const shadows=renderer3.shadowMap.enabled,optical=fieldOptical||=CS16FieldView.optic(THREE);
+    if(!shotLight)shotLight=new THREE.PointLight(0xffc46a,0,6,2);
+    shotLight.intensity=0;activeScene.add(shotLight);
+    const opticParent=optical.root.parent,reticle=optical.root.getObjectByName('fieldReticle'),reticleVisible=reticle?.visible;
+    if(reticle)reticle.visible=true;
+    try{
+      for(const id of Object.keys(CS16Characters.profiles)){
+        const body=CS16Graphics.createOperator('ct',id),holder=new THREE.Group();
+        if(!body)continue;body.add(holder);holds.push(CS16Grip.operator(THREE,body,holder,.51));preview.add(body);
+      }
+      for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet)preview.add(pet);}
+      for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',id==='m4a1'?1.8:1);guns.push(gun);preview.add(gun);}
+      const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
+      // Compile every variant, but upload only representative textures/meshes now.
+      const samples=new Set([preview.children[0],guns[Object.keys(glbCache).indexOf('m4a1')],optical.root,muzzle]);
+      preview.position.copy(camera.position);preview.position.z-=3;activeScene.add(preview);
+      // Balanced/high and economy use different shader defines. Weak PCs prepare economy only.
+      for(const enabled of (shadows?[false,true]:[false])){
+        if(epoch!==worldLoadEpoch)return;
+        renderer3.shadowMap.enabled=enabled;
+        for(const child of preview.children)child.visible=true;
+        await fx.warm(renderer3,camera,()=>{for(const child of preview.children)child.visible=samples.has(child);});
+      }
+    }finally{
+      renderer3.shadowMap.enabled=shadows;preview.removeFromParent();optical.root.removeFromParent();
+      if(opticParent&&fieldOptical===optical)opticParent.add(optical.root);
+      if(reticle)reticle.visible=reticleVisible;
+      holds.forEach(h=>h.dispose());guns.forEach(disposeGun);
+    }
+  }
   function applyFront(reset=false){
     if(frontNet.map!==curMap)return;
     if(reset)CS16Front.reset(grid);
@@ -841,7 +875,7 @@
     graphicsQuality=value;if(worldGraphics)worldGraphics.setQuality(value);fieldProps?.setQuality(value);resize3();
     if(ui.quality){const option=[...ui.quality.options].find(o=>o.value==='auto');if(option)option.textContent='Авто · '+({low:'экономно',balanced:'баланс',high:'высоко'}[value]);}
   }
-  const adaptive=CS16AdaptiveQuality.create({mode:qualityMode,quality:graphicsQuality,apply:applyQuality});
+  const adaptive=CS16AdaptiveQuality.create({mode:qualityMode,quality:graphicsQuality,maxQuality:modestHardware?'low':'balanced',apply:applyQuality});
   function clearFieldPresentation(){environmentView?.dispose();fieldEffects?.dispose();battleAudio?.dispose();environmentView=fieldEffects=battleAudio=null;adaptive.reset();}
 
   function initScene() {
@@ -911,7 +945,7 @@
       fieldProps?.applyNature(active.nature(),graphicsQuality);
       buildingGraphics?.applyMaterials(name=>active.surface(name));environmentView?.applyMaterials(name=>active.surface(name));
       applyFront();frontView.sync(true);
-      await magicView.warm(renderer3,camera);
+      await warmCombatArt(epoch);
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
@@ -1890,7 +1924,7 @@
     g.add(gunHolder);
     const hold=CS16Grip.operator(THREE,g,gunHolder,.51);
     // 3.22.0: вспышка на дуле чужого стрелка (видна всем)
-    const muzzleFx = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
+    const muzzleFx = new THREE.Sprite(muzzleMaterial().clone());
     muzzleFx.scale.set(0.5, 0.5, 1);
     muzzleFx.position.set(0, 0, -0.85);
     muzzleFx.visible = false;
@@ -1961,7 +1995,8 @@
 
   // ---------- ЭФФЕКТЫ ----------
   // 3.22.0: вспышка выстрела — аддитивная звезда + точечный свет, видны ВСЕМ (и на стенах)
-  let muzzleTexCache = null, shotLight = null;
+  let muzzleTexCache = null, shotLight = null, muzzleMatCache=null;
+  function muzzleMaterial(){return muzzleMatCache||=new THREE.SpriteMaterial({map:muzzleTex(),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.95});}
   const shotFlashes = [];
   function muzzleTex() {
     if (muzzleTexCache) return muzzleTexCache;
@@ -1988,7 +2023,7 @@
     if (shotLight.parent !== scene) scene.add(shotLight);
     shotLight.position.copy(pos);
     shotLight.intensity = 1.7;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
+    const sp = new THREE.Sprite(muzzleMaterial().clone());
     const size = .18 + Math.random() * .12;
     sp.scale.set(size,size,1);sp.material.rotation=Math.random()*Math.PI;
     sp.position.copy(pos);

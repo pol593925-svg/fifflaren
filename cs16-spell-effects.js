@@ -2,7 +2,7 @@
 (function(g){'use strict';
  const styles={flame:['#ff904c','#fff0b2',1.45,5],frost:['#60c9ff','#e4ffff',1.65,6],wind:['#60e5bc','#d8fff2',1.0,2],stone:['#e0a452','#ffe5a0',7,1.45],light:['#ffe18b','#fff9de',1.8,7],fox:['#ffb67c','#fff4bd',.85,1],dragon:['#ff765d','#ffdfa1',1.25,3],owl:['#7ddcff','#d5f6ff',1.2,2],golem:['#8bd2a6','#d9ffe8',5,1.3],deer:['#c1a0ff','#f0dfff',1.8,2]};
  function create({T,scene,getQuality=()=> 'balanced',getEye=()=>null,getTeam=()=>null,getPlayerPosition=()=>null,clock=()=>performance.now()}){
-  const effects=[],freeMaterials=[],allMaterials=new Set(),dummy=new T.Object3D();let disposed=false;
+  const effects=[],freeEffects=[],allEffects=[],allMaterials=new Set(),dummy=new T.Object3D();let disposed=false,warming=false;
   const geo={ring:new T.TorusGeometry(1,.022,5,64),orb:new T.IcosahedronGeometry(1,2),shard:new T.ConeGeometry(.13,1,5),spark:new T.PlaneGeometry(.08,.34),shield:new T.IcosahedronGeometry(1,1),strip:new T.PlaneGeometry(.07,1,1,6),cross:new T.BoxGeometry(.1,.32,.06)};
   // Curved, tapered ribbons replace rectangular streaks. Still one instanced draw per effect.
   geo.strip.dispose();const ribbonPoints=[],ribbonUv=[],ribbonIndex=[];
@@ -24,27 +24,39 @@
   function material(){const m=new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,vertexColors:true}),soft={value:0};m.userData.soft=soft;
    m.onBeforeCompile=s=>{s.uniforms.spellSoft=soft;s.vertexShader='attribute vec2 spellUv; varying vec2 spellTexcoord;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nspellTexcoord=spellUv;');s.fragmentShader='uniform float spellSoft; varying vec2 spellTexcoord;\n'+s.fragmentShader.replace('#include <alphatest_fragment>','float edge=pow(max(0.,1.-abs(spellTexcoord.x*2.-1.)),.65)*smoothstep(0.,.14,spellTexcoord.y)*smoothstep(0.,.16,1.-spellTexcoord.y);diffuseColor.a*=mix(1.,edge,spellSoft);\n#include <alphatest_fragment>');};m.customProgramCacheKey=()=> 'painted-magic-soft-edge-v2';allMaterials.add(m);return m;}
   const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
-  function remove(f){f.group.removeFromParent();f.particles.dispose();f.ribbon.dispose();freeMaterials.push(f.materials);}
+  // Keep the instance buffers alive between casts. Recreating/discarding them on
+  // every burst used to trigger first-use uploads and garbage collection in combat.
+  function makeEffect(){
+   const group=new T.Group(),materials=Array.from({length:3},material),[base,glow,rim]=materials;
+   const particles=new T.InstancedMesh(geo.spark,glow,32),ribbon=new T.InstancedMesh(geo.strip,glow,8);
+   for(const mesh of [particles,ribbon]){mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);}
+   const ring=new T.Mesh(geo.ring,base),teamRing=new T.Mesh(geo.ring,rim),core=new T.Mesh(geo.orb,base);
+   ring.rotation.x=teamRing.rotation.x=Math.PI/2;group.add(particles,ring,teamRing,core,ribbon);
+   const f={group,materials,base,glow,rim,particles,ribbon,ring,teamRing,core,origin:new T.Vector3(),end:new T.Vector3(),dir:new T.Vector3()};
+   allEffects.push(f);return f;
+  }
+  for(let i=0;i<16;i++)freeEffects.push(makeEffect());
+  function remove(f){f.group.removeFromParent();freeEffects.push(f);}
   function fx(data){if(disposed||!styles[data?.id]||!valid(data.pos))return false;
    const eye=getEye(),range=getQuality()==='low'?55:120;if(eye&&Math.hypot(data.pos[0]-eye.x,data.pos[2]-eye.z)>range)return false;
-   while(effects.length>=(getQuality()==='low'?8:16))remove(effects.shift());
-   const [color,light,duration,radius]=styles[data.id],group=new T.Group(),selfTeam=getTeam(),enemy=!!data.team&&!!selfTeam&&selfTeam!==data.team;
-   const mats=freeMaterials.pop()||Array.from({length:3},material),[base,glow,rim]=mats;
+   while(effects.length>=(!warming&&getQuality()==='low'?8:16))remove(effects.shift());
+   const [color,light,duration,radius]=styles[data.id],selfTeam=getTeam(),enemy=!!data.team&&!!selfTeam&&selfTeam!==data.team;
+   const f=freeEffects.pop(),{group,base,glow,rim,particles,ribbon,ring,teamRing,core,origin,end,dir}=f;
+   group.rotation.set(0,0,0);core.visible=true;core.rotation.set(0,0,0);
    glow.userData.soft.value=['frost','light','deer'].includes(data.id)?0:1;
    base.color.set(color);base.opacity=.8;base.blending=T.NormalBlending;
    glow.color.set(data.id==='frost'?'#69baff':light);glow.opacity=.7;glow.blending=data.id==='frost'?T.NormalBlending:T.AdditiveBlending;
    rim.color.set(enemy?'#ff635f':'#8ce8f7');rim.opacity=.65;
-   const origin=new T.Vector3(...(valid(data.origin)?data.origin:data.pos)),end=new T.Vector3(...data.pos),dir=valid(data.dir)?new T.Vector3(...data.dir):end.clone().sub(origin).normalize();if(dir.lengthSq()<.1)dir.set(0,0,-1);
-   const kind=data.id,count=getQuality()==='low'?14:32,particles=new T.InstancedMesh(kind==='frost'?geo.shard:kind==='light'||kind==='deer'?geo.cross:geo.spark,glow,count);particles.frustumCulled=false;particles.instanceMatrix.setUsage(T.DynamicDrawUsage);group.add(particles);
-   const ring=new T.Mesh(geo.ring,base),teamRing=new T.Mesh(geo.ring,rim);ring.rotation.x=teamRing.rotation.x=Math.PI/2;group.add(ring,teamRing);
-   const core=new T.Mesh(kind==='stone'||kind==='golem'?geo.shield:kind==='frost'?geo.fan:geo.orb,base);group.add(core);
-   const ribbon=new T.InstancedMesh(geo.strip,glow,8);ribbon.frustumCulled=false;ribbon.instanceMatrix.setUsage(T.DynamicDrawUsage);group.add(ribbon);
+   origin.fromArray(valid(data.origin)?data.origin:data.pos);end.fromArray(data.pos);if(valid(data.dir))dir.fromArray(data.dir);else dir.copy(end).sub(origin).normalize();if(dir.lengthSq()<.1)dir.set(0,0,-1);
+   const kind=data.id,count=!warming&&getQuality()==='low'?14:32;
+   particles.geometry=kind==='frost'?geo.shard:kind==='light'||kind==='deer'?geo.cross:geo.spark;particles.count=count;
+   core.geometry=kind==='stone'||kind==='golem'?geo.shield:kind==='frost'?geo.fan:geo.orb;
    const traveling=kind==='flame'||kind==='dragon';group.position.copy(traveling?end:origin);if(!traveling)group.position.y-=1.23;group.position.y+=.05;
-   scene.add(group);effects.push({group,base,glow,rim,ring,teamRing,core,particles,ribbon,materials:[base,glow,rim],kind,count,start:clock(),duration,radius,origin,end,dir,by:data.by,traveling,seed:effects.length*1.79});return true;
+   scene.add(group);Object.assign(f,{kind,count,start:clock(),duration,radius,by:data.by,traveling,seed:effects.length*1.79});effects.push(f);return true;
   }
   function update(dt,t=clock()){
    if(disposed)return;
-   while(effects.length>(getQuality()==='low'?8:16))remove(effects.shift());
+   while(effects.length>(!warming&&getQuality()==='low'?8:16))remove(effects.shift());
    for(let i=effects.length-1;i>=0;i--){const f=effects[i],time=Math.max(0,(t-f.start)/1000),k=time/f.duration;if(k>=1){remove(f);effects.splice(i,1);continue}
     const shield=f.kind==='stone'||f.kind==='golem',heal=f.kind==='light'||f.kind==='deer',dash=f.kind==='wind'||f.kind==='owl',ice=f.kind==='frost',reload=f.kind==='fox';
     const burst=Math.max(0,time-(f.traveling?.19:0)),fade=shield?Math.min(1,time*6,(f.duration-time)*3):Math.pow(1-k,1.3);
@@ -74,8 +86,14 @@
    }
   }
   function clear(){while(effects.length)remove(effects.pop())}
-  async function warm(renderer,camera){const eye=getEye()||{x:0,y:0,z:0};for(const id of Object.keys(styles))fx({id,origin:[eye.x,eye.y+1.3,eye.z],pos:[eye.x,eye.y+.2,eye.z-3],dir:[0,0,-1]});update(0,clock()+100);if(renderer.compileAsync)await renderer.compileAsync(scene,camera);else renderer.compile(scene,camera);if(!disposed)renderer.render(scene,camera);clear();}
-  return {fx,update,clear,warm,metrics:()=>({effects:effects.length,instances:effects.reduce((n,f)=>n+f.count+8,0),limit:getQuality()==='low'?8:16,materialPool:allMaterials.size}),dispose(){if(disposed)return;disposed=true;clear();Object.values(geo).forEach(x=>x.dispose());allMaterials.forEach(m=>m.dispose());allMaterials.clear();freeMaterials.length=0}};
+  async function warm(renderer,camera,beforeRender){
+   if(disposed)return;const eye=getEye()||{x:0,y:0,z:0},ids=Object.keys(styles);warming=true;
+   try{clear();for(let i=0;i<16;i++)fx({id:ids[i%ids.length],origin:[eye.x,eye.y+1.3,eye.z],pos:[eye.x,eye.y+.2,eye.z-3],dir:[0,0,-1]});
+    update(0,clock()+100);if(renderer.compileAsync)await renderer.compileAsync(scene,camera);else renderer.compile(scene,camera);
+    if(!disposed){beforeRender?.();renderer.render(scene,camera);}
+   }finally{clear();warming=false;}
+  }
+  return {fx,update,clear,warm,metrics:()=>({effects:effects.length,instances:effects.reduce((n,f)=>n+f.count+8,0),limit:getQuality()==='low'?8:16,materialPool:allMaterials.size,effectPool:allEffects.length}),dispose(){if(disposed)return;disposed=true;clear();for(const f of allEffects){f.particles.dispose();f.ribbon.dispose();}Object.values(geo).forEach(x=>x.dispose());allMaterials.forEach(m=>m.dispose());allMaterials.clear();freeEffects.length=0}};
  }
  g.CS16SpellEffects={create,styles};
 })(typeof window==='undefined'?globalThis:window);

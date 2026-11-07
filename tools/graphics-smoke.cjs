@@ -88,6 +88,8 @@ window.__qa={
  surfaces:async()=>{
    const model=await worldGraphics.ready,ray=new THREE.Raycaster(), failures=[],counts={};
    for(let z=0;z<MH;z++)for(let x=0;x<MW;x++){
+     // Tactical map signatures are isolated metadata cells, not playable towers/bridges.
+     if(CS16TacticalMap.identify(grid)&&z===1&&(x===1||x===2))continue;
      const c=grid[z][x];if(c===1||c===2||c===3||(counts[c]||0)>=5)continue;
      counts[c]=(counts[c]||0)+1;
      const wx=(x+.5)*CELL,wz=(z+.5)*CELL,expected=floorAt(c,wx,wz);
@@ -120,7 +122,12 @@ async function run(){
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin='http://127.0.0.1:'+server.address().port;
  const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:[...(process.env.REAL_GPU?[]:['--use-angle=swiftshader','--enable-unsafe-swiftshader']),'--disable-background-timer-throttling']});
- const page=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
+ const weak=!!process.env.WEAK_PC;
+ const page=await browser.newPage({viewport:weak?{width:1280,height:720}:{width:1440,height:900},deviceScaleFactor:1});
+ if(weak){
+  await page.addInitScript(()=>{Object.defineProperties(Navigator.prototype,{deviceMemory:{get:()=>4},hardwareConcurrency:{get:()=>4}})});
+  const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});
+ }
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.route('**/*',route=>{if(route.request().url().startsWith(origin)||route.request().url().startsWith('blob:'))return route.continue();return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,balance:0,owned:[],equipped:''})});});

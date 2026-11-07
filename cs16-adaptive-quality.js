@@ -5,7 +5,8 @@
 })(typeof window !== 'undefined' ? window : null, () => {
   'use strict';
   const levels = ['low', 'balanced', 'high'];
-  function create({ apply, mode = 'auto', quality = 'balanced' }) {
+  function create({ apply, mode = 'auto', quality = 'balanced', maxQuality = 'high' }) {
+    const ceiling=Math.max(0,levels.indexOf(maxQuality));
     let ms = 0,
       frames = 0,
       slow = 0,
@@ -50,7 +51,7 @@
         // Sustained severe overload should not wait two windows or an upgrade cooldown.
         const severe = fps < 27;
         if (severe || slow >= 2) target = Math.max(0, i - 1);
-        else if (fast >= 6) target = Math.min(2, i + 1);
+        else if (fast >= 6) target = Math.min(ceiling, i + 1);
         if (target !== i && (!cooldown || severe && target < i)) {
           quality = levels[target];
           cooldown = 24000;

@@ -1,6 +1,9 @@
 // Actual match renderer, with nine remote actors and repeated ten-ability bursts.
 module.exports=async function(page,outputs,errors){
  const assert=require('assert/strict'),fs=require('fs'),path=require('path'),reports=[];
+ const profiler=process.env.PROFILE_FX?await page.context().newCDPSession(page):null;
+ if(profiler)await profiler.send('Tracing.start',{categories:'devtools.timeline,v8,blink.user_timing,disabled-by-default-v8.gc',transferMode:'ReturnAsStream'});
+ if(profiler){await profiler.send('Profiler.enable');await profiler.send('Profiler.start');}
  for(const map of ['dust2','inferno']){
   if(map==='inferno'){
    await page.evaluate(()=>__qa.map('inferno'));
@@ -17,7 +20,7 @@ module.exports=async function(page,outputs,errors){
    for(let i=0;i<9;i++)__qa.addRemote('Load '+i,i<4?'ct':'t',x-2+i%3*3,z+8+Math.floor(i/3)*3);
    return {x,z};
   },map);
-  for(const quality of ['low','balanced','high']){
+  for(const quality of (process.env.WEAK_PC?['low']:['low','balanced','high'])){
    await page.evaluate(q=>{const ui=__qa.ui();ui.quality.value=q;ui.quality.onchange()},quality);
    await page.waitForTimeout(1000);
    reports.push(await page.evaluate(async({quality,x,z})=>{
@@ -36,6 +39,13 @@ module.exports=async function(page,outputs,errors){
   }
  }
  assert.equal(errors.length,0,errors.join('\n'));assert(reports.every(r=>r.players===9&&r.ready));
- fs.writeFileSync(path.join(outputs,'rounds-spell-performance.json'),JSON.stringify(reports,null,2));
+ if(process.env.WEAK_PC){for(const r of reports){r.cpuThrottle=4;r.emulatedMemoryGB=4;assert.equal(r.antialias,false,'weak-PC startup disables multisampling');}}
+ fs.writeFileSync(path.join(outputs,process.env.WEAK_PC?'rounds-spell-weak-cpu.json':'rounds-spell-performance.json'),JSON.stringify(reports,null,2));
+ if(profiler){
+  const {profile}=await profiler.send('Profiler.stop');fs.writeFileSync(path.join(outputs,'rounds-spell-cpu.json'),JSON.stringify(profile));
+  const finished=new Promise(resolve=>profiler.once('Tracing.tracingComplete',resolve));await profiler.send('Tracing.end');
+  const {stream}=await finished;let trace='';for(;;){const chunk=await profiler.send('IO.read',{handle:stream});trace+=chunk.data;if(chunk.eof)break;}await profiler.send('IO.close',{handle:stream});
+  fs.writeFileSync(path.join(outputs,'rounds-spell-trace.json'),trace);await profiler.detach();
+ }
  console.log('ROUND_FX_PASS',JSON.stringify(reports));
 };

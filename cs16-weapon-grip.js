@@ -1,6 +1,25 @@
 /* Grip locations are in the Blender weapon axes, before each game's length and centre adjustments. */
 (function (g) {
   'use strict';
+  // Sharing one material between rigid torsos and skinned arms makes Three.js
+  // rebuild program parameters on almost every draw. Keep one arm variant per
+  // source material, shared by all players and released with its source asset.
+  const armMaterials = new WeakMap();
+  function armMaterial(source) {
+    if (Array.isArray(source)) return source.map(armMaterial);
+    let material = armMaterials.get(source);
+    if (!material) {
+      material = source.clone();
+      armMaterials.set(source, material);
+      const dispose = () => {
+        material.dispose();
+        armMaterials.delete(source);
+        source.removeEventListener('dispose', dispose);
+      };
+      source.addEventListener('dispose', dispose);
+    }
+    return material;
+  }
   const pistols = new Set(['usp', 'glock', 'deagle', 'fiveseven', 'tec9', 'elite']);
   function contacts(id) {
     if (pistols.has(id)) {
@@ -183,7 +202,7 @@
         new T.Matrix4().multiplyMatrices(inverse, src.matrixWorld),
         -upperRest.y,
       );
-      const sk = new T.SkinnedMesh(lease.geometry, src.material);
+      const sk = new T.SkinnedMesh(lease.geometry, armMaterial(src.material));
       sk.name = src.name;
       sk.castShadow = src.castShadow;
       sk.receiveShadow = src.receiveShadow;

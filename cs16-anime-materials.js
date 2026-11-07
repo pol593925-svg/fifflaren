@@ -13,7 +13,7 @@
       if (!m || /glass/i.test(m.name) || m.transparent && m.opacity < .5) return m;
       if (converted.has(m)) return converted.get(m);
       const next = new (options.soft?T.MeshStandardMaterial:T.MeshToonMaterial)({
-        name: m.name, map: m.map, color: m.color, ...(options.soft?{roughness:/textile|ripstop|leather/i.test(m.name)?.88:.52,normalMap:m.normalMap,normalScale:m.normalScale,metalness:/steel|edges|brass|receiver/i.test(m.name)?.22:0,envMapIntensity:.28}:{gradientMap:ramp}),
+        name: m.name, map: m.map, color: m.color, ...(options.soft?{roughness:/textile|ripstop|leather/i.test(m.name)?.88:.52,normalMap:m.normalMap,normalScale:m.normalScale?.clone().multiplyScalar(/textile|ripstop/i.test(m.name)?.45:1),metalness:/steel|edges|brass|receiver/i.test(m.name)?.22:0,envMapIntensity:.28}:{gradientMap:ramp}),
         vertexColors: m.vertexColors, side: m.side, alphaTest: m.alphaTest,
         emissive: m.emissive, emissiveMap: m.emissiveMap,
         emissiveIntensity: m.emissiveIntensity, transparent: m.transparent,

@@ -8,98 +8,98 @@
     },
     {
       "file": "anime-glock.glb",
-      "triangles": 6832,
-      "bytes": 347604
+      "triangles": 6880,
+      "bytes": 349732
     },
     {
       "file": "anime-usp.glb",
-      "triangles": 8252,
-      "bytes": 387484
+      "triangles": 8300,
+      "bytes": 389612
     },
     {
       "file": "anime-deagle.glb",
-      "triangles": 7020,
-      "bytes": 352072
+      "triangles": 7068,
+      "bytes": 354404
     },
     {
       "file": "anime-ak47.glb",
-      "triangles": 15224,
-      "bytes": 682792
+      "triangles": 16336,
+      "bytes": 720804
     },
     {
       "file": "anime-m4a1.glb",
-      "triangles": 29240,
-      "bytes": 1034880
+      "triangles": 30352,
+      "bytes": 1072896
     },
     {
       "file": "anime-awp.glb",
-      "triangles": 28136,
-      "bytes": 988236
+      "triangles": 29248,
+      "bytes": 1026452
     },
     {
       "file": "anime-mp5.glb",
-      "triangles": 20776,
-      "bytes": 788796
+      "triangles": 21888,
+      "bytes": 826808
     },
     {
       "file": "anime-p90.glb",
-      "triangles": 23016,
-      "bytes": 900288
+      "triangles": 24128,
+      "bytes": 937512
     },
     {
       "file": "anime-ump45.glb",
-      "triangles": 20964,
-      "bytes": 793640
+      "triangles": 22076,
+      "bytes": 831652
     },
     {
       "file": "anime-galil.glb",
-      "triangles": 15224,
-      "bytes": 682792
+      "triangles": 16336,
+      "bytes": 720804
     },
     {
       "file": "anime-famas.glb",
-      "triangles": 21056,
-      "bytes": 795316
+      "triangles": 22168,
+      "bytes": 833328
     },
     {
       "file": "anime-scout.glb",
-      "triangles": 28136,
-      "bytes": 988236
+      "triangles": 29248,
+      "bytes": 1026452
     },
     {
       "file": "anime-sg552.glb",
-      "triangles": 28136,
-      "bytes": 988740
+      "triangles": 29248,
+      "bytes": 1026752
     },
     {
       "file": "anime-aug.glb",
-      "triangles": 28136,
-      "bytes": 988732
+      "triangles": 29248,
+      "bytes": 1025956
     },
     {
       "file": "anime-m249.glb",
-      "triangles": 17296,
-      "bytes": 724804
+      "triangles": 18408,
+      "bytes": 762816
     },
     {
       "file": "anime-fiveseven.glb",
-      "triangles": 6832,
-      "bytes": 345628
+      "triangles": 6880,
+      "bytes": 347960
     },
     {
       "file": "anime-tec9.glb",
-      "triangles": 7868,
-      "bytes": 374904
+      "triangles": 7916,
+      "bytes": 377032
     },
     {
       "file": "anime-elite.glb",
       "triangles": 9692,
-      "bytes": 387668
+      "bytes": 387464
     },
     {
       "file": "anime-hands.glb",
-      "triangles": 40516,
-      "bytes": 1530912
+      "triangles": 41092,
+      "bytes": 1563464
     }
   ]
 }

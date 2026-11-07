@@ -127,6 +127,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright'),
             body.position.set(0.13, 0, 0.27);
             body.rotation.y = 0.41;
             const rig = CS16Grip.operator(T, body, h, palmY);
+            const rigidMaterials=new Set(),armMaterials=new Set();
+            body.traverse(o=>{if(o.isMesh)for(const m of [].concat(o.material))(o.isSkinnedMesh?armMaterials:rigidMaterials).add(m);});
+            for(const m of armMaterials)if(rigidMaterials.has(m))throw Error('Rigid/skinned material variant thrashing');
             arms += 2;
             for (const pitch of [-0.72, 0, 0.62]) {
               const posed = model.userData.grip;

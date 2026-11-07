@@ -42,6 +42,8 @@ The complete Dust2 and Inferno replacements in `models/csgo/anime-*.glb` are exp
 
 The second local polish pass adds original scalloped textile awnings, wisteria, timber framing, curved balcony brackets, wooden stair nosings and rear garden-wall crests. Facade palette washes are baked into the images before glTF export. Sleeves retain their woven normal detail and receive curved bracers; the ivory, teal and brass reflex sight is batched while preserving its independent lens and reticle.
 
+The third local pass rounds architectural trim, models arched window surrounds and three-dimensional balcony scrolls, and adds curved flower petals and ceramic medallions. Fitted forearm plates, stitched piping and blue enamel receiver panels with brass engravings are original authored geometry. No new external art sources are used.
+
 Actual gameplay captures and measurement output are produced locally in `graphics-qa` by `ANIME_MATCH_ONLY=1` and `ROUND_FX_ONLY=1` modes of `tools/graphics-smoke.cjs`. These use the real renderer and map assets with a local socket fixture, not a live ten-person network match. Publication remains pending owner review.
 
 ## Winter valley and interiors

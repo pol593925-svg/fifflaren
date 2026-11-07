@@ -1,14 +1,36 @@
 """Curved roof wings and habitable townhouses; consumes the same collision plan as the server."""
-import json, math, subprocess
+import json, math, subprocess, bmesh
+from mathutils import Vector
 
 def build(a,theme):
     plan=json.loads(subprocess.check_output(['node',str(a.ROOT/'tools/export-coast-buildings.cjs'),theme],cwd=a.ROOT,encoding='utf8'))
+    rounded_cache={}
+    def rounded_box(mat,x,y,z,w,h,d,radius=.055):
+        if min(w,h,d)<.075:return a.box(mat,x,y,z,w,h,d)
+        key=(w,h,d,min(radius,min(w,h,d)*.23))
+        if key not in rounded_cache:
+            bm=bmesh.new();bmesh.ops.create_cube(bm,size=1)
+            for v in bm.verts:v.co=Vector((v.co.x*w,v.co.y*h,v.co.z*d))
+            bmesh.ops.bevel(bm,geom=list(bm.edges),offset=key[3],segments=2,affect='EDGES')
+            rounded_cache[key]=[[tuple(v.co) for v in f.verts]for f in bm.faces];bm.free()
+        for face in rounded_cache[key]:a.face(mat,[(x+xx,y+yy,z+zz)for xx,yy,zz in face])
+    def tube(mat,points,r=.04,sides=8):
+        rings=[]
+        for j,p in enumerate(points):
+            tangent=(Vector(points[min(j+1,len(points)-1)])-Vector(points[max(0,j-1)])).normalized()
+            u=tangent.cross(Vector((0,0,1)))
+            if u.length<.01:u=tangent.cross(Vector((1,0,0)))
+            u.normalize();v=tangent.cross(u).normalized()
+            rings.append([tuple(Vector(p)+r*(u*math.cos(k*math.tau/sides)+v*math.sin(k*math.tau/sides))) for k in range(sides)])
+        for left,right in zip(rings,rings[1:]):
+            for k in range(sides):a.face(mat,[left[k],right[k],right[(k+1)%sides],left[(k+1)%sides]])
     finishes={'wall':'plaster_light','floor':'wood','roof':'limestone','step':'wood','rail':'plaster','trim':'trim','wood':'wood','fabric':'shutter'}
     for box in plan['boxes']:
         if box.get('animeRoof'):continue
         lo,hi=box['min'],box['max'];kind=box.get('kind','wall');mat=finishes.get(kind,'limestone')
         if kind=='wall':mat=['plaster_light','plaster_blue','plaster'][box.get('building',0)%3]
-        a.box(mat,*[(x+y)/2 for x,y in zip(lo,hi)],*[y-x for x,y in zip(lo,hi)])
+        draw=rounded_box if kind in ['trim','rail','wood','fabric'] else a.box
+        draw(mat,*[(x+y)/2 for x,y in zip(lo,hi)],*[y-x for x,y in zip(lo,hi)])
     def lathe(mat,x,z,rings,n=16):
         for (y,r),(yy,rr) in zip(rings,rings[1:]):
             for j in range(n):
@@ -19,13 +41,15 @@ def build(a,theme):
             a.face(mat,[(p[0],p[1]-width,p[2]),(q[0],q[1]-width,q[2]),(q[0],q[1]+width,q[2]),(p[0],p[1]+width,p[2])])
     def flower(cx,cy,cz,r=.10):
         for k in range(6):
-            aa=k*math.tau/6;bb=(k+1)*math.tau/6
-            a.face('flower',[(cx,cy,cz-.018),(cx+math.cos(aa)*r,cy+math.sin(aa)*r,cz),
-                (cx+math.cos((aa+bb)/2)*r*1.4,cy+math.sin((aa+bb)/2)*r*1.4,cz-.035),
-                (cx+math.cos(bb)*r,cy+math.sin(bb)*r,cz)])
+            aa=(k+.5)*math.tau/6
+            petal=[(cx,cy,cz-.04)]
+            for j in range(9):
+                t=j/8*math.pi;length=math.sin(t*.5)*r*1.5;angle=aa+math.cos(t)*.42
+                petal.append((cx+math.cos(angle)*length,cy+math.sin(angle)*length,cz-.05*math.sin(t)))
+            a.face('flower',petal)
     for b in plan['buildings']:
         x,z=b['x'],b['z'];bid=b['id']
-        def box(mat,xx,y,zz,w,h,d):a.box(mat,x+xx,y,z+zz,w,h,d)
+        def box(mat,xx,y,zz,w,h,d):rounded_box(mat,x+xx,y,z+zz,w,h,d)
         def height(u):return 7.92+1.7*max(0,1-abs((u-4.5)/4.35))**1.25
         # A curved gable over the front wing gives a true silhouette. Rear rooftop is a terrace.
         for j in range(48):
@@ -97,6 +121,22 @@ def build(a,theme):
                 for k in range(8):box('wood',sx,4.62+k*.16,-.21,.38,.035,.035)
             points=[(x+cx-1.15+j*.115,6.12+.13*math.sin(j*math.pi/20),z-.18)for j in range(21)]
             ribbon('trim',points,.07)
+            # Carved arch sits above the actual opening, preserving the full firing aperture.
+            for j in range(28):
+                aa=j*math.pi/28;bb=(j+1)*math.pi/28
+                a.face('trim',[(x+cx+math.cos(t)*rr,6.12+math.sin(t)*rr*.30,z-.23)
+                    for t,rr in [(aa,1.08),(aa,1.22),(bb,1.22),(bb,1.08)]])
+            tube('wood',[(x+cx-1.14+j*2.28/28,6.16+.34*math.sin(j*math.pi/28),z-.25)for j in range(29)],.025)
+        # Sculpted scroll supports and rounded balcony rail, joined into the material batches.
+        for xx in [1.6,9.15]:
+            tube('wood',[(x+xx,2.98+.48*math.sin(j*math.pi/32),z-.10-j*1.5/32)for j in range(33)],.075)
+        tube('trim',[(x+1.4+j*8/40,4.38,z-1.84)for j in range(41)],.085,12)
+        # A shallow panelled frieze and inlaid medallions soften the broad upper wall.
+        for cx in [2.5,6,9.5]:
+            for j in range(24):
+                aa=j*math.tau/24;bb=(j+1)*math.tau/24
+                a.face('shutter',[(x+cx+math.cos(t)*r,6.66+math.sin(t)*r,z-.17)
+                    for t,r in [(aa,.08),(aa,.13),(bb,.13),(bb,.08)]])
         # Balcony coping and curled metal balusters sit on existing solid parapet.
         box('trim',5.4,4.33,-1.8,8.25,.12,.24)
         for j in range(12):
@@ -129,10 +169,7 @@ def build(a,theme):
             box('trim',9.6875,j*.18+.145,.5+j*.5+.025,1.375,.055,.05)
             box('trim',11.0625,3.6+j*.18+.145,10-j*.5+.475,1.375,.055,.05)
         # The return-flight rail hugs the existing side wall, leaving the narrow stairs clear.
-        for j in range(19):
-            z0=10.3-j*.5;z1=z0-.5;y0=4.55+j*.18;y1=y0+.18
-            a.face('wood',[(x+11.68,y0-.035,z+z0),(x+11.68,y1-.035,z+z1),
-                (x+11.68,y1+.035,z+z1),(x+11.68,y0+.035,z+z0)])
+        tube('wood',[(x+11.68,4.55+j*.18,z+10.3-j*.5)for j in range(18)],.045)
         # Dress the solid rear elevation as a timber-framed garden wall, not fake openings.
         for xx in [.45,4.1,7.9,11.55]:box('wood',xx,3.62,12.055,.12,6.50,.12)
         for yy in [.72,3.24,6.66]:box('wood',6,yy,12.055,11.30,.12,.12)

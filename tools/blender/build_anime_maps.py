@@ -126,15 +126,31 @@ def main():
     ap=argparse.ArgumentParser();ap.add_argument('--map',choices=['dust2','inferno','all'],default='all');cfg=ap.parse_args(args)
     a.create_materials=materials;a.wall_details=wall_details;a.site_markers=site_markers;coast_architecture.build=coast
     layouts=a.read_layouts();manifest={'generator':'tools/blender/build_anime_maps.py','style':'Painterly anime','collisionSource':'Authored tactical MAP_ROWS, CS16TacticalMap and CS16Buildings','maps':{}}
+    raw_face=a.face
     for theme,rows in layouts.items():
         if cfg.map not in ['all',theme]:continue
         bpy.ops.wm.read_factory_settings(use_empty=True);materials(theme)
-        lamps,beacons=a.build_map(theme,rows);objects=a.bake_batches()
+        # The unused exterior is a solid mass of grid cells. Four continuous skins
+        # replace tens of thousands of identical quads; playable surfaces stay exact.
+        cells=[(x,z)for z,row in enumerate(rows)for x,ch in enumerate(row)if ch not in ['#','T','B']]
+        xmin=(min(x for x,z in cells)-2)*4;xmax=(max(x for x,z in cells)+3)*4
+        zmin=(min(z for x,z in cells)-2)*4;zmax=(max(z for x,z in cells)+3)*4
+        def compact_face(mat,verts,uv=None,tint=1,backdrop=False):
+            if not backdrop and (max(v[0]for v in verts)<=xmin or min(v[0]for v in verts)>=xmax or max(v[2]for v in verts)<=zmin or min(v[2]for v in verts)>=zmax):return
+            raw_face(mat,verts,uv,tint,backdrop)
+        a.face=compact_face
+        lamps,beacons=a.build_map(theme,rows)
+        for x0,z0,x1,z1 in [(0,0,504,zmin),(0,zmax,504,504),(0,zmin,xmin,zmax),(xmax,zmin,504,zmax)]:
+            for mat,y in [('ground',0),('limestone',4)]:raw_face(mat,[(x0,y,z1),(x1,y,z1),(x1,y,z0),(x0,y,z0)])
+        a.face=raw_face;objects=a.bake_batches()
         import bmesh
         for ob in objects:
-            if ob.data.materials[0].name not in ['roof','trim']:continue
+            if ob.data.materials[0].name not in ['roof','trim','wood','ceramic','shutter']:continue
             bm=bmesh.new();bm.from_mesh(ob.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001);bm.to_mesh(ob.data);bm.free()
             for poly in ob.data.polygons:poly.use_smooth=True
+            bpy.context.view_layer.objects.active=ob
+            normal=ob.modifiers.new('Balanced surface normals','WEIGHTED_NORMAL');normal.keep_sharp=True
+            bpy.ops.object.modifier_apply(modifier=normal.name)
         tris=0
         for ob in objects:ob.data.calc_loop_triangles();tris+=len(ob.data.loop_triangles)
         target=OUT/('anime-'+theme+'.glb')

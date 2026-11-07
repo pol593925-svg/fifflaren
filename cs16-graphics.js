@@ -12,6 +12,14 @@
   let operatorEpoch = 0;
   const operators = new Map();
 
+  function freezeStatic(root) {
+    root.updateWorldMatrix(true, true);
+    root.traverse(o => {
+      o.matrixAutoUpdate = false;
+      o.matrixWorldAutoUpdate = false;
+    });
+  }
+
   // Painted lower wall band and grime at skirting height; reuse the existing plaster albedo.
   function finishPlaster(material,storey){
     material.onBeforeCompile=shader=>{
@@ -175,6 +183,10 @@
     const group = new T.Group();
     group.name = 'CS16 Blender world: ' + mapName;
     scene.add(group);
+    // These roots never move. A dirty identity scene otherwise forces every
+    // static map mesh to multiply its world matrix again on every frame.
+    scene.updateMatrix(); scene.matrixAutoUpdate = false;
+    group.updateMatrix(); group.matrixAutoUpdate = false;
 
     const sky = makeSky(T, mapName === 'inferno', 1100);
     group.add(sky.mesh);
@@ -295,6 +307,7 @@
       if(!global.CS16Landscape)throw Error('Landscape module unavailable');
       global.CS16EnvironmentView.sculpt(T,model,grid);
       landscape=global.CS16Landscape.create({T,scene,grid,map:mapName,model});
+      freezeStatic(model);
       update(camera, 0);
       return model;
     });

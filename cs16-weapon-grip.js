@@ -273,14 +273,20 @@
     const left = rigArm(T, body.getObjectByName('armL'), -1, palmY),
       right = rigArm(T, body.getObjectByName('armR'), 1, palmY);
     const offset = new T.Vector3();
+    let lastGun = null, lastGrip = null, lastPitch = NaN, lastRecoil = NaN, lastBob = NaN;
     return {
       update(gun, pitch = 0, recoil = 0, bob = 0) {
         const grip = gun?.userData.grip;
         if (!grip) {
+          lastGun = null;
           left?.relax();
           right?.relax();
           return;
         }
+        // The gun and both shoulders have the same actor parent. Translation,
+        // yaw and crouch move that parent, so an unchanged local pose needs no IK solve.
+        if (lastGun === gun && lastGrip === grip && lastPitch === pitch && lastRecoil === recoil && lastBob === bob) return;
+        lastGun = gun; lastGrip = grip; lastPitch = pitch; lastRecoil = recoil; lastBob = bob;
         // Keep the butt beside the firing shoulder. Move the complete weapon and drive both elbows to it.
         holder.position.set(0.115, 1.29 + bob, -0.205 + recoil * 0.018);
         holder.rotation.set(Math.max(-0.93, Math.min(0.93, pitch)) + recoil * 0.055, 0.12, 0, 'YXZ');
@@ -289,6 +295,7 @@
         left?.solve(gun, grip.left);
       },
       relax() {
+        lastGun = null;
         left?.relax();
         right?.relax();
       },

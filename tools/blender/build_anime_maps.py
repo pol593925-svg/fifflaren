@@ -41,7 +41,10 @@ def materials(theme):
         else:
             n=128;yy,xx=np.mgrid[:n,:n];px=np.ones((n,n,4),dtype=np.float32)
             brush=.96+.025*np.sin(xx*.19+np.sin(yy*.10)*3)+.018*np.sin(yy*.36+xx*.03)
-            if name in ['wood','shutter']:brush-=.06*(np.mod(xx,32)<1)
+            if name in ['wood','shutter']:
+                grain=xx*.40+.65*np.sin(yy*.025)+.20*np.sin(yy*.11+xx*.04)
+                brush=.94+.035*np.sin(grain)+.018*np.sin(grain*2.8)
+                brush-=.035*(np.mod(xx+.6*np.sin(yy*.025),32)<1)
             px[:,:,:3]=np.array(color)[None,None,:]*brush[:,:,None]
             im=bpy.data.images.new('Illustrated '+name,width=n,height=n,alpha=False);im.pixels.foreach_set(px.ravel());im.pack();a.TEX_IMAGES.append(im)
             tx=mat.node_tree.nodes.new('ShaderNodeTexImage');tx.image=im;mat.node_tree.links.new(tx.outputs['Color'],bs.inputs['Base Color'])

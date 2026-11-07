@@ -36,6 +36,9 @@ module.exports=async function(page,outputs,errors){
    __qa.aim(door.x-2,0,door.z-5,Math.atan2(-2,-5),.015);
   },{house:spot.house,map});
   await page.waitForTimeout(650);await page.screenshot({path:path.join(outputs,'anime-'+map+'-door.png')});
+  await page.evaluate(()=>__qa.weapon('usp'));
+  await page.waitForTimeout(650);await page.screenshot({path:path.join(outputs,'anime-'+map+'-pistol.png')});
+  await page.evaluate(()=>__qa.weapon('m4a1'));
   await page.evaluate(b=>__qa.aim(b.x+5.5,.02,b.z+2.3,-2.0,0),spot.house);
   await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,'anime-'+map+'-interior.png')});
   await page.evaluate(()=>__qa.aim(53.5*4,-3.2,67*4,-Math.PI/2,0));

@@ -4,6 +4,21 @@ module.exports = async function tacticalSceneCheck() {
   const actors = [...remotes.values()].map(r => [r, r.alive]);
   const data = CS16Buildings.layout(grid, curMap), reports = [];
   const staticArt = await worldGraphics.ready;
+  // Observe actual rendered frames: the immutable map must not recompute transforms.
+  await new Promise(requestAnimationFrame);
+  const tracked = []; let staticUpdates = 0;
+  staticArt.traverse(node => {
+    const original = node.updateMatrixWorld;
+    tracked.push([node, original]);
+    node.updateMatrixWorld = function(force) { staticUpdates++; return original.call(this, force); };
+  });
+  try {
+    for (let i = 0; i < 12; i++) await new Promise(requestAnimationFrame);
+    if (staticUpdates) throw Error('Static map transforms repeated during rendering: ' + staticUpdates);
+    reports.push({kind:'static-map',frames:12,transformUpdates:staticUpdates});
+  } finally {
+    for (const [node, original] of tracked) node.updateMatrixWorld = original;
+  }
   const reset = (x,y,z,yaw) => Object.assign(P,{x,y,z,yaw,pitch:0,vx:0,vy:0,vz:0,onGround:true,crouched:false});
   const walk = frames => {for(let i=0;i<frames;i++)stepPlayer(1/60,{w:true});};
   const doorArt = data.environment.doors.filter(d=>!d.kind);

@@ -17,6 +17,19 @@ def soft_box(name,pos,size,mat,parent,bevel=.008):
     return base_box(name,pos,size,mat,parent,min(min(size)*.32,bevel*1.8,.014) if bevel else 0)
 a.box=soft_box
 
+# Round authored silhouettes in their own plane, retaining grip sockets and moving parts.
+base_profile=w.receiver_profile
+def curved_profile(name,outline,width,mat,parent):
+    points=[]
+    for i,(z,y) in enumerate(outline):
+        p=Vector(outline[i-1]);q=Vector((z,y));n=Vector(outline[(i+1)%len(outline)])
+        radius=min(.011,(p-q).length*.22,(n-q).length*.22)
+        start=q+(p-q).normalized()*radius;end=q+(n-q).normalized()*radius
+        for j in range(5):
+            t=j/4;v=(1-t)**2*start+2*t*(1-t)*q+t*t*end;points.append(tuple(v))
+    return base_profile(name,points,width,mat,parent)
+w.receiver_profile=curved_profile
+
 def sculpt(root,kind):
     for ob in list(root.children_recursive):
         if ob.type!='MESH':continue
@@ -79,6 +92,11 @@ def finish(root,kind):
 
 def details(root,kind):
     if kind=='hands':
+        skin=paint(a.surface('Painted exposed fingers',(.6,.4,.3),.8),'#e4b996')
+        # Fingerless tailored gloves: the complete fingers remain continuous curved meshes.
+        for ob in root.children_recursive:
+            if ob.type=='MESH' and any(n in ob.name for n in ['Curled digit','Fore-end finger','Opposing thumb','Thumb along left rail']):
+                ob.data.materials.clear();ob.data.materials.append(skin)
         ivory=paint(a.surface('Tailored sleeve inlay',(.6,.5,.4),.8),'#d9c9a6')
         teal=paint(a.surface('Wrist teal binding',(.1,.3,.3),.8),'#3e7688')
         gold=paint(a.surface('Cuff fastener',(.5,.3,.1),.5),'#cb9e60')
@@ -103,20 +121,22 @@ def details(root,kind):
             a.box('Cuff brass buckle',(x+side*.022,y+.004,z),(.013,.006,.022),gold,hand,.002)
             # Curved leather bracer sits over the sleeve, following the arm instead of a box cuff.
             verts=[];faces=[]
-            for j in range(11):
-                t=.14+j*.018;x,y,z=wrist
+            for j in range(15):
+                t=.14+j*.18/14;x,y,z=wrist
                 r=.043+.027*t+.0042*math.sin(t*28)+.0018*math.cos(t*53)+.003
                 centre=arm(t);up,across=frame(t)
-                for k in range(9):
-                    ang=-1.05+k*2.1/8
-                    verts.append(tuple(centre+r*(up*math.cos(ang)+across*.81*math.sin(ang))))
-            for j in range(10):
-                for k in range(8):
-                    i=j*9+k;faces.append((i,i+1,i+10,i+9))
+                for k in range(17):
+                    ang=-1.05+k*2.1/16
+                    # Taper the sleeve plate at both ends instead of cutting a rectangular cuff.
+                    shaped=ang*(.82+.18*math.sin(j*math.pi/14))
+                    verts.append(tuple(centre+r*(up*math.cos(shaped)+across*.81*math.sin(shaped))))
+            for j in range(14):
+                for k in range(16):
+                    i=j*17+k;faces.append((i,i+1,i+18,i+17))
             a.mesh('Tailored curved wrist bracer',verts,faces,teal,hand)
-            for row in [0,10]:a.line('Bracer gold piping',[verts[row*9+k] for k in range(9)],.0015,gold,hand)
-            for row in [2,5,8]:
-                a.line('Raised bracer seam',[tuple(Vector(verts[row*9+k])+frame(.14+row*.018)[0]*.0015)for k in range(2,7)],.0012,ivory,hand)
+            for row in [0,14]:a.line('Bracer gold piping',[verts[row*17+k] for k in range(17)],.0015,gold,hand)
+            for row in [3,7,11]:
+                a.line('Raised bracer seam',[tuple(Vector(verts[row*17+k])+frame(.14+row*.18/14)[0]*.0015)for k in range(3,14)],.0012,ivory,hand)
             # Embroidered leaf crest follows the curved cuff, not a floating flat badge.
             def surface(t,angle,extra=.0045):
                 r=.043+.027*t+.0042*math.sin(t*28)+.0018*math.cos(t*53)+extra

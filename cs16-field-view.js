@@ -52,11 +52,20 @@
       s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);
       s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s;
     }
-    const hood=rounded(.104,.092,.021),opening=rounded(.080,.068,.012);
+    function arch(w,h) {
+      const s=new T.Shape(),x=w/2,y=h/2;
+      s.moveTo(-x*.80,-y);s.lineTo(x*.80,-y);
+      s.quadraticCurveTo(x,-y,x,-y*.65);s.lineTo(x*.93,y*.23);
+      s.quadraticCurveTo(x*.88,y*.86,x*.48,y);
+      s.quadraticCurveTo(0,y*1.15,-x*.48,y);
+      s.quadraticCurveTo(-x*.88,y*.86,-x*.93,y*.23);s.lineTo(-x,-y*.65);
+      s.quadraticCurveTo(-x,-y,-x*.80,-y);return s;
+    }
+    const hood=arch(.108,.094),opening=arch(.080,.068);
     hood.holes.push(new T.Path(opening.getPoints(12).reverse()));
     const housing=new T.ExtrudeGeometry(hood,{depth:.047,steps:1,curveSegments:12,bevelEnabled:true,bevelSegments:3,bevelSize:.0015,bevelThickness:.0015});
-    part(housing,metal,0,.144,-.085);
-    const rim=rounded(.098,.086,.018);rim.holes.push(new T.Path(rounded(.090,.078,.014).getPoints(12).reverse()));
+    part(housing,edge,0,.144,-.085);
+    const rim=arch(.101,.087);rim.holes.push(new T.Path(arch(.090,.077).getPoints(12).reverse()));
     part(new T.ExtrudeGeometry(rim,{depth:.001,curveSegments:12,bevelEnabled:false}),brass,0,.144,-.035);
     for (const x of [-.045,.045]) {
       box(metal,x,.103,-.057,.013,.018,.080);

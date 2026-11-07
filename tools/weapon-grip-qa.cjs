@@ -134,23 +134,30 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright'),
             for (const pitch of [-0.72, 0, 0.62]) {
               const posed = model.userData.grip;
               rig.update(model, pitch, 0.35, 0.014);
-              body.updateMatrixWorld(true);
-              poses++;
-              for (const [name, sign, contact] of [
-                ['armL', -1, posed.left],
-                ['armR', 1, posed.right],
-              ]) {
-                if (!contact) continue;
-                const arm = body.getObjectByName(name),
-                  skin = arm.getObjectByProperty('isSkinnedMesh', true);
-                const wrist = skin.skeleton.bones[1].localToWorld(
-                    new T.Vector3(0, -palmY * 0.5, palmY > 0.52 ? -0.017 : 0.012),
-                  ),
-                  target = new T.Vector3(...contact);
-                target.x += sign * 0.022;
-                target.y -= sign < 0 ? 0.022 : 0;
-                model.localToWorld(target);
-                maxWrist = Math.max(maxWrist, wrist.distanceTo(target));
+              for (const scenario of ['standing', 'translated', 'crouched', 'restored']) {
+                body.position.set(scenario === 'translated' ? 0.71 : 0.13, 0.08, 0.27);
+                body.rotation.y = scenario === 'translated' ? 1.16 : 0.41;
+                body.scale.y = scenario === 'crouched' ? 0.72 : 1;
+                if (scenario === 'restored') rig.relax();
+                rig.update(model, pitch, 0.35, 0.014);
+                body.updateMatrixWorld(true);
+                poses++;
+                for (const [name, sign, contact] of [
+                  ['armL', -1, posed.left],
+                  ['armR', 1, posed.right],
+                ]) {
+                  if (!contact) continue;
+                  const arm = body.getObjectByName(name),
+                    skin = arm.getObjectByProperty('isSkinnedMesh', true);
+                  const wrist = skin.skeleton.bones[1].localToWorld(
+                      new T.Vector3(0, -palmY * 0.5, palmY > 0.52 ? -0.017 : 0.012),
+                    ),
+                    target = new T.Vector3(...contact);
+                  target.x += sign * 0.022;
+                  target.y -= sign < 0 ? 0.022 : 0;
+                  model.localToWorld(target);
+                  maxWrist = Math.max(maxWrist, wrist.distanceTo(target));
+                }
               }
             }
             if (id === 'm4a1' && palmY === 0.54) {

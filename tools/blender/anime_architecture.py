@@ -25,10 +25,28 @@ def build(a,theme):
         for left,right in zip(rings,rings[1:]):
             for k in range(sides):a.face(mat,[left[k],right[k],right[(k+1)%sides],left[(k+1)%sides]])
     finishes={'wall':'plaster_light','floor':'wood','roof':'limestone','step':'wood','rail':'plaster','trim':'trim','wood':'wood','fabric':'shutter'}
+    building_origins={b['id']:(b['x'],b['z']) for b in plan['buildings']}
     for box in plan['boxes']:
         if box.get('animeRoof'):continue
         lo,hi=box['min'],box['max'];kind=box.get('kind','wall');mat=finishes.get(kind,'limestone')
         if kind=='wall':mat=['plaster_light','plaster_blue','plaster'][box.get('building',0)%3]
+        origin=building_origins.get(box.get('building'))
+        if kind=='rail' and origin and lo[2]<origin[1] and hi[0]-lo[0]>7:
+            # A continuous bowed moulding stays inside the original solid parapet envelope.
+            # Keep its collision/cover volume; sculpt its face instead of adding open balusters.
+            for j in range(48):
+                u=j/48;v=(j+1)/48
+                for k in range(8):
+                    t=k/8;tt=(k+1)/8
+                    def point(s,r,back=False):
+                        xx=lo[0]+s*(hi[0]-lo[0]);yy=lo[1]+r*(hi[1]-lo[1])
+                        zz=hi[2] if back else lo[2]+.042*(1-math.sin(r*math.pi))*math.sin(s*math.pi)**.4
+                        return (xx,yy,zz)
+                    a.face('wood',[point(u,t),point(v,t),point(v,tt),point(u,tt)])
+                    a.face('wood',[point(u,t,True),point(u,tt,True),point(v,tt,True),point(v,t,True)])
+                for t in [0,1]:a.face('trim',[point(u,t),point(u,t,True),point(v,t,True),point(v,t)])
+            for s in [0,1]:a.face('trim',[point(s,0),point(s,1),point(s,1,True),point(s,0,True)])
+            continue
         draw=rounded_box if kind in ['trim','rail','wood','fabric'] else a.box
         draw(mat,*[(x+y)/2 for x,y in zip(lo,hi)],*[y-x for x,y in zip(lo,hi)])
     def lathe(mat,x,z,rings,n=16):
@@ -106,12 +124,7 @@ def build(a,theme):
         # The low belt must stop at the jambs; a full-width beam crosses the playable doorway.
         for lo,hi in [(.275,3.80),(7.20,11.725)]:box('wood',(lo+hi)/2,.68,-.065,hi-lo,.105,.12)
         for xx in [1.65,9.05]:
-            for j in range(16):
-                t=j/16;tt=(j+1)/16
-                a.face('wood',[(x+xx-.065,3.35-1.0*math.sin(t*math.pi/2),z-1.6+1.6*t),
-                 (x+xx-.065,3.35-1.0*math.sin(tt*math.pi/2),z-1.6+1.6*tt),
-                 (x+xx+.065,3.35-1.0*math.sin(tt*math.pi/2),z-1.6+1.6*tt),
-                 (x+xx+.065,3.35-1.0*math.sin(t*math.pi/2),z-1.6+1.6*t)])
+            tube('wood',[(x+xx,3.32-.86*math.sin(j*math.pi/40),z-1.60+j*1.6/20)for j in range(21)],.065,10)
         # Two-layer cornices and curved entrance canopy.
         for y in [3.32,6.88]:
             for k in range(4):
@@ -155,6 +168,11 @@ def build(a,theme):
                     for t,rr in [(aa,1.08),(aa,1.22),(bb,1.22),(bb,1.08)]])
             tube('wood',[(x+cx-1.14+j*2.28/28,6.16+.34*math.sin(j*math.pi/28),z-.25)for j in range(29)],.025)
         # Sculpted scroll supports and rounded balcony rail, joined into the material batches.
+        # Ivory oval insets break the broad balcony fascia into carved woodwork.
+        for xx in [2.4,4.4,6.4,8.4]:
+            tube('trim',[(x+xx+.68*math.cos(j*math.tau/32),3.94+.18*math.sin(j*math.tau/32),z-1.817)for j in range(33)],.018,6)
+            for sign in [-1,1]:
+                tube('trim',[(x+xx+(j/12-.5)*.62,3.94+sign*.08*math.sin(j*math.pi/12),z-1.835)for j in range(13)],.012,6)
         for xx in [1.6,9.15]:
             tube('wood',[(x+xx,2.98+.48*math.sin(j*math.pi/32),z-.10-j*1.5/32)for j in range(33)],.075)
         tube('trim',[(x+1.4+j*8/40,4.38,z-1.84)for j in range(41)],.085,12)

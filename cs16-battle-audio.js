@@ -81,6 +81,12 @@
       src.start();
     }
     return {
+      async prepare() {
+        // Generate sample buffers behind the loading screen, not during the first firefight.
+        for(const type of ['rifle','pistol','sniper','whizz','glass','wood','stone','metal']){
+          buffer(type);await new Promise(resolve=>setTimeout(resolve,0));
+        }
+      },
       shot(id, pos, gain=1) {
         sound(
           ['awp', 'scout', 'tankgun'].includes(id)

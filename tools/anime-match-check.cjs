@@ -38,6 +38,37 @@ module.exports=async function(page,outputs,errors){
   await page.waitForTimeout(650);await page.screenshot({path:path.join(outputs,'anime-'+map+'-door.png')});
   await page.evaluate(()=>__qa.weapon('usp'));
   await page.waitForTimeout(650);await page.screenshot({path:path.join(outputs,'anime-'+map+'-pistol.png')});
+  for(const id of ['awp','scout']){
+   await page.evaluate(({house})=>__qa.aim(house.x+17,0,house.z-13,2.54,.05),spot);
+   await page.evaluate(id=>__qa.weapon(id),id);await page.waitForTimeout(400);
+   assert.equal(await page.evaluate(id=>CS16FieldView.supported(id),id),false,'Snipers must not attach a reflex sight');
+   await page.screenshot({path:path.join(outputs,'anime-'+map+'-'+id+'.png')});
+   await page.mouse.down({button:'right'});await page.mouse.up({button:'right'});await page.waitForTimeout(850);
+   const scope=await page.evaluate(()=>__qa.ads());assert(scope.scoped&&scope.scopeVisible&&!scope.vmVisible);assert(Math.abs(scope.fov-(id==='awp'?16:22))<.5);
+   await page.screenshot({path:path.join(outputs,'anime-'+map+'-'+id+'-zoom.png')});
+   await page.mouse.down({button:'right'});await page.mouse.up({button:'right'});await page.waitForTimeout(450);assert.equal(await page.evaluate(()=>__qa.ads().scoped),false);
+  }
+  const arsenal=await page.evaluate(()=>__qa.arsenal());assert(!arsenal.items.some(id=>/^veh_|^rpg$/.test(id)));assert(!arsenal.classes.includes('antitank'));assert(!arsenal.front&&!arsenal.missiles&&!arsenal.ownVehicle&&arsenal.vehicles===0);
+  const pool=await page.evaluate(()=>__qa.shotPool());
+  for(let burst=0;burst<3;burst++){
+   await page.evaluate(()=>__qa.shotBurst());const busy=await page.evaluate(()=>__qa.shotPool());
+   assert(busy.active[0]<=48&&busy.active[1]<=24);assert.deepEqual(busy.visible,busy.active);assert.equal(busy.geometry,pool.geometry);assert.equal(busy.material,pool.material);
+   await page.waitForTimeout(400);assert.deepEqual((await page.evaluate(()=>__qa.shotPool())).busy,[0,0]);
+  }
+  reports.at(-1).arsenal=arsenal;reports.at(-1).shotPool=await page.evaluate(()=>__qa.shotPool());
+  if(map==='dust2'){
+   const guns=(await page.evaluate(()=>__qa.snapshot().weapons)).filter(id=>id!=='smokegrenade');
+   for(const id of guns){
+    await page.evaluate(id=>__qa.weapon(id),id);await page.waitForTimeout(250);
+    await page.screenshot({path:path.join(outputs,'arsenal-'+id+'.png')});
+    if(await page.evaluate(id=>CS16FieldView.supported(id),id)){
+     await page.mouse.down({button:'right'});await page.waitForTimeout(450);
+     const dot=await page.evaluate(()=>__qa.ads());assert(dot.visible,'ADS missing: '+id);assert(Math.hypot(...dot.ndc.slice(0,2))<.005,'ADS off-center: '+id);
+     await page.mouse.up({button:'right'});await page.waitForTimeout(200);
+    }
+   }
+   fs.writeFileSync(path.join(outputs,'arsenal-review.html'),'<!doctype html><meta charset="utf-8"><title>Арсенал — кадры из игры</title><style>body{margin:32px;background:#111e29;color:#efe5cd;font:16px system-ui}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px}figure{margin:0}img{width:100%;border-radius:12px}figcaption{padding:8px}a{color:inherit}</style><h1>Арсенал · локальная версия</h1><p>Кадры полного игрового клиента. Локальная подмена сетевого подключения.</p><main>'+guns.map(id=>'<figure><a href="arsenal-'+id+'.png"><img src="arsenal-'+id+'.png" loading="lazy"></a><figcaption>'+id.toUpperCase()+'</figcaption></figure>').join('')+'</main>');
+  }
   await page.evaluate(()=>__qa.weapon('m4a1'));
   await page.evaluate(b=>__qa.aim(b.x+5.5,.02,b.z+2.3,-2.0,0),spot.house);
   await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,'anime-'+map+'-interior.png')});

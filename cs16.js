@@ -422,7 +422,6 @@
 
   // ---------- ОРУЖИЕ ----------
   const WEAPONS = {
-    rpg:{name:'РПГ-7',dmg:140,rpm:15,mag:1,reserve:3,reload:3.2,spread:0,auto:false,price:2200,move:.8,rocket:true},
     knife:  { name: 'Нож',            dmg: 40,  rpm: 80,  mag: Infinity, reserve: Infinity, reload: 0,   spread: 0,   auto: false, melee: true, price: 0, move: 1.2, heavy: 55 },
     glock:  { name: 'Glock-18',       dmg: 25,  rpm: 352, mag: 20, reserve: 120, reload: 2.0, spread: 1.7, auto: false, price: 0, move: 1.1, burst: true },
     usp:  { name: 'USP',            dmg: 34,  rpm: 352, mag: 12, reserve: 100, reload: 2.2, spread: 1.2, auto: false, price: 0, move: 1.08 },
@@ -448,8 +447,6 @@
   const Combat = window.CS16Combat;
   for (const [id, profile] of Object.entries(Combat.weapons)) Object.assign(WEAPONS[id], profile);
   const BUY_ITEMS = [
-    {id:'veh_jet',label:'✈ Ударный самолёт · ракеты и спецбоеприпас',price:4500},
-    {id:'rpg',label:'🚀 РПГ-7 · 4 ракеты',price:2200},
     { id: 'kevlar',     label: '🦺 Бронежилет',    price: 650 },
     { id: 'deagle',     label: '🔫 Desert Eagle',  price: 650 },
     { id: 'tec9',       label: '🔫 Tec-9 (T)',     price: 500 },
@@ -471,10 +468,6 @@
     { id: 'flashbang',  label: '✨ Флешка',        price: 200 },
     { id: 'smokegrenade', label: '🌫 Дымовая',     price: 300 },
     { id: 'defuser',    label: '🧰 Набор сапёра (CT)', price: 200 },
-    { id: 'veh_tank', label: '🛡 Стриж · быстрый танк · 2 места', price: 4000 },
-    { id: 'veh_bastion', label: '🛡 Бастион · тяжёлый танк · 2 места', price: 5500 },
-    { id: 'veh_heli', label: '🚁 Сокол · разведчик · 2 места', price: 4000 },
-    { id: 'veh_storm', label: '🚁 Шторм · ударный · 2 места', price: 5500 },
   ];
 
   // ---------- СКИНЫ (магазин за казино-деньги) ----------
@@ -589,7 +582,7 @@
   let handsModel = null, combatArtPromise = null;
   function loadCombatArt() {
     if (!combatArtPromise) combatArtPromise = Promise.all([
-      loadGLBAll(), CS16Graphics.loadOperators(THREE), loadVehicleModels(),
+      loadGLBAll(), CS16Graphics.loadOperators(THREE),
       new THREE.GLTFLoader().loadAsync('models/csgo/anime-hands.glb').then(g => { handsModel = CS16AnimeMaterials.apply(THREE,g.scene,{soft:true}); })
     ]).catch(error => { combatArtPromise = null; throw error; });
     return combatArtPromise;
@@ -835,10 +828,14 @@
   // Prepare real character, hand and optic shader variants behind the loading screen.
   // Keep the muzzle light at zero intensity so firing cannot change NUM_POINT_LIGHTS.
   async function warmCombatArt(epoch){
+    await spatialAudio()?.prepare();
+    if(epoch!==worldLoadEpoch)return;
     const activeScene=scene,fx=magicView,preview=new THREE.Group(),holds=[],guns=[];
     const shadows=renderer3.shadowMap.enabled,optical=fieldOptical||=CS16FieldView.optic(THREE);
     if(!shotLight)shotLight=new THREE.PointLight(0xffc46a,0,6,2);
     shotLight.intensity=0;activeScene.add(shotLight);
+    const pool=prepareShotPool(),pooled=[...pool.tracers.map(s=>s.line),...pool.flashes.map(s=>s.sp)];
+    preview.add(...pooled);
     const opticParent=optical.root.parent,reticle=optical.root.getObjectByName('fieldReticle'),reticleVisible=reticle?.visible;
     if(reticle)reticle.visible=true;
     try{
@@ -851,7 +848,7 @@
       const worldGun=buildGun('m4a1','',1,true);guns.push(worldGun);preview.add(worldGun);
       const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
       // Compile every variant, but upload only representative textures/meshes now.
-      const samples=new Set([preview.children[0],guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle]);
+      const samples=new Set([preview.children[pooled.length],guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle,pooled[0],pooled[48]]);
       preview.position.copy(camera.position);preview.position.z-=3;activeScene.add(preview);
       // Balanced/high and economy use different shader defines. Weak PCs prepare economy only.
       for(const enabled of (shadows?[false,true]:[false])){
@@ -864,6 +861,7 @@
       renderer3.shadowMap.enabled=shadows;preview.removeFromParent();optical.root.removeFromParent();
       if(opticParent&&fieldOptical===optical)opticParent.add(optical.root);
       if(reticle)reticle.visible=reticleVisible;
+      for(const node of pooled)node.removeFromParent();
       holds.forEach(h=>h.dispose());guns.forEach(disposeGun);
     }
   }
@@ -899,7 +897,7 @@
     clearFieldPresentation();
     remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
-    clearRockets();if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
+    if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
     if(conquestUI){conquestUI.dispose();conquestUI=null;}
     if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
@@ -925,14 +923,14 @@
     const progress = text => { if (!loadEnded && epoch === worldLoadEpoch) ui.loadingText.textContent = text; };
     try {
       if(conquestUI){conquestUI.dispose();conquestUI=null;}
-      clearRockets();if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
+      if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
       if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
       if(magicView){magicView.dispose();magicView=null;}scene = new THREE.Scene(); scene.add(camera);
       magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,getQuality:()=>graphicsQuality,constrain:companionPosition,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
       if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
-      missileView?.dispose();missileView=CS16MissileView.create(THREE,scene,ui.hud);
-      if(frontView)frontView.dispose();frontView=CS16FrontView.create({T:THREE,scene,grid,map:curMap,assets:vehGlb});frontView.ingest(frontNet.map===curMap?frontNet.rows:[]);
+      missileView?.dispose();missileView=null;
+      frontView?.dispose();frontView=null;
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
         onProgress: event => progress('Карта ' + MAP_META[curMap].name + (event.total ? ' · ' + Math.round(event.loaded / event.total * 100) + '%' : ' · ' + (event.loaded / 1048576).toFixed(1) + ' МБ')) });
@@ -951,7 +949,7 @@
       if(!active.bakedArchitecture())buildingGraphics=CS16Buildings.create(THREE,scene,grid,curMap);
       fieldProps?.applyNature(active.nature(),graphicsQuality);
       buildingGraphics?.applyMaterials(name=>active.surface(name));environmentView?.applyMaterials(name=>active.surface(name));
-      applyFront();frontView.sync(true);
+      // Tactical rounds use static architecture; no army or vehicle scene.
       await warmCombatArt(epoch);
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
@@ -1207,8 +1205,9 @@
     ui.banner = el('div', 'position:absolute; top:22%; left:50%; transform:translateX(-50%); font:bold 26px monospace; color:#ffc107; text-shadow:0 2px 6px #000; display:none; text-align:center;', ui.hud);
     ui.centerMsg = el('div', 'position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font:bold 18px monospace; color:#fff; text-shadow:0 2px 6px #000; display:none; text-align:center;', ui.hud);
     ui.thermalLens = el('div','position:absolute;display:none;border-radius:50%;pointer-events:none;background:rgba(26,62,78,.13);box-shadow:inset 0 0 8px #18435555;',ui.hud);
-    ui.scope = el('div', 'position:absolute; inset:0; display:none; background:radial-gradient(circle at center, transparent 26%, #000 27%);', ui.hud);
-    el('div', 'position:absolute; left:0; right:0; top:50%; height:1px; background:#000;', ui.scope);
+    ui.scope = el('div', 'position:absolute; inset:0; display:none; background:radial-gradient(circle at center,transparent calc(40vmin - 3px),rgba(0,0,0,.6) 40vmin,#05070a calc(40vmin + 3px));', ui.hud);
+    ui.hud.insertBefore(ui.scope,ui.hud.firstChild);
+    el('div', 'position:absolute; left:0; right:0; top:50%; height:1px; background:#182224;', ui.scope);
     el('div', 'position:absolute; top:0; bottom:0; left:50%; width:1px; background:#000;', ui.scope);
     ui.flash = el('div', 'position:absolute; inset:0; background:#fff; opacity:0;', ui.hud);
     ui.dmgVin = el('div', 'position:absolute; inset:0; box-shadow:inset 0 0 120px rgba(255,0,0,0.7); opacity:0;', ui.hud);
@@ -1284,9 +1283,8 @@
   }
   // 3.32.0: магазин по вкладкам
   let buyTab = 'rifle';
-  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['veh','🛠 Техника']];
+  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение']];
   function buyTabOf(it) {
-    if (it.id.indexOf('veh_') === 0 || it.id==='rpg') return 'veh';
     if (it.id === 'hegrenade' || it.id === 'flashbang' || it.id === 'smokegrenade') return 'nade';
     if (it.id === 'kevlar' || it.id === 'defuser') return 'gear';
     if (['deagle','tec9','fiveseven','elite'].indexOf(it.id) >= 0) return 'pist';
@@ -1315,7 +1313,7 @@
     for (const [i, it] of items.entries()) {
       const w = WEAPONS[it.id];
       const teamGate = (w && w.team) || it.team;
-      let dis = (teamGate && teamGate !== me.team) || me.money < it.price || (it.id==='veh_jet'&&(state.gm==='gg'||frontSeat!=null));
+      let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
       if (it.id === 'defuser' && me.kit) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
@@ -1499,7 +1497,7 @@
         </div>
         ${isFiff ? `<div class="cs16-adminHint">Управление комнатой: назначай хоста или исключай игроков, в том числе без команды.</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
-          Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть (вентиляции) · Пробел — прыжок · Мышь — прицел · ЛКМ — огонь · K — поставить заряд · H — занять самолёт · N — занять вертолёт · E — покинуть борт · Q — пулемёт/ракеты · удерживать ПКМ — коллиматор · X — оптическое увеличение или режим очереди · I — осмотр оружия · E у двери — открыть или закрыть ·
+          Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть · Пробел — прыжок · ЛКМ — огонь · ПКМ — коллиматор; у AWP/Scout — включить/выключить зум · X — увеличение или режим очереди · I — осмотр оружия · C — способность героя · V — способность питомца · E у двери — открыть или закрыть ·
           R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить
         </div>
       </div>`;
@@ -1544,28 +1542,6 @@
     if (sock) return;
     sock = io(SERVER, { reconnectionAttempts: Infinity });
     sock.on('connect', () => { joined = false; doJoin(); });
-    sock.on('cs16_lock',d=>missileView?.lock(d));
-    sock.on('cs16_missile_start',d=>missileView?.start(d));
-    sock.on('cs16_missile_frame',d=>missileView?.frame(d));
-    sock.on('cs16_missile_end',d=>missileView?.end(d.id));
-    sock.on('cs16_front_reset',d=>{missileView?.reset();frontPilots.clear();for(const [nick,id] of d.pilots||[])frontPilots.set(nick,id);frontSeat=frontPilots.get(myNick)??null;frontNet={...d,ids:new Set(d.ids||[]),rows:d.rows||[]};applyFront(true);frontView?.ingest(frontNet.rows);prepareArmy();});
-    sock.on('cs16_front_status',d=>{if(d.epoch===frontNet.epoch){Object.assign(frontNet,d);frontView?.objective(d.objective);}});
-    sock.on('cs16_front_break',d=>{if(d.epoch!==frontNet.epoch||d.map!==curMap)return;for(const id of d.ids)frontNet.ids.add(id);CS16Front.apply(grid,d.ids);flightHeights.clear();radarDirty=true;});
-    sock.on('cs16_front_frame',d=>{if(d.epoch!==frontNet.epoch)return;frontNet.rows=d.rows;frontView?.ingest(d.rows);if(!scene||!worldReady||document.hidden||!root()?.getClientRects().length)return;
-      for(const [id,x,y,z] of (d.shots||[]).slice(0,graphicsQuality==='low'?5:14)){const u=frontView?.point(id);if(!u||Math.hypot(P.x-u.x,P.z-u.z)>100)continue;const o=[u.x,u.y+1.4,u.z],dir=[x-o[0],y-o[1],z-o[2]],l=Math.hypot(...dir);if(l>.1)spawnTracer(o,dir.map(v=>v/l),l,true);}
-    });
-    sock.on('cs16_front_seat',d=>{if(d.id==null)frontPilots.delete(d.nick);else frontPilots.set(d.nick,d.id);
-      if(d.nick!==myNick)return;frontSeat=d.id;ownedStrike=false;frontRocket=false;fieldAim=scoped=false;keys.fire=false;
-      if(d.pos){[P.x,P.y,P.z]=d.pos;P.vy=0;}if(d.id!=null){P.yaw=d.yaw;killfeed('Пилот · WASD, Space/Ctrl — высота · Q — оружие · E — выход');}
-    });
-    sock.on('cs16_army_wait',d=>{if(d.epoch===frontNet.epoch){prepareArmy();centerMsg('Загружают карту и армию: '+d.count,700);}});
-    sock.on('cs16_army_hit',d=>{if(d.by===myNick){ui.hitmark.style.display='block';clearTimeout(ui.hitmark._t);ui.hitmark._t=setTimeout(()=>ui.hitmark.style.display='none',110);}});
-    sock.on('cs16_army_drop',d=>{if(d.epoch===frontNet.epoch){frontNet.bombUsed=true;banner('Удар с воздуха через 3 секунды','#ff9964',2400);}});
-    sock.on('cs16_army_impact',d=>{if(d.epoch!==frontNet.epoch)return;frontNet.crater=d.crater;frontNet.gold=d.gold;if(frontNet.map===curMap){CS16Front.setCrater(grid,d.crater);radarDirty=true;frontView?.loot(d.gold);if(worldReady){explodeFx(d.pos,'he');sfxExplosion();}}killfeed('В воронке золотой ящик · E рядом, чтобы подобрать');});
-    sock.on('cs16_army_loot',d=>{if(d.epoch!==frontNet.epoch)return;frontNet.gold=null;frontView?.loot(null);if(d.nick===myNick){buyOk(d.weapon);me.goldWeapon=d.weapon;killfeed('Золотая винтовка · +35% урона · тепловизор при прицеливании');}});
-    sock.on('cs16_front_kill',d=>{if(d.by===myNick)killfeed('Цель уничтожена · +$350');});
-    sock.on('cs16_front_sector',d=>{if(d.epoch===frontNet.epoch)killfeed('Сектор взят! Передовая и точки возрождения перенесены.');});
-    sock.on('cs16_front_fx',d=>{if(!worldReady||!scene||!Array.isArray(d.pos)||Math.hypot(P.x-d.pos[0],P.z-d.pos[2])>95)return;if(d.kind==='charge'){killfeed('Установлен подрывной заряд');return;}explodeFx(d.pos,'he');sfxExplosion();});
     sock.on('disconnect', () => { frontSeat=null;centerMsg('🔌 Связь с сервером потеряна...', 0); });
     sock.on('cs16_state', (s) => {
       state = s;if(s.phase==='lobby'){frontSeat=null;frontPilots.clear();frontView?.ingest([]);frontView?.objective(null);}
@@ -1598,7 +1574,6 @@
       if (ui.buy.style.display === 'block') renderBuyList();
     });
     sock.on('cs16_bought', (d) => {
-      if(d.item==='veh_jet'){ownedStrike=true;closeBuy();killfeed('Ударный самолёт · Q переключает ракеты · G сбрасывает спецбоеприпас');}
       buyOk(d.item);
       me.money = d.money;
       killfeed('🛒 Куплено: ' + esc(WEAPONS[d.item] ? WEAPONS[d.item].name : d.item));
@@ -1664,7 +1639,7 @@
       for (const n of nadesList) disposeNade(n.mesh);
       clearVehicles();
       nadesList.length = 0;
-      clearShotEffects();clearRockets();
+      clearShotEffects();
       resetBlindness(); shake = 0;
       banner(`РАУНД ${d.round}`, '#ffc107', 2500);
       centerMsg('🛒 Покупки: жми <b>B</b>', 4000);
@@ -1684,7 +1659,7 @@
     sock.on('cs16_shoot', (d) => {
       const r = remotes.get(d.nick);
       if (r) { r.muzzle = WEAPONS[d.weapon]?.melee ? 0 : performance.now(); }
-      if (!WEAPONS[d.weapon]?.melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(200,d.distance)) : 60, true);
+      if (WEAPONS[d.weapon] && !WEAPONS[d.weapon].melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(200,d.distance)) : 60, true);
       sfxShot(d.weapon,d.origin);
       if(!WEAPONS[d.weapon]?.melee){
         const length=Number.isFinite(d.distance)?Math.min(200,d.distance):60;
@@ -1744,53 +1719,6 @@
     });
     sock.on('cs16_nade', (d) => { spawnNade(d.pos, d.vel, d.kind || 'he', false); });
     // 3.31.0: техника — позиции чужих и взрывы пушки/ракет
-    sock.on('cs16_veh', (d) => {
-      if (!d || !d.by) return;
-      let v = vehs.get(d.by);
-      if (!v) {
-        v = { kind: d.kind, obj: null, x: d.pos[0], y: d.pos[1], z: d.pos[2], yaw: d.yaw || 0, turret: d.turret || 0, tx: d.pos[0], ty: d.pos[1], tz: d.pos[2], tyaw: d.yaw || 0, tturret: d.turret || 0, rotor: 0 };
-        vehs.set(d.by, v);
-      }
-      v.variant=d.variant||d.kind;v.team=d.team;v.passengerNick=d.passenger||null;v.kind = d.kind;v.hp=Number.isFinite(d.hp)?d.hp:(v.hp??(d.kind==='heli'?600:1000));v.max=d.max||(d.kind==='heli'?600:1000);
-      v.tx = d.pos[0]; v.ty = d.pos[1]; v.tz = d.pos[2]; v.tyaw = d.yaw || 0; v.tturret = d.turret || 0;
-    });
-    sock.on('cs16_crew',d=>{
-      if(!d)return;
-      if(d.owner&&Number.isFinite(d.aim)){const v=d.owner===myNick?myVeh:vehs.get(d.owner);if(v)v.gunnerYaw=d.aim;return;}
-      if(d.owner){const v=vehs.get(d.owner);if(v)v.passengerNick=d.nick;}
-      if(d.nick!==myNick)return;
-      if(!d.owner){if(myVeh&&myVeh.passenger)exitVehicle(false);return;}
-      const v=vehs.get(d.owner);if(!v||myVeh){sock.emit('cs16_crew',{leave:true});return;}
-      v.passengerNick=myNick;ensureRemoteVeh(v);if(!v.obj){sock.emit('cs16_crew',{leave:true});return;}
-      myVeh={...v,owner:d.owner,passenger:true,inside:true,mode:'mg',cd:0,rocketCd:0};myVehHp=v.hp;keys.fire=false;keys.e=false;scoped=false;
-      killfeed('Стрелок: ЛКМ — огонь · Q — пулемёт / ракеты · E — выйти');
-    });
-    sock.on('cs16_vehboom', (d) => {
-      if (!d || !d.pos) return;
-      if (d.by === myNick && performance.now() - vehBoomAt < 400) return; // свой взрыв уже показали локально
-      explodeFx(d.pos, 'he');
-      const dd = Math.hypot(P.x - d.pos[0], P.z - d.pos[2]);
-      if (dd < 25) shake = Math.max(shake, 0.5 * (1 - dd / 25));
-      sfxExplosion();
-    });
-    // 3.32.0: HP техники — попадания по моей технике, гибель техники, снос ящиков
-    sock.on('cs16_vehhit', (d) => {
-      if(!d)return;const remote=vehs.get(d.target);if(remote){remote.hp=d.hp;remote.max=d.max;}
-      if (d.target !== myNick || !myVeh) return;
-      myVehHp = d.hp;
-      killfeed('⚠️ По твоей технике попали — ' + Math.max(0, d.hp) + '/' + d.max + ' HP');
-    });
-    sock.on('cs16_vehdie', (d) => {
-      if (!d) return;
-      if(myVeh&&myVeh.passenger&&myVeh.owner===d.by)exitVehicle(false);
-      vehDeathFx(d.pos, d.kind);
-      if (d.by === myNick) {
-        if (myVeh) { scene.remove(myVeh.obj); myVeh = null; }
-        killfeed('💥 Твою технику подбили!');
-      } else removeVehicleOf(d.by);
-    });
-    sock.on('cs16_rocket',d=>rocketFx(d));
-    sock.on('cs16_rpg_boom',d=>explodeFx(d.pos,'he'));
     sock.on('cs16_environment',d=>{
       if(d?.map!==curMap||!CS16Environment.apply(CS16Buildings.layout(grid,curMap),d))return;
       if(Array.isArray(d.shatter)&&d.shatter.length===3&&d.shatter.every(Number.isFinite)){
@@ -1798,7 +1726,6 @@
       }
     });
     sock.on('cs16_props',d=>{if(!fieldProps||d.map!==curMap||!Array.isArray(d.ids))return;for(const id of d.ids)fieldProps.destroy(id,!d.snapshot);});
-    sock.on('cs16_vehcrate', (d) => { if (d) destroyCrate(d.x, d.y, false); });
     sock.on('cs16_boom', (d) => {
       explodeFx(d.pos, d.kind);
       if (d.kind === 'flash') {
@@ -1896,7 +1823,7 @@
   }
   function doJoin() {
     if (Date.now() < kickUntil) return; // кик от Fifflaren — пауза 30 сек
-    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick);sock.emit('cs16_army_loader'); sock.emit('cs16_character',chosenCharacter);sock.emit('cs16_pet',chosenPet);sock.emit('cs16_magic_info'); joined = true; }
+    if (sock && sock.connected && myNick && !joined) { sock.emit('cs16_join', myNick);sock.emit('cs16_character',chosenCharacter);sock.emit('cs16_pet',chosenPet);sock.emit('cs16_magic_info'); joined = true; }
   }
 
   // ---------- УДАЛЁННЫЕ ИГРОКИ ----------
@@ -1959,26 +1886,9 @@
   }
   // Модель оружия из примитивов по мотивам CS:GO (АК с изогнутым магазином, AWP с прицелом и затвором),
   // красится скином. scale>1.5 — вид от первого лица (более детально).
-  function makeRPGModel(){
-    const group=new THREE.Group(),round=new THREE.Group();round.name='magazine';group.add(round);
-    function part(geometry,color,x,y,z,parent=group){
-      const material=new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.45});material.userData.cs16Owned=true;
-      const mesh=new THREE.Mesh(geometry,material);mesh.userData.rpgOwned=true;mesh.position.set(x,y,z);parent.add(mesh);
-    }
-    part(new THREE.CylinderGeometry(.065,.065,.9,14).rotateX(Math.PI/2),0x4d5841,0,0,-.15);
-    part(new THREE.CylinderGeometry(.10,.065,.16,14).rotateX(Math.PI/2),0x313b32,0,0,.35);
-    part(new THREE.CylinderGeometry(.07,.12,.18,14).rotateX(Math.PI/2),0x6c754d,0,0,-.66,round);
-    part(new THREE.ConeGeometry(.07,.22,14).rotateX(-Math.PI/2),0x767c4d,0,0,-.86,round);
-    for(const z of [-.3,.14])part(new THREE.BoxGeometry(.06,.19,.09),0x795231,0,-.12,z);
-    part(new THREE.BoxGeometry(.035,.13,.04),0x292f2a,0,.1,-.32);return group;
-  }
-  const rpgShots=[];
-  function clearRockets(){for(const r of rpgShots){r.mesh.removeFromParent();r.mesh.geometry.dispose();r.mesh.material.dispose();}rpgShots.length=0;}
-  function rocketFx(d){if(!scene||rpgShots.length>=32)return;const mesh=new THREE.Mesh(new THREE.ConeGeometry(.07,.35,8).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:0xffb963}));mesh.position.set(...d.origin);mesh.lookAt(...d.pos);scene.add(mesh);rpgShots.push({mesh,from:new THREE.Vector3(...d.origin),to:new THREE.Vector3(...d.pos),start:performance.now(),duration:d.duration});}
-  function updateRockets(now){for(let i=rpgShots.length-1;i>=0;i--){const r=rpgShots[i],t=Math.min(1,(now-r.start)/r.duration);r.mesh.position.lerpVectors(r.from,r.to,t);if(t>=1){r.mesh.removeFromParent();r.mesh.geometry.dispose();r.mesh.material.dispose();rpgShots.splice(i,1);}}}
   function buildGun(weapon, skin, scale, world = false) {
     const group = new THREE.Group();
-    const model = weapon==='rpg'?makeRPGModel():glbGunClone(weapon, skin, world);
+    const model = glbGunClone(WEAPONS[weapon]?weapon:'usp', skin, world);
     if (model) group.add(model);
     if(model){
       CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon);
@@ -1989,7 +1899,6 @@
   function disposeGun(group) {
     if (!group) return;
     group.traverse(o => {
-      if(o.userData.rpgOwned)o.geometry.dispose();
       if (o.isMesh) for (const m of [].concat(o.material)) if (m.userData.cs16Owned) m.dispose();
     });
   }
@@ -2025,41 +1934,47 @@
     muzzleTexCache = new THREE.CanvasTexture(c);
     return muzzleTexCache;
   }
-  function flashAt(pos) {
-    if (!shotLight) shotLight = new THREE.PointLight(0xffc46a, 0, 6, 2);
-    if (shotLight.parent !== scene) scene.add(shotLight);
-    shotLight.position.copy(pos);
-    shotLight.intensity = 1.7;
-    const sp = new THREE.Sprite(muzzleMaterial().clone());
-    const size = .18 + Math.random() * .12;
-    sp.scale.set(size,size,1);sp.material.rotation=Math.random()*Math.PI;
-    sp.position.copy(pos);
-    scene.add(sp);
-    shotFlashes.push({ sp, size, born:performance.now(), die: performance.now() + 65 });
+  // Bounded GPU objects: a burst reuses buffers/materials instead of allocating each bullet.
+  let shotPool=null;
+  function prepareShotPool(){
+    if(shotPool)return shotPool;
+    const geometry=new THREE.CylinderGeometry(.007,.009,1,5,1,true),up=new THREE.Vector3(0,1,0);
+    shotPool={tracers:[],flashes:[],up,flashPosition:new THREE.Vector3()};
+    for(let i=0;i<48;i++){
+      const line=new THREE.Group(),core=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:0xffe9b0,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false}));
+      const head=new THREE.Sprite(muzzleMaterial().clone());head.scale.set(.065,.065,1);line.add(core,head);
+      const slot={line,core,head,o:new THREE.Vector3(),d:new THREE.Vector3(),len:0,born:0,die:0,busy:false};
+      line.userData.shotLease=slot;shotPool.tracers.push(slot);
+    }
+    for(let i=0;i<24;i++){
+      const sp=new THREE.Sprite(muzzleMaterial().clone()),slot={sp,size:0,born:0,die:0,busy:false};
+      sp.userData.shotLease=slot;shotPool.flashes.push(slot);
+    }
+    return shotPool;
   }
-  // 3.22.0: пуля-трассер как в CS:GO — светящийся стержень + яркая голова
-  function spawnTracer(origin, dir, len, isRemote) {
-    const o = new THREE.Vector3(origin[0], origin[1], origin[2]);
-    const d = new THREE.Vector3(dir[0], dir[1], dir[2]).normalize();
-    const group = new THREE.Group();
-    const core = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.007, 0.009, 1, 5, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    core.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
-    core.position.copy(o);core.scale.y=.01;
-    group.add(core);
-    const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: muzzleTex(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
-    head.scale.set(0.065, 0.065, 1);
-    head.position.copy(o);
-    group.add(head);
-    scene.add(group);
-    tracers.push({ line:group,core,head,o,d,len:Math.max(.05,len),born:performance.now(),die:performance.now()+len/1.2+25 });
-    // вспышка на дуле — у себя чуть ниже-правее камеры (видно и стены рядом), у врагов — на дуле
-    const fo = isRemote ? o.clone() : o.clone().addScaledVector(d, 0.75).add(new THREE.Vector3(0.15, -0.17, 0));
-    flashAt(fo);
+  function flashAt(pos) {
+    if(!scene)return;
+    if(!shotLight)shotLight=new THREE.PointLight(0xffc46a,0,6,2);
+    if(shotLight.parent!==scene)scene.add(shotLight);
+    shotLight.position.copy(pos);shotLight.intensity=1.7;
+    const slot=prepareShotPool().flashes.find(s=>!s.busy);if(!slot)return;
+    slot.busy=true;slot.size=.18+Math.random()*.12;slot.born=performance.now();slot.die=slot.born+65;
+    slot.sp.scale.set(slot.size,slot.size,1);slot.sp.material.rotation=Math.random()*Math.PI;slot.sp.material.opacity=.95;
+    slot.sp.visible=true;slot.sp.position.copy(pos);scene.add(slot.sp);shotFlashes.push(slot);
+  }
+  function spawnTracer(origin,dir,len,isRemote){
+    if(!scene||!Number.isFinite(len))return;
+    const pool=prepareShotPool(),slot=pool.tracers.find(s=>!s.busy);if(!slot)return;
+    slot.busy=true;slot.o.fromArray(origin);slot.d.fromArray(dir).normalize();slot.len=Math.max(.05,Math.min(200,len));
+    slot.born=performance.now();slot.die=slot.born+slot.len/1.2+25;
+    slot.core.quaternion.setFromUnitVectors(pool.up,slot.d);slot.core.position.copy(slot.o);slot.core.scale.y=.01;slot.core.material.opacity=.85;
+    slot.line.visible=true;slot.head.position.copy(slot.o);slot.head.material.opacity=.9;scene.add(slot.line);tracers.push(slot);
+    pool.flashPosition.copy(slot.o);
+    if(!isRemote){pool.flashPosition.addScaledVector(slot.d,.75);pool.flashPosition.x+=.15;pool.flashPosition.y-=.17;}
+    flashAt(pool.flashPosition);
   }
   function disposeShot(object) {
+    if(object.userData.shotLease){object.removeFromParent();object.userData.shotLease.busy=false;return;}
     object.removeFromParent();
     object.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
   }
@@ -2422,7 +2337,6 @@
     vmKickVelocity = Math.min(24,vmKickVelocity + (w.scope ? 16 : w.melee ? 18 : w.auto ? 10 : 13));
     inspectStart=-Infinity;sfxShot(current);
     if(!w.melee&&!w.rocket)fieldEffects?.eject([P.x,P.y+eyeH(),P.z],dirFromCam());
-    if(w.rocket){sock.emit('cs16_rpg',{origin:[P.x,P.y+eyeH(),P.z],dir:dirFromCam()});return;}
     if (w.melee) {
       // нож: короткая дистанция
       const d = dirFromCam();
@@ -2504,12 +2418,11 @@
     else if (id === 'smokegrenade') nades.smoke = Math.min(1, nades.smoke + 1);
     else if (id === 'kevlar') me.armor = 100;
     else if (id === 'defuser') me.kit = true;
-    else if (VEH_TYPES[id.slice(4)] && id.startsWith('veh_')) spawnMyVehicle(id.slice(4));
     else if (WEAPONS[id]) {
       if (PISTOLS[id]) secondary = id;
       else if (!WEAPONS[id].nade) primary = id;
       current = id;
-      if (!ammo[id]||id==='rpg') ammo[id] = { mag: WEAPONS[id].mag, reserve: WEAPONS[id].reserve };
+      if (!ammo[id]) ammo[id] = { mag: WEAPONS[id].mag, reserve: WEAPONS[id].reserve };
     }
   }
 
@@ -2914,9 +2827,10 @@
         if (w.auto) { keys.fire = true; tryShoot(); } else tryShoot();
       } else if (e.button === 2) {
         const w = WEAPONS[current];
-        // RMB uses the reflex sight on any firearm. The knife retains its secondary attack.
+        // Snipers toggle optical zoom; other firearms use their reflex sight.
         if (frontSeat!=null||myVeh && myVeh.inside) { return; }
         if (w.melee) heavySlash();
+        else if(me.alive&&['awp','scout'].includes(current)&&!reloading){fieldAim=false;fieldAimMix=0;scoped=!scoped;inspectStart=-Infinity;}
         else if(me.alive&&CS16FieldView.supported(current)){scoped=false;fieldAim=true;inspectStart=-Infinity;}
       }
     });
@@ -2969,12 +2883,6 @@
         if (k === 'b' || k === 'escape') closeBuy();
         return;
       }
-      if(me.alive&&pointerLocked&&!e.repeat&&['live','freeze'].includes(state.phase)){
-        if(e.code==='KeyK'&&state.phase==='live'&&frontSeat==null){sock?.emit('cs16_front_charge',{dir:dirFromCam()});return;}
-        if(state.army&&['KeyH','KeyN'].includes(e.code)&&!myVeh?.inside){sock?.emit('cs16_front_board',e.code==='KeyH'?'jet':'heli');return;}
-        if(frontSeat!=null){if(e.code==='KeyG'&&!e.repeat&&ownedStrike){sock?.emit('cs16_army_bomb');return;}if(e.code==='KeyE')sock?.emit('cs16_front_board','exit');if(e.code==='KeyQ'){frontRocket=!frontRocket;keys.fire=false;}return;}
-      }
-      if(frontSeat!=null)return;
       if(e.code==='KeyX'&&!e.repeat&&pointerLocked&&me.alive&&!myVeh?.inside&&!reloading){
         const w=WEAPONS[current];if(w.scope){fieldAim=false;fieldAimMix=0;scoped=!scoped;}
         else if(w.burst){burstOn=!burstOn;killfeed(burstOn?'Режим очереди включён':'Режим очереди выключен');}
@@ -3153,18 +3061,13 @@
     // физика
     if (me.alive && state.phase !== 'matchend') {
       const canMove = state.phase !== 'freeze';
-      if(frontSeat!=null){const v=frontView?.point(frontSeat,t);if(v){P.x=v.x;P.y=v.y;P.z=v.z;}
-        if(t-lastFrontControl>95){lastFrontControl=t;const on=pointerLocked&&!escOpen();sock?.volatile.emit('cs16_front_controls',{yaw:P.yaw,pitch:P.pitch,forward:on?(+!!keys.w-!!keys.s):0,side:on?(+!!keys.d-!!keys.a):0,lift:on?(+!!keys.space-!!keys.ctrl):0,fire:on&&!!keys.fire,rocket:frontRocket});}
-      }else if (myVeh && myVeh.inside) stepMyVehicle(dt);
-      else stepPlayer(dt, canMove ? keys : { w: 0 });
-      if (frontSeat==null&&keys.fire) { if (myVeh && myVeh.inside) vehFireGun(); else tryShoot(); }
+      stepPlayer(dt,canMove?keys:{w:0});
+      if(keys.fire)tryShoot();
     }
     const thermal=me.alive&&!reloading&&me.goldWeapon===current&&frontSeat==null&&!myVeh?.inside&&pointerLocked&&(scoped||(fieldAim&&fieldAimMix>.92&&vm?.userData.reticle?.visible));
     ui.thermalLens.style.display='none';
     if(radarDirty&&t-lastArmyRadar>280){lastArmyRadar=t;radarDirty=false;frontView?.sync();buildRadarBase();}
     frontView?.update(t,graphicsQuality,frontSeat,P);
-    const seeking=pointerLocked&&me.alive&&state.phase==='live'&&!escOpen()?(frontSeat!=null?(frontRocket?'front':null):myVeh?.inside?(myVeh.mode==='rocket'?'vehicle':null):current==='rpg'?'rpg':null):null;
-    missileView?.update(t,seeking,dirFromCam(),packet=>sock?.emit('cs16_seek',packet));
     // интерполяция удалённых + анимация ног
     const lerp = Math.min(1, dt * 10);
     for (const r of remotes.values()) {
@@ -3299,7 +3202,7 @@
       if(Number.isFinite(v.dustX)&&Math.hypot(v.x-v.dustX,v.z-v.dustZ)>.12)fieldEffects?.plume(v.x-Math.cos(v.yaw)*1.7,v.y||0,v.z+Math.sin(v.yaw)*1.7);
       v.dustX=v.x;v.dustZ=v.z;
     }lastDust=t;}
-    if(fieldProps)fieldProps.update(Math.min(.05,dt),camera);updateRockets(performance.now());
+    if(fieldProps)fieldProps.update(Math.min(.05,dt),camera);
     if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);

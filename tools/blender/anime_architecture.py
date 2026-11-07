@@ -47,7 +47,7 @@ def build(a,theme):
             a.face('wood',[point(0,0,True),point(0,1,True),point(1,1,True),point(1,0,True)])
             for s in [0,1]:a.face('trim',[point(s,0),point(s,1),point(s,1,True),point(s,0,True)])
             continue
-        draw=rounded_box if kind in ['trim','rail','wood','fabric'] else a.box
+        draw=rounded_box if kind in ['wall','trim','rail','wood','fabric'] else a.box
         draw(mat,*[(x+y)/2 for x,y in zip(lo,hi)],*[y-x for x,y in zip(lo,hi)])
     def lathe(mat,x,z,rings,n=16):
         for (y,r),(yy,rr) in zip(rings,rings[1:]):
@@ -96,7 +96,13 @@ def build(a,theme):
         box('wood',4.5,8.54,-.28,.035,.63,.025);box('wood',4.5,8.54,-.28,.63,.035,.025)
         # Rounded corner pilasters with shaped capitals replace stacks of cube stones.
         for xx,zz in [(.12,.10),(11.87,.10),(.12,11.87),(11.87,11.87)]:
-            lathe('trim',x+xx,z+zz,[(0,.24),(.16,.29),(.30,.24),(.43,.19),(3.22,.19),(3.32,.25),(3.45,.25),(3.56,.18),(6.83,.18),(6.94,.26),(7.08,.26)],16)
+            lathe('trim',x+xx,z+zz,[(0,.24),(.08,.27),(.16,.29),(.24,.27),(.30,.24),(.43,.19),(3.15,.19),(3.22,.21),(3.32,.25),(3.40,.26),(3.45,.25),(3.51,.21),(3.56,.18),(6.76,.18),(6.83,.20),(6.94,.26),(7.01,.28),(7.08,.26)],20)
+        # Carved, curved jambs flank the actual window apertures without filling them.
+        for cx in [2.5,6,9.5]:
+            for sign in [-1,1]:
+                tube('trim',[(x+cx+sign*(1.10+.13*math.sin(j*math.pi/24)),4.45+j*1.68/24,z-.27-.018*math.sin(j*math.pi/24))for j in range(25)],.055,8)
+        for sign in [-1,1]:
+            tube('trim',[(x+4.5+sign*(.16+.60*math.sin(j*math.pi/32)),8.15+j*.035,z-.31)for j in range(33)],.035,8)
         # Side elevations receive the same carved masonry as the front, keeping windows clear.
         for sx in [-.055,12.055]:
             for yy in [.20,.65,3.42,6.88]:box('trim',sx,yy,6,.12,.10,11.45)

@@ -5,15 +5,15 @@
   "maps": {
     "dust2": {
       "file": "anime-dust2.glb",
-      "bytes": 20512032,
-      "triangles": 252616,
+      "bytes": 22106516,
+      "triangles": 290272,
       "meshBatches": 71,
       "layoutSha256": "b207403e862acf968e8cf57fa531c5896a1c921a18e948c59260944dc4eb689d"
     },
     "inferno": {
       "file": "anime-inferno.glb",
-      "bytes": 20599520,
-      "triangles": 253372,
+      "bytes": 22195124,
+      "triangles": 291028,
       "meshBatches": 70,
       "layoutSha256": "8e9f2308f95430da98ec18c5facc7f89b40e381637febb951d16c07a802af971"
     }

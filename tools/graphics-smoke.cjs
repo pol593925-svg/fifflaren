@@ -12,6 +12,9 @@ window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handler
 </script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-spell-effects.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-tactical-map.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-anime-nature.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-anime-materials.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16-menu.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ shotPool:()=>{const pool=prepareShotPool();return {capacity:[pool.tracers.length,pool.flashes.length],active:[tracers.length,shotFlashes.length],busy:[pool.tracers.filter(s=>s.busy).length,pool.flashes.filter(s=>s.busy).length],visible:[tracers.filter(s=>s.line.visible).length,shotFlashes.filter(s=>s.sp.visible).length],geometry:pool.tracers[0].core.geometry.uuid,material:pool.tracers[0].core.material.uuid};},
+ shotBurst:(n=1000)=>{for(let i=0;i<n;i++)spawnTracer([P.x,1.6,P.z],[Math.sin(i)*.12,0,1],18,true);},
+ arsenal:()=>({items:BUY_ITEMS.map(i=>i.id),classes:Object.keys(CS16Classes.profiles),vehicles:vehs.size,ownVehicle:!!myVeh,front:!!frontView,missiles:!!missileView}),
  tacticalOverview:()=>{state.phase='lobby';ui.hud.style.display='none';if(vm)vm.visible=false;for(const r of remotes.values())r.group.visible=false;camera.fov=55;camera.updateProjectionMatrix();camera.position.set(252,145,340);camera.lookAt(252,0,247);worldGraphics.update(camera,performance.now());renderer3.render(scene,camera);},
  tacticalCheck:${require('./tactical-scene-check.cjs').toString()},
  dustDoorCheck:${require('./dust-scene-check.cjs').toString()},
@@ -70,7 +73,7 @@ window.__qa={
  snapshot:()=>({map:curMap,ready:worldReady,errors:window.__cs16Err||0,players:remotes.size,calls:renderer3.info.render.calls,triangles:renderer3.info.render.triangles,memory:{...renderer3.info.memory},position:[P.x,P.y,P.z],weapons:Object.keys(WEAPONS)}),
  aim:(x,y,z,yaw,pitch=0)=>{P.x=x;P.y=y;P.z=z;P.yaw=yaw;P.pitch=pitch;},
  weapon:(id)=>{current=id;primary=id;ammo[id]={mag:WEAPONS[id].mag,reserve:WEAPONS[id].reserve};},
- ads:()=>{const dot=vm?.userData.reticle;camera.updateMatrixWorld(true);return {visible:!!dot?.visible,ndc:dot?.getWorldPosition(new THREE.Vector3()).project(camera).toArray()};},
+ ads:()=>{const dot=vm?.userData.reticle;camera.updateMatrixWorld(true);return {scoped,fov:camera.fov,vmVisible:vm?.visible,scopeVisible:ui.scope.style.display==='block',visible:!!dot?.visible,ndc:dot?.getWorldPosition(new THREE.Vector3()).project(camera).toArray()};},
  map:(name)=>rebuildWorld(name),
  hideMessages:()=>{ui.banner.style.display='none';ui.centerMsg.style.display='none';},
  ui:()=>ui,
@@ -141,6 +144,7 @@ async function run(){
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
   if(process.env.COAST_MENU_ONLY){await require('./coast-menu-check.cjs')(page,outputs,errors);return;}
   if(process.env.ROUND_FX_ONLY){await require('./round-fx-check.cjs')(page,outputs,errors);return;}
+  if(process.env.TACTICAL_ONLY){const checks=await page.evaluate(()=>__qa.tacticalCheck());assert.equal(errors.length,0,errors.join('\n'));console.log('TACTICAL_SCENE_PASS',JSON.stringify(checks));return;}
   if(process.env.ANIME_MATCH_ONLY){await require('./anime-match-check.cjs')(page,outputs,errors);return;}
   if(process.env.COAST_PERF_ONLY){
    await page.evaluate(s=>window.__nextState=s,state());await page.evaluate(begin);

@@ -30,6 +30,7 @@ module.exports=async function(page,outputs,errors){
     window.__programCounts={};
     const dt=[],spikes=[];let last=performance.now();
     for(let i=0;i<240;i++){
+     if(i%6===0)for(let j=0;j<9;j++)__socket.receive('cs16_shoot',{nick:'Load '+j,weapon:['m4a1','ak47','awp'][j%3],origin:[x-2+j%3*3,1.5,z+8+Math.floor(j/3)*3],dir:[0,0,-1],distance:18});
      if(i%45===0)for(let j=0;j<10;j++)__socket.receive('cs16_magic_fx',{
       by:j?'Load '+(j-1):'Preview',team:j<5?'ct':'t',id:Object.keys(CS16SpellEffects.styles)[j],
       slot:j<5?'hero':'pet',origin:[x-4+j*.45,1.3,z+6],pos:[x-4+j*.45,.15,z+10],dir:[0,0,1]});

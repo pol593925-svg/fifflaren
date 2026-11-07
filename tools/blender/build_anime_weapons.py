@@ -14,7 +14,7 @@ join_parts=a.join_parts
 a.join_parts=lambda root:None
 base_box=a.box
 def soft_box(name,pos,size,mat,parent,bevel=.008):
-    if name in ['Receiver','Shoulder stock','Fore-end','Slide','Lower frame','P90 rounded frame']:
+    if name in ['Receiver','Shoulder stock','Fore-end','Slide','Lower frame','P90 rounded frame','Cheek rest','P90 top magazine','Horizontal magazine','Ammunition box','UMP polymer lower']:
         # Rounded, slightly tapered cross-sections replace the large rectangular masses.
         width,height,depth=size;verts=[];faces=[];segments=24;rings=9
         for j in range(rings):
@@ -40,7 +40,7 @@ def curved_profile(name,outline,width,mat,parent):
     points=[]
     for i,(z,y) in enumerate(outline):
         p=Vector(outline[i-1]);q=Vector((z,y));n=Vector(outline[(i+1)%len(outline)])
-        radius=min(.011,(p-q).length*.22,(n-q).length*.22)
+        radius=min(.018,(p-q).length*.30,(n-q).length*.30)
         start=q+(p-q).normalized()*radius;end=q+(n-q).normalized()*radius
         for j in range(5):
             t=j/4;v=(1-t)**2*start+2*t*(1-t)*q+t*t*end;points.append(tuple(v))
@@ -50,6 +50,14 @@ w.receiver_profile=curved_profile
 def sculpt(root,kind):
     for ob in list(root.children_recursive):
         if ob.type!='MESH':continue
+        if kind=='elite' and ob.name.startswith(('Recessed receiver pin','Pin screwdriver slot','Curved trigger','Magazine body')):
+            # Base generator adds these after duplicating the pistols. Fit them to BOTH guns.
+            other=ob.copy();other.data=ob.data.copy();bpy.context.collection.objects.link(other);other.parent=ob.parent
+            ob.location.x+=.09;other.location.x-=.09
+        if kind in ['aug','sg552'] and ob.name.startswith(('Scope mount','Optical tube','Scope bell','Optical lens','Lens retaining ring','Focus rib','Mount clamp','Turret grip','Elevation dial','Windage dial')):
+            bpy.data.objects.remove(ob,do_unlink=True);continue
+        if kind=='hands' and any(n in ob.name for n in ['Segmented knuckle pad','Finger seam','Finger grip patch','Hook and loop tab']):
+            bpy.data.objects.remove(ob,do_unlink=True);continue
         if kind=='hands' and any(n in ob.name for n in ['Curled digit','Fore-end finger','Opposing thumb','Thumb along']):
             # Slim each phalanx around its own centreline; grip contacts remain unchanged.
             vertices=ob.data.vertices
@@ -125,6 +133,7 @@ def details(root,kind):
         ivory=paint(a.surface('Tailored sleeve inlay',(.6,.5,.4),.8),'#d9c9a6')
         teal=paint(a.surface('Wrist teal binding',(.1,.3,.3),.8),'#3e7688')
         gold=paint(a.surface('Cuff fastener',(.5,.3,.1),.5),'#cb9e60')
+        nails=paint(a.surface('Soft ivory fingernails',(.8,.6,.5),.65),'#efd1b8')
         for hand in root.children:
             if hand.type!='EMPTY':continue
             side=1 if hand.name=='rightHand' else -1
@@ -142,8 +151,11 @@ def details(root,kind):
                 t=i/22;r=.043+.027*t+.0042*math.sin(t*28)+.0018*math.cos(t*53)+.0015
                 up,across=frame(t);pts.append(tuple(arm(t)+r*(up*.84+across*.46)))
             a.line('Long tailored seam',pts[3:],.0025,ivory,hand)
-            x,y,z=pts[3];a.box('Leather cuff strap',(x,y-.004,z),(.048,.009,.030),teal,hand,.004)
-            a.box('Cuff brass buckle',(x+side*.022,y+.004,z),(.013,.006,.022),gold,hand,.002)
+            x,y,z=pts[3]
+            a.orb('Tailored cuff clasp',(x,y-.002,z),(.024,.005,.013),teal,hand,16,8)
+            a.orb('Cuff brass stud',(x+side*.015,y+.003,z),(.006,.003,.008),gold,hand,12,6)
+            tip={'rightHand':(-.029,.025,-.009),'leftCup':(.042,.025,-.009),'leftVertical':(.029,.025,-.009)}.get(hand.name,(-.028,.026,-.050))
+            a.orb('Rounded thumbnail',(tip[0],tip[1]+.004,tip[2]+.005),(.0055,.0018,.008),nails,hand,12,8)
             # Curved leather bracer sits over the sleeve, following the arm instead of a box cuff.
             verts=[];faces=[]
             for j in range(15):
@@ -179,10 +191,19 @@ def details(root,kind):
                     a.orb('Tailored knuckle shell',(side*(.046+spread),yy,-.012),(.0045,.0065,.011),teal,hand,12,8)
                     a.line('Knuckle gold seam',[(side*(.050+spread),yy-.005,-.020),(side*(.052+spread),yy,-.024),(side*(.050+spread),yy+.005,-.020)],.0008,gold,hand)
         a.join_parts(root);return
-    if kind in ['knife','elite']:return
+    if kind=='knife':return
+    if kind=='elite':
+        slide=next(o for o in root.children if o.name=='slide')
+        ivory=paint(a.surface('Weapon finish / Twin ivory inlay',(.8,.7,.5),.5),'#e5d5b3')
+        for centre in [-.09,.09]:
+            for side in [-1,1]:
+                panel=w.receiver_profile('Twin swept slide shell',[(-.119,.034),(-.105,.047),(.019,.045),(.034,.033),(.018,.029),(-.103,.029)],.0035,ivory,slide)
+                panel.location.x=centre+side*.024
+        return
     weapon=next(o for o in root.children if o.name=='weapon')
     copper=paint(a.surface('Etched brass detail',(.5,.3,.1),.55),'#d2ac70')
     enamel=paint(a.surface('Inset blue ceramic',(.1,.2,.3),.7),'#518d9d')
+    ivory=paint(a.surface('Weapon finish / Ivory enamel',(.8,.7,.5),.5),'#e5d5b3')
     pistol=kind in ['glock','usp','deagle','fiveseven','tec9']
     for side in [-1,1]:
         x=side*(.025 if pistol else .040)
@@ -190,6 +211,8 @@ def details(root,kind):
             z=-.035+j*.013
             a.box('Inlaid receiver chevron',(x,.002,z),(.0018,.004+j*.003,.006),copper,weapon,.001)
         if not pistol:
+            plate=w.receiver_profile('Ivory swept receiver shell',[(-.140,.039),(-.110,.063),(-.035,.068),(.034,.044),(.047,.026),(-.029,.038),(-.108,.032)],.006,ivory,weapon)
+            plate.location.x=side*.039
             a.box('Enamel inlay',(x,-.021,-.075),(.002,.009,.063),enamel,weapon,.002)
             for j in range(3):a.box('Inlay screw',(x+side*.001,-.021,-.097+j*.022),(.003,.003,.003),copper,weapon,.001)
             panel=w.receiver_profile('Sculpted enamel receiver panel',[(-.128,.026),(-.112,.035),(-.035,.029),(.010,.012),(.004,-.008),(-.088,-.014),(-.124,-.004)],.003,enamel,weapon)
@@ -205,7 +228,10 @@ def details(root,kind):
                 for start in [-.30,-.245,-.19]:
                     a.line('Machined vent lip',[(side*.044,.020+.010*math.sin(j*math.pi/12),start+j*.0026)for j in range(13)],.0012,copper,weapon)
         else:
-            a.line('Slide gold accent',[(side*.024,.043,-.12),(side*.024,.045,-.06),(side*.024,.041,.025)],.0012,copper,weapon)
+            slide=next((o for o in root.children if o.name=='slide'),weapon)
+            plate=w.receiver_profile('Ivory swept slide shell',[(-.119,.034),(-.105,.047),(.019,.045),(.034,.033),(.018,.029),(-.103,.029)],.0035,ivory,slide)
+            plate.location.x=side*.024
+            a.line('Slide gold accent',[(side*.024,.043,-.12),(side*.024,.045,-.06),(side*.024,.041,.025)],.0012,copper,slide)
     a.join_parts(root)
 
 def main():

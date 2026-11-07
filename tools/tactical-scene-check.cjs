@@ -11,6 +11,11 @@ module.exports = async function tacticalSceneCheck() {
       if(!glbCache[id].world)continue;
       const full=buildGun(id,'',1),world=buildGun(id,'',1,true),a=stats(full),b=stats(world);
       try {
+        if(CS16FieldView.supported(id)){
+          const rail=new THREE.Vector3(...full.userData.grip.rail);full.updateMatrixWorld(true);
+          const down=new THREE.Raycaster(rail.clone().add(new THREE.Vector3(0,.012,0)),new THREE.Vector3(0,-1,0),0,.048);
+          if(!down.intersectObject(full,true).length)throw Error('Reflex mount floats above weapon: '+id);
+        }
         if(b.triangles>a.triangles*.3||b.draws>2)throw Error('Remote weapon budget '+id);
         const near=new THREE.Box3().setFromObject(full),far=new THREE.Box3().setFromObject(world);
         if(near.min.distanceTo(far.min)>.035||near.max.distanceTo(far.max)>.035)throw Error('Remote weapon silhouette shifted '+id);

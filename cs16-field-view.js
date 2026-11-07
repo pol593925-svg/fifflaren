@@ -1,7 +1,7 @@
 /* First-person optic rig shared by classic CS and Stone Coast. World aim always passes through screen center. */
 (function (g) {
   const supported = new Set([
-    'glock','usp','deagle','fiveseven','tec9','elite','famas','awp','scout','aug','sg552','rpg',
+    'glock','usp','deagle','fiveseven','tec9','elite','famas','aug','sg552',
     'mp5',
     'ump45',
     'p90',
@@ -111,7 +111,7 @@
   function mount(gun, template, compact = false) {
     const [x, y, z] = gun.userData.grip.rail,
       sight = template.clone(true);
-    const k = compact ? 0.7 : 0.82;
+    const k = compact ? 0.48 : 0.70;
     sight.scale.setScalar(k);
     sight.position.set(x, y - 0.063*k, z + 0.05*k);
     gun.add(sight);

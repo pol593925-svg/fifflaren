@@ -148,7 +148,7 @@ def main():
         a.face=raw_face;objects=a.bake_batches()
         import bmesh
         for ob in objects:
-            if ob.data.materials[0].name not in ['roof','trim','wood','ceramic','shutter']:continue
+            if ob.data.materials[0].name not in ['roof','trim','wood','ceramic','shutter','plaster','plaster_blue','plaster_light']:continue
             bm=bmesh.new();bm.from_mesh(ob.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001);bm.to_mesh(ob.data);bm.free()
             for poly in ob.data.polygons:poly.use_smooth=True
             bpy.context.view_layer.objects.active=ob

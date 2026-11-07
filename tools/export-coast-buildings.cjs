@@ -5,4 +5,5 @@ maps.frontline=require('../cs16-front').district();
 const name=process.argv[2]||'dust2',codes={'#':1,'.':0,D:2,C:3,4:4,5:5,6:6,7:7,V:8,B:9,S:10,T:11};
 const grid=maps[name].map(row=>Array.from(row,ch=>codes[ch]));
 const data=require('../cs16-buildings').layout(grid,name);
-process.stdout.write(JSON.stringify({tactical:require('../cs16-tactical-map').definition(name),buildings:data.buildings,boxes:data.boxes.filter(b=>!b.dust)}));
+const roofProfile=Array.from({length:97},(_,i)=>require('../cs16-buildings').roofHeight(.15+i*8.7/96));
+process.stdout.write(JSON.stringify({roofProfile,tactical:require('../cs16-tactical-map').definition(name),buildings:data.buildings,boxes:data.boxes.filter(b=>!b.dust)}));

@@ -48,6 +48,8 @@ The fourth local pass adds barrel-tile roof relief, carved side cornices, cloth 
 
 The fifth local pass sculpts continuous wooden balcony fascias and oval inlays, rounds weapon silhouette corners, tapers curved sleeve plates and adds fingerless glove colouring. The reflex hood uses an original arched profile. All geometry and material changes are authored in the included scripts; no additional external assets are used.
 
+The sixth local pass replaces large weapon boxes with tapered rounded cross-sections, slims finger geometry around the existing grip centrelines, and smooths the ventilated fore-end normals. Roofs use a broad continuous crest sampled from the same profile as the client/server collision surface. Each of the nineteen weapon files also contains an original two-batch, vertex-coloured world model for other players; the full first-person model is retained. No new external art sources are used.
+
 Actual gameplay captures and measurement output are produced locally in `graphics-qa` by `ANIME_MATCH_ONLY=1` and `ROUND_FX_ONLY=1` modes of `tools/graphics-smoke.cjs`. These use the real renderer and map assets with a local socket fixture, not a live ten-person network match. Publication remains pending owner review.
 
 ## Winter valley and interiors

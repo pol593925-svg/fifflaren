@@ -36,7 +36,11 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright'),
     const stats = await page.evaluate(async () => {
       const T = THREE,
         loader = new T.GLTFLoader(),
-        load = async (name) => (await loader.loadAsync('models/' + name + '.glb')).scene;
+        load = async (name) => {
+          const model=(await loader.loadAsync('models/' + name + '.glb')).scene;
+          model.getObjectByName('worldLOD')?.removeFromParent();
+          return model;
+        };
       const hands = await load('csgo/anime-hands'),
         tactical = await load('csgo/operator-ct'),
         hero = await load('csgo/hero-classic');

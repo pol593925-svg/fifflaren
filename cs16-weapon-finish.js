@@ -10,6 +10,7 @@
       const material = original.clone();
       material.map = map;
       material.color.setHex(0xffffff);
+      if (original.name === 'Weapon finish / world') material.vertexColors = false;
       // Retain the source normal/roughness maps and the substrate's response.
       material.roughness = id === 'gold' ? .36 : Math.max(.55, original.roughness);
       material.metalness = id === 'gold' ? .85 : original.metalness;

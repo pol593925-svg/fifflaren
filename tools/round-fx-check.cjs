@@ -9,7 +9,7 @@ module.exports=async function(page,outputs,errors){
    await page.evaluate(()=>__qa.map('inferno'));
    await page.waitForFunction(()=>__qa.snapshot().ready&&__qa.snapshot().map==='inferno',null,{timeout:120000});
   }
-  const spot=await page.evaluate(map=>{
+  const spot=await page.evaluate(({map,rifles})=>{
    const b=CS16Buildings.layout(__qa.grid(),map).buildings[0],x=b.x+17,z=b.z-13,now=Date.now();
    const players=[{id:'p1',nick:'Preview',team:'ct',alive:true,characterId:'pyra'}];
    for(let i=0;i<9;i++)players.push({id:'test'+i,nick:'Load '+i,team:i<4?'ct':'t',alive:true,characterId:['ember','neve','jade','aurora','pyra'][i%5]});
@@ -17,9 +17,12 @@ module.exports=async function(page,outputs,errors){
    __socket.receive('cs16_you',{money:16000,hp:100,armor:100,team:'ct',alive:true,weapon:'m4a1'});
    __socket.receive('cs16_round_start',{round:1,scores:{t:0,ct:0},spawns:players.map((p,i)=>({id:p.id,nick:p.nick,pos:i?[x-2+i%3*3,0,z+8+Math.floor(i/3)*3]:[x,0,z]}))});
    __qa.aim(x,0,z,2.54,.05);__qa.weapon('m4a1');__qa.hideMessages();
-   for(let i=0;i<9;i++)__qa.addRemote('Load '+i,i<4?'ct':'t',x-2+i%3*3,z+8+Math.floor(i/3)*3);
+   for(let i=0;i<9;i++){
+    const r=__qa.addRemote('Load '+i,i<4?'ct':'t',x-2+i%3*3,z+8+Math.floor(i/3)*3);
+    if(rifles)r.weapon=['m4a1','ak47','awp'][i%3];
+   }
    return {x,z};
-  },map);
+  },{map,rifles:!!process.env.RIFLE_LOAD});
   for(const quality of (process.env.WEAK_PC?['low']:['low','balanced','high'])){
    await page.evaluate(q=>{const ui=__qa.ui();ui.quality.value=q;ui.quality.onchange()},quality);
    await page.waitForTimeout(1000);

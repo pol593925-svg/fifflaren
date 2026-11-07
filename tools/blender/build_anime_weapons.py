@@ -1,7 +1,7 @@
 """Complete illustrated weapon set and anatomical four-grip hands for live CS.
 Keeps grip locations, model length, moving magazines, bolts and slides unchanged.
 """
-import bpy, math, json, importlib.util, sys, argparse
+import bpy, bmesh, math, json, importlib.util, sys, argparse
 import numpy as np
 from pathlib import Path
 from mathutils import Vector
@@ -14,6 +14,23 @@ join_parts=a.join_parts
 a.join_parts=lambda root:None
 base_box=a.box
 def soft_box(name,pos,size,mat,parent,bevel=.008):
+    if name in ['Receiver','Shoulder stock','Fore-end','Slide','Lower frame','P90 rounded frame']:
+        # Rounded, slightly tapered cross-sections replace the large rectangular masses.
+        width,height,depth=size;verts=[];faces=[];segments=24;rings=9
+        for j in range(rings):
+            t=j/(rings-1);cap=.82+.18*math.sin(math.pi*t)**.45
+            for k in range(segments):
+                angle=k*math.tau/segments
+                def soft(v):return math.copysign(abs(v)**.64,v)
+                verts.append((pos[0]+width*.5*soft(math.cos(angle))*cap,
+                              pos[1]+height*.5*soft(math.sin(angle))*cap,
+                              pos[2]+depth*(t-.5)))
+        for j in range(rings-1):
+            for k in range(segments):
+                n=j*segments+k;q=j*segments+(k+1)%segments
+                faces.append((n,q,q+segments,n+segments))
+        faces.extend([tuple(reversed(range(segments))),tuple(range((rings-1)*segments,rings*segments))])
+        return a.mesh(name,verts,faces,mat,parent)
     return base_box(name,pos,size,mat,parent,min(min(size)*.32,bevel*1.8,.014) if bevel else 0)
 a.box=soft_box
 
@@ -33,6 +50,14 @@ w.receiver_profile=curved_profile
 def sculpt(root,kind):
     for ob in list(root.children_recursive):
         if ob.type!='MESH':continue
+        if kind=='hands' and any(n in ob.name for n in ['Curled digit','Fore-end finger','Opposing thumb','Thumb along']):
+            # Slim each phalanx around its own centreline; grip contacts remain unchanged.
+            vertices=ob.data.vertices
+            for start in range(0,len(vertices),12):
+                ring=list(vertices[start:start+12]);centre=sum((v.co for v in ring),Vector())/len(ring)
+                for v in ring:v.co=centre+(v.co-centre)*(.91 if 'thumb' in ob.name.lower() else .85)
+        if 'Curved ventilated' in ob.name:
+            bm=bmesh.new();bm.from_mesh(ob.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.000001);bm.to_mesh(ob.data);bm.free()
         if kind=='hands' and any(n in ob.name for n in ['forearm','palm','digit','finger','thumb','Wrist fastening']):
             bpy.context.view_layer.objects.active=ob
             mod=ob.modifiers.new('Smooth anatomical surface','SUBSURF');mod.levels=1;mod.render_levels=1
@@ -43,10 +68,10 @@ def handguard(parent,mat):
     verts=[];faces=[]
     for k in range(18):
         za=-.335+k*.011;zb=za+.011
-        for j in range(16):
-            if j not in [0,1,6,7,8,9,14,15] and k%5 in [1,2,3]:continue
+        for j in range(32):
+            if j//2 not in [0,1,6,7,8,9,14,15] and k%5 in [1,2,3]:continue
             n=len(verts)
-            for z,angle in [(za,j*math.tau/16),(zb,j*math.tau/16),(zb,(j+1)*math.tau/16),(za,(j+1)*math.tau/16)]:
+            for z,angle in [(za,j*math.tau/32),(zb,j*math.tau/32),(zb,(j+1)*math.tau/32),(za,(j+1)*math.tau/32)]:
                 verts.append((math.cos(angle)*.043,.021+math.sin(angle)*.043,z))
             faces.append((n,n+1,n+2,n+3))
     a.mesh('Curved ventilated fore-end',verts,faces,mat,parent)
@@ -196,7 +221,45 @@ def main():
         bpy.ops.wm.read_factory_settings(use_empty=True)
         root=w.hands() if kind=='hands' else w.build(kind)
         sculpt(root,kind);finish(root,kind);details(root,kind);join_parts(root)
+        if kind!='hands':world_lod(root)
         results.append(w.export(root,OUT/('anime-'+kind+'.glb')))
         print('ANIME_WEAPON',kind,flush=True)
     (OUT/'anime-weapons-manifest.json').write_text(json.dumps({'generator':'tools/blender/build_anime_weapons.py','assets':results},indent=2)+'\n')
+def world_lod(root):
+    """Two colour batches retain the skin mask; first-person art stays intact."""
+    bpy.context.view_layer.update();batches={}
+    for ob in list(root.children_recursive):
+        if ob.type!='MESH':continue
+        material=ob.data.materials[0];bs=material.node_tree.nodes.get('Principled BSDF')
+        colour=tuple(bs.inputs['Base Color'].default_value[:3])
+        links=bs.inputs['Base Color'].links
+        if links and links[0].from_node.type=='TEX_IMAGE':
+            image=links[0].from_node.image
+            px=np.array(image.pixels[:],dtype=np.float32).reshape(-1,4)
+            avg=px[::max(1,len(px)//64),:3].mean(axis=0)
+            colour=tuple(avg)
+        paintable=material.name.startswith('Weapon finish /')
+        verts,faces,colours,uvs=batches.setdefault(paintable,([],[],[],[]))
+        base=len(verts);transform=root.matrix_world.inverted()@ob.matrix_world
+        verts.extend(tuple(transform@v.co)for v in ob.data.vertices)
+        uv=ob.data.uv_layers.active
+        for face in ob.data.polygons:
+            faces.append(tuple(base+i for i in face.vertices));colours.append((*colour,1))
+            uvs.extend(tuple(uv.data[i].uv)if uv else(0,0)for i in face.loop_indices)
+    group=a.empty('worldLOD',parent=root)
+    for paintable,(verts,faces,colours,uvs) in batches.items():
+        mesh=bpy.data.meshes.new('World weapon surface');mesh.from_pydata(verts,[],faces);mesh.update()
+        attr=mesh.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
+        uv=mesh.uv_layers.new(name='UVMap');uv.data.foreach_set('uv',np.array(uvs,dtype=np.float32).ravel())
+        for face,colour in zip(mesh.polygons,colours):
+            for i in face.loop_indices:attr.data[i].color=colour
+        mat=a.surface('Weapon finish / world' if paintable else 'World weapon hardware',(1,1,1),.68,.10)
+        vertex=mat.node_tree.nodes.new('ShaderNodeVertexColor');vertex.layer_name='Color'
+        mat.node_tree.links.new(vertex.outputs['Color'],mat.node_tree.nodes.get('Principled BSDF').inputs['Base Color'])
+        mesh.materials.append(mat);lod=bpy.data.objects.new('World paint' if paintable else 'World hardware',mesh)
+        bpy.context.collection.objects.link(lod);lod.parent=group;bpy.context.view_layer.objects.active=lod
+        mod=lod.modifiers.new('Distant silhouette budget','DECIMATE');mod.ratio=.22;mod.use_collapse_triangulate=True
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+        for face in lod.data.polygons:face.use_smooth=True
+
 if __name__=='__main__':main()

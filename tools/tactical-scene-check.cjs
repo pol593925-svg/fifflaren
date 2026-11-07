@@ -4,6 +4,27 @@ module.exports = async function tacticalSceneCheck() {
   const actors = [...remotes.values()].map(r => [r, r.alive]);
   const data = CS16Buildings.layout(grid, curMap), reports = [];
   const staticArt = await worldGraphics.ready;
+  if(curMap==='dust2') {
+    const totals={kind:'weapon-lod',fullTriangles:0,worldTriangles:0,fullDraws:0,worldDraws:0};
+    const stats=root=>{let triangles=0,draws=0;root.traverse(o=>{if(o.isMesh){draws++;triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;}});return {triangles,draws};};
+    for(const id of Object.keys(glbCache)) {
+      if(!glbCache[id].world)continue;
+      const full=buildGun(id,'',1),world=buildGun(id,'',1,true),a=stats(full),b=stats(world);
+      try {
+        if(b.triangles>a.triangles*.3||b.draws>2)throw Error('Remote weapon budget '+id);
+        const near=new THREE.Box3().setFromObject(full),far=new THREE.Box3().setFromObject(world);
+        if(near.min.distanceTo(far.min)>.035||near.max.distanceTo(far.max)>.035)throw Error('Remote weapon silhouette shifted '+id);
+        for(const side of ['left','right'])if(full.userData.grip[side])
+          if(new THREE.Vector3(...full.userData.grip[side]).distanceTo(new THREE.Vector3(...world.userData.grip[side]))>.001)throw Error('Remote grip shifted '+id);
+        const painted=buildGun(id,'gold',1,true);
+        try {painted.traverse(o=>{if(o.isMesh&&o.material.name==='Weapon finish / world'&&(!o.material.map||o.material.vertexColors))throw Error('Remote skin mask '+id);});}
+        finally {disposeGun(painted);}
+        totals.fullTriangles+=a.triangles;totals.worldTriangles+=b.triangles;totals.fullDraws+=a.draws;totals.worldDraws+=b.draws;
+      }finally {disposeGun(full);disposeGun(world);}
+    }
+    if(totals.worldDraws<19)throw Error('Remote weapon LODs did not load');
+    reports.push(totals);
+  }
   // Observe actual rendered frames: the immutable map must not recompute transforms.
   await new Promise(requestAnimationFrame);
   const tracked = []; let staticUpdates = 0;

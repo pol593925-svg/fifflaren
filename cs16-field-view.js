@@ -42,8 +42,8 @@
         bevelEnabled:true,bevelSegments:2,bevelSize:bevel,bevelThickness:bevel});
       return part(geometry,m,x,y,z-d/2+bevel);
     }
-    box(metal, 0, 0.075, -0.05, 0.072, 0.024, 0.125);
-    box(edge, 0, 0.096, -0.057, 0.046, 0.023, 0.075);
+    box(metal, 0, 0.071, -0.05, 0.061, 0.014, 0.100);
+    box(edge, 0, 0.087, -0.057, 0.046, 0.026, 0.075);
     // Beveled rectangular holographic hood with a real open aperture, not a solid tube.
     function rounded(w,h,r) {
       const s=new T.Shape(),x=-w/2,y=-h/2;

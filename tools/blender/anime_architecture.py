@@ -34,17 +34,17 @@ def build(a,theme):
         if kind=='rail' and origin and lo[2]<origin[1] and hi[0]-lo[0]>7:
             # A continuous bowed moulding stays inside the original solid parapet envelope.
             # Keep its collision/cover volume; sculpt its face instead of adding open balusters.
-            for j in range(48):
-                u=j/48;v=(j+1)/48
-                for k in range(8):
-                    t=k/8;tt=(k+1)/8
+            for j in range(24):
+                u=j/24;v=(j+1)/24
+                for k in range(4):
+                    t=k/4;tt=(k+1)/4
                     def point(s,r,back=False):
                         xx=lo[0]+s*(hi[0]-lo[0]);yy=lo[1]+r*(hi[1]-lo[1])
                         zz=hi[2] if back else lo[2]+.042*(1-math.sin(r*math.pi))*math.sin(s*math.pi)**.4
                         return (xx,yy,zz)
                     a.face('wood',[point(u,t),point(v,t),point(v,tt),point(u,tt)])
-                    a.face('wood',[point(u,t,True),point(u,tt,True),point(v,tt,True),point(v,t,True)])
                 for t in [0,1]:a.face('trim',[point(u,t),point(u,t,True),point(v,t,True),point(v,t)])
+            a.face('wood',[point(0,0,True),point(0,1,True),point(1,1,True),point(1,0,True)])
             for s in [0,1]:a.face('trim',[point(s,0),point(s,1),point(s,1,True),point(s,0,True)])
             continue
         draw=rounded_box if kind in ['trim','rail','wood','fabric'] else a.box
@@ -68,7 +68,9 @@ def build(a,theme):
     for b in plan['buildings']:
         x,z=b['x'],b['z'];bid=b['id']
         def box(mat,xx,y,zz,w,h,d):rounded_box(mat,x+xx,y,z+zz,w,h,d)
-        def height(u):return 7.92+1.7*max(0,1-abs((u-4.5)/4.35))**1.25
+        def height(u):
+            q=max(0,min(96,(u-.15)/8.7*96));i=min(95,int(q));t=q-i
+            return plan['roofProfile'][i]*(1-t)+plan['roofProfile'][i+1]*t
         # A curved gable over the front wing gives a true silhouette. Rear rooftop is a terrace.
         for j in range(96):
             u=.15+j*8.7/96;v=u+8.7/96

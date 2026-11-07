@@ -22,6 +22,10 @@ for(const map of ['dust2','inferno']){
   const door=data.environment.doors.find(d=>d.building===house.id);const origin=[door.x,1.3,door.z-1],dir=[0,0,1];
   const open=B.ray(grid,map,origin,dir,2);assert(open===null,'open doorway clear');door.open=false;data.environment.revision++;assert(B.ray(grid,map,origin,dir,2)!==null,'closed door blocks');door.open=true;data.environment.revision++;
   assert(B.ray(grid,map,[x+4.5,12,z+2],[0,-1,0],5)!==null,'curved roof stops shots');
+  for(let n=0;n<192;n++) {
+   const u=.15+(n+.5)*8.7/192,top=B.roofHeight(u),surface=B.vertical(grid,map,x+u,z+2,top+.1).floor;
+   assert(surface>=top-.001&&surface-top<.07,'rounded roof collider follows art '+u);
+  }
  }
  const full=bfs([62,43]);for(const [x,z]of [[49,66],[58,66],[66,64],[76,64]])assert(full.has(index(x,z)),'tunnel connected '+x+','+z);
  reports.push({map,sites:2,houses:data.buildings.length,doors:data.environment.doors.length,reachableCells:full.size,routeMetres:routes});

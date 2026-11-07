@@ -606,6 +606,8 @@
       try {
         const artUrl=/\/(grenade|c4)\.glb$/.test(cfg.url)?cfg.url:cfg.url.replace(/([^/]+)\.glb$/, 'anime-$1.glb');
         const asset = await loader.loadAsync(artUrl);
+        const worldAsset=asset.scene.getObjectByName('worldLOD');
+        if(worldAsset){asset.scene.attach(worldAsset);worldAsset.removeFromParent();CS16AnimeMaterials.apply(THREE,worldAsset,{soft:true});}
         if(artUrl.includes('/anime-'))CS16AnimeMaterials.apply(THREE,asset.scene,{soft:true});
         const model = new THREE.Group();model.name='weaponBasis';
         model.add(asset.scene);
@@ -628,14 +630,18 @@
           }
         });
         glbCache[id].model = wrap;
+        if(worldAsset){
+          const world=wrap.clone(true),basis=world.getObjectByName('weaponBasis');
+          basis.clear();basis.add(worldAsset);glbCache[id].world=world;
+        }
       } catch (error) { throw new Error('Weapon model unavailable: ' + id + ': ' + error.message); }
     }})).then(results=>{const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;});
   }
   // Клон GLB-модели оружия с тонировкой скином
-  function glbGunClone(weapon, skin) {
+  function glbGunClone(weapon, skin, world = false) {
     const entry = glbCache[weapon];
     if (!entry || !entry.model) return null;
-    const m = entry.model.clone();
+    const m = (world && entry.world ? entry.world : entry.model).clone();
     if (SKINS[skin]) {
       const map = skinTex(skin);
       CS16WeaponFinish.apply(m, map, SKINS[skin], skin);
@@ -842,9 +848,10 @@
       }
       for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet)preview.add(pet);}
       for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',id==='m4a1'?1.8:1);guns.push(gun);preview.add(gun);}
+      const worldGun=buildGun('m4a1','',1,true);guns.push(worldGun);preview.add(worldGun);
       const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
       // Compile every variant, but upload only representative textures/meshes now.
-      const samples=new Set([preview.children[0],guns[Object.keys(glbCache).indexOf('m4a1')],optical.root,muzzle]);
+      const samples=new Set([preview.children[0],guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle]);
       preview.position.copy(camera.position);preview.position.z-=3;activeScene.add(preview);
       // Balanced/high and economy use different shader defines. Weak PCs prepare economy only.
       for(const enabled of (shadows?[false,true]:[false])){
@@ -1946,7 +1953,7 @@
     if (r.gunWeapon === r.weapon && r.gunSkin === r.skin && r.gunGlb === hasGlb) return;
     r.gunWeapon = r.weapon; r.gunSkin = r.skin; r.gunGlb = hasGlb;
     if (r.gun) { disposeGun(r.gun); r.gunHolder.remove(r.gun); }
-    r.gun = buildGun(r.weapon || 'usp', r.skin, 1);
+    r.gun = buildGun(r.weapon || 'usp', r.skin, 1, true);
     r.gunHolder.add(r.gun);
     const grip=r.gun.userData.grip;if(grip)r.muzzleFx.position.set(grip.bore[0]-grip.right[0],grip.bore[1]-grip.right[1],grip.bore[2]-grip.right[2]-.03);
   }
@@ -1969,9 +1976,9 @@
   function clearRockets(){for(const r of rpgShots){r.mesh.removeFromParent();r.mesh.geometry.dispose();r.mesh.material.dispose();}rpgShots.length=0;}
   function rocketFx(d){if(!scene||rpgShots.length>=32)return;const mesh=new THREE.Mesh(new THREE.ConeGeometry(.07,.35,8).rotateX(Math.PI/2),new THREE.MeshBasicMaterial({color:0xffb963}));mesh.position.set(...d.origin);mesh.lookAt(...d.pos);scene.add(mesh);rpgShots.push({mesh,from:new THREE.Vector3(...d.origin),to:new THREE.Vector3(...d.pos),start:performance.now(),duration:d.duration});}
   function updateRockets(now){for(let i=rpgShots.length-1;i>=0;i--){const r=rpgShots[i],t=Math.min(1,(now-r.start)/r.duration);r.mesh.position.lerpVectors(r.from,r.to,t);if(t>=1){r.mesh.removeFromParent();r.mesh.geometry.dispose();r.mesh.material.dispose();rpgShots.splice(i,1);}}}
-  function buildGun(weapon, skin, scale) {
+  function buildGun(weapon, skin, scale, world = false) {
     const group = new THREE.Group();
-    const model = weapon==='rpg'?makeRPGModel():glbGunClone(weapon, skin);
+    const model = weapon==='rpg'?makeRPGModel():glbGunClone(weapon, skin, world);
     if (model) group.add(model);
     if(model){
       CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon);

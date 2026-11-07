@@ -906,6 +906,8 @@
       fieldProps?.applyNature(active.nature(),graphicsQuality);
       buildingGraphics?.applyMaterials(name=>active.surface(name));environmentView?.applyMaterials(name=>active.surface(name));
       applyFront();frontView.sync(true);
+      await magicView.warm(renderer3,camera);
+      if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
       if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
@@ -1409,17 +1411,10 @@
         <div style="font:bold 26px monospace; color:#e8c34a; text-align:center;">COUNTER-STRIKE <span style="color:#999; font-size:13px;">${mapName} · ${gmName}${state.gm === 'classic' ? ' · матч до 16 побед · MR15' : ''}</span></div>
         <div style="display:flex; gap:10px; justify-content:center; margin-top:8px; font:12px monospace; color:#ccc; flex-wrap:wrap;">
           <span>Карта:
-            <button class="cs16MapBtn" data-m="frontline">Квартал связи</button>
             <button class="cs16MapBtn" data-m="dust2" style="padding:3px 10px; cursor:pointer; background:${(!state.map || state.map === 'dust2') ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_dust2</button>
             <button class="cs16MapBtn" data-m="inferno" style="padding:3px 10px; cursor:pointer; background:${state.map === 'inferno' ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_inferno</button>
           </span>
-          <span>Режим:
-            <button class="cs16GmBtn" data-g="assault" style="padding:5px 12px;cursor:pointer;background:#643c2c;color:#fff;border:1px solid #b48e54;">⚔ Штурм секторов</button>
-            <button class="cs16GmBtn" data-g="cq" style="padding:5px 12px;cursor:pointer;background:#315951;color:#fff;border:1px solid #71b79f;">⚑ Захват · 10 мин / 50</button>
-            <button class="cs16GmBtn" data-g="classic" style="padding:3px 10px; cursor:pointer; background:${(!state.gm || state.gm === 'classic') ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">Классика</button>
-            <button class="cs16GmBtn" data-g="gg" style="padding:3px 10px; cursor:pointer; background:${state.gm === 'gg' ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">Gun-Game</button>
-          </span>
-          <label class="cs16-army-toggle"><input type="checkbox" id="cs16Army" ${state.army?'checked':''} ${inMatch||myNick!==state.host?'disabled':''}> Включить армию · 50 T + 50 CT</label>
+          <span class="cs16-round-format">5×5 · раунды · C4 · до 16 побед</span>
           <span>Боты:
             <button id="cs16BotAdd" style="padding:3px 10px; cursor:pointer; background:#2d4a22; color:#dfffcf; border:1px solid #4a8a3a;">+ Добавить</button>
             <button id="cs16BotDel" style="padding:3px 10px; cursor:pointer; background:#4a2d22; color:#ffd9cf; border:1px solid #8a4a3a;">− Убрать</button>
@@ -1439,9 +1434,7 @@
           </div>
         </div>
         <div class="cs16-matchControls" style="margin-top:12px; background:#201c15; border-radius:6px; padding:10px; text-align:center;">
-          <div style="font:13px monospace; color:#ccc;">Размер команд:
-            ${[1,2,3,4,5].map(n => `<button class="cs16ModeBtn" data-n="${n}" style="padding:4px 12px; margin:0 3px; cursor:pointer; background:${state.mode === n ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555; font:bold 13px monospace;">${n}v${n}</button>`).join('')}
-          </div>
+          <p class="cs16-round-format">Две команды по 5. Пустые места при старте займут боты.</p>
           <div class="cs16-hostStatus"><span>Хост: <b>${esc(state.host || '—')}</b>${state.host === myNick ? ' · это ты' : ''}</span>
             ${isFiff && state.host !== myNick ? `<button class="cs16HostBtn cs16-takeHost" data-n="${esc(myNick)}">Забрать хост себе</button>` : ''}
             ${isFiff && state.host && state.host.toLowerCase() !== myNick.toLowerCase() ? `<button class="cs16KickBtn" data-n="${esc(state.host)}">Кикнуть хоста</button>` : ''}
@@ -1465,9 +1458,6 @@
         </div>
       </div>`;
     characterChoices(ui.lobby.firstElementChild);
-    const brButton=document.createElement('button');brButton.className='cs16-br-entry';brButton.type='button';
-    brButton.textContent='Королевская битва · Каменный Берег';const brInfo=document.createElement('small');brInfo.textContent='СОЛО / ДУЭТЫ  ·  24 УЧАСТНИКА  ·  КАРТА 2 × 2 КМ';brButton.append(brInfo);
-    brButton.onclick=enterRoyale;ui.lobby.firstElementChild.prepend(brButton);
     const jt = document.getElementById('cs16JoinT'), jc = document.getElementById('cs16JoinCT');
     if (jt) jt.onclick = () => sock && sock.emit('cs16_team', 't');
     if (jc) jc.onclick = () => sock && sock.emit('cs16_team', 'ct');
@@ -2312,6 +2302,7 @@
     const inspect=Math.max(0,(t-inspectStart)/2300);
     CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastShot)/1000),inspect<1?inspect:0);
     CS16FieldView.align(vm,dot,Math.min(1,Math.max(0,(fieldAimMix-.72)/.20)),sightPoint);
+    if(!ads&&!reloading){const cast=magicView?.gesture(t)||0;vm.position.y-=cast*.07;vm.rotation.z+=cast*.10;}
     vm.visible = frontSeat==null&&me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
   }
 

@@ -1,0 +1,66 @@
+/* Original readable ability VFX. Shared geometry, bounded instances, no full-screen postprocess. */
+(function(g){'use strict';
+ const styles={flame:['#ff904c','#fff0b2',1.45,5],frost:['#60c9ff','#e4ffff',1.65,6],wind:['#60e5bc','#d8fff2',1.0,2],stone:['#e0a452','#ffe5a0',7,1.45],light:['#ffe18b','#fff9de',1.8,7],fox:['#ffb67c','#fff4bd',.85,1],dragon:['#ff765d','#ffdfa1',1.25,3],owl:['#7ddcff','#d5f6ff',1.2,2],golem:['#8bd2a6','#d9ffe8',5,1.3],deer:['#c1a0ff','#f0dfff',1.8,2]};
+ function create({T,scene,getQuality=()=> 'balanced',getEye=()=>null,getTeam=()=>null,getPlayerPosition=()=>null,clock=()=>performance.now()}){
+  const effects=[],freeMaterials=[],allMaterials=new Set(),dummy=new T.Object3D();let disposed=false;
+  const geo={ring:new T.TorusGeometry(1,.022,5,64),orb:new T.IcosahedronGeometry(1,2),shard:new T.ConeGeometry(.13,1,5),spark:new T.PlaneGeometry(.08,.34),shield:new T.IcosahedronGeometry(1,1),strip:new T.PlaneGeometry(.07,1,1,6),cross:new T.BoxGeometry(.1,.32,.06)};
+  // Split ice facets shade from a blue base to bright tips without extra lights or draws.
+  geo.shard.dispose();geo.shard=new T.CylinderGeometry(.025,.19,1,5,3).toNonIndexed();
+  const icePosition=geo.shard.attributes.position,iceColor=new Float32Array(icePosition.count*3);
+  for(let i=0;i<icePosition.count;i++){const h=icePosition.getY(i)+.5,x=icePosition.getX(i),z=icePosition.getZ(i),facet=.78+.22*Math.max(0,Math.sin(Math.atan2(x,z)*5+.7));icePosition.setXYZ(i,x*(1+.22*Math.sin(h*Math.PI)),icePosition.getY(i),z);iceColor[i*3]=(.38+.62*h)*facet;iceColor[i*3+1]=(.66+.34*h)*facet;iceColor[i*3+2]=facet;}geo.shard.setAttribute('color',new T.BufferAttribute(iceColor,3));geo.shard.computeVertexNormals();
+  // A curved wedge makes the direction of ice unambiguous.
+  const fan=new T.RingGeometry(.4,1,40,1,Math.PI*.16,Math.PI*.68);fan.rotateX(-Math.PI/2);geo.fan=fan;
+  const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
+  function remove(f){f.group.removeFromParent();f.particles.dispose();f.ribbon.dispose();freeMaterials.push(f.materials);}
+  function fx(data){if(disposed||!styles[data?.id]||!valid(data.pos))return false;
+   const eye=getEye(),range=getQuality()==='low'?55:120;if(eye&&Math.hypot(data.pos[0]-eye.x,data.pos[2]-eye.z)>range)return false;
+   while(effects.length>=(getQuality()==='low'?8:16))remove(effects.shift());
+   const [color,light,duration,radius]=styles[data.id],group=new T.Group(),selfTeam=getTeam(),enemy=!!data.team&&!!selfTeam&&selfTeam!==data.team;
+   const mats=freeMaterials.pop()||Array.from({length:3},()=>{const m=new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,vertexColors:true});allMaterials.add(m);return m}),[base,glow,rim]=mats;
+   base.color.set(color);base.opacity=.8;base.blending=T.NormalBlending;
+   glow.color.set(data.id==='frost'?'#69baff':light);glow.opacity=.7;glow.blending=data.id==='frost'?T.NormalBlending:T.AdditiveBlending;
+   rim.color.set(enemy?'#ff635f':'#8ce8f7');rim.opacity=.65;
+   const origin=new T.Vector3(...(valid(data.origin)?data.origin:data.pos)),end=new T.Vector3(...data.pos),dir=valid(data.dir)?new T.Vector3(...data.dir):end.clone().sub(origin).normalize();if(dir.lengthSq()<.1)dir.set(0,0,-1);
+   const kind=data.id,count=getQuality()==='low'?14:32,particles=new T.InstancedMesh(kind==='frost'?geo.shard:kind==='light'||kind==='deer'?geo.cross:geo.spark,glow,count);particles.frustumCulled=false;particles.instanceMatrix.setUsage(T.DynamicDrawUsage);group.add(particles);
+   const ring=new T.Mesh(geo.ring,base),teamRing=new T.Mesh(geo.ring,rim);ring.rotation.x=teamRing.rotation.x=Math.PI/2;group.add(ring,teamRing);
+   const core=new T.Mesh(kind==='stone'||kind==='golem'?geo.shield:kind==='frost'?geo.fan:geo.orb,base);group.add(core);
+   const ribbon=new T.InstancedMesh(geo.strip,glow,8);ribbon.frustumCulled=false;ribbon.instanceMatrix.setUsage(T.DynamicDrawUsage);group.add(ribbon);
+   const traveling=kind==='flame'||kind==='dragon';group.position.copy(traveling?end:origin);if(!traveling)group.position.y-=1.23;group.position.y+=.05;
+   scene.add(group);effects.push({group,base,glow,rim,ring,teamRing,core,particles,ribbon,materials:[base,glow,rim],kind,count,start:clock(),duration,radius,origin,end,dir,by:data.by,traveling,seed:effects.length*1.79});return true;
+  }
+  function update(dt,t=clock()){
+   if(disposed)return;
+   while(effects.length>(getQuality()==='low'?8:16))remove(effects.shift());
+   for(let i=effects.length-1;i>=0;i--){const f=effects[i],time=Math.max(0,(t-f.start)/1000),k=time/f.duration;if(k>=1){remove(f);effects.splice(i,1);continue}
+    const shield=f.kind==='stone'||f.kind==='golem',heal=f.kind==='light'||f.kind==='deer',dash=f.kind==='wind'||f.kind==='owl',ice=f.kind==='frost',reload=f.kind==='fox';
+    const burst=Math.max(0,time-(f.traveling?.19:0)),fade=shield?Math.min(1,time*6,(f.duration-time)*3):Math.pow(1-k,1.3);
+    f.base.opacity=(shield?.12:ice?.21:.50)*fade;f.glow.opacity=.85*fade;f.rim.opacity=.65*fade;
+    if(shield){const p=getPlayerPosition(f.by);if(p)f.group.position.set(p.x,p.y+.03,p.z)}
+    f.ring.position.y=.08;f.teamRing.position.y=.06;
+    const spread=shield?f.radius:ice?Math.min(f.radius,burst*13):heal?Math.min(f.radius,burst*6):Math.min(f.radius,burst*9+.2);
+    f.ring.scale.setScalar(Math.max(.01,spread));f.teamRing.scale.setScalar(Math.max(.01,spread*1.025));
+    if(f.traveling&&time<.19){f.core.position.copy(f.origin).lerp(f.end,time/.19).sub(f.group.position);f.core.scale.setScalar(.13+time*.7);f.ring.visible=f.teamRing.visible=false}else{f.ring.visible=f.teamRing.visible=true;f.core.position.set(0,shield?1.05:heal?.55:ice?.12:.18,0);f.core.scale.setScalar(shield?f.radius:ice?Math.min(12,burst*18):heal?.10+Math.sin(time*8)*.03:Math.max(.001,.8-burst*1.7));}
+    if(ice){f.core.rotation.y=Math.atan2(f.dir.x,f.dir.z);f.ring.visible=false;f.teamRing.visible=false}
+    if(shield){f.core.scale.y=f.radius*1.15;f.core.rotation.y=time*.24}
+    if(dash||reload)f.core.visible=false;
+    for(let j=0;j<f.count;j++){
+     const a=j*2.39996+f.seed,rad=.35+(j%7)/7,age=Math.min(1,burst/(heal?1.7:.9));dummy.rotation.set(0,a,0);dummy.scale.set(1,1,1);
+     if(ice){const angle=(j/f.count-.5)*2.14+Math.atan2(f.dir.x,f.dir.z),r=Math.min(11.5,burst*15)*(.4+rad*.6),height=Math.sin(Math.min(1,burst*2)*Math.PI)*(.65+rad);dummy.position.set(Math.sin(angle)*r,height*.45,Math.cos(angle)*r);dummy.scale.set(1.6,height,1.6);dummy.rotation.z=(j%3-1)*.24;}
+     else if(shield){const phi=j/f.count*Math.PI*2;dummy.position.set(Math.cos(phi)*f.radius, .4+(j%4)*.35,Math.sin(phi)*f.radius);dummy.scale.set(.8,.55,.8);dummy.rotation.y=-phi;}
+     else if(heal){const r=(.5+rad)*Math.min(2.7,f.radius*.45),phi=a+time*.6;dummy.position.set(Math.sin(phi)*r,(time*.9+j*.13)%2.5,Math.cos(phi)*r);dummy.scale.setScalar(.5+rad*.5);dummy.rotation.set(0,-a,0);}
+     else if(dash){const r=.5+rad*.3;dummy.position.set(Math.cos(a+time*5)*r,.6+Math.sin(a+time*5)*r,-age*(2+j%5));dummy.rotation.x=Math.PI/2;dummy.scale.set(.7,2.2,.7);}
+     else if(reload){dummy.position.set(Math.cos(a+time*8)*.6,.7+Math.sin(a+time*8)*.5,Math.sin(a)*.35);dummy.rotation.z=-a-time*8;dummy.scale.set(.6,.6,.6);}
+     else{dummy.position.set(Math.cos(a)*age*f.radius*rad,Math.sin(age*Math.PI)*(1+rad)*1.8,Math.sin(a)*age*f.radius*rad);dummy.rotation.set(a+time*3,a,time);dummy.scale.setScalar(Math.max(.01,1-age)*1.2);}
+     dummy.updateMatrix();f.particles.setMatrixAt(j,dummy.matrix);
+    }
+    f.particles.instanceMatrix.needsUpdate=true;
+    for(let j=0;j<8;j++){const a=j*Math.PI/4+time*(shield?.3:2);dummy.position.set(Math.cos(a)*spread*.65,(shield?1:.35)+Math.sin(a*2+time*5)*.22,Math.sin(a)*spread*.65);dummy.rotation.set(0,-a,heal||shield?0:Math.PI/2);dummy.scale.set(shield?1.8:1,shield?1.6:heal?1.8:Math.max(.1,spread*.4),1);dummy.updateMatrix();f.ribbon.setMatrixAt(j,dummy.matrix)}f.ribbon.instanceMatrix.needsUpdate=true;
+    if(dash)f.group.rotation.y=Math.atan2(-f.dir.x,-f.dir.z);
+   }
+  }
+  function clear(){while(effects.length)remove(effects.pop())}
+  async function warm(renderer,camera){const eye=getEye()||{x:0,y:0,z:0};for(const id of Object.keys(styles))fx({id,origin:[eye.x,eye.y+1.3,eye.z],pos:[eye.x,eye.y+.2,eye.z-3],dir:[0,0,-1]});update(0,clock()+100);if(renderer.compileAsync)await renderer.compileAsync(scene,camera);else renderer.compile(scene,camera);if(!disposed)renderer.render(scene,camera);clear();}
+  return {fx,update,clear,warm,metrics:()=>({effects:effects.length,instances:effects.reduce((n,f)=>n+f.count+8,0),limit:getQuality()==='low'?8:16,materialPool:allMaterials.size}),dispose(){if(disposed)return;disposed=true;clear();Object.values(geo).forEach(x=>x.dispose());allMaterials.forEach(m=>m.dispose());allMaterials.clear();freeMaterials.length=0}};
+ }
+ g.CS16SpellEffects={create,styles};
+})(typeof window==='undefined'?globalThis:window);

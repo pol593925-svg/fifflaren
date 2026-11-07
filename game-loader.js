@@ -24,7 +24,7 @@
       try{
         await group('engine');await group(id);
         if(!session||!tab.classList.contains('active')){message.remove();return;}
-        if(id==='cs16'){window.HubRoyale.configure(session);window.__cs16Open(nick);}
+        if(id==='cs16'){window.HubRoyale?.configure(session);window.__cs16Open(nick);}
         else{window.HubVoxels.configure(session);window.HubVoxels.open();}
       }catch(e){
         message.textContent=e.message+'. ';const retry=document.createElement('button');retry.textContent='Попробовать ещё раз';

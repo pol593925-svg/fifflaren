@@ -3489,7 +3489,7 @@ window.casinoEnter = () => {
   const hint = document.getElementById("casinoSplashHint");
   if (hint) hint.textContent = 'Прогружаем барабаны...';
   const start = Date.now();
-  const DUR = 5000;
+  const DUR = 450; // TERRA: brief transition, no artificial five-second wait.
   if (casinoSplashTimer) clearInterval(casinoSplashTimer);
   casinoSplashTimer = setInterval(() => {
     const p = Math.min(100, ((Date.now() - start) / DUR) * 100);

@@ -1,0 +1,236 @@
+/* Support Hub 5.0 — TERRA. No external fonts, canvas menus or perpetual UI animation. */
+body.terra{--hub-bg:#ece9e0;--hub-panel:#faf8f1;--hub-raised:#f0eee5;--hub-line:#d8d9ca;--hub-text:#2c3f34;--hub-muted:#6f796b;--hub-accent:#345746;--hub-soft:#3457460e;--hub-field:#f2f0e8;--hub-nav:0px;color-scheme:light;padding-left:0!important;min-width:440px}
+body.terra:not(.light){--hub-bg:#18241e;--hub-panel:#223128;--hub-raised:#2b3e31;--hub-line:#405342;--hub-text:#e9eddf;--hub-muted:#adbaaa;--hub-accent:#c5d6ac;--hub-soft:#cfdda516;--hub-field:#1c2b23;color-scheme:dark}
+body.terra .content{padding:25px 38px 104px;gap:22px;scrollbar-gutter:stable;scroll-padding-bottom:100px}
+body.terra :is(button,input,textarea,select){font-family:'Segoe UI',Arial,sans-serif}
+body.terra :is(input,select,textarea){background:var(--hub-field)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important;box-shadow:none;min-width:0}
+body.terra :is(input,textarea,select):focus{border-color:var(--hub-accent)!important;box-shadow:0 0 0 3px var(--hub-soft)}
+body.terra :is(.card,.profile-card,.my-calls-panel,.exchange-card,.team-column,.exchange-col,.admin-section){border:1px solid var(--hub-line)!important;border-radius:18px;background:var(--hub-panel)!important;color:var(--hub-text)!important;box-shadow:0 5px 20px #28372c04}
+body.terra .card{padding:24px!important}
+body.terra :is(.card h3,.card h4,.my-calls-panel h3){color:var(--hub-text)!important;letter-spacing:-.4px}
+body.terra :is(.card h3,.my-calls-panel h3){font-size:18px}
+body.terra :is(.submit-btn,.template-btn,.call-save,.call-refresh,.exchange-choice,.exchange-filter,.exchange-search-row button,.office-section button,.office-device button){min-height:38px;border-radius:9px;border:1px solid var(--hub-line);font-size:12px;font-weight:600;box-shadow:none}
+body.terra :is(button.blue,button.green,.call-save){background:#345746!important;color:#fffdf2!important;border-color:#345746!important}
+body.terra :is(button.gray,.template-btn,.call-refresh,.exchange-filter){background:var(--hub-raised)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important}
+body.terra button.red{background:#a45f50!important;color:white!important}
+body.terra button.yellow{background:#e2dda5!important;color:#304839!important}
+body.terra a{color:var(--hub-accent)}
+body.terra :is(.msg,.note-desc,.my-calls-info,.call-empty){color:var(--hub-muted)}
+body.terra :is(.report-box,.truffles-box,.admin-event-item,.admin-user-row,.task-item,.feed-item,.worker-box){background:var(--hub-field)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important}
+body.terra .hub-header{padding:22px 38px 18px;gap:17px;background:var(--hub-bg);border-bottom:1px solid var(--hub-line);min-height:99px}
+.terra .hub-heading h1{font-size:29px;letter-spacing:-1.1px;color:var(--hub-text)}
+.terra .hub-heading p{font-size:11px;color:var(--hub-muted)}
+.terra .hub-eyebrow{font-size:8px;letter-spacing:2.5px;color:var(--hub-muted)}
+.terra .hub-date{font-size:11px}
+body.terra :is(.hub-menuToggle,.hub-tool){background:var(--hub-panel)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important;border-radius:11px!important}
+body.terra #screenWatchNotice{background:var(--hub-raised)!important;color:var(--hub-muted)!important;border-color:var(--hub-line)!important;font-size:9px!important}
+.terra .terra-dock{position:fixed;z-index:1001;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:5px;padding:8px 12px;background:#263e32;border:1px solid #dce7d82b;border-radius:18px;box-shadow:0 9px 26px #1a2e2429;max-width:calc(100vw - 40px)}
+.terra-dock button{display:flex;gap:9px;align-items:center;justify-content:center;padding:11px 15px;min-height:40px;border:0;background:transparent;color:#d0ddcb;border-radius:11px;white-space:nowrap;font-size:12px;cursor:pointer}
+.terra-dock button.active{background:#e3e9d7;color:#304e3e;font-weight:650}
+.terra-dock button:hover{background:#456451;color:#fff}
+.terra-dock button[hidden]{display:none!important}
+.terra-dock .hub-nav-art{width:19px;height:19px;filter:none!important}
+.terra-nav-scrim{position:fixed;inset:0;background:#0d21133d;z-index:1002;border:0;border-radius:0}
+.terra-nav-scrim[hidden]{display:none}
+body.terra .tabs{display:none!important;z-index:1003;inset:14px auto 88px 16px;width:268px;max-width:calc(100vw - 32px);border:1px solid var(--hub-line);border-radius:20px;padding:20px 14px;gap:15px;background:var(--hub-panel)!important;box-shadow:0 20px 70px #0d211340;backdrop-filter:none;overflow:auto;transition:none}
+body.terra.terra-menu-open .tabs{display:flex!important}
+.terra .hub-brand{padding:2px 10px 12px;color:var(--hub-text)}
+.terra .hub-mark{background:#345746;color:#e4e9d4;border-radius:12px}
+.terra .hub-brand small{font-size:8px;letter-spacing:2px;color:var(--hub-muted)}
+.terra .terra-nav-search{margin:0 5px;width:calc(100% - 10px);padding:11px;font-size:12px}
+.terra .hub-navGroup{gap:4px}
+.terra .hub-navLabel{font-size:9px;letter-spacing:1.7px;padding:3px 12px 7px;color:var(--hub-muted)}
+body.terra .tabs .tab-btn{display:flex;align-items:center;gap:12px;min-height:39px;padding:9px 12px;border-radius:9px;color:var(--hub-muted)!important;background:none!important}
+body.terra .tabs .tab-btn.active{background:var(--hub-soft)!important;color:var(--hub-accent)!important;border-color:var(--hub-line)!important;box-shadow:inset 3px 0 var(--hub-accent)}
+body.terra .tabs .tab-btn:hover{background:var(--hub-raised)!important}
+body.terra .tabs :is(.tab-btn[hidden],.tab-btn.terra-filtered){display:none!important}
+.terra .dock-label{display:block;font-size:12px}.terra .dock-icon{width:23px;flex-basis:23px}
+.terra .hub-nav-art{filter:none!important;width:22px;height:22px}
+body.terra #tab-shift.active{display:grid!important;grid-template-columns:minmax(265px,.85fr) minmax(330px,1.2fr) minmax(290px,1fr);grid-auto-rows:max-content;align-items:start;gap:20px}
+body.terra #tab-shift>.terra-shift-card{grid-column:1;grid-row:1/3;min-height:0;padding:26px!important;background:#345746!important;border-color:#345746!important;color:#f4f2e6!important;overflow:visible;text-align:left;box-shadow:none}
+.terra .terra-shift-card h3{color:#f4f2e6!important;margin-bottom:18px!important;font-size:19px}
+.terra .terra-shift-card .shift-orbit{position:static;width:auto;height:auto;max-width:none;background:none!important;box-shadow:none!important;border:0;border-radius:0;margin:0}
+.terra .terra-shift-card .shift-orbit:before,.terra .terra-shift-card .shift-orbit:after{display:none}
+.terra .terra-shift-card .shift-orbit-core{position:static;display:flex;align-items:stretch;gap:10px;text-align:left;inset:auto}
+body.terra .terra-shift-card #userNick{width:100%;font-size:13px;text-align:left;padding:0!important;background:transparent!important;color:#d7e4cc!important;border:0!important;margin:0 0 12px}
+.terra .terra-shift-card .shift-orbit-core>small{font-size:8px;letter-spacing:2px;color:#bdcdb8}
+body.terra .terra-shift-card #timerDisplay{font-size:clamp(32px,3.3vw,49px);letter-spacing:-1px;color:#f3f2e7!important;margin:0 0 16px;line-height:1.2}
+body.terra .terra-shift-card :is(#startBtn,#stopBtn){width:100%;border:1px solid #78967a!important;border-radius:9px;min-height:39px;margin:0;padding:10px;background:#456753!important;color:#f0f2e2!important}
+.terra .terra-shift-card #stopBtn{background:#7a5c44!important}
+.terra .shift-log-metric{position:relative;margin:15px 0 7px;padding-top:19px;border-top:1px solid #6f8b72;color:#c7d7c0;display:flex;align-items:center;justify-content:flex-start;gap:14px;width:100%}
+body.terra .shift-log-metric #countDisplay{font-size:36px;line-height:1;color:#f3f2e7!important;margin:0;text-align:left}
+.terra .shift-log-metric>span{font-size:10px;color:#c7d7c0}
+body.terra #subOneBtn{margin-left:auto!important;width:28px!important;height:28px;background:transparent!important;color:#cfdfc6!important;border:1px solid #779377!important;border-radius:7px;opacity:1}
+.terra-shift-actions{display:flex;flex-direction:column;gap:9px;margin-top:24px}
+body.terra .terra-shift-card .terra-action{position:static;inset:auto;display:flex;align-items:center;justify-content:center;width:100%;height:auto;min-height:41px;border-radius:9px;border:1px solid #789479;background:#456753;color:#f0f1e0;text-shadow:none;box-shadow:none;font-weight:650;padding:11px}
+body.terra .terra-action span{font-size:12px}
+body.terra .terra-shift-card .orbit-addOneBtn{background:#e2dda5;color:#304839;border-color:#e2dda5}
+.terra-shift-secondary{display:grid;grid-template-columns:1fr 1.5fr;gap:7px;margin-top:10px}
+body.terra .terra-shift-secondary .terra-action{min-height:30px;padding:7px 5px;background:transparent;font-weight:400}
+body.terra .terra-shift-secondary .terra-action span{font-size:9px}
+.terra-work-tools{border-top:1px solid #6f8b72;padding-top:22px;margin-top:24px}
+body.terra .terra-work-tools h4{font-size:9px!important;letter-spacing:1.5px;color:#c3d3bc!important;text-transform:uppercase;font-weight:500;margin:0 0 13px}
+.terra-tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.terra-tool-grid button{display:flex;align-items:center;gap:6px;background:#3e604c;border:1px solid #6e8971;color:#e4ecd9;border-radius:8px;padding:9px 7px;text-align:left;font-size:10px;min-width:0;cursor:pointer}
+.terra-tool-grid button[hidden]{display:none}
+.terra-tool-grid .hub-nav-art{width:16px;height:16px;flex-shrink:0}
+.terra-shift-note{font-size:10px;line-height:1.7;color:#bfd0b8;margin:22px 0 0}
+body.terra #teamLogFeed{grid-column:2;grid-row:1;min-width:0;min-height:380px}
+body.terra #teamLogList{max-height:480px;min-height:240px;overflow:auto}
+body.terra .team-log-feed h3:before{color:#72976a}
+body.terra .team-log-entry{padding:16px 0;border-color:var(--hub-line);font-size:12px;line-height:1.7}
+body.terra .team-log-entry strong{color:var(--hub-text);font-size:12px}
+body.terra .team-log-entry small{color:var(--hub-muted);font-size:10px}
+body.terra .team-log-entry p{margin:6px 0;color:var(--hub-muted)}
+body.terra .team-log-entry a{color:var(--hub-accent);font-size:10px;display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.terra #tab-shift .my-calls-panel{grid-column:3;grid-row:1;min-height:380px;padding:23px;min-width:0}
+body.terra .my-calls-header{gap:10px}.terra .my-calls-header h3{margin:0!important}
+body.terra #myCallsList{max-height:470px;overflow:auto;padding-right:4px}
+body.terra .call-entry{border:1px solid var(--hub-line);background:var(--hub-field);color:var(--hub-text);border-radius:12px;padding:15px;margin-top:14px;overflow-wrap:anywhere}
+body.terra .call-entry strong{font-size:13px;color:var(--hub-text)}
+body.terra .call-entry small{color:var(--hub-muted);font-size:10px}
+body.terra .call-entry p{color:var(--hub-muted);font-size:12px;line-height:1.6}
+body.terra .call-copy-link{font-size:10px;color:var(--hub-accent);background:none;border:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.terra .call-badge{font-size:10px;border-radius:6px;padding:4px 8px}
+.terra .call-pending{background:#b28a4020;color:#96712c}.terra .call-done{background:#447b5520;color:#447b55}.terra .call-rejected,.terra .call-returned{background:#af665520;color:#af6655}
+body.terra .call-entry .call-reason{color:#b36d54}
+body.terra #tab-shift>.terra-shift-extra{grid-column:2/4;grid-row:auto}
+body.terra #braveIntro{grid-column:1/-1}
+body.terra :is(.hub-work-dialog,.profile-card,dialog:not(.hub-comic):not(.cinema-room):not(.hub-assistance)){background:var(--hub-panel);color:var(--hub-text);border:1px solid var(--hub-line);border-radius:18px;box-shadow:0 24px 90px #14271e45}
+body.terra .hub-work-dialog{padding:25px;max-height:calc(100vh - 36px);width:min(600px,calc(100vw - 36px));overflow:auto}
+body.terra .hub-work-dialog::backdrop{background:#10261980;backdrop-filter:none}
+body.terra .hub-work-dialog .card{padding:10px 0 0!important;background:transparent!important;border:0!important;box-shadow:none}
+.terra .hub-work-close{color:var(--hub-muted);background:var(--hub-raised);border:1px solid var(--hub-line);border-radius:50%;width:30px;height:30px;top:15px;right:15px}
+body.terra .hub-work-dialog label{color:var(--hub-muted)}
+body.terra .hub-work-dialog h3{padding-right:30px;color:var(--hub-text)}
+body.terra .hub-work-dialog textarea{min-height:120px}
+body.terra .auth-screen{background:radial-gradient(ellipse at 80% 20%,#b9ccb844,transparent 60%),var(--hub-bg)}
+body.terra .auth-box{box-shadow:0 20px 70px #263d3215;border-color:var(--hub-line);border-radius:22px}
+body.terra .auth-box:before{background:#345746;color:#e3e7d3;content:'S';box-shadow:none}
+body.terra .auth-box button{background:#345746;color:white}
+.terra .auth-error{overflow-wrap:anywhere}
+body.terra #tab-exchanges .exchange-hero{background:none!important;padding:0!important;min-height:0;border:0}
+body.terra #tab-exchanges .exchange-hero h2{color:var(--hub-text)!important;font-size:31px;letter-spacing:-1px}
+body.terra #tab-exchanges .exchange-hero p{color:var(--hub-muted)!important;font-size:13px}
+body.terra #tab-exchanges .exchange-search-row{max-width:900px;margin:25px auto 17px;width:100%}
+body.terra #tab-exchanges .exchange-search-row input{background:var(--hub-panel)!important;font-size:20px;padding:17px 20px;border-color:#a6b49e!important}
+body.terra .exchange-filter.active{background:#345746!important;color:#f4f4e5!important}
+body.terra #tab-exchanges .exchange-grid{gap:15px}
+body.terra #tab-exchanges .exchange-card{width:min(900px,100%);padding:28px;border-radius:18px;background:var(--hub-panel)!important}
+body.terra #tab-exchanges .exchange-card header{justify-content:flex-start}
+body.terra #tab-exchanges .exchange-card h3{font-size:27px}
+body.terra #tab-exchanges .exchange-logo{width:58px;height:58px;border-radius:13px;background:var(--hub-raised)}
+body.terra #tab-exchanges .exchange-badge{margin:22px 0 18px;width:100%;padding:18px 20px;border-radius:12px;font-size:27px;text-align:left}
+body.terra #tab-exchanges .exchange-condition{text-align:left;font-size:14px;color:var(--hub-text);max-height:none}
+body.terra #tab-exchanges .exchange-card footer{justify-content:space-between;border-top:1px solid var(--hub-line);margin-top:20px;padding-top:17px}
+body.terra #tab-exchanges .exchange-prompt{color:var(--hub-muted);padding:45px 20px;font-size:13px}
+body.terra #tab-exchanges .exchange-choice{background:var(--hub-panel);color:var(--hub-text);border-color:var(--hub-line);width:min(900px,100%)}
+body.terra .exchange-choice small{color:var(--hub-muted)!important}
+body.terra :is(.admin-section,.exchange-col,.team-column){padding:20px}
+body.terra .admin-stats-table th{background:var(--hub-raised);color:var(--hub-muted);border-color:var(--hub-line)}
+body.terra .admin-stats-table td{background:var(--hub-panel);color:var(--hub-text);border-color:var(--hub-line);padding:12px}
+body.terra :is(.task-item,.feed-item,.admin-user-row,.admin-event-item){padding:16px;border-radius:12px;border-color:var(--hub-line)}
+body.terra :is(.chat-online-panel,.chat-input-row,#pmDialogs){background:var(--hub-field)!important;border-color:var(--hub-line)!important}
+body.terra :is(.chat-message,.pm-message,.support-message,.office-device,.office-match){border-color:var(--hub-line);border-radius:12px}
+body.terra .chat-card{border:1px solid var(--hub-line);border-radius:18px}
+body.terra #tab-notes .card{padding:28px!important}
+body.terra #userNotes{background:var(--hub-field)!important;border-color:var(--hub-line)!important;font-size:14px;line-height:1.9}
+body.terra #swipeCard{background:var(--hub-panel)!important;border-color:var(--hub-line)!important;color:var(--hub-text)!important;box-shadow:0 18px 50px #263d3212!important}
+body.terra :is(#tab-tops,#tab-tlpanel,#tab-radio,#tab-hq,#tab-support,#tab-feed,#tab-tasks){color:var(--hub-text)}
+body.terra #tab-casino{--casino-gold:#c6ac69;--casino-violet:#a5c8ad;background:var(--hub-bg)}
+body.terra .casino-hero{background:linear-gradient(120deg,#264737,#41614a);border-color:#789471;color:#f5efd9;min-height:245px;padding:28px 36px}
+body.terra .casino-hero h2{font-size:48px}.terra .casino-hero p{color:#d1debe}
+body.terra .casino-chip{background:#49644a}.terra .casino-diamond{color:#b6cfb1;filter:none}
+body.terra .casino-room-btn{background:var(--hub-panel)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important;box-shadow:0 6px 18px #33432c06!important}
+body.terra .casino-room-btn span{color:var(--hub-text)!important}
+body.terra .casino-room-btn small,body.terra .casino-gameArrow{color:var(--hub-muted)!important}
+body.terra .casino-room-btn:hover{transform:translateY(-2px);border-color:#92a287!important}
+body.terra #tab-casino .casino-room{background:#243e30!important;border:1px solid #76926b;color:#f1eddb;border-radius:18px;box-shadow:none}
+body.terra #tab-casino .casino-room h4{color:#f3efd9!important}
+body.terra #tab-casino .casino-room .msg{color:#e4dfbd}
+body.terra #tab-casino .casino-room input{background:#1a3025!important;color:#edf2df!important;border-color:#6e876b!important}
+body.terra #tab-casino .casino-room .template-btn{background:#3b5941!important;border-color:#789275!important;color:#edf0d9!important}
+body.terra #casinoSplash::before{background:linear-gradient(130deg,#243d30,#5a7054)!important}
+body.terra #casinoSpinBtn{background:linear-gradient(120deg,#e5dfa8,#bfb474)!important;color:#263d2d!important;box-shadow:0 4px 0 #7d7b4c!important}
+body.terra #tab-radio .card{max-width:1300px;margin:0 auto}
+body.terra :is(.radio-widget,.radio-track,.radio-upload-dialog){background:var(--hub-panel)!important;border-color:var(--hub-line)!important;color:var(--hub-text)!important;box-shadow:none}
+body.terra :is(.radio-widget button,.media-volume button){background:var(--hub-raised);color:var(--hub-text);border-color:var(--hub-line)}
+body.terra :is(.radio-widget small,.radio-track small){color:var(--hub-muted)}
+body.terra .media-volume output{color:var(--hub-text)}
+body.terra .cinema-room{background:#111d17;color:#edf0df}
+body.terra .cinema-room :is(.cin-chat,.cin-host,.cin-toolbar,.cin-footer){background:#24372a;border-color:#52674c;color:#edf0df}
+body.terra .cinema-room button{border-radius:9px}
+body.terra .cinema-room .cin-poster{background:radial-gradient(ellipse at top,#486246,#192b1e);color:#e8e4c2}
+body.terra .cinema-room.cinema-vip{background:#1b261c}
+body.terra #tab-battleship .bs-board{border-color:#80977c;box-shadow:none;border-radius:12px}
+body.terra #tab-battleship .bs-cell{border-color:#5c775c}
+body.terra #tab-voxel{padding:0!important}
+body.terra #tab-voxel :is(.vx-lobby,.vx-panel,.vx-inventory){background:#263d30;border-color:#809a79;color:#f0eddc}
+body.terra #tab-cs16 .cs16-lobby{background:var(--hub-bg)!important;padding:27px 38px 105px!important;color:var(--hub-text)!important}
+body.terra #tab-cs16 .cs16-lobby>div>div:first-child{color:var(--hub-text)!important}
+body.terra #tab-cs16 .cs16-lobby>div>div:first-child span{color:var(--hub-muted)!important}
+body.terra #tab-cs16 :is(.cs16-teamCards>div,.cs16-matchControls,.cs16-character-preview){background:var(--hub-panel)!important;border-color:var(--hub-line)!important;border-radius:16px!important;box-shadow:none}
+body.terra #tab-cs16 .cs16-lobby button{border-radius:8px;min-height:34px}
+body.terra #tab-cs16 :is(.cs16-character-card,.cs16-pet-choice,.cs16-class-choice){border-radius:12px!important;border-color:var(--hub-line)!important}
+body.terra #tab-cs16 .cs16-hostStatus{color:var(--hub-muted)}
+body.terra #tab-cs16 .cs16-spectator{background:var(--hub-panel)!important;border-color:var(--hub-line)!important;color:var(--hub-text)!important}
+body.terra #tab-cs16 :is(.cs16-topBar,.cs16-scoreT,.cs16-scoreCT){background:#233c2bd9!important;border-color:#cbd2ae5c!important;color:#f3f0dc!important;border-radius:9px!important;box-shadow:none!important}
+body.terra #tab-cs16 .cs16-radar{border:2px solid #d7d7b787!important;box-shadow:0 4px 16px #0003!important}
+body.terra #tab-cs16 .cs16-hp{background:#233c2bc9!important;border:1px solid #bdcba34d;border-left:3px solid #d2daa5;border-radius:12px;padding:12px 17px!important;color:#f1f1e0!important;font:500 34px/1.2 'Segoe UI',sans-serif!important}
+body.terra #tab-cs16 .cs16-ap{color:#d2daa5!important;font-size:18px!important}
+body.terra #tab-cs16 .cs16-ammo{background:linear-gradient(270deg,#233c2be0,transparent)!important;border:0;border-bottom:2px solid #d7d3a9;padding:8px 14px!important;border-radius:8px 8px 0 0;font-size:42px!important;color:#f5f4e7!important}
+body.terra #tab-cs16 .cs16-killfeed>div{background:#233c2bc9;border-color:#c3d4ab;border-radius:7px}
+body.terra #tab-cs16 :is(.cs16-buy,.cs16-esc){background:#10201580!important;backdrop-filter:none!important}
+body.terra #tab-cs16 :is(.cs16-buy>div,.cs16-esc>div,.cs16-scoreboard){background:#243c2ff2!important;border:1px solid #8a9c77!important;border-radius:16px!important;color:#eeefdc!important;box-shadow:0 20px 60px #0004}
+body.terra #tab-cs16 .cs16-loading{background:radial-gradient(ellipse at 70% 20%,#49614c,#1c3024 75%);color:#f0efd7}
+body.terra #tab-cs16 .cs16-crosshair:before{background:#f1ecca;box-shadow:12px 0 #f1ecca}
+body.terra #tab-cs16 .cs16-crosshair:after{background:#f1ecca;box-shadow:0 12px #f1ecca}
+body.terra:has(.cs16-fullscreen) .terra-dock,body.terra:has(.vx-fullscreen) .terra-dock{display:none}
+body.terra :is(.hub-comic,.hub-assistance){color-scheme:dark}
+body.terra :is(.hub-comic,.hub-assistance) :is(input,select,textarea){background:#17231d!important;color:#eef1e1!important}
+body.terra .update-banner{background:#dfe6cc;color:#34503a;border-color:#7f956c}
+body.terra button{transition:background-color .13s,border-color .13s,transform .13s}
+body.terra .content.active{animation:none}
+@media(min-width:1550px){body.terra .content{padding-left:max(38px,calc((100vw - 1500px)/2));padding-right:max(38px,calc((100vw - 1500px)/2))}}
+@media(max-width:1100px){body.terra .hub-header{padding:18px 23px;min-height:90px}.terra .hub-heading h1{font-size:25px}body.terra .content{padding:22px 23px 100px}body.terra #tab-shift.active{grid-template-columns:minmax(265px,.85fr) minmax(350px,1.3fr);gap:17px}body.terra #tab-shift .terra-shift-card{grid-column:1;grid-row:1/3}body.terra #teamLogFeed{grid-column:2;grid-row:1}body.terra #tab-shift .my-calls-panel{grid-column:2;grid-row:2}body.terra #tab-shift>.terra-shift-extra{grid-column:1/-1}.terra-dock button{padding:10px 11px;font-size:11px}.terra .hub-date{display:none}}
+@media(max-width:720px){body.terra .hub-header{padding:14px;gap:10px;flex-wrap:wrap}.terra .hub-heading h1{font-size:23px}.terra .hub-heading p{display:none}.terra .hub-tools{gap:5px}.terra .hub-eyebrow{display:none}body.terra .content{padding:16px 14px 94px}body.terra #tab-shift.active{grid-template-columns:1fr}body.terra #tab-shift>.terra-shift-card,body.terra #teamLogFeed,body.terra #tab-shift .my-calls-panel,body.terra #tab-shift>.terra-shift-extra{grid-column:1;grid-row:auto}body.terra .terra-shift-card #timerDisplay{font-size:44px}.terra-dock{bottom:10px!important;padding:7px!important;gap:2px!important;max-width:calc(100vw - 20px)!important}.terra-dock button{padding:9px 10px}.terra-dock button span{display:none}.terra-dock .hub-nav-art{width:21px;height:21px}.terra .terra-dock button{min-width:41px}.terra .casino-art{display:none}body.terra .exchange-card{padding:20px!important}.terra .exchange-hero h2{font-size:25px!important}.terra .exchange-search-row{flex-wrap:wrap}.terra .exchange-search-row input{width:100%}}
+@media(prefers-reduced-motion:reduce){body.terra *,body.terra *:before,body.terra *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* Shared media and native controls use the same palette as the workspace. */
+body.terra{--hub-surface:var(--hub-raised)}
+body.terra .terra-shift-card h3{color:#f4f2e6!important;font-size:14px!important;letter-spacing:1.6px!important}
+body.terra .terra-tool-grid button{font-size:12px}
+body.terra #hubRadio .hub-volume{background:var(--hub-raised);color:var(--hub-text);border-color:var(--hub-line)}
+body.terra #hubRadio .hub-volume [data-mute]{color:var(--hub-accent)!important}
+body.terra #hubRadio .hub-volume button:hover{background:var(--hub-line)}
+body.terra #hubRadio #radioLights{color:#7e956c}
+body.terra .hub-tool,body.terra .hub-menuToggle{background:var(--hub-panel)!important;color:var(--hub-text)!important}
+body.terra :is(.radio-controls button,#radioQueue button,#radioLibrary button,.cin-bar-actions button,#radioUploadClose){border:1px solid var(--hub-line);border-radius:9px;padding:9px 13px;background:var(--hub-raised);color:var(--hub-text)}
+body.terra .radio-upload-picker{color:var(--hub-accent)}
+body.terra input::file-selector-button{border:0;border-radius:6px;padding:7px 11px;background:#345746;color:#fffdf2;margin-right:10px;cursor:pointer}
+body.terra #hubCinema:not(.cin-vip){background:#14281e;color:#efefdf;border-color:#6e8563}
+body.terra #hubCinema:not(.cin-vip)>header{color:#d8d7ae;border-color:#53674c}
+body.terra #hubCinema:not(.cin-vip) :is(aside,#cinHost,#cinTestPanel){background:#263d2c;border-color:#526749}
+body.terra #hubCinema:not(.cin-vip) :is(button,input,select){background:#344c37!important;color:#f2f0dd!important;border-color:#6e8260!important}
+body.terra #hubCinema:not(.cin-vip) .cin-marquee{background:radial-gradient(ellipse at top,#637449,#243a29 75%);border-color:#acb88b;color:#f4f0d5}
+body.terra #hubCinema:not(.cin-vip) .cin-marquee small,body.terra #hubCinema:not(.cin-vip) #cinMessages b{color:#d6dbad}
+body.terra #hubCinema:not(.cin-vip) .cin-voice{border-color:#637858}
+body.terra #hubCinema:not(.cin-vip) .cin-voice small{color:#c3d1b8}
+body.terra .cin-drink-settings label{color:var(--hub-text)}
+body.terra #support-chat-toggle{background:#345746;border-color:#82987b;box-shadow:0 5px 18px #20362524;font-size:12px}
+body.terra .exchange-hero{border:0!important}
+body.terra:not(.light) .call-badge.call-pending{color:#ead6a2;background:#6d5e344d}
+body.terra.cs16-fullscreen .terra-dock,body.terra.vx-fullscreen .terra-dock{display:none}
+@media(max-width:1200px){body.terra #support-chat-toggle{bottom:91px;padding:10px 14px}body.terra #support-chat-panel{bottom:142px;max-height:calc(100vh - 165px)}}
+body.terra #tab-cs16 .cs16-character-panel{background:var(--hub-panel);border-color:var(--hub-line);color:var(--hub-text);padding:22px;border-radius:18px}
+body.terra #tab-cs16 .cs16-character-panel p{color:var(--hub-muted)}
+body.terra #tab-cs16 :is(.cs16-character,.cs16-pet-choice){background:var(--hub-raised);color:var(--hub-text);border-color:var(--hub-line);box-shadow:none}
+body.terra #tab-cs16 :is(.cs16-character,.cs16-pet-choice) small{color:var(--hub-muted)}
+body.terra #tab-cs16 :is(.cs16-character,.cs16-pet-choice).selected{border-color:#688c60;box-shadow:inset 0 -3px #688c60;background:var(--hub-soft)}
+body.terra #tab-cs16 .cs16-character img{height:105px;filter:drop-shadow(0 5px 6px #1b32221c)}
+body.terra #tab-cs16 .cs16-pet-choice img{height:70px;filter:none}
+body.terra #tab-cs16 .cs16-character-grid{grid-template-columns:repeat(5,minmax(105px,1fr))!important;max-height:235px;overflow:auto;padding:0 5px 7px 0;margin-bottom:17px}
+body.terra #tab-cs16 .cs16-magic-bar>div{background:#21382ce6;backdrop-filter:none}
+body.terra #tab-cs16 .royale-entry{background:linear-gradient(100deg,#234634,#677e57);border-color:#adb58b}
+body.terra #tab-cs16 :is(.cs16-character-panel h3,.cs16-pet-grid strong){color:var(--hub-text)}
+@media(max-width:720px){body.terra #tab-cs16 .cs16-character-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}body.terra #tab-cs16 .cs16-lobby{padding:18px 14px 100px!important}}
+

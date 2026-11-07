@@ -47,9 +47,11 @@
         fast = fps > 58 ? fast + 1 : 0;
         const i = levels.indexOf(quality);
         let target = i;
-        if (slow >= 2) target = Math.max(0, i - 1);
+        // Sustained severe overload should not wait two windows or an upgrade cooldown.
+        const severe = fps < 27;
+        if (severe || slow >= 2) target = Math.max(0, i - 1);
         else if (fast >= 6) target = Math.min(2, i + 1);
-        if (target !== i && !cooldown) {
+        if (target !== i && (!cooldown || severe && target < i)) {
           quality = levels[target];
           cooldown = 24000;
           slow = fast = 0;

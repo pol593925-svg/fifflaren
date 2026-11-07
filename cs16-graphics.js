@@ -36,7 +36,7 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.02;
+    renderer.toneMappingExposure = 0.98;
     renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
@@ -180,16 +180,16 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xd8d4ca : 0xe1d6c5, 245, 910);
 
-    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x738459, 0.86);
+    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x8b795e, 0.74);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffe2b7, 2.22);
+    const sun = new T.DirectionalLight(0xffe8c5, 2.65);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
-    Object.assign(sun.shadow.camera, { left: -65, right: 65, top: 65, bottom: -65, near: 1, far: 460 });
+    Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 460 });
     sun.shadow.camera.updateProjectionMatrix();
     sun.shadow.bias = -0.0006;
-    sun.shadow.normalBias = 0.08;
+    sun.shadow.normalBias = 0.035;
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
@@ -245,7 +245,7 @@
       if(landscape)landscape.update(activeCamera,typeof time==='number'?time:performance.now(),renderer.userData.cs16Quality);
       groundPoint.set(activeCamera.position.x, 0, activeCamera.position.z);
       // Quantize in LIGHT coordinates to stop shadows swimming as the player walks.
-      const texel = 130 / quality.shadow;
+      const texel = 84 / quality.shadow;
       const rx = Math.round(groundPoint.dot(lightRight) / texel) * texel;
       const ry = Math.round(groundPoint.dot(lightUp) / texel) * texel;
       const rz = Math.round(groundPoint.dot(sky.direction) / texel) * texel;

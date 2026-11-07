@@ -2,12 +2,13 @@
   "format": 1,
   "maps": {
     "dust2": {
+      "layoutSource": "cs16.js MAP_ROWS",
       "file": "dust2.glb",
-      "bytes": 52373276,
+      "bytes": 51641944,
       "triangles": 370435,
       "meshBatches": 66,
       "materials": 17,
-      "textureImages": 52,
+      "textureImages": 61,
       "layoutSha256": "ad1b2479bf96a400bc6b3566334163d65442098d411b485733eadbf2d7746f21",
       "cellCounts": {
         "#": 6786,
@@ -4260,12 +4261,13 @@
       "sourceBlend": "dust2.blend"
     },
     "inferno": {
+      "layoutSource": "cs16.js MAP_ROWS",
       "file": "inferno.glb",
-      "bytes": 42044552,
+      "bytes": 41304996,
       "triangles": 275265,
       "meshBatches": 70,
       "materials": 17,
-      "textureImages": 52,
+      "textureImages": 61,
       "layoutSha256": "8079fe05a4f9d3c9bec8a8034103c03fc84cdc95d4fce142e9116703da86cc40",
       "cellCounts": {
         "#": 7820,

@@ -925,6 +925,10 @@
     if (!renderer3) return;
     if(royaleActive)return;
     const w = canvasEl.clientWidth || 800, h = canvasEl.clientHeight || 500;
+    // Bound physical render pixels on 4K screens; HUD stays at native CSS resolution.
+    const budget={low:1280*720,balanced:1920*1080,high:2560*1440}[graphicsQuality]||1920*1080;
+    const maxDpr={low:.78,balanced:1,high:1.5}[graphicsQuality]||1;
+    renderer3.setPixelRatio(Math.min(window.devicePixelRatio||1,maxDpr,Math.sqrt(budget/(w*h))));
     renderer3.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();

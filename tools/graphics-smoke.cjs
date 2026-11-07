@@ -7,7 +7,7 @@ const root = process.env.GRAPHICS_REPO || path.resolve(__dirname, '..');
 const outputs = process.env.GRAPHICS_OUTPUT || path.resolve(root, 'graphics-qa');
 fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
-const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><div id="tab-cs16"></div><script>
+const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><link rel="stylesheet" href="/terra.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><body class="terra light"><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
 </script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
@@ -16,13 +16,9 @@ window.__qa={
  fieldScene:${require('./field-scene-check.cjs').toString()},
  presentationPreview:()=>{
   state.phase='lobby';ui.lobby.style.display='none';ui.canvas.style.display='block';ui.hud.style.display='none';resize3();
-  let spot;for(let z=14;z<MH-14&&!spot;z++)for(let x=14;x<MW-14;x++){
-   if(grid[z][x]!==1||grid[z][x-1]!==0||grid[z+1][x]!==0||grid[z][x+1]!==1||grid[z-1][x]!==1)continue;
-   if(grid[z+3][x-2]===0&&grid[z+2][x-1]===0){spot={x:x*4,z:(z+1)*4};break;}
-  }
-  if(!spot)throw Error('No facade preview fixture');
-  P.x=spot.x-7;P.z=spot.z+10;P.y=0;P.yaw=Math.atan2(-14,18);P.pitch=0;
-  camera.position.set(P.x,1.75,P.z);camera.lookAt(spot.x+7,2.1,spot.z-8);
+  const b=CS16Buildings.layout(grid,curMap).buildings[0],spot={x:b.x+6,z:b.z};
+  P.x=b.x+18;P.z=b.z-12;P.y=0;P.yaw=-.60;P.pitch=.02;
+  camera.position.set(P.x,1.72,P.z);camera.lookAt(spot.x,2.45,spot.z+3);
   current='awp';mySkin='neon';scoped=false;me.alive=true;me.team='ct';updateViewmodel(.016,performance.now());
   state.players=[{nick:myNick,alive:true,team:'ct',characterId:'zephyr',petId:'fox'}];
   magicView.update(.016,performance.now());for(let i=0;i<6;i++)fieldProps.update(.05,camera);

@@ -173,7 +173,7 @@ def create_materials(theme):
     material('roof', (.40,.19,.105), 'stone', .92)
     material('window_glass', (.075,.14,.16), tex=False, rough=.22, metallic=.35)
     material('dark', (.035,.045,.046), tex=False, rough=.75)
-    material('trim', (.64,.61,.51), tex=False, rough=.82)
+    material('trim', (.64,.61,.51), 'stone', rough=.87)
     material('paint', (.58,.22,.095), tex=False, rough=.9)
     material('lamp_warm', (.8,.46,.12), tex=False, emission=(1,.57,.19))
     material('lamp_green', (.12,.38,.22), tex=False, emission=(.15,.85,.40))
@@ -181,7 +181,7 @@ def create_materials(theme):
     # Photographic albedo, tangent-space normal and roughness maps, embedded
     # into the Blender/GLB deliverables. No network access occurs in the game.
     scans={'plaster':'plastered_stone_wall','plaster_light':'plastered_wall_02',
-           'limestone':'sandstone_blocks_04','ground':'cobblestone_floor_02',
+           'trim':'sandstone_blocks_04','plaster_blue':'plastered_wall_02','limestone':'sandstone_blocks_04','ground':'cobblestone_floor_02',
            'wood':'weathered_brown_planks','tunnel':'sandstone_blocks_04'}
     for name,asset in scans.items():
         mat=MATS[name];nodes=mat.node_tree.nodes;links=mat.node_tree.links;p=nodes.get('Principled BSDF')
@@ -199,12 +199,16 @@ def create_materials(theme):
                     pixels=np.empty(len(img.pixels),dtype=np.float32);img.pixels.foreach_get(pixels)
                     pixels=pixels.reshape((-1,4))
                     luma=pixels[:,:3].mean(axis=1)
-                    variation=np.clip(.58+.42*luma/max(float(luma.mean()),.001),.78,1.20)
-                    color=([.78,.70,.56] if theme=='dust2' else [.74,.54,.39]) if name=='plaster' else [.62,.55,.40]
+                    variation=np.clip(.30+.70*luma/max(float(luma.mean()),.001),.38,1.30)
+                    color=([.69,.64,.52] if theme=='dust2' else [.68,.49,.34]) if name=='plaster' else [.62,.55,.40]
                     pixels[:,:3]=np.clip(variation[:,None]*np.array(color),0,1)
                     painted=bpy.data.images.new(theme+'_'+name+'_scan',width=img.size[0],height=img.size[1],alpha=False)
                     painted.pixels.foreach_set(pixels.ravel());painted.pack();node.image=painted;TEX_IMAGES.append(painted)
-                links.new(node.outputs['Color'],p.inputs['Base Color'])
+                if name=='plaster_blue':
+                    p.inputs['Base Color'].default_value=(.56,.62,.57,1)
+                    tint=nodes.new('ShaderNodeMixRGB');tint.blend_type='MULTIPLY';tint.inputs[0].default_value=1;tint.inputs[2].default_value=(.62,.70,.64,1)
+                    links.new(node.outputs['Color'],tint.inputs[1]);links.new(tint.outputs['Color'],p.inputs['Base Color'])
+                else:links.new(node.outputs['Color'],p.inputs['Base Color'])
             elif channel=='Rough':links.new(node.outputs['Color'],p.inputs['Roughness'])
             else:
                 nm=nodes.new('ShaderNodeNormalMap');nm.inputs['Strength'].default_value=.7

@@ -112,6 +112,13 @@ assert(q.quality !== 'low');
 q.setMode('high');
 for (let i = 0; i < 1000; i++) q.sample(50);
 assert.equal(q.quality, 'high');
+const emergencyChanges=[];
+const emergency=Q.create({apply:v=>emergencyChanges.push(v),quality:'high'});
+for(let i=0;i<170;i++)emergency.sample(50);
+assert.equal(emergency.quality,'balanced');
+for(let i=0;i<90;i++)emergency.sample(50);
+assert.equal(emergency.quality,'low','Severe overload must bypass the upgrade cooldown');
+assert.deepEqual(emergencyChanges,['balanced','low']);
 const pause = Q.create({
   apply: () => {
     throw Error('Paused or loading window changed quality');

@@ -88,7 +88,8 @@
         if (!material || materials.has(material)) return;
         materials.add(material);
         if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
-          material.envMapIntensity = 0.65;
+          material.envMapIntensity = 0.40;
+          if(material.normalMap)material.normalScale.set(.85,.85);
           material.dithering = true;
         }
         // GLTFLoader already assigns sRGB to color maps and linear to data maps.
@@ -168,7 +169,7 @@
     const { renderer, scene, camera, grid } = options;
     const mapName = ['inferno','frontline'].includes(options.map)?options.map:'dust2';
     let quality = qualityOf(renderer.userData && renderer.userData.cs16Quality);
-    let disposed = false, model = null, environmentTarget = null, nature = null, landscape = null;
+    let disposed = false, model = null, environmentTarget = null, nature = null, landscape = null, bakedBuildings = false;
     let lampsTick = -Infinity;
     const CELL = options.CELL || 4;
     const group = new T.Group();
@@ -180,7 +181,7 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xd8d4ca : 0xe1d6c5, 245, 910);
 
-    const hemisphere = new T.HemisphereLight(0xc9dfff, mapName === 'inferno' ? 0x7c6651 : 0x8b795e, 0.74);
+    const hemisphere = new T.HemisphereLight(0xdce7ec, mapName === 'inferno' ? 0x7c6651 : 0x8b795e, 1.12);
     group.add(hemisphere);
     const sun = new T.DirectionalLight(0xffe8c5, 2.65);
     sun.name = 'CS16 sun';
@@ -197,7 +198,7 @@
     let photoSky=null;
     new T.TextureLoader().load('assets/royale/daylight.jpg',texture=>{
       if(disposed){texture.dispose();return;}texture.mapping=T.EquirectangularReflectionMapping;texture.colorSpace=T.SRGBColorSpace;
-      photoSky=texture;scene.background=scene.environment=texture;sky.mesh.visible=false;
+      photoSky=texture;scene.background=texture;sky.mesh.visible=false;
     });
     // Reuse the same atmosphere for metal reflections; no remote HDR dependency.
     const envScene = new T.Scene();
@@ -285,6 +286,8 @@
         throw error;
       }
       model = gltf.scene;nature=natureAsset.scene;
+      bakedBuildings=false;model.traverse(o=>{if(o.userData.coastArchitecture)bakedBuildings=true;});
+      const oldBuildings=scene.getObjectByName('Walkable two-storey buildings');if(bakedBuildings&&oldBuildings)oldBuildings.visible=false;
       model.name = 'CS16 ' + mapName + ' geometry';
       prepareMeshes(T, model, renderer, quality);
       // A map's Blender export may contain render lights/cameras; the runtime owns lighting.
@@ -327,7 +330,7 @@
     }
 
     update(camera, 0);
-    return { ready, update, dispose, setQuality, groundSurface:(x,z)=>landscape?.groundSurface(x,z)||'stone', nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
+    return { ready, update, dispose, setQuality, bakedArchitecture:()=>bakedBuildings, groundSurface:(x,z)=>landscape?.groundSurface(x,z)||'stone', nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
   }
 
   function loadOperators(THREE) {

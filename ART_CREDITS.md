@@ -24,6 +24,14 @@ Existing assets outside `models/csgo` predate this graphics update.
 
 Original Quaternius Ultimate Stylized Nature Pack (CC0): https://quaternius.com/packs/ultimatestylizednature.html . Same source models as the Evolution prototype. Oak, birch, pine, flowering bush and rock are normalized and exported by tools/blender/build_nature.py, with 512/1024px textures. models/csgo/nature.glb is the compact runtime asset; its license is included alongside it. Terrain shader, rolling ridges and grass batching are original Support Hub code.
 
+## Coast CS update 5.1.0
+
+The three menu backgrounds in `assets/cs16/menu` are original AI-generated illustrations produced for this project, inspired by the owner's Mediterranean village reference. They are menu artwork, not screenshots of the playable renderer. The rotating arsenal uses the actual game models.
+
+`tools/blender/build_coast_nature.py` replaces the earlier runtime nature pack with original olive, poplar, pine, shrub and limestone geometry. Bark and stone use the CC0 scans listed above, resized for the pooled runtime asset (under 2 MB). Historical Quaternius licensing files are retained for older assets.
+
+`tools/blender/coast_architecture.py` bakes the shared building collision layout into the map with limestone trim, shutters, tiled eaves, entry awnings, balcony coping and planters. New M4 receiver/stock/handguard, carved AK/Galil stocks and curved magazines, articulated gloves and sleeves are original Blender geometry. The holographic optic is original Three.js geometry with an open aperture.
+
 ## Каменный Берег
 
 The Battle Royale facade and street atlases are original generated artwork. The city also reuses the Poly Haven surface scans credited above. The transport plane, canopy, MP7, Vector and Bizon were modeled with the included Blender script.

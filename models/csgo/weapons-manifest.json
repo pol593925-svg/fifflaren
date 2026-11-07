@@ -23,13 +23,13 @@
     },
     {
       "file": "ak47.glb",
-      "triangles": 16264,
-      "bytes": 1644888
+      "triangles": 12592,
+      "bytes": 1556644
     },
     {
       "file": "m4a1.glb",
-      "triangles": 26188,
-      "bytes": 1667984
+      "triangles": 26408,
+      "bytes": 1684408
     },
     {
       "file": "awp.glb",
@@ -53,8 +53,8 @@
     },
     {
       "file": "galil.glb",
-      "triangles": 16264,
-      "bytes": 1644888
+      "triangles": 12592,
+      "bytes": 1556648
     },
     {
       "file": "famas.glb",
@@ -98,8 +98,8 @@
     },
     {
       "file": "hands.glb",
-      "triangles": 10032,
-      "bytes": 575500
+      "triangles": 13648,
+      "bytes": 798988
     }
   ]
 }

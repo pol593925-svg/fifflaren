@@ -38,34 +38,29 @@
     }
     box(metal, 0, 0.075, -0.05, 0.072, 0.024, 0.125);
     box(edge, 0, 0.096, -0.057, 0.046, 0.023, 0.075);
-    // Open machined housing. Both walls of the shell are visible through the lens.
-    const profile = [
-      [0.034, -0.028],
-      [0.039, -0.028],
-      [0.043, -0.03],
-      [0.044, -0.038],
-      [0.042, -0.043],
-      [0.042, -0.073],
-      [0.045, -0.077],
-      [0.045, -0.084],
-      [0.039, -0.088],
-      [0.034, -0.087],
-      [0.034, -0.028],
-    ];
-    const housing = new T.LatheGeometry(
-      profile.map(([r, z]) => new T.Vector2(r, z)),
-      36,
-    ).rotateX(Math.PI / 2);
-    part(housing, metal, 0, 0.144, 0);
-    for (const z of [-0.035, -0.077]) part(new T.TorusGeometry(0.04, 0.0058, 7, 28), metal, 0, 0.144, z);
-    for (const x of [-0.039, 0.039]) box(metal, x, 0.143, -0.056, 0.008, 0.023, 0.046);
+    // Beveled rectangular holographic hood with a real open aperture, not a solid tube.
+    function rounded(w,h,r) {
+      const s=new T.Shape(),x=-w/2,y=-h/2;
+      s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);
+      s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+      s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);
+      s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s;
+    }
+    const hood=rounded(.104,.092,.015),opening=rounded(.080,.068,.009);
+    hood.holes.push(new T.Path(opening.getPoints(6).reverse()));
+    const housing=new T.ExtrudeGeometry(hood,{depth:.047,steps:1,curveSegments:6,bevelEnabled:true,bevelSegments:2,bevelSize:.0015,bevelThickness:.0015});
+    part(housing,metal,0,.144,-.085);
+    for (const x of [-.045,.045]) {
+      box(metal,x,.103,-.057,.013,.018,.080);
+      for(const z of [-.034,-.079])part(new T.CylinderGeometry(.003,.003,.002,8).rotateZ(Math.PI/2),edge,x*1.17,.107,z);
+    }
     box(edge, -0.026, 0.069, -0.045, 0.014, 0.018, 0.09);
     box(edge, 0.026, 0.069, -0.045, 0.014, 0.018, 0.09);
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI) / 4;
       box(edge, 0.053, 0.137 + Math.cos(a) * 0.014, -0.057 + Math.sin(a) * 0.014, 0.007, 0.004, 0.004);
     }
-    part(new T.CircleGeometry(0.036, 24), glass, 0, 0.144, -0.071).name='fieldLens';
+    part(new T.ShapeGeometry(opening,6), glass, 0, 0.144, -0.071).name='fieldLens';
     part(new T.CylinderGeometry(0.016, 0.016, 0.012, 12).rotateZ(Math.PI / 2), edge, 0.048, 0.137, -0.057);
     const reticle = part(new T.CircleGeometry(0.00125, 10), dot, 0, 0.144, -0.031);
     reticle.name = 'fieldReticle';
@@ -102,9 +97,9 @@
       x = rail?.[0] || 0,
       y = rail?.[1] ?? 0.063;
     right.set(
-      0.24 * (1 - a) - x * a,
-      -0.245 * (1 - a) - (hasOptic ? y + 0.081 : y + 0.012) * a,
-      -0.72 + 0.247 * a,
+      0.20 * (1 - a) - x * a,
+      -0.22 * (1 - a) - (hasOptic ? y + 0.081 : y + 0.012) * a,
+      -0.42 - 0.053 * a,
     );
   }
   function bearing(yaw) {

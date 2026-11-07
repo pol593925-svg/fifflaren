@@ -894,7 +894,7 @@
       // Attach rejection handling before any synchronous scene construction can fail.
       const assets = Promise.all([active.ready.then(() => progress('Подготовка моделей и материалов…')), loadCombatArt()]);
       assets.catch(() => {});
-      buildingGraphics = CS16Buildings.create(THREE,scene,grid,curMap);
+      // Architecture is already batched in the new GLB; create the legacy fallback only if needed.
       environmentView=CS16EnvironmentView.create({T:THREE,scene,grid,map:curMap,hud:ui.hud,getPlayer:()=>P,getActive:()=>state.phase==='live'&&me.alive&&!myVeh?.inside,getQuality:()=>graphicsQuality});
       fieldEffects=CS16FieldEffects.create(THREE,scene,grid,()=>graphicsQuality,debrisFloor);
       fieldProps = CS16Props.create(THREE,scene,grid,curMap);
@@ -902,6 +902,7 @@
       buildRadarBase(); resize3();
       await Promise.race([assets, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Загрузка превысила 90 секунд. Закрой лишние приложения и повтори.')), 90000); })]);
       if(epoch !== worldLoadEpoch)return;
+      if(!active.bakedArchitecture())buildingGraphics=CS16Buildings.create(THREE,scene,grid,curMap);
       fieldProps?.applyNature(active.nature(),graphicsQuality);
       buildingGraphics?.applyMaterials(name=>active.surface(name));environmentView?.applyMaterials(name=>active.surface(name));
       applyFront();frontView.sync(true);
@@ -1317,7 +1318,7 @@
     try {
       const r = await fetch(`${SERVER}/api/cs16/skins?username=${encodeURIComponent(myNick)}`);
       const d = await r.json();
-      if (d.success) { skinsBalance = d.balance; skinsOwned = d.owned || []; mySkin = d.equipped || ''; refreshSkinsPanel(); refreshViewmodelSkin(); }
+      if (d.success) { skinsBalance = d.balance; skinsOwned = d.owned || []; mySkin = d.equipped || ''; refreshSkinsPanel(); refreshViewmodelSkin(); window.CS16Menu?.refresh(); }
     } catch (e) {}
   }
   function refreshSkinsPanel() {
@@ -1377,6 +1378,7 @@
   let royaleActive=false;
   function enterRoyale(){
     if(royaleActive||!window.HubRoyale||!renderer3)return;
+    window.CS16Menu?.stop();
     royaleActive=true;++worldLoadEpoch;worldReady=false;
     if(sock){sock.emit('cs16_leave');sock.removeAllListeners();sock.disconnect();sock=null;}
     joined=false;for(const key of Object.keys(keys))keys[key]=false;
@@ -1387,6 +1389,7 @@
     }});
   }
   function renderLobby() {
+    window.CS16Menu?.capture(ui.lobby);
     if(royaleActive)return;
     const inMatch = state.phase !== 'lobby';
     const isFiff = myNick.toLowerCase() === 'fifflaren';
@@ -1496,6 +1499,7 @@
     };
     refreshSkinsPanel();
     const lobbyContent=ui.lobby.firstElementChild;classChoices(lobbyContent);const choices=lobbyContent.querySelector('.cs16-class-panel');if(choices)lobbyContent.insertBefore(choices,lobbyContent.children[1]);
+    window.CS16Menu?.mount(ui.lobby,{state,nick:myNick,map:mapName,mode:gmName,character:chosenCharacter,weapons:WEAPONS,quality:ui.quality,hasGun:id=>!!glbCache[id]?.model,gun:id=>buildGun(id,mySkin,1),disposeGun});
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -1535,6 +1539,7 @@
       // 3.24.0: смена карты — пересобираем мир
       if (s.map && s.map !== curMap && typeof rebuildWorld === 'function') rebuildWorld(s.map);
       if (s.phase === 'lobby'||!my?.team) { renderLobby(); return; }
+      window.CS16Menu?.stop();
       ui.lobby.style.display = 'none';
       ui.canvas.style.display = 'block';
       ui.hud.style.display = 'block';

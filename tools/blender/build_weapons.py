@@ -59,6 +59,30 @@ def cyl(name,pos,radius,length,mat,parent,axis='z',vertices=24):
     for p in o.data.polygons:p.use_smooth=True
     return o
 
+def receiver_profile(name, outline, width, mat, parent):
+    verts=[(x,y,z) for x in (-width/2,width/2) for z,y in outline];n=len(outline)
+    faces=[tuple(reversed(range(n))),tuple(range(n,2*n))]+[(i,(i+1)%n,(i+1)%n+n,i+n) for i in range(n)]
+    ob=a.mesh(name,verts,faces,mat,parent)
+    bpy.context.view_layer.objects.active=ob
+    bevel=ob.modifiers.new('Forged edge bevel','BEVEL');bevel.width=.003;bevel.segments=3
+    bpy.ops.object.modifier_apply(modifier=bevel.name)
+    weighted=ob.modifiers.new('Machined normals','WEIGHTED_NORMAL');weighted.keep_sharp=True
+    bpy.ops.object.modifier_apply(modifier=weighted.name)
+    return ob
+
+def open_handguard(parent, mat):
+    verts=[];faces=[]
+    for k in range(18):
+        za=-.335+k*.011;zb=za+.011
+        for j in range(8):
+            if j not in (1,2,5,6) and k%5 in (1,2,3):continue
+            aa=j*math.tau/8+math.pi/8;bb=(j+1)*math.tau/8+math.pi/8
+            n=len(verts)
+            for z,ang in [(za,aa),(zb,aa),(zb,bb),(za,bb)]:verts.append((math.cos(ang)*.043,.021+math.sin(ang)*.043,z))
+            faces.append((n,n+1,n+2,n+3))
+    ob=a.mesh('Ventilated octagonal fore-end',verts,faces,mat,parent)
+    ob.data.materials[0].use_backface_culling=False
+
 def build(kind):
     root=a.empty(kind);p=a.empty('weapon',parent=root)
     steel=metal('Parkerized steel',(.095,.11,.12),.4)
@@ -128,7 +152,9 @@ def build(kind):
     else:
         length=.68 if sniper else .40 if smg else .53
         receiver_len=.36 if bullpup else .29 if sniper else .23
-        a.box('Receiver',(0,.005,-.04),(.075,.10,receiver_len),bodymat,p,.009)
+        if kind=='m4a1':
+            receiver_profile('Forged M4 lower receiver',[(-.156,.042),(.065,.042),(.068,-.014),(.036,-.033),(.022,-.052),(-.037,-.052),(-.061,-.036),(-.082,-.084),(-.148,-.084)],.068,bodymat,p)
+        else:a.box('Receiver',(0,.005,-.04),(.075,.10,receiver_len),bodymat,p,.009)
         cyl('Upper receiver',(0,.052,-.065),.038,receiver_len,bodymat,p)
         a.box('Ejection chamber',(.039,.035,-.065),(.002,.037,.095),black,p,.002)
         cyl('Bolt carrier',(.041,.04,-.075),.008,.07,edge,p)
@@ -140,7 +166,9 @@ def build(kind):
         cyl('Dark barrel bore',(0,.035,-length*.80-.125),.010,.002,black,p)
         for z in (-length*.80-.09,-length*.80-.11):cyl('Brake ring',(0,.035,z),.022,.005,black,p)
         fore_z=-.235
-        a.box('Fore-end',(0,.015,fore_z),(.078,.075,.18),painted_wood if ak else bodymat,p,.008)
+        if kind=='m4a1':open_handguard(p,bodymat)
+        elif ak:receiver_profile('Sculpted laminate fore-end',[(-.326,.041),(-.15,.044),(-.14,.005),(-.168,-.026),(-.30,-.023),(-.331,-.008)],.078,painted_wood,p)
+        else:a.box('Fore-end',(0,.015,fore_z),(.078,.075,.18),bodymat,p,.008)
         if kind in ('mp5','ump45'):
             cyl('SMG handguard',(0,.025,-.24),.048,.17,black,p)
             if kind=='ump45':a.box('UMP polymer lower',(0,-.035,-.08),(.078,.09,.24),painted_black,p,.01)
@@ -164,6 +192,11 @@ def build(kind):
         # Magazine silhouette with panel grooves.
         if kind=='m249':a.box('Ammunition box',(0,-.15,-.10),(.16,.19,.19),green,p,.012)
         elif kind=='p90':a.box('Horizontal magazine',(0,.09,-.18),(.065,.055,.27),black,p,.006)
+        elif ak:
+            receiver_profile('Pressed curved AK magazine',[(-.145,-.060),(-.071,-.060),(-.081,-.140),(-.105,-.218),(-.141,-.277),(-.217,-.246),(-.188,-.195),(-.159,-.128)],.046,steel,p)
+            for side in [-1,1]:
+                for offset in [-.008,.012,.030]:
+                    a.line('Magazine stamped rib',[(side*.024,-.083,-.130+offset),(side*.024,-.151,-.142+offset),(side*.024,-.211,-.170+offset),(side*.024,-.247,-.195+offset)],.0028,steel,p)
         else:
             for i in range(6):
                 yy=-.07-i*.029; zz=(.15 if bullpup else -.105)-(i*i*.002 if ak else i*.0015)
@@ -189,8 +222,12 @@ def build(kind):
                     a.box('Handguard rail lug',(x*1.18,.024,-.295+i*.017),(.008,.040,.007),edge,p,.001)
                 for z in [-.121,.036]:cyl('Lower pin',(x,.013,z),.0048,.009,edge,p,'x',10)
             for i in range(10):a.box('Receiver rail tooth',(0,.086,-.12+i*.017),(.052,.009,.008),edge,p,.001)
+        elif ak:
+            receiver_profile('Carved walnut shoulder stock',[(.095,.030),(.155,.038),(.221,.035),(.345,.005),(.349,-.117),(.312,-.125),(.197,-.063),(.150,-.018),(.102,-.014)],.060,painted_wood,p)
+            a.line('Curved recoil pad',[(0,.004,.350),(0,-.055,.355),(0,-.117,.349)],.030,black,p)
+            cyl('Sling attachment',(-.033,-.056,.280),.009,.004,steel,p,'x',12)
         else:
-            a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),painted_wood if ak else painted_black,p,.012)
+            a.box('Shoulder stock',(0,.002,.24),(.085 if bullpup else .058,.15 if bullpup else .115,.14 if bullpup else .20),painted_black,p,.012)
             a.box('Butt pad',(0,-.005,.346),(.066,.13,.018),black,p,.004)
             a.box('Cheek rest',(0,.065,.24),(.064,.025,.17),painted_wood if ak else painted_black,p,.006)
             for z in (.16,.20,.24,.28):a.box('Stock texture',(.03,.015,z),(.001,.048,.012),steel,p,.001)
@@ -254,15 +291,15 @@ def build(kind):
 def hands():
     """Palm roots are the physical centres of the grips, in metres, forward along -Z."""
     root=a.empty('viewmodel_hands')
-    cloth=a.surface('Faded field ripstop',(.21,.23,.16),.90,fabric=True)
-    leather=a.surface('Goatskin palm',(.18,.15,.102),.82,fabric=True)
-    back=a.surface('Olive glove textile',(.17,.18,.125),.92,fabric=True)
+    cloth=a.surface('Stone grey field ripstop',(.22,.215,.19),.90,fabric=True)
+    leather=polymer('Worn charcoal leather',(.088,.080,.066))
+    back=a.surface('Charcoal glove textile',(.095,.091,.080),.92,fabric=True)
     rubber=a.surface('Moulded finger protection',(.061,.066,.054),.74)
-    stitch=a.surface('Waxed seam',(.32,.30,.21),.91)
+    stitch=a.surface('Waxed seam',(.20,.185,.15),.91)
     # Bake a low-contrast, seamless field pattern into the sleeve's existing texture slot.
     yy,xx=np.mgrid[:384,:384]*math.tau/384
     noise=np.sin(xx*2+np.cos(yy*3))*np.sin(yy*2+.68*np.sin(xx*4))+.44*np.cos(xx*5+yy*3+np.sin(yy*2))
-    colors=np.where((noise>.42)[:,:,None],[.233,.227,.148],np.where((noise<-.46)[:,:,None],[.098,.112,.079],[.171,.186,.121]))
+    colors=np.array([.24,.23,.21])[None,None,:]*(.92+.08*noise[:,:,None])
     px=np.ones((384,384,4),dtype=np.float32)
     px[:,:,:3]=colors*(.96+.045*np.sin(xx*96)*np.cos(yy*96))[:,:,None]
     dye=next(n for n in cloth.node_tree.nodes if n.type=='TEX_IMAGE' and n.image.colorspace_settings.name!='Non-Color')
@@ -289,11 +326,14 @@ def hands():
         # Offset forearms outward from the weapon. The sleeve overlaps the glove cuff at every pose.
         x,y,z=wrist;points=[];radii=[]
         for i in range(23):
-            t=i/22;r=.043+.029*t+.0034*math.sin(t*31)
+            t=i/22;r=.043+.027*t+.0042*math.sin(t*28)+.0018*math.cos(t*53)
             reach=.41 if side<0 else .16
             points.append((x+side*(reach*t+.045*t*t+(.094*math.sin(math.pi*t) if side<0 else 0)),y-(.115 if side<0 else .155)*t+.012*math.sin(t*5),z+.54*t))
             radii.append(r)
-        tube('Shaped forearm sleeve',points,radii,cloth,parent,20,.81)
+        tube('Shaped forearm sleeve',points,radii,cloth,parent,28,.81)
+        for k in [4,7,11,16]:
+            q=points[k];r=radii[k]
+            tube('Fold seam',[(q[0]+side*r*.5,q[1]+r*.67,q[2]-.014),(q[0],q[1]+r*.82,q[2]),(q[0]-side*r*.5,q[1]+r*.67,q[2]+.012)],[.0012]*3,back,parent,6)
         tube('Wrist fastening',points[:3],[.043,.046,.044],rubber,parent,16,.82)
         a.box('Hook and loop tab',(x+side*.039,y+.007,z+.025),(.012,.032,.042),back,parent,.004)
         tube('Outer sleeve seam',[(p[0]+side*r*.82,p[1]+r*.18,p[2]) for p,r in zip(points[1::2],radii[1::2])],[.0016]*11,stitch,parent,6)
@@ -310,7 +350,8 @@ def hands():
             else:path=[pt(.035,yy,-.007),pt(.038,yy,-.026),pt(.023,yy-.003,-.042),pt(.002,yy-.006,-.041),pt(-.015+(j==3)*.006,yy-.004,-.030)]
             mul=1-j*.055
             tube('Curled digit',path,[i*mul for i in [.011,.012,.011,.009,.005]],back,p)
-            a.orb('Segmented knuckle pad',pt(.043,yy,-.014),(.005,.008,.013),rubber,p,10,6)
+            a.orb('Segmented knuckle pad',pt(.043,yy,-.014),(.005,.008,.013),rubber,p,14,8)
+            tube('Finger seam',[pt(.042,yy-.007,-.006),pt(.044,yy-.007,-.024),pt(.026,yy-.008,-.041)],[.0009]*3,stitch,p,6)
         tube('Opposing thumb',[pt(.028,.010,.046),pt(.014,.025,.038),pt(-.010,.032,.026),pt(-.027,.027,.006),pt(-.029,.025,-.009)],[.015,.015,.013,.011,.007],leather,p)
         sleeve(p,side,pt(.037,-.036,.060))
 

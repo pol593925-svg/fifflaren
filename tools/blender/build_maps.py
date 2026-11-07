@@ -182,7 +182,7 @@ def create_materials(theme):
     # into the Blender/GLB deliverables. No network access occurs in the game.
     scans={'plaster':'plastered_stone_wall','plaster_light':'plastered_wall_02',
            'trim':'sandstone_blocks_04','plaster_blue':'plastered_wall_02','limestone':'sandstone_blocks_04','ground':'cobblestone_floor_02',
-           'wood':'weathered_brown_planks','tunnel':'sandstone_blocks_04'}
+           'roof':'weathered_brown_planks','wood':'weathered_brown_planks','tunnel':'sandstone_blocks_04'}
     for name,asset in scans.items():
         mat=MATS[name];nodes=mat.node_tree.nodes;links=mat.node_tree.links;p=nodes.get('Principled BSDF')
         for channel in ('Diffuse','nor_gl','Rough'):
@@ -193,14 +193,14 @@ def create_materials(theme):
             img.pack();TEX_IMAGES.append(img)
             node=nodes.new('ShaderNodeTexImage');node.image=img
             if channel=='Diffuse':
-                if name=='plaster':
+                if name in ('plaster','roof'):
                     # Calibrate the dark scan to sun-bleached paint / dusty earth,
                     # retaining the scan's real surface variation in linear space.
                     pixels=np.empty(len(img.pixels),dtype=np.float32);img.pixels.foreach_get(pixels)
                     pixels=pixels.reshape((-1,4))
                     luma=pixels[:,:3].mean(axis=1)
                     variation=np.clip(.30+.70*luma/max(float(luma.mean()),.001),.38,1.30)
-                    color=([.69,.64,.52] if theme=='dust2' else [.68,.49,.34]) if name=='plaster' else [.62,.55,.40]
+                    color=([.72,.67,.57] if theme=='dust2' else [.71,.61,.46]) if name=='plaster' else [.41,.19,.10]
                     pixels[:,:3]=np.clip(variation[:,None]*np.array(color),0,1)
                     painted=bpy.data.images.new(theme+'_'+name+'_scan',width=img.size[0],height=img.size[1],alpha=False)
                     painted.pixels.foreach_set(pixels.ravel());painted.pack();node.image=painted;TEX_IMAGES.append(painted)
@@ -293,12 +293,13 @@ def wall_details(x,z,dx,dz,variant,theme):
     panel('roof' if theme=='inferno' else 'trim',0,3.975,4,.05,.22)
     # Corbels break up the long facade and cast shallow, readable shadows.
     for along in (-1.50,1.50):
-        panel('trim',along,3.58,.19,.25,.15)
+        if variant%3==0:panel('trim',along,3.58,.19,.25,.15)
     # Low weathered dado, with a thin stone string course instead of raw cubes.
     panel('trim',0,.90,4,.065,.09)
     panel('limestone',0,.045,3.95,.09,.30)
     panel('trim',0,3.86,4,.16,.06)
-    panel('limestone',-1.85,2.15,.22,3.3,.07)
+    if variant%3==0:
+        for k in range(9):panel('limestone',-1.85,.23+k*.40,.32 if k%2 else .22,.36,.09)
     if variant%4 in (0,1):
         # Shuttered openings: separate sill, inset panes, timber boards, hinges.
         panel('trim',0,2.25,1.64,1.85,.10)
@@ -623,6 +624,9 @@ def build_map(theme,rows):
             box('limestone',x-dz*side*1.16,1.35,z+dx*side*1.16,.26 if dx else .14,2.70,.14 if dx else .26)
     site_markers(theme,rows)
     skyline(theme)
+    sys.path.insert(0,str(Path(__file__).parent))
+    import coast_architecture
+    coast_architecture.build(sys.modules[__name__], theme)
     return lamps,beacons
 
 
@@ -640,6 +644,7 @@ def bake_batches():
         ob=bpy.data.objects.new(f'{sector}_{name}',mesh)
         bpy.context.collection.objects.link(ob);ob.data.materials.append(MATS[name])
         ob['artwork']='Original Support Hub / Blender'
+        ob['coastArchitecture']=True
         ob['backdrop']=sector=='backdrop'
         ob['sector']=sector
         objects.append(ob)

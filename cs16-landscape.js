@@ -109,7 +109,7 @@
   nature.traverse(o=>{
    if(!o.isMesh)return;const species=o.name.split('_')[0];if(!['oak','birch','pine','bush'].includes(species))return;
    const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld),material=o.material.clone(),leaf=/Leaves|Flowers/.test(o.name);
-   material.transparent=false;material.opacity=1;material.alphaTest=leaf?.4:0;material.side=leaf?T.DoubleSide:T.FrontSide;material.roughness=.95;material.envMapIntensity=.3;if(leaf)material.color.set('#8f9c7b');
+   material.transparent=false;material.opacity=1;material.alphaTest=leaf?.4:0;material.side=leaf?T.DoubleSide:T.FrontSide;material.roughness=.95;material.envMapIntensity=.3;if(leaf)material.color.multiplyScalar(.72);
    const mesh=new T.InstancedMesh(geometry,material,species==='bush'?70:32);mesh.count=0;mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;mesh.name=o.name;
    if(leaf){mesh.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,map:material.map,alphaTest:.4,side:T.DoubleSide});leafWind(material);leafWind(mesh.customDepthMaterial);}
    root.add(mesh);resources.push(mesh);if(!pools.has(species))pools.set(species,[]);pools.get(species).push(mesh);

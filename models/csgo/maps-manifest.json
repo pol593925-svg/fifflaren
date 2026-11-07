@@ -4,11 +4,11 @@
     "dust2": {
       "layoutSource": "cs16.js MAP_ROWS",
       "file": "dust2.glb",
-      "bytes": 51641944,
-      "triangles": 370435,
-      "meshBatches": 66,
+      "bytes": 57734908,
+      "triangles": 422245,
+      "meshBatches": 69,
       "materials": 17,
-      "textureImages": 61,
+      "textureImages": 65,
       "layoutSha256": "ad1b2479bf96a400bc6b3566334163d65442098d411b485733eadbf2d7746f21",
       "cellCounts": {
         "#": 6786,
@@ -4263,11 +4263,11 @@
     "inferno": {
       "layoutSource": "cs16.js MAP_ROWS",
       "file": "inferno.glb",
-      "bytes": 41304996,
-      "triangles": 275265,
+      "bytes": 47153900,
+      "triangles": 326725,
       "meshBatches": 70,
       "materials": 17,
-      "textureImages": 61,
+      "textureImages": 65,
       "layoutSha256": "8079fe05a4f9d3c9bec8a8034103c03fc84cdc95d4fce142e9116703da86cc40",
       "cellCounts": {
         "#": 7820,
@@ -6582,11 +6582,11 @@
     "frontline": {
       "layoutSource": "cs16-front.js district()",
       "file": "frontline.glb",
-      "bytes": 43330476,
-      "triangles": 315367,
-      "meshBatches": 59,
+      "bytes": 48766192,
+      "triangles": 370297,
+      "meshBatches": 61,
       "materials": 17,
-      "textureImages": 52,
+      "textureImages": 65,
       "layoutSha256": "3b0df810ac7cbce6ee082e43a222d7135adcf3d0e29f61726d28c15e7e8407eb",
       "cellCounts": {
         "#": 2011,

@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert/strict'),vm=require('vm');
 const root=path.resolve(__dirname,'..'),assets=path.join(root,'models/csgo');
 const source=fs.readFileSync(path.join(root,'cs16.js'),'utf8');
-for(const file of ['cs16.js','cs16-passages.js','cs16-passage-view.js','cs16-terrain.js','cs16-environment.js','cs16-environment-view.js','cs16-field-effects.js','cs16-adaptive-quality.js','cs16-battle-audio.js','cs16-weapon-animation.js','cs16-weapon-grip.js','cs16-field-view.js','cs16-footsteps.js','cs16-weapon-finish.js','cs16-landscape.js','cs16-graphics.js','cs16-props.js','cs16-conquest-ui.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
+for(const file of ['cs16.js','cs16-menu.js','cs16-passages.js','cs16-passage-view.js','cs16-terrain.js','cs16-environment.js','cs16-environment-view.js','cs16-field-effects.js','cs16-adaptive-quality.js','cs16-battle-audio.js','cs16-weapon-animation.js','cs16-weapon-grip.js','cs16-field-view.js','cs16-footsteps.js','cs16-weapon-finish.js','cs16-landscape.js','cs16-graphics.js','cs16-props.js','cs16-conquest-ui.js'])new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
 const maps=vm.runInNewContext('('+source.match(/const MAP_ROWS = (\{[\s\S]*?\n  \});/)[1]+')');
 maps.frontline=require('../cs16-front').district();
 const manifest=JSON.parse(fs.readFileSync(path.join(assets,'maps-manifest.json')));

@@ -7,9 +7,9 @@ const root = process.env.GRAPHICS_REPO || path.resolve(__dirname, '..');
 const outputs = process.env.GRAPHICS_OUTPUT || path.resolve(root, 'graphics-qa');
 fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
-const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><link rel="stylesheet" href="/terra.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><body class="terra light"><div id="tab-cs16"></div><script>
+const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><link rel="stylesheet" href="/terra.css"><link rel="stylesheet" href="/cs16-menu.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><body class="terra light"><div id="tab-cs16"></div><script>
 window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16-menu.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
  dustDoorCheck:${require('./dust-scene-check.cjs').toString()},
@@ -116,7 +116,7 @@ function begin(map='dust2'){
 async function run(){
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin='http://127.0.0.1:'+server.address().port;
- const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-timer-throttling']});
+ const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:[...(process.env.REAL_GPU?[]:['--use-angle=swiftshader','--enable-unsafe-swiftshader']),'--disable-background-timer-throttling']});
  const page=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
@@ -124,6 +124,16 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
+  if(process.env.COAST_MENU_ONLY){await require('./coast-menu-check.cjs')(page,outputs,errors);return;}
+  if(process.env.COAST_PERF_ONLY){
+   await page.evaluate(s=>window.__nextState=s,state());await page.evaluate(begin);
+   await page.evaluate(()=>{__qa.aim(28,0,40,0,0);__qa.weapon('m4a1');for(let i=0;i<24;i++)__qa.addRemote('Load '+i,i%2?'ct':'t',22+(i%6)*2,30-Math.floor(i/6)*3);});
+   const reports=[];for(const quality of ['low','balanced','high']){
+    await page.evaluate(q=>{const u=__qa.ui();u.quality.value=q;u.quality.onchange();},quality);await page.waitForTimeout(1800);
+    reports.push(await page.evaluate(async quality=>{const samples=[];let last=performance.now();for(let i=0;i<120;i++){await new Promise(requestAnimationFrame);const now=performance.now();samples.push(now-last);last=now;}samples.sort((a,b)=>a-b);const r=__qa.renderer(),gl=r.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return {quality,fps:Math.round(120000/samples.reduce((a,b)=>a+b,0)),p95:samples[114],...__qa.snapshot(),gpu:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown'};},quality));
+   }
+   fs.writeFileSync(path.join(outputs,'coast-performance.json'),JSON.stringify(reports,null,2));console.log('COAST PERF',JSON.stringify(reports));assert.deepEqual(errors,[]);return;
+  }
   if(process.env.DUST_PASSAGES_ONLY){
     const result=await page.evaluate(()=>__qa.dustDoorCheck());console.log('DUST INTERIORS',JSON.stringify(result));assert.deepEqual(result.blocked,[]);assert.equal(result.walked.length,5);assert.equal(result.gaps,341);
     await page.screenshot({path:path.join(outputs,'dust2-entrance-3451.png')});assert.equal(errors.length,0,errors.join('\n'));return;
@@ -150,6 +160,7 @@ async function run(){
   if(process.env.LANDSCAPE_ONLY){for(const building of [false,true]){console.log('LANDSCAPE',await page.evaluate(b=>__qa.landscapePreview(b),building));await page.screenshot({path:path.join(outputs,building?'buildings-evolution.png':'field-evolution.png')});}assert.equal(errors.length,0,errors.join('\n'));return;}
   assert.deepEqual(await page.evaluate(()=>__qa.characters()),['ember','tide','jade','aurora','pyra','neve','zephyr','basalt','helio','classic']);
   await page.evaluate(()=>__qa.lobby('Preview',[{nick:'Preview',team:null,characterId:'classic'}],'Preview'));
+  await page.locator('.coast-nav [data-page=character]').click();
   for(const id of ['ember','tide','jade','aurora','pyra','neve','zephyr','basalt','helio','classic']){
    await page.locator('[data-character="'+id+'"]').click();assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_character',d:id});
    await page.evaluate(id=>__socket.receive('cs16_character_selected',{id}),id);assert.equal(await page.locator('[data-character="'+id+'"]').getAttribute('aria-pressed'),'true');
@@ -161,6 +172,7 @@ async function run(){
   if(process.env.LOBBY_ONLY){
    const players=[{nick:'knyaz',team:null},{nick:'Fifflaren',team:null},{nick:'Alpha',team:'t'},{nick:'Bravo',team:'ct'}];
    await page.evaluate(p=>__qa.lobby('Fifflaren',p,'knyaz'),players);
+   await page.locator('.coast-nav [data-page=squad]').click();
    await page.getByRole('button',{name:'Забрать хост себе',exact:true}).click();
    assert.deepEqual(await page.evaluate(()=>__emitted.at(-1)),{n:'cs16_sethost',d:'Fifflaren'});
    page.once('dialog',d=>d.accept());

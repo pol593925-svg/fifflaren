@@ -4,19 +4,33 @@
  function create({T,scene,getQuality=()=> 'balanced',getEye=()=>null,getTeam=()=>null,getPlayerPosition=()=>null,clock=()=>performance.now()}){
   const effects=[],freeMaterials=[],allMaterials=new Set(),dummy=new T.Object3D();let disposed=false;
   const geo={ring:new T.TorusGeometry(1,.022,5,64),orb:new T.IcosahedronGeometry(1,2),shard:new T.ConeGeometry(.13,1,5),spark:new T.PlaneGeometry(.08,.34),shield:new T.IcosahedronGeometry(1,1),strip:new T.PlaneGeometry(.07,1,1,6),cross:new T.BoxGeometry(.1,.32,.06)};
+  // Curved, tapered ribbons replace rectangular streaks. Still one instanced draw per effect.
+  geo.strip.dispose();const ribbonPoints=[],ribbonUv=[],ribbonIndex=[];
+  for(let i=0;i<=18;i++){const t=i/18,a=(t-.5)*2.1,w=Math.sin(Math.PI*t)*.045+.002;for(const side of [-1,1]){ribbonPoints.push(Math.sin(a)*.54,.16*Math.sin(t*Math.PI*2)+side*w,Math.cos(a)*.54-.35);ribbonUv.push((side+1)/2,t)}if(i<18){const n=i*2;ribbonIndex.push(n,n+1,n+2,n+1,n+3,n+2)}}
+  geo.strip=new T.BufferGeometry();geo.strip.setAttribute('position',new T.Float32BufferAttribute(ribbonPoints,3));geo.strip.setAttribute('uv',new T.Float32BufferAttribute(ribbonUv,2));geo.strip.setIndex(ribbonIndex);geo.strip.computeVertexNormals();
+  geo.cross.dispose();const crossParts=[new T.BoxGeometry(.09,.34,.045).toNonIndexed(),new T.BoxGeometry(.26,.09,.045).toNonIndexed()];const crossPosition=[],crossNormal=[],crossUV=[];for(const part of crossParts){crossPosition.push(...part.attributes.position.array);crossNormal.push(...part.attributes.normal.array);crossUV.push(...part.attributes.uv.array);part.dispose()}geo.cross=new T.BufferGeometry();geo.cross.setAttribute('position',new T.Float32BufferAttribute(crossPosition,3));geo.cross.setAttribute('normal',new T.Float32BufferAttribute(crossNormal,3));geo.cross.setAttribute('uv',new T.Float32BufferAttribute(crossUV,2));
   // Split ice facets shade from a blue base to bright tips without extra lights or draws.
   geo.shard.dispose();geo.shard=new T.CylinderGeometry(.025,.19,1,5,3).toNonIndexed();
   const icePosition=geo.shard.attributes.position,iceColor=new Float32Array(icePosition.count*3);
   for(let i=0;i<icePosition.count;i++){const h=icePosition.getY(i)+.5,x=icePosition.getX(i),z=icePosition.getZ(i),facet=.78+.22*Math.max(0,Math.sin(Math.atan2(x,z)*5+.7));icePosition.setXYZ(i,x*(1+.22*Math.sin(h*Math.PI)),icePosition.getY(i),z);iceColor[i*3]=(.38+.62*h)*facet;iceColor[i*3+1]=(.66+.34*h)*facet;iceColor[i*3+2]=facet;}geo.shard.setAttribute('color',new T.BufferAttribute(iceColor,3));geo.shard.computeVertexNormals();
   // A curved wedge makes the direction of ice unambiguous.
   const fan=new T.RingGeometry(.4,1,40,1,Math.PI*.16,Math.PI*.68);fan.rotateX(-Math.PI/2);geo.fan=fan;
+  for(const geometry of Object.values(geo)){
+   if(geometry.attributes.uv)geometry.setAttribute('spellUv',geometry.attributes.uv);
+   // All shared materials use vertex colour. Missing colour attributes otherwise
+   // render the rings/fire black after drawing the coloured ice geometry.
+   if(!geometry.attributes.color)geometry.setAttribute('color',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count*3).fill(1),3));
+  }
+  function material(){const m=new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,vertexColors:true}),soft={value:0};m.userData.soft=soft;
+   m.onBeforeCompile=s=>{s.uniforms.spellSoft=soft;s.vertexShader='attribute vec2 spellUv; varying vec2 spellTexcoord;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nspellTexcoord=spellUv;');s.fragmentShader='uniform float spellSoft; varying vec2 spellTexcoord;\n'+s.fragmentShader.replace('#include <alphatest_fragment>','float edge=pow(max(0.,1.-abs(spellTexcoord.x*2.-1.)),.65)*smoothstep(0.,.14,spellTexcoord.y)*smoothstep(0.,.16,1.-spellTexcoord.y);diffuseColor.a*=mix(1.,edge,spellSoft);\n#include <alphatest_fragment>');};m.customProgramCacheKey=()=> 'painted-magic-soft-edge-v2';allMaterials.add(m);return m;}
   const valid=p=>Array.isArray(p)&&p.length===3&&p.every(Number.isFinite);
   function remove(f){f.group.removeFromParent();f.particles.dispose();f.ribbon.dispose();freeMaterials.push(f.materials);}
   function fx(data){if(disposed||!styles[data?.id]||!valid(data.pos))return false;
    const eye=getEye(),range=getQuality()==='low'?55:120;if(eye&&Math.hypot(data.pos[0]-eye.x,data.pos[2]-eye.z)>range)return false;
    while(effects.length>=(getQuality()==='low'?8:16))remove(effects.shift());
    const [color,light,duration,radius]=styles[data.id],group=new T.Group(),selfTeam=getTeam(),enemy=!!data.team&&!!selfTeam&&selfTeam!==data.team;
-   const mats=freeMaterials.pop()||Array.from({length:3},()=>{const m=new T.MeshBasicMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,vertexColors:true});allMaterials.add(m);return m}),[base,glow,rim]=mats;
+   const mats=freeMaterials.pop()||Array.from({length:3},material),[base,glow,rim]=mats;
+   glow.userData.soft.value=['frost','light','deer'].includes(data.id)?0:1;
    base.color.set(color);base.opacity=.8;base.blending=T.NormalBlending;
    glow.color.set(data.id==='frost'?'#69baff':light);glow.opacity=.7;glow.blending=data.id==='frost'?T.NormalBlending:T.AdditiveBlending;
    rim.color.set(enemy?'#ff635f':'#8ce8f7');rim.opacity=.65;
@@ -40,12 +54,13 @@
     const spread=shield?f.radius:ice?Math.min(f.radius,burst*13):heal?Math.min(f.radius,burst*6):Math.min(f.radius,burst*9+.2);
     f.ring.scale.setScalar(Math.max(.01,spread));f.teamRing.scale.setScalar(Math.max(.01,spread*1.025));
     if(f.traveling&&time<.19){f.core.position.copy(f.origin).lerp(f.end,time/.19).sub(f.group.position);f.core.scale.setScalar(.13+time*.7);f.ring.visible=f.teamRing.visible=false}else{f.ring.visible=f.teamRing.visible=true;f.core.position.set(0,shield?1.05:heal?.55:ice?.12:.18,0);f.core.scale.setScalar(shield?f.radius:ice?Math.min(12,burst*18):heal?.10+Math.sin(time*8)*.03:Math.max(.001,.8-burst*1.7));}
-    if(ice){f.core.rotation.y=Math.atan2(f.dir.x,f.dir.z);f.ring.visible=false;f.teamRing.visible=false}
+    if(ice){f.core.rotation.y=Math.atan2(-f.dir.x,-f.dir.z);f.ring.visible=false;f.teamRing.visible=false}
+    if(f.traveling&&time>=.19){f.core.position.y=.5;f.core.scale.setScalar(.25+Math.sin(Math.min(1,burst/.42)*Math.PI)*1.5);f.core.rotation.set(time*1.8,time*2.4,time*.7);f.base.opacity*=Math.max(0,1-burst/.55);}
     if(shield){f.core.scale.y=f.radius*1.15;f.core.rotation.y=time*.24}
     if(dash||reload)f.core.visible=false;
     for(let j=0;j<f.count;j++){
      const a=j*2.39996+f.seed,rad=.35+(j%7)/7,age=Math.min(1,burst/(heal?1.7:.9));dummy.rotation.set(0,a,0);dummy.scale.set(1,1,1);
-     if(ice){const angle=(j/f.count-.5)*2.14+Math.atan2(f.dir.x,f.dir.z),r=Math.min(11.5,burst*15)*(.4+rad*.6),height=Math.sin(Math.min(1,burst*2)*Math.PI)*(.65+rad);dummy.position.set(Math.sin(angle)*r,height*.45,Math.cos(angle)*r);dummy.scale.set(1.6,height,1.6);dummy.rotation.z=(j%3-1)*.24;}
+     if(ice){const angle=(j/f.count-.5)*2.14+Math.atan2(f.dir.x,f.dir.z),r=2+(j%7)*1.38,arrival=r/24,growth=T.MathUtils.smoothstep(time-arrival,0,.16)*(1-T.MathUtils.smoothstep(time-arrival,.52,.97)),height=growth*(.45+rad*.60);dummy.position.set(Math.sin(angle)*r,height*.5,Math.cos(angle)*r);dummy.scale.set(.75+rad*.55,height,.75+rad*.55);dummy.rotation.z=(j%3-1)*.24;}
      else if(shield){const phi=j/f.count*Math.PI*2;dummy.position.set(Math.cos(phi)*f.radius, .4+(j%4)*.35,Math.sin(phi)*f.radius);dummy.scale.set(.8,.55,.8);dummy.rotation.y=-phi;}
      else if(heal){const r=(.5+rad)*Math.min(2.7,f.radius*.45),phi=a+time*.6;dummy.position.set(Math.sin(phi)*r,(time*.9+j*.13)%2.5,Math.cos(phi)*r);dummy.scale.setScalar(.5+rad*.5);dummy.rotation.set(0,-a,0);}
      else if(dash){const r=.5+rad*.3;dummy.position.set(Math.cos(a+time*5)*r,.6+Math.sin(a+time*5)*r,-age*(2+j%5));dummy.rotation.x=Math.PI/2;dummy.scale.set(.7,2.2,.7);}

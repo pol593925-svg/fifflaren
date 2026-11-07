@@ -1,0 +1,105 @@
+{
+  "generator": "tools/blender/build_anime_weapons.py",
+  "assets": [
+    {
+      "file": "anime-knife.glb",
+      "triangles": 1522,
+      "bytes": 106188
+    },
+    {
+      "file": "anime-glock.glb",
+      "triangles": 6832,
+      "bytes": 347604
+    },
+    {
+      "file": "anime-usp.glb",
+      "triangles": 8252,
+      "bytes": 387484
+    },
+    {
+      "file": "anime-deagle.glb",
+      "triangles": 7020,
+      "bytes": 353332
+    },
+    {
+      "file": "anime-ak47.glb",
+      "triangles": 15224,
+      "bytes": 682792
+    },
+    {
+      "file": "anime-m4a1.glb",
+      "triangles": 29040,
+      "bytes": 1020880
+    },
+    {
+      "file": "anime-awp.glb",
+      "triangles": 28136,
+      "bytes": 988232
+    },
+    {
+      "file": "anime-mp5.glb",
+      "triangles": 20776,
+      "bytes": 788796
+    },
+    {
+      "file": "anime-p90.glb",
+      "triangles": 23016,
+      "bytes": 900256
+    },
+    {
+      "file": "anime-ump45.glb",
+      "triangles": 20964,
+      "bytes": 793640
+    },
+    {
+      "file": "anime-galil.glb",
+      "triangles": 15224,
+      "bytes": 682792
+    },
+    {
+      "file": "anime-famas.glb",
+      "triangles": 21056,
+      "bytes": 795316
+    },
+    {
+      "file": "anime-scout.glb",
+      "triangles": 28136,
+      "bytes": 988236
+    },
+    {
+      "file": "anime-sg552.glb",
+      "triangles": 28136,
+      "bytes": 988740
+    },
+    {
+      "file": "anime-aug.glb",
+      "triangles": 28136,
+      "bytes": 988728
+    },
+    {
+      "file": "anime-m249.glb",
+      "triangles": 17296,
+      "bytes": 723540
+    },
+    {
+      "file": "anime-fiveseven.glb",
+      "triangles": 6832,
+      "bytes": 345628
+    },
+    {
+      "file": "anime-tec9.glb",
+      "triangles": 7868,
+      "bytes": 374904
+    },
+    {
+      "file": "anime-elite.glb",
+      "triangles": 9692,
+      "bytes": 387668
+    },
+    {
+      "file": "anime-hands.glb",
+      "triangles": 15872,
+      "bytes": 795896
+    }
+  ]
+}

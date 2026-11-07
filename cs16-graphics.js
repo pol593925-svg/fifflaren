@@ -36,7 +36,7 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.98;
+    renderer.toneMappingExposure = 1.04;
     renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
@@ -89,7 +89,7 @@
         materials.add(material);
         if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
           material.envMapIntensity = 0.40;
-          if(material.normalMap)material.normalScale.set(.85,.85);
+          if(material.normalMap)material.normalScale.set(.35,.35);
           material.dithering = true;
         }
         // GLTFLoader already assigns sRGB to color maps and linear to data maps.
@@ -179,27 +179,22 @@
     const sky = makeSky(T, mapName === 'inferno', 1100);
     group.add(sky.mesh);
     scene.background = null;
-    scene.fog = new T.Fog(mapName === 'inferno' ? 0xd8d4ca : 0xe1d6c5, 245, 910);
+    scene.fog = new T.Fog(mapName === 'inferno' ? 0xc6d9e5 : 0xc2dfe7, 155, 500);
 
-    const hemisphere = new T.HemisphereLight(0xdce7ec, mapName === 'inferno' ? 0x7c6651 : 0x8b795e, 1.12);
+    const hemisphere = new T.HemisphereLight(0xe3f1ff, 0x9289a5, .95);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffe8c5, 2.65);
+    const sun = new T.DirectionalLight(0xffe8c5, 1.75);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
     Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 460 });
     sun.shadow.camera.updateProjectionMatrix();
     sun.shadow.bias = -0.0006;
-    sun.shadow.normalBias = 0.035;
+    sun.shadow.normalBias = 0.075;
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
-    // Keep the procedural sky as a fallback while the local photographic panorama loads.
-    let photoSky=null;
-    new T.TextureLoader().load('assets/royale/daylight.jpg',texture=>{
-      if(disposed){texture.dispose();return;}texture.mapping=T.EquirectangularReflectionMapping;texture.colorSpace=T.SRGBColorSpace;
-      photoSky=texture;scene.background=texture;sky.mesh.visible=false;
-    });
+    // The painted atmosphere is the live sky; no photographic panorama replaces it.
     // Reuse the same atmosphere for metal reflections; no remote HDR dependency.
     const envScene = new T.Scene();
     const envSky = makeSky(T, mapName === 'inferno', 10);
@@ -276,7 +271,7 @@
       });
     }
 
-    const ready = Promise.allSettled([loadGLTF(T, ASSETS + mapName + '.glb', options.onProgress),loadGLTF(T, ASSETS+'nature.glb')]).then(results => {
+    const ready = Promise.allSettled([loadGLTF(T, ASSETS + (mapName==='frontline'?'':'anime-') + mapName + '.glb', options.onProgress),loadGLTF(T, ASSETS+'anime-nature.glb')]).then(results => {
       const failed=results.find(r=>r.status==='rejected');if(failed){for(const r of results)if(r.status==='fulfilled')disposeTree(r.value.scene);throw failed.reason;}
       const [gltf,natureAsset]=results.map(r=>r.value);
       if (disposed) {
@@ -286,6 +281,8 @@
         throw error;
       }
       model = gltf.scene;nature=natureAsset.scene;
+      global.CS16AnimeMaterials.apply(T,model);
+      global.CS16AnimeMaterials.apply(T,nature);
       bakedBuildings=false;model.traverse(o=>{if(o.userData.coastArchitecture)bakedBuildings=true;});
       const oldBuildings=scene.getObjectByName('Walkable two-storey buildings');if(bakedBuildings&&oldBuildings)oldBuildings.visible=false;
       model.name = 'CS16 ' + mapName + ' geometry';
@@ -317,7 +314,7 @@
       if(landscape){landscape.dispose();landscape=null;}
       if(nature){disposeTree(nature);nature=null;}
       if (model) { disposeTree(model); model = null; }
-      disposeTree(sky.mesh);if(photoSky){if(scene.background===photoSky)scene.background=null;if(scene.environment===photoSky)scene.environment=null;photoSky.dispose();photoSky=null;}
+      disposeTree(sky.mesh);
       if (sun.shadow.map) sun.shadow.map.dispose();
       if (sun.shadow.mapPass) sun.shadow.mapPass.dispose();
       if (environmentTarget) {

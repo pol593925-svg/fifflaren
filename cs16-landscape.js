@@ -40,7 +40,7 @@
    maskBytes[i]=trail?0:Math.round(meadow*255);maskBytes[i+1]=Math.round(Math.max(0,1-(clearance[z*size+x]-1)*.55)*255);if(trail)maskBytes[i+1]=224;maskBytes[i+2]=0;maskBytes[i+3]=255;
   }
   const mask=new T.DataTexture(maskBytes,size,size,T.RGBAFormat);mask.magFilter=mask.minFilter=T.LinearFilter;mask.needsUpdate=true;
-  const earth=new T.TextureLoader().load('assets/royale/forest-floor.jpg');earth.wrapS=earth.wrapT=T.RepeatWrapping;earth.colorSpace=T.SRGBColorSpace;earth.anisotropy=4;
+  const earth=new T.TextureLoader().load('assets/cs-anime/plaster-painted.png');earth.wrapS=earth.wrapT=T.RepeatWrapping;earth.colorSpace=T.SRGBColorSpace;earth.anisotropy=4;
   const patched=new Set();
   model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material])){
    if(!m||m.name!=='ground'||patched.has(m))continue;patched.add(m);
@@ -55,9 +55,9 @@
      meadowMix=smoothstep(.12,.82,meadowMix+(meadowNoise(meadowWorld.xz*.8)-.5)*.19);
      vec3 groundScan=texture2D(fieldEarth,meadowWorld.xz*.22).rgb;
      float scanLuma=dot(groundScan,vec3(.27,.55,.18));
-     vec3 meadowColor=mix(vec3(.065,.09,.022),vec3(.19,.23,.065),meadowBroad)*(.62+scanLuma*1.8+meadowFine*.12);
+     vec3 meadowColor=mix(vec3(.13,.20,.055),vec3(.27,.34,.10),meadowBroad)*(.62+scanLuma*1.8+meadowFine*.12);
      float meadowPaving=texture2D(meadowMask,meadowWorld.xz/meadowSize).g;
-     vec3 earthColor=mix(groundScan*vec3(.90,.83,.62),vec3(.22,.17,.095),.30)*(.86+meadowBroad*.25);
+     vec3 earthColor=mix(groundScan*vec3(.90,.83,.62),vec3(.38,.29,.17),.30)*(.86+meadowBroad*.25);
      diffuseColor.rgb=mix(mix(earthColor,diffuseColor.rgb*(.86+meadowBroad*.25),meadowPaving),meadowColor,meadowMix);
      float contactShade=mix(.84,1.,smoothstep(.0,.35,meadowMix+meadowPaving));
      diffuseColor.rgb*=contactShade;
@@ -71,10 +71,10 @@
   function height(x,z){const edge=Math.max(0,-x-75,-z-75,x-world-75,z-world-75),r=Math.hypot(x-center,z-center),a=Math.atan2(z-center,x-center);return Math.min(1,edge/100)*(30+Math.sin(x*.011+z*.003)*Math.cos(z*.008)*18+Math.pow(.5+.5*Math.sin(a*5+1),2)*42+Math.sin(x*.035+z*.021)*3.5)*Math.min(1,(r-world*.48)/100);}
   for(let z=0;z<=res;z++)for(let x=0;x<=res;x++){
    const wx=center-extent/2+x/res*extent,wz=center-extent/2+z/res*extent,h=Math.max(-.4,height(wx,wz)),rock=Math.min(1,Math.max(0,(h-43)/55));
-   vertices.push(wx,h-.35,wz);const c=new T.Color().lerpColors(new T.Color('#697550'),new T.Color('#aaa18c'),rock);c.multiplyScalar(.85+noise(x,z)*.18);colors.push(c.r,c.g,c.b);
+   vertices.push(wx,h-.35,wz);const c=new T.Color().lerpColors(new T.Color('#88a57b'),new T.Color('#bbc5a7'),rock);c.multiplyScalar(.85+noise(x,z)*.18);colors.push(c.r,c.g,c.b);
    if(x<res&&z<res){const mx=wx+extent/res/2,mz=wz+extent/res/2;if(mx>=-3&&mx<=world+3&&mz>=-3&&mz<=world+3)continue;const n=z*(res+1)+x;indices.push(n,n+res+1,n+1,n+1,n+res+1,n+res+2);}
   }
-  const treeAtlas=new T.TextureLoader().load('assets/royale/winter-trees.png');treeAtlas.colorSpace=T.SRGBColorSpace;
+  const treeAtlas=global.CS16AnimeNature.atlas(T);treeAtlas.colorSpace=T.SRGBColorSpace;
   const treePos=[],treeUv=[],treeIx=[];for(let i=0;i<720;i++){
     const x=center+(noise(i,3)-.5)*extent,z=center+(noise(i,11)-.5)*extent;
     if(x>=-8&&x<=world+8&&z>=-8&&z<=world+8)continue;
@@ -109,7 +109,7 @@
   nature.traverse(o=>{
    if(!o.isMesh)return;const species=o.name.split('_')[0];if(!['oak','birch','pine','bush'].includes(species))return;
    const geometry=o.geometry.clone().applyMatrix4(o.matrixWorld),material=o.material.clone(),leaf=/Leaves|Flowers/.test(o.name);
-   material.transparent=false;material.opacity=1;material.alphaTest=leaf?.4:0;material.side=leaf?T.DoubleSide:T.FrontSide;material.roughness=.95;material.envMapIntensity=.3;if(leaf)material.color.multiplyScalar(.72);
+   material.transparent=false;material.opacity=1;material.alphaTest=leaf?.4:0;material.side=leaf?T.DoubleSide:T.FrontSide;material.roughness=.95;material.envMapIntensity=.3;if(leaf){material.color.multiply(new T.Color(/Flowers/.test(o.name)?'#dca5bd':'#9dbd81'));material.normalMap=null;material.roughnessMap=null;}
    const mesh=new T.InstancedMesh(geometry,material,species==='bush'?70:32);mesh.count=0;mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;mesh.name=o.name;
    if(leaf){mesh.customDepthMaterial=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,map:material.map,alphaTest:.4,side:T.DoubleSide});leafWind(material);leafWind(mesh.customDepthMaterial);}
    root.add(mesh);resources.push(mesh);if(!pools.has(species))pools.set(species,[]);pools.get(species).push(mesh);

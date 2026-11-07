@@ -37,7 +37,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright'),
       const T = THREE,
         loader = new T.GLTFLoader(),
         load = async (name) => (await loader.loadAsync('models/' + name + '.glb')).scene;
-      const hands = await load('csgo/hands'),
+      const hands = await load('csgo/anime-hands'),
         tactical = await load('csgo/operator-ct'),
         hero = await load('csgo/hero-classic');
       const renderer = new T.WebGLRenderer({ canvas: document.querySelector('canvas'), antialias: true });
@@ -68,7 +68,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright'),
         maxWrist = 0,
         magError = 0;
       for (const [id, len] of profiles) {
-        const asset = await load((['mp7', 'vector', 'bizon'].includes(id) ? 'royale/' : 'csgo/') + id),
+        const asset = await load((['mp7', 'vector', 'bizon'].includes(id) ? 'royale/' : 'csgo/anime-') + id),
           gun = new T.Group();
         const box = new T.Box3().setFromObject(asset),
           dims = box.getSize(new T.Vector3());

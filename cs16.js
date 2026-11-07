@@ -1,6 +1,6 @@
 /* ==========================================================================
    CS 1.6 — de_dust2 (упрощённая браузерная версия) — Support Hub 3.15.0
-   Две команды T/CT (1v1..5v5), матч до 16 побед, магазин (B), гранаты.
+   Две команды T/CT по 5 бойцов, матч до 16 побед, магазин (B), гранаты.
    ========================================================================== */
 (function () {
   'use strict';
@@ -589,7 +589,7 @@
   function loadCombatArt() {
     if (!combatArtPromise) combatArtPromise = Promise.all([
       loadGLBAll(), CS16Graphics.loadOperators(THREE), loadVehicleModels(),
-      new THREE.GLTFLoader().loadAsync('models/csgo/hands.glb').then(g => { handsModel = g.scene; })
+      new THREE.GLTFLoader().loadAsync('models/csgo/anime-hands.glb').then(g => { handsModel = CS16AnimeMaterials.apply(THREE,g.scene); })
     ]).catch(error => { combatArtPromise = null; throw error; });
     return combatArtPromise;
   }
@@ -603,7 +603,9 @@
       const [id,cfg]=entries[next++];if(glbCache[id]?.model)continue;
       glbCache[id] = { model: null };
       try {
-        const asset = await loader.loadAsync(cfg.url);
+        const artUrl=/\/(grenade|c4)\.glb$/.test(cfg.url)?cfg.url:cfg.url.replace(/([^/]+)\.glb$/, 'anime-$1.glb');
+        const asset = await loader.loadAsync(artUrl);
+        if(artUrl.includes('/anime-'))CS16AnimeMaterials.apply(THREE,asset.scene);
         const model = new THREE.Group();model.name='weaponBasis';
         model.add(asset.scene);
         if (cfg.rotY) model.rotation.y = cfg.rotY;
@@ -842,7 +844,7 @@
   function clearFieldPresentation(){environmentView?.dispose();fieldEffects?.dispose();battleAudio?.dispose();environmentView=fieldEffects=battleAudio=null;adaptive.reset();}
 
   function initScene() {
-    renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: false, powerPreference:'low-power' });
+    renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: !modestHardware, powerPreference:'low-power' });
     canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();if(royaleActive){HubRoyale.close();}worldReady=false;resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
     canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';qualityMode='low';adaptive.setMode('low');try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
@@ -850,6 +852,8 @@
     buildWorld();
   }
   function releaseLostGraphics(){heatScope?.dispose();heatScope=null;if(ui.thermalLens)ui.thermalLens.style.display='none';fieldOptical?.dispose();fieldOptical=null;fieldAim=false;fieldAimMix=0;
+    worldLoadEpoch++;
+    frontView?.dispose();frontView=null;missileView?.dispose();missileView=null;
     clearFieldPresentation();
     remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
@@ -2302,7 +2306,7 @@
     const inspect=Math.max(0,(t-inspectStart)/2300);
     CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastShot)/1000),inspect<1?inspect:0);
     CS16FieldView.align(vm,dot,Math.min(1,Math.max(0,(fieldAimMix-.72)/.20)),sightPoint);
-    if(!ads&&!reloading){const cast=magicView?.gesture(t)||0;vm.position.y-=cast*.07;vm.rotation.z+=cast*.10;}
+    if(!ads&&!reloading){const cast=magicView?.gesture(t)||0;vm.position.y-=cast*.045;vm.rotation.z+=cast*.035;const hand=vm.userData.animation?.leftHand;if(hand&&cast>0){hand.n.position.y+=cast*.012;hand.n.position.x-=cast*.015;hand.n.position.z-=cast*.045;hand.n.rotation.z-=cast*.08;hand.n.rotation.x-=cast*.06;}}
     vm.visible = frontSeat==null&&me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
   }
 

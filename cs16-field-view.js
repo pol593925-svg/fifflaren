@@ -77,7 +77,7 @@
   function mount(gun, template, compact = false) {
     const [x, y, z] = gun.userData.grip.rail,
       sight = template.clone(true);
-    const k = compact ? 0.7 : 1;
+    const k = compact ? 0.7 : 0.82;
     sight.scale.setScalar(k);
     sight.position.set(x, y - 0.063*k, z + 0.05*k);
     gun.add(sight);
@@ -97,9 +97,9 @@
       x = rail?.[0] || 0,
       y = rail?.[1] ?? 0.063;
     right.set(
-      0.20 * (1 - a) - x * a,
-      -0.22 * (1 - a) - (hasOptic ? y + 0.081 : y + 0.012) * a,
-      -0.42 - 0.053 * a,
+      0.19 * (1 - a) - x * a,
+      -0.235 * (1 - a) - (hasOptic ? y + 0.081 : y + 0.012) * a,
+      -0.48 - 0.053 * a,
     );
   }
   function bearing(yaw) {

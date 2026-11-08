@@ -111,3 +111,33 @@ based on that published release; unpublished game work is not listed as shipped.
 `PATCHES_ONLY=1 node tools/terra-ui-smoke.cjs` checks the real app header,
 employee/admin access, offline fallback, a future-release fixture, cache, safe
 text rendering, keyboard dismissal and responsive day/night work screens.
+
+## Unpublished surface and silhouette refinement
+
+The next local pass adds rolled fingerless glove edges, warm skin shading and
+brushed paint across all nineteen weapons. Graphite mechanisms and recessed
+ports contrast with ivory enamel and brass. Directional painted volume and
+cavity shading are baked into the existing vertex-colour stream; no runtime
+postprocessing pass or additional light is needed. Forearms are reduced more
+aggressively than fingers: the complete four-grip hand file is 2,086,124 bytes,
+still below 2 MiB. First-person weapons retain the original grip/moving-part
+contract, and the complete third-person arsenal still totals 37 draw batches.
+
+All five companion files have smoother interpolated appendages, sculpted jaw
+contours, eyelid lines and individual iris colours; fox fur locks and cheek
+pigment are authored locally. Files remain below 512 KiB and still use one
+skinned runtime draw per companion. Portraits are regenerated from these models.
+
+Validation, 192 grip poses, both-map traversal, nineteen weapon views/sights and
+live companion checks passed. With the CPU throttled 4x, four reported cores/4 GB,
+low quality at 1280x720 and ten players/pets firing spells, the fixture measured
+48 FPS on each map, p95 about 33 ms and worst frames 56/42 ms. The GPU was GTX
+1080; this is not a low-end GPU or live-network guarantee. All work remains
+local, with no package-version bump or deployment.
+
+The release-history dialog now starts with a separate **6.0.0 · In development**
+entry, without a release date. 5.0.0 remains an archive entry and 5.1.0 remains
+the latest bundled published release. The planned entry is not stored as a
+published release in the cache. A real 6.0.0 release replaces it automatically;
+tags with/without `v` are deduplicated. The UI test covers the offline planned
+entry, its replacement by a published fixture, safe text and cached reopening.

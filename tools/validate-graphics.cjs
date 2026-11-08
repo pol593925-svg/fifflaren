@@ -48,6 +48,8 @@ const animeWeapons=JSON.parse(fs.readFileSync(path.join(assets,'anime-weapons-ma
 assert.equal(animeWeapons.length,20);
 for(const item of animeWeapons){
  const g=glb(item.file);assert(item.bytes<2*1024*1024,item.file+' asset budget');
+ assert.equal(item.bytes,fs.statSync(path.join(assets,item.file)).size,item.file+' stale byte budget');
+ assert(g.meshes.some(m=>m.primitives.some(p=>p.attributes.COLOR_0!==undefined)),item.file+' missing baked surface shading');
  if(item.file==='anime-hands.glb')for(const name of ['rightHand','leftHand','leftCup','leftVertical'])assert(g.nodes.some(n=>n.name===name),'missing anime grip '+name);
 }
 const animeNature=glb('anime-nature.glb');

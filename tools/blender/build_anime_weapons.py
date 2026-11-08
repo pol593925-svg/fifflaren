@@ -98,8 +98,14 @@ def paint(mat,hexcolor):
         for link in list(p.inputs[input].links):links.remove(link)
     p.inputs['Roughness'].default_value=.64;p.inputs['Metallic'].default_value=.12
     n=192;yy,xx=np.mgrid[:n,:n];px=np.ones((n,n,4),dtype=np.float32)
-    wash=.96+.026*np.sin(xx*.15+np.sin(yy*.06)*2)+.012*np.sin(yy*.38+xx*.2)
-    if textile: wash+=.018*np.sin(xx*math.pi/2)*np.sin(yy*math.pi/2)
+    # Broad brushed pigment instead of uniform plastic. Periodic layers tile cleanly.
+    u=xx*math.tau/n;v=yy*math.tau/n
+    wash=.94+.033*np.sin(u*3+np.sin(v*2)*1.8)+.018*np.sin(v*7+u*2)
+    if textile:
+        wash+=.016*np.sin(xx*math.pi/2)*np.sin(yy*math.pi/2)
+        wash+=.018*np.cos(u*12+v*6)
+    elif any(k in mat.name.lower() for k in ['steel','alloy','brass','edges']):
+        wash+=.012*np.sin(v*48+np.sin(u*2))
     px[:,:,:3]=np.clip(color[None,None,:]*wash[:,:,None],0,1)
     tx=nodes.new('ShaderNodeTexImage');tx.image=a.image('Painted '+mat.name,px);links.new(tx.outputs['Color'],p.inputs['Base Color'])
     return mat
@@ -114,7 +120,7 @@ def finish(root,kind):
             seen.add(m.name);name=m.name
             if 'glass' in name.lower():continue
             if name.startswith('Weapon finish /'):
-                c='#d7d1b8' if 'edges' in name else '#658fa3' if 'steel' in name else '#a1b7b2' if 'Olive' in name else '#568e98' if 'Walnut' in name else '#577b91'
+                c='#c5c9c3' if 'edges' in name else '#354e63' if 'steel' in name else '#a1b7b2' if 'Olive' in name else '#568e98' if 'Walnut' in name else '#577b91'
                 if kind in ['awp','scout'] and 'Olive' in name:c='#b5c5cf'
             elif 'field ripstop' in name:c='#48677c'
             elif 'glove textile' in name:c='#4c6477'
@@ -122,8 +128,9 @@ def finish(root,kind):
             elif 'finger protection' in name:c='#607c88'
             elif 'seam' in name:c='#c79e63'
             elif 'Brass' in name:c='#d4a361'
-            elif 'edges' in name:c='#8c9fa9'
+            elif 'edges' in name:c='#a0b3be'
             elif 'Walnut' in name:c='#629b9b'
+            elif 'steel' in name.lower():c='#354e63'
             else:c='#35495e'
             paint(m,c)
     root['artStyle']='Original painterly anime / Support Hub'
@@ -156,6 +163,11 @@ def details(root,kind):
             for joint in [1,2]:
                 c=centres[joint];r=.010 if thumb else .008
                 a.line('Soft knuckle crease',[tuple(c+outward*r*math.cos(u)+across*r*math.sin(u))for u in [-.50,-.25,0,.25,.50]],.0005,crease,parent)
+            # Rolled fabric lip around the open glove, curved around each finger root.
+            base=centres[0];axis=(centres[1]-base).normalized()
+            rim=Vector((base.x, .015, 0));rim-=axis*rim.dot(axis);rim.normalize()
+            cross=axis.cross(rim).normalized();radius=.013 if thumb else .009
+            a.line('Fingerless glove rolled seam',[tuple(base+(rim*math.cos(u)+cross*math.sin(u))*radius)for u in [-1.05,-.70,-.35,0,.35,.70,1.05]],.0011,teal,parent)
         for hand in root.children:
             if hand.type!='EMPTY':continue
             side=1 if hand.name=='rightHand' else -1
@@ -229,6 +241,7 @@ def details(root,kind):
     copper=paint(a.surface('Etched brass detail',(.5,.3,.1),.55),'#d2ac70')
     enamel=paint(a.surface('Inset blue ceramic',(.1,.2,.3),.7),'#518d9d')
     ivory=paint(a.surface('Weapon finish / Ivory enamel',(.8,.7,.5),.5),'#e5d5b3')
+    recess=paint(a.surface('Recessed graphite mechanism',(.1,.1,.15),.62),'#213244')
     pistol=kind in ['glock','usp','deagle','fiveseven','tec9']
     if not pistol and kind not in ['ak47','galil','m249','p90']:
         magazine=next(o for o in root.children if o.name=='magazine')
@@ -247,6 +260,10 @@ def details(root,kind):
             z=-.035+j*.013
             a.box('Inlaid receiver chevron',(x,.002,z),(.0018,.004+j*.003,.006),copper,weapon,.001)
         if not pistol:
+            # A recessed working port and curved rim give the receiver an assembled feel.
+            port=w.receiver_profile('Ejection port recess',[(-.032,.024),(-.017,.032),(.024,.029),(.034,.016),(.022,.005),(-.026,.006)],.0018,recess,weapon)
+            port.location.x=side*.047
+            a.line('Ejection port metal rim',[(side*.048,.025,-.031),(side*.048,.030,-.015),(side*.048,.027,.023),(side*.048,.017,.031)],.0011,copper,weapon)
             plate=w.receiver_profile('Ivory swept receiver shell',[(-.140,.039),(-.110,.063),(-.035,.068),(.034,.044),(.047,.026),(-.029,.038),(-.108,.032)],.006,ivory,weapon)
             plate.location.x=side*.039
             a.box('Enamel inlay',(x,-.021,-.075),(.002,.009,.063),enamel,weapon,.002)
@@ -288,7 +305,7 @@ def main():
             for ob in root.children_recursive:
                 if ob.type=='MESH' and len(ob.data.polygons)>500:
                     bpy.context.view_layer.objects.active=ob
-                    mod=ob.modifiers.new('Hand surface budget','DECIMATE');mod.ratio=.82
+                    mod=ob.modifiers.new('Hand surface budget','DECIMATE');mod.ratio=.68 if 'forearm' in ob.name.lower() else .82
                     bpy.ops.object.modifier_apply(modifier=mod.name)
         from bake_asset_shading import bake
         bake(root,kind=='hands');join_parts(root)

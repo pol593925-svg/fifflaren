@@ -14,10 +14,20 @@
    'Рабочие вкладки не загружают 3D-движок. Для 4K-экранов ограничено внутреннее разрешение рендера; автоматическое качество быстрее реагирует на сильное падение частоты кадров.',
    'Сокращена искусственная пятисекундная заставка казино. Медиа, постройки, заметки и рабочие данные не сбрасываются.']]
  ],checks:'Перед выпуском проверены рабочие формы, права сотрудника, день и ночь, размеры окон, прицеливание, обе карты, запуск Electron и восстановление после потери графического контекста. Производительность зависит от компьютера и качества графики.'};
- let entries=[],dialog,list,article,status,button,selected='v5.0.0',loadedAt=0,pending=null;
+ const UPCOMING={tag:'v6.0.0',title:'Следующая глава · 6.0.0',planned:true,groups:[
+  ['В разработке','Живописный аниме-стиль КС',[
+   'Плавная архитектура, проходимые дома, двери, окна, укрытия и подземные маршруты. Два плента: A и B.',
+   'Детализация рук, всего арсенала и пяти питомцев: выразительные силуэты, ткань, эмаль, металл и анимации.',
+   'Бой 5 на 5 по раундам. Снайперское оружие с оптическим увеличением; техника и РПГ исключены из нового режима.']],
+  ['Подготовка','Сначала проверка в игре',[
+   'Настройка производительности для слабых компьютеров, проверка прицеливания, эффектов и загрузки карт.',
+   'Скриншоты и проверки готовятся в локальной сборке. Обновление ещё не опубликовано; дата выхода не объявлена.']]
+ ]};
+ let entries=[],dialog,list,article,status,button,selected=UPCOMING.tag,loadedAt=0,pending=null;
  function valid(row){return row&&/^v?\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(row.tag||'')&&Number.isFinite(Date.parse(row.date));}
  function clean(rows){return (Array.isArray(rows)?rows:[]).filter(valid).slice(0,200).map(r=>({tag:r.tag,title:String(r.title||r.tag).slice(0,180),date:r.date,preview:!!r.preview,body:String(r.body||'Описание этого выпуска пока не опубликовано.').slice(0,30000)}));}
- function merge(rows){const by=new Map(entries.map(r=>[r.tag,r]));for(const r of clean(rows))by.set(r.tag,r);entries=[...by.values()].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)).slice(0,200);}
+ function merge(rows){const by=new Map(entries.map(r=>[label(r),r]));for(const r of clean(rows))by.set(label(r),r);entries=[...by.values()].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)).slice(0,200);}
+ function releases(){return entries.some(r=>label(r)===label(UPCOMING))?entries:[UPCOMING,...entries];}
  function el(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
  function date(value){return new Date(value).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});}
  function label(row){return row.tag.replace(/^v/,'');}
@@ -31,19 +41,20 @@
   if(/^[-*] /.test(text)){if(!ul){ul=el('ul','patch-note-list');fragment.append(ul);}ul.append(el('li','',text.slice(2)));}
   else{ul=null;fragment.append(el(/^#{1,6} /.test(text)?'h3':'p','',text.replace(/^#{1,6} /,'')));}
  }return fragment;}
- function show(tag){const row=entries.find(r=>r.tag===tag)||entries[0];if(!row)return;selected=row.tag;
+ function show(tag){const rows=releases(),row=rows.find(r=>label(r)===String(tag).replace(/^v/,''))||rows[0];if(!row)return;selected=row.tag;
   for(const item of list.children)item.setAttribute('aria-pressed',String(item.dataset.tag===selected));
   article.replaceChildren();article.scrollTop=0;
-  const head=el('header','patch-hero'),meta=el('div','patch-meta');meta.append(el('span','patch-version',label(row)),el('span','',row.preview?'Предварительная версия':'Опубликованный выпуск'),el('time','',date(row.date)));
+  const head=el('header','patch-hero'),meta=el('div','patch-meta');meta.append(el('span','patch-version',label(row)),el('span',row.planned?'patch-planned':'',row.planned?'В разработке · ещё не опубликовано':row.preview?'Предварительная версия':'Опубликованный выпуск'));if(!row.planned)meta.append(el('time','',date(row.date)));
   const terra=row.tag.replace(/^v/,'')==='5.0.0';head.append(meta,el('h2','',terra?TERRA.title:row.title));
   if(terra)head.append(el('p','',TERRA.intro));article.append(head);
-  if(terra){const groups=el('div','patch-sections');TERRA.groups.forEach((g,i)=>groups.append(section(...g,i)));article.append(groups,el('p','patch-checks',TERRA.checks));}
+  if(row.planned){head.append(el('p','','5.0.0 — часть истории Support Hub. Работа продолжается: здесь — направление следующего большого обновления.'));const groups=el('div','patch-sections');row.groups.forEach((g,i)=>groups.append(section(...g,i)));article.append(groups);}
+  else if(terra){const groups=el('div','patch-sections');TERRA.groups.forEach((g,i)=>groups.append(section(...g,i)));article.append(groups,el('p','patch-checks',TERRA.checks));}
   else{const notes=el('div','patch-prose');notes.append(prose(row.body));article.append(notes);}
-  article.append(el('p','patch-archive','Это описание версии на момент её выпуска. Более новые изменения перечислены отдельно.'));
+  article.append(el('p','patch-archive',row.planned?'План может уточняться. После публикации здесь автоматически появится итоговое описание 6.0.0.':'Это описание версии на момент её выпуска. Более новые изменения перечислены отдельно.'));
   article.setAttribute('aria-label','Изменения версии '+label(row));
  }
  function draw(){if(!dialog)return;const scroll=article.scrollTop;list.replaceChildren();const latest=entries.find(e=>!e.preview);
-  for(const row of entries){const item=el('button','patch-release');item.type='button';item.dataset.tag=row.tag;item.append(el('strong','',label(row)),el('small','',date(row.date)));if(row===latest)item.append(el('span','patch-latest','Последний выпуск'));else if(row.preview)item.append(el('span','patch-preview','Альфа'));item.onclick=()=>show(row.tag);list.append(item);}
+  for(const row of releases()){const item=el('button','patch-release');item.type='button';item.dataset.tag=row.tag;item.append(el('strong','',label(row)),el('small','',row.planned?'Следующее большое обновление':date(row.date)));if(row.planned)item.append(el('span','patch-planned','В разработке'));else if(row===latest)item.append(el('span','patch-latest','Последний опубликованный'));else if(row.preview)item.append(el('span','patch-preview','Альфа'));item.onclick=()=>show(row.tag);list.append(item);}
   show(selected);article.scrollTop=scroll;
  }
  async function refresh(force=false){if(pending)return pending;if(!force&&Date.now()-loadedAt<3600000)return;

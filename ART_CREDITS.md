@@ -56,6 +56,13 @@ Actual gameplay captures and measurement output are produced locally in `graphic
 
 The eighth local pass adds fingertip nails and joint creases, curved single-piece magazines, a braided knife grip and offline vertex cavity shading across the complete arsenal. Hand meshes are reduced after subdivision to remain below 2 MiB. `tools/blender/build_anime_pets.py` creates the five original companion refinements and matching lobby portraits: shaped ears, facial details, tapered tails, layered feathers, wing ribs and stone fingers. The runtime combines their articulation pivots into one skinned mesh per companion with shared geometry and independent bones. No external artwork or game assets are added in this pass; maps are unchanged.
 
+The ninth local anime pass adds original rolled glove seams, graphite receiver
+recesses, brushed colour washes and baked warm/cool form shading. Companion
+appendages use smooth interpolated paths; jaw contours, eye rims, iris colours
+and fox forehead locks are authored in the included Blender scripts. Their
+portraits are rendered from the same models. No new external assets are used;
+this remains an approximation of the approved art direction, not a Genshin match.
+
 ## Winter valley and interiors
 
 The photographed sky is Greg Zaal and Jarod Guest's [Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky). The following local surface scans are from Poly Haven under CC0: [Forest ground](https://polyhaven.com/a/forrest_ground_01), [snow](https://polyhaven.com/a/snow_02), [rock face](https://polyhaven.com/a/rock_face_03), [painted plaster](https://polyhaven.com/a/painted_plaster_wall) and [floor tiles](https://polyhaven.com/a/floor_tiles_06). The two-tree alpha atlas is original generated art. The landmark meshes, articulated carbine details, sleeves and reflex sight are made for Support Hub.

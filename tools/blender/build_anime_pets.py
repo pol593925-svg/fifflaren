@@ -12,12 +12,21 @@ exec(compile(source[:source.rfind('\nfor kind in (')],str(Path(__file__)), 'exec
 a=scope['a'];join=a.join_parts;a.join_parts=lambda root:None
 
 def sweep(name,points,radii,mat,parent,sides=14,flatten=1):
- verts=[];faces=[]
+ # Interpolate short authoring paths: tails, ears and fur locks must curve between joints.
+ if 2<len(points)<9:
+  controls=[Vector(p)for p in points];smooth=[];rr=[]
+  for i in range(len(points)-1):
+   p0=controls[max(0,i-1)];p1=controls[i];p2=controls[i+1];p3=controls[min(len(points)-1,i+2)]
+   for t in [0,.5]:
+    smooth.append(tuple(.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t*t+(-p0+3*p1-3*p2+p3)*t*t*t)))
+    rr.append(radii[i]+(radii[i+1]-radii[i])*t)
+  points=smooth+[points[-1]];radii=rr+[radii[-1]]
+ verts=[];faces=[];previous=None
  for i,(p,r) in enumerate(zip(points,radii)):
   tangent=(Vector(points[min(i+1,len(points)-1)])-Vector(points[max(0,i-1)])).normalized()
-  axis=tangent.cross(Vector((0,0,1)))
+  axis=previous-tangent*previous.dot(tangent) if previous is not None else tangent.cross(Vector((0,0,1)))
   if axis.length<.01:axis=tangent.cross(Vector((1,0,0)))
-  axis.normalize();up=tangent.cross(axis).normalized()
+  axis.normalize();previous=axis;up=tangent.cross(axis).normalized()
   for j in range(sides):verts.append(tuple(Vector(p)+r*(axis*math.cos(j*math.tau/sides)+up*math.sin(j*math.tau/sides)*flatten)))
  for i in range(len(points)-1):
   for j in range(sides):k=i*sides+j;q=i*sides+(j+1)%sides;faces.append((k,q,q+sides,k+sides))
@@ -30,15 +39,22 @@ def build(kind):
  fur=a.surface('Soft fur',colours[kind],.88);cream=a.surface('Ivory fur',(.91,.81,.61),.9)
  pink=a.surface('Ear velvet',(.60,.24,.27),.9);ink=a.surface('Ink',(.025,.035,.052),.6)
  gold=a.surface('Gold',(.81,.56,.22),.55);teal=a.surface('Cloth',(.12,.34,.38),.85)
- iris=a.surface('Jewel eyes',(.20,.55,.61) if kind!='golem' else (.43,.86,.66),.45)
+ eye_colours={'fox':(.23,.58,.63),'dragon':(.86,.53,.16),'owl':(.37,.60,.82),'golem':(.43,.86,.66),'deer':(.59,.72,.41)}
+ iris=a.surface('Jewel eyes',eye_colours[kind],.45)
  light=a.surface('Catchlight',(1,.96,.85),.3)
  def orb(n,p,s,m,parent,seg=16,rings=10):return a.orb(n,p,s,m,parent,seg,rings)
  # Continuous tapered tails and wings replace overlapping balls and flat quadrilaterals.
  for ob in list(root.children_recursive):
   if ob.type!='MESH':continue
-  if ob.name.startswith(('Fluffy tail','White tail','Wing','Ear')):bpy.data.objects.remove(ob,do_unlink=True)
+  if ob.name.startswith(('Fluffy tail','White tail','Wing','Ear','Eye glint')):bpy.data.objects.remove(ob,do_unlink=True)
   elif ob.name.startswith('Rounded body') and kind in ['fox','deer']:
    for v in ob.data.vertices:v.co.x*=.92;v.co.y*=1.08
+  elif ob.name=='Head' and kind!='golem':
+   # Sculpt the jaw and cheek volume without adding a second intersecting head sphere.
+   for v in ob.data.vertices:
+    height=(v.co.z-.59)/.22
+    v.co.x*=.88+.13*max(0,1-height*height)+.035*max(0,height)
+    v.co.y+=.012*max(0,-height)*(1-abs(v.co.x)/.23)
  # Eyes share a centered pivot so blinking does not move the face itself.
  eyes=a.empty('petEyes',(0,.15,-.20),head)
  bpy.context.view_layer.update()
@@ -51,7 +67,10 @@ def build(kind):
   orb('Pupil',(x+.002,.002,-.034),(.017,.034,.006),ink,eyes,12,8)
   orb('Large eye light',(x-.012,.022,-.039),(.011,.015,.004),light,eyes,10,6)
   orb('Small eye light',(x+.013,-.015,-.039),(.005,.006,.003),light,eyes,8,6)
-  a.line('Soft brow',[(x-side*.041,.225,-.185),(x,.239,-.204),(x+side*.042,.23,-.179)],.009,fur,head)
+  a.line('Soft brow',[(x+side*(t-.5)*.087,.225+.014*math.sin(t*math.pi),-.181-.023*math.sin(t*math.pi))for t in [i/8 for i in range(9)]],.006,fur,head)
+  # Upper lids frame the eyes; the iris has a bright lower crescent like an illustration.
+  a.line('Upper eyelid',[(x+.048*math.cos(t),.061*math.sin(t),-.018-.006*math.sin(t))for t in [i*math.pi/12 for i in range(13)]],.0045,ink,eyes)
+  a.line('Iris crescent',[(x+.024*math.cos(t),.035*math.sin(t),-.036)for t in [math.pi+i*math.pi/10 for i in range(11)]],.0025,light,eyes)
   if kind in ['fox','deer','dragon','owl']:
    ear=a.empty('earL' if side<0 else 'earR',(side*.17,.24,0),head)
    if kind=='deer':
@@ -86,6 +105,8 @@ def build(kind):
   sweep('Ivory tail tip',pts[3:],[.142,.078,.001],cream,tail,24,.94)
   sweep('Teal neck ribbon',[(math.sin(j*math.tau/24)*.15,.46,-.18+math.cos(j*math.tau/24)*.12)for j in range(25)],[.022]*25,teal,body,8)
   orb('Sun collar charm',(0,.42,-.308),(.035,.04,.012),gold,body)
+  for k in [-1,0,1]:
+   sweep('Forehead fur lock',[(k*.044,.26,.015),(k*.051,.30,-.015),(k*.046,.235,-.07)],[.034,.024,.001],fur,head,10,.58)
  if kind=='deer':
   tail=a.empty('tail',(0,.35,.27),root);sweep('Leaf tail',[(0,0,0),(0,.08,.11),(0,.12,.17)],[.045,.06,.001],cream,tail)
   for side in [-1,1]:
@@ -128,7 +149,13 @@ def build(kind):
    poly.use_smooth=True
    for li in poly.loop_indices:
     v=ob.data.vertices[ob.data.loops[li].vertex_index];shade=.84+.13*max(0,v.normal.z)+.025*math.sin(v.co.x*17+v.co.z*11)
-    c=attr.data[li].color[:] if prior else base;attr.data[li].color=tuple(min(1,n*shade)for n in c[:3])+(1,)
+    c=attr.data[li].color[:] if prior else base
+    if ob.name=='Head' or ob.name.startswith('Rounded body'):c=(*colours[kind],1)
+    # Warm cheek pigment and a cooler underside, baked into the existing colour stream.
+    cheek=0
+    if ob.name=='Head':cheek=math.exp(-((abs(v.co.x)-.15)/.055)**2-((v.co.z-.56)/.05)**2)*max(0,min(1,(v.co.y-.25)/.07))
+    tint=(1.0,1-.11*cheek,1-.17*cheek)
+    attr.data[li].color=tuple(min(1,n*shade*t)for n,t in zip(c[:3],tint))+(1,)
   ob.data.materials.clear();ob.data.materials.append(combined)
  join(head);join(root);return root
 

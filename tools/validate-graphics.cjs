@@ -43,6 +43,10 @@ for(const name of ['dust2','inferno']){
  assert(entry.meshBatches<=90&&entry.triangles<400000,name+' anime geometry budget');
  assert(entry.bytes<manifest.maps[name].bytes,name+' anime asset must be smaller than the replaced map');
  assert(g.materials.some(m=>m.name==='ground')&&g.materials.some(m=>m.name==='plaster'),name+' missing surfaces');
+ for(const surface of ['ground','plaster','plaster_light','wood','shutter']){
+  const material=g.materials.find(m=>m.name===surface);
+  assert(material?.normalTexture,name+' missing illustrated relief: '+surface);
+ }
 }
 const animeWeapons=JSON.parse(fs.readFileSync(path.join(assets,'anime-weapons-manifest.json'))).assets;
 assert.equal(animeWeapons.length,20);

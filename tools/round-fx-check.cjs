@@ -24,7 +24,13 @@ module.exports=async function(page,outputs,errors){
    return {x,z};
   },{map,rifles:!!process.env.RIFLE_LOAD});
   for(const quality of (process.env.WEAK_PC?['low']:['low','balanced','high'])){
-   await page.evaluate(q=>{const ui=__qa.ui();ui.quality.value=q;ui.quality.onchange()},quality);
+   const detail=await page.evaluate(q=>{
+    const ui=__qa.ui();ui.quality.value=q;ui.quality.onchange();
+    const material=__qa.world().surface('ground');
+    return {enabled:!!material.normalMap,retained:!!material.cs16DetailNormalMap};
+   },quality);
+   assert.equal(detail.enabled,quality!=='low','map relief must follow the GPU quality budget');
+   assert(detail.retained,'quality changes must retain the reusable relief texture');
    await page.waitForTimeout(1000);
    reports.push(await page.evaluate(async({quality,x,z})=>{
     window.__programCounts={};

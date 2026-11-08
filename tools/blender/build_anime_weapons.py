@@ -34,12 +34,16 @@ def soft_box(name,pos,size,mat,parent,bevel=.008):
         # Rounded, slightly tapered cross-sections replace the large rectangular masses.
         width,height,depth=size;verts=[];faces=[];segments=24;rings=9
         for j in range(rings):
-            t=j/(rings-1);cap=.82+.18*math.sin(math.pi*t)**.45
+            t=j/(rings-1);cap=.78+.22*math.sin(math.pi*t)**.55
+            # Flowing comb and shoulder silhouette; grip/reload sockets stay untouched.
+            stock=name in ['Shoulder stock','Cheek rest']
+            swell=1-.13*math.sin(math.pi*t) if stock else 1
+            lift=height*.085*math.sin(math.pi*t) if stock else 0
             for k in range(segments):
                 angle=k*math.tau/segments
-                def soft(v):return math.copysign(abs(v)**.64,v)
+                def soft(v):return math.copysign(abs(v)**(.84 if stock else .76),v)
                 verts.append((pos[0]+width*.5*soft(math.cos(angle))*cap,
-                              pos[1]+height*.5*soft(math.sin(angle))*cap,
+                              pos[1]+lift+height*.5*soft(math.sin(angle))*cap*swell,
                               pos[2]+depth*(t-.5)))
         for j in range(rings-1):
             for k in range(segments):
@@ -60,6 +64,28 @@ def curved_profile(name,outline,width,mat,parent):
         start=q+(p-q).normalized()*radius;end=q+(n-q).normalized()*radius
         for j in range(5):
             t=j/4;v=(1-t)**2*start+2*t*(1-t)*q+t*t*end;points.append(tuple(v))
+    # Thin enamel inlays have a domed face, with a rolled perimeter instead of
+    # a flat extruded sticker. Broad functional bodies keep their exact outline.
+    if any(k in name for k in ['swept receiver shell','receiver panel','swept slide shell']):
+        n=len(points);centre=sum((Vector(p) for p in points),Vector((0,0)))/n
+        verts=[];faces=[]
+        for side in [-1,1]:
+            for shrink,rise in [(1,0),(.93,.0011),(.72,.0018)]:
+                for z,y in points:
+                    p=centre+(Vector((z,y))-centre)*shrink
+                    verts.append((side*(width*.5+rise),p.y,p.x))
+            offset=0 if side<0 else 3*n
+            for ring in range(2):
+                for j in range(n):
+                    k=(j+1)%n;i=offset+ring*n
+                    face=(i+j,i+k,i+k+n,i+j+n)
+                    faces.append(tuple(reversed(face)) if side<0 else face)
+            faces.append(tuple(range(offset+2*n,offset+3*n))[::int(side)])
+        for j in range(n):faces.append((j,(j+1)%n,(j+1)%n+3*n,j+3*n))
+        ob=a.mesh(name,verts,faces,mat,parent)
+        # The exporter uses these smooth shoulder normals directly.
+        for face in ob.data.polygons:face.use_smooth=True
+        return ob
     return base_profile(name,points,width,mat,parent)
 w.receiver_profile=curved_profile
 
@@ -80,7 +106,9 @@ def sculpt(root,kind):
             vertices=ob.data.vertices
             for start in range(0,len(vertices),12):
                 ring=list(vertices[start:start+12]);centre=sum((v.co for v in ring),Vector())/len(ring)
-                for v in ring:v.co=centre+(v.co-centre)*(.91 if 'thumb' in ob.name.lower() else .85)
+                ring_index=start//12
+                contour=[.94,1.04,.96,1.0,.88][min(ring_index,4)]
+                for v in ring:v.co=centre+(v.co-centre)*(.91 if 'thumb' in ob.name.lower() else .85)*contour
             centres=[sum((v.co for v in vertices[i:i+12]),Vector())/12 for i in range(0,len(vertices),12)]
             finger_records.append((ob.parent,[Vector((v.x,v.z,-v.y))for v in centres], 'thumb' in ob.name.lower()))
         if 'Curved ventilated' in ob.name:
@@ -114,7 +142,7 @@ def paint(mat,hexcolor):
     n=192;yy,xx=np.mgrid[:n,:n];px=np.ones((n,n,4),dtype=np.float32)
     # Broad brushed pigment instead of uniform plastic. Periodic layers tile cleanly.
     u=xx*math.tau/n;v=yy*math.tau/n
-    wash=.94+.033*np.sin(u*3+np.sin(v*2)*1.8)+.018*np.sin(v*7+u*2)
+    wash=.94+.041*np.sin(u*3+np.sin(v*2)*1.8)+.021*np.sin(v*7+u*2)
     if textile:
         wash+=.016*np.sin(xx*math.pi/2)*np.sin(yy*math.pi/2)
         wash+=.018*np.cos(u*12+v*6)
@@ -324,7 +352,7 @@ def main():
             for ob in root.children_recursive:
                 if ob.type=='MESH' and len(ob.data.polygons)>500:
                     bpy.context.view_layer.objects.active=ob
-                    mod=ob.modifiers.new('Hand surface budget','DECIMATE');mod.ratio=.68 if 'forearm' in ob.name.lower() else .82
+                    mod=ob.modifiers.new('Hand surface budget','DECIMATE');mod.ratio=.64 if 'forearm' in ob.name.lower() else .82
                     bpy.ops.object.modifier_apply(modifier=mod.name)
         from bake_asset_shading import bake
         bake(root,kind=='hands');join_parts(root)

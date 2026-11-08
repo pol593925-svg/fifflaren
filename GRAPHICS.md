@@ -189,3 +189,41 @@ working-tree hashes. The native test also passed while loading resources from
 `app.asar`: about 2.6 seconds startup, stable explosion geometry and WebGL
 recovery. The review build is unsigned and intended for local QA; it has not
 been distributed to employees.
+
+## Painted surface and silhouette pass — 8 November 2026
+
+The full nineteen-weapon set has rounder receiver/fore-end cross-sections,
+flowing shoulder stocks and domed enamel inlays with rolled edges. Four hand
+grips now have subtly tapered phalanges/knuckles. Extra redundant sleeve
+subdivisions were removed: the hand asset is 2,071,648 bytes / 40,908 triangles,
+still below the existing 2 MiB budget. Grip anchors, moving magazines, sight
+alignment, weapon statistics and pets have not changed.
+
+All twelve townhouses across Dust2 and Inferno now have curved fan panels under
+their gables and individual bevelled foundation stones. These details stay on
+solid facade surfaces, outside playable doors/windows. Both maps share small
+256-pixel normal maps for painted paving, plaster and timber. The toon material
+conversion preserves them. Low quality omits this extra shader work while
+retaining the albedo; balanced/high restore the same textures without a download.
+The retained normal maps remain owned by the existing texture disposal path.
+
+Dust2: 365,126 triangles / 87 mesh batches / 34,947,520 bytes. Inferno: 365,036 /
+86 / 34,955,092 bytes. Both remain below 400k triangles and 90 batches; their
+shared gameplay-layout hashes are unchanged. The added decoration has not added
+material batches. Rendered map boundaries, tunnels, stairs and roofs keep their
+existing collision contracts.
+
+Validation: asset budgets and relief channels; 192 grip poses; nineteen live
+weapon/sight views; both maps' house/door/roof/tunnel traversal; combat alignment;
+loading concurrency and pooled spell tests. Native Electron startup was about
+2.7 seconds, with 93 geometries before/after 180 explosions, successful WebGL
+context recovery and aligned ADS. Local network fixtures were used, not a live
+employee match.
+
+Weak-CPU stress (4x CPU throttling, reported 4 GB/four cores, 1280x720 low,
+GTX 1080, ten actors/pets, rifle fire and repeated spell bursts) measured 40–43
+FPS, p95 36–39 ms. The worst observed frame was 95 ms. Disabling the small normal
+maps reduced active textures from 87 to 84 but did not establish a CPU-FPS gain.
+This is not a low-end GPU measurement or a claim of stable 60 FPS on weak PCs.
+Screenshots are real local game captures in graphics-qa, not concept renders.
+No version change, push, release or deployment was performed.

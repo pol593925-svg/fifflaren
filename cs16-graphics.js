@@ -95,6 +95,17 @@
       list.forEach(material => {
         if (!material || materials.has(material)) return;
         materials.add(material);
+        // Low quality keeps the painted albedo but skips the extra normal-map
+        // sample/derivatives. Retain the texture on the material so disposeTree
+        // still owns it, and changing quality restores it without another download.
+        if (material.isMeshToonMaterial && (material.normalMap || material.cs16DetailNormalMap)) {
+          material.cs16DetailNormalMap ||= material.normalMap;
+          const normal = quality === QUALITY.low ? null : material.cs16DetailNormalMap;
+          if (material.normalMap !== normal) {
+            material.normalMap = normal;
+            material.needsUpdate = true;
+          }
+        }
         if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
           material.envMapIntensity = 0.40;
           if(material.normalMap)material.normalScale.set(.35,.35);

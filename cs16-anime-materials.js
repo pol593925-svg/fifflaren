@@ -14,6 +14,7 @@
       if (converted.has(m)) return converted.get(m);
       const next = new (options.soft?T.MeshStandardMaterial:T.MeshToonMaterial)({
         name: m.name, map: m.map, color: m.color, ...(options.soft?{roughness:/textile|ripstop|leather/i.test(m.name)?.90:/finger|nail/i.test(m.name)?.76:/enamel|ceramic/i.test(m.name)?.40:.52,normalMap:m.normalMap,normalScale:m.normalScale?.clone().multiplyScalar(/textile|ripstop/i.test(m.name)?.25:1),metalness:/steel|edges|brass|receiver|alloy/i.test(m.name)?.22:0,envMapIntensity:.28}:{gradientMap:ramp}),
+        ...(!options.soft && m.normalMap ? {normalMap:m.normalMap,normalScale:m.normalScale?.clone()} : {}),
         vertexColors: m.vertexColors, side: m.side, alphaTest: m.alphaTest,
         emissive: m.emissive, emissiveMap: m.emissiveMap,
         emissiveIntensity: m.emissiveIntensity, transparent: m.transparent,

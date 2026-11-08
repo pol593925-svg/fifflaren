@@ -14,6 +14,22 @@ import coast_architecture
 original_coast=coast_architecture.build
 ROOT=a.ROOT;OUT=ROOT/'models/csgo';ART=ROOT/'assets/cs-anime'
 
+def painted_relief(image,name,strength):
+    """One small tangent-space texture, reused by all colour variants of a surface."""
+    sample=image.copy();sample.scale(256,256)
+    height=np.asarray(sample.pixels[:],dtype=np.float32).reshape(256,256,4)[:,:,:3].mean(axis=2)
+    bpy.data.images.remove(sample)
+    # Broad grooves, not noisy specular grain: stable even on the low-resolution profile.
+    height=(height+np.roll(height,1,0)+np.roll(height,-1,0)+np.roll(height,1,1)+np.roll(height,-1,1))/5
+    dx=(np.roll(height,-1,1)-np.roll(height,1,1))*strength
+    dy=(np.roll(height,-1,0)-np.roll(height,1,0))*strength
+    normal=np.stack((-dx,-dy,np.ones_like(dx)),axis=2)
+    normal/=np.linalg.norm(normal,axis=2,keepdims=True)
+    pixels=np.ones((256,256,4),dtype=np.float32);pixels[:,:,:3]=normal*.5+.5
+    im=bpy.data.images.new(name,width=256,height=256,alpha=False)
+    im.colorspace_settings.name='Non-Color';im.pixels.foreach_set(pixels.ravel());im.pack();a.TEX_IMAGES.append(im)
+    return im
+
 def materials(theme):
     a.MATS.clear();a.TEX_IMAGES.clear()
     palette={'plaster':('#efceac' if theme=='dust2' else '#e6ad9a'),'plaster_light':'#f5dfbb','plaster_blue':'#91b6b5',
@@ -23,6 +39,8 @@ def materials(theme):
     images={}
     for n in ['plaster-painted','paving-painted']:
         im=bpy.data.images.load(str(ART/(n+'.png')),check_existing=False);im.scale(1024,1024);im.pack();images[n]=im;a.TEX_IMAGES.append(im)
+    reliefs={'ground':painted_relief(images['paving-painted'],'Painted paving relief',9),
+             'plaster':painted_relief(images['plaster-painted'],'Brushed plaster relief',6)}
     for name,c in palette.items():
         color=tuple(int(c[i:i+2],16)/255 for i in [1,3,5]);mat=bpy.data.materials.new(name);mat.use_nodes=True
         bs=mat.node_tree.nodes.get('Principled BSDF');bs.inputs['Base Color'].default_value=(*color,1);bs.inputs['Roughness'].default_value=.87;bs.inputs['Metallic'].default_value=0
@@ -54,6 +72,14 @@ def materials(theme):
             px[:,:,:3]=np.array(color)[None,None,:]*brush[:,:,None]
             im=bpy.data.images.new('Illustrated '+name,width=n,height=n,alpha=False);im.pixels.foreach_set(px.ravel());im.pack();a.TEX_IMAGES.append(im)
             tx=mat.node_tree.nodes.new('ShaderNodeTexImage');tx.image=im;mat.node_tree.links.new(tx.outputs['Color'],bs.inputs['Base Color'])
+        relief=reliefs.get('ground' if name=='ground' else 'plaster' if name.startswith('plaster') or name in ['limestone','tunnel'] else name)
+        if name in ['wood','shutter']:
+            if 'wood' not in reliefs:reliefs['wood']=painted_relief(im,'Carved wood grain relief',12)
+            relief=reliefs['wood']
+        if relief:
+            nt=mat.node_tree.nodes.new('ShaderNodeTexImage');nt.image=relief
+            nm=mat.node_tree.nodes.new('ShaderNodeNormalMap');nm.inputs['Strength'].default_value=.65 if name=='ground' else .42
+            mat.node_tree.links.new(nt.outputs['Color'],nm.inputs['Color']);mat.node_tree.links.new(nm.outputs['Normal'],bs.inputs['Normal'])
         if name.startswith('lamp_'):bs.inputs['Emission Color'].default_value=(*color,1);bs.inputs['Emission Strength'].default_value=.4
         a.MATS[name]=mat
 

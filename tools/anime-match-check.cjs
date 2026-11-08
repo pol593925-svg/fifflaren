@@ -75,7 +75,7 @@ module.exports=async function(page,outputs,errors){
    for(const id of ['m4a1','ak47','usp']){
     await page.evaluate(({id,house})=>{__qa.aim(house.x+17,0,house.z-13,2.54,-.04);__qa.weapon(id)}, {id,house:spot.house});
     await page.waitForTimeout(400);await page.keyboard.press('KeyI');await page.waitForTimeout(950);
-    await page.screenshot({path:path.join(outputs,'anime-pass10-inspect-'+id+'.png')});await page.waitForTimeout(1400);
+    await page.screenshot({path:path.join(outputs,'anime-pass11-inspect-'+id+'.png')});await page.waitForTimeout(1400);
    }
    await page.evaluate(()=>__qa.weapon('m4a1'));
   }

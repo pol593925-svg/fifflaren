@@ -128,6 +128,34 @@ def build(a,theme):
             a.face('trim',[(x+4.5+math.cos(t)*r,8.54+math.sin(t)*r,z-.265)for t,r in [(aa,.31),(aa,.42),(bb,.42),(bb,.31)]])
         box('shutter',4.5,8.54,-.255,.52,.52,.018)
         box('wood',4.5,8.54,-.28,.035,.63,.025);box('wood',4.5,8.54,-.28,.63,.035,.025)
+        # Sculpted fan panels follow the gable's curve. Kept on solid masonry,
+        # above every playable opening; the rear roof terrace stays completely free.
+        for sign in [-1,1]:
+            for j in range(18):
+                t=j/18;tt=(j+1)/18
+                def fan(q,top):
+                    u=4.5+sign*(.76+q*2.92)
+                    return (x+u,(height(u)-.29 if top else 7.34+.12*math.sin(q*math.pi)),z-.275)
+                a.face('shutter',[fan(t,False),fan(tt,False),fan(tt,True),fan(t,True)],tint=.90)
+            tube('wood',[(x+4.5+sign*(.76+j*2.92/24),height(4.5+sign*(.76+j*2.92/24))-.27,z-.30)for j in range(25)],.046,8)
+            for j in range(5):
+                u=4.5+sign*(.86+j*.58)
+                tube('trim',[(x+u+sign*.09*math.sin(k*math.pi/8),7.39+k*(height(u)-7.76)/8,z-.30)for k in range(9)],.021,6)
+        # Dressed foundation stones have rolled edges, rather than a continuous
+        # blank rectangular band. Only 20 triangles per stone; shared material batch.
+        for row in range(2):
+            for j in range(17):
+                left=.34+j*.665+(row%2)*.14;right=min(11.65,left+.62)
+                if right<=left or left<7.23 and right>3.77:continue
+                bottom=.10+row*.265;top=bottom+.23;cut=.045
+                outline=[(left+cut,bottom),(right-cut,bottom),(right,bottom+cut),(right,top-cut),
+                         (right-cut,top),(left+cut,top),(left,top-cut),(left,bottom+cut)]
+                centre=Vector(((left+right)/2,(bottom+top)/2));front=[];back=[]
+                for u,v in outline:
+                    pp=centre+(Vector((u,v))-centre)*.94
+                    front.append((x+pp.x,pp.y,z-.105));back.append((x+u,v,z-.070))
+                a.face('limestone',front,tint=.90+(j%4)*.025)
+                for k in range(8):a.face('limestone',[back[k],back[(k+1)%8],front[(k+1)%8],front[k]],tint=.85 if k<3 else 1)
         # Rounded corner pilasters with shaped capitals replace stacks of cube stones.
         for xx,zz in [(.12,.10),(11.87,.10),(.12,11.87),(11.87,11.87)]:
             lathe('trim',x+xx,z+zz,[(0,.24),(.08,.27),(.16,.29),(.24,.27),(.30,.24),(.43,.19),(3.15,.19),(3.22,.21),(3.32,.25),(3.40,.26),(3.45,.25),(3.51,.21),(3.56,.18),(6.76,.18),(6.83,.20),(6.94,.26),(7.01,.28),(7.08,.26)],20)

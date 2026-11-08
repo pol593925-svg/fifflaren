@@ -16,6 +16,20 @@ a.join_parts=lambda root:None
 base_box=a.box
 finger_records=[]
 def soft_box(name,pos,size,mat,parent,bevel=.008):
+    if name in ['Textured grip','Pistol grip','Knife grip']:
+        # An oval backstrap swells gently into the palm; no rectangular grip block.
+        w,h,d=size;verts=[];faces=[];segments=20;rings=11;longitudinal=name=='Knife grip'
+        for j in range(rings):
+            t=j/(rings-1);bulge=.83+.17*math.sin(t*math.pi)**.65
+            for k in range(segments):
+                aa=k*math.tau/segments;xx=math.cos(aa)*w*.5*bulge
+                cross=math.sin(aa)*(.5*h if longitudinal else .5*d)*bulge
+                verts.append((pos[0]+xx,pos[1]+(cross if longitudinal else (t-.5)*h),pos[2]+((t-.5)*d if longitudinal else cross)))
+        for j in range(rings-1):
+            for k in range(segments):
+                i=j*segments+k;n=j*segments+(k+1)%segments;faces.append((i,n,n+segments,i+segments))
+        faces.extend([tuple(reversed(range(segments))),tuple(range((rings-1)*segments,rings*segments))])
+        return a.mesh(name,verts,faces,mat,parent)
     if name in ['Receiver','Shoulder stock','Fore-end','Slide','Lower frame','P90 rounded frame','Cheek rest','P90 top magazine','Horizontal magazine','Ammunition box','UMP polymer lower']:
         # Rounded, slightly tapered cross-sections replace the large rectangular masses.
         width,height,depth=size;verts=[];faces=[];segments=24;rings=9
@@ -122,6 +136,11 @@ def finish(root,kind):
             if name.startswith('Weapon finish /'):
                 c='#c5c9c3' if 'edges' in name else '#354e63' if 'steel' in name else '#a1b7b2' if 'Olive' in name else '#568e98' if 'Walnut' in name else '#577b91'
                 if kind in ['awp','scout'] and 'Olive' in name:c='#b5c5cf'
+                # Related finishes, distinct families: keep mechanisms graphite and paint the housing.
+                if 'steel' in name and kind in ['glock','mp5','galil','famas','sg552']:
+                    c={'glock':'#7c9a9e','mp5':'#356a78','galil':'#496c68','famas':'#637a97','sg552':'#52746e'}[kind]
+                if 'Olive' in name and kind=='scout':c='#6c929d'
+                if 'Walnut' in name:c='#ae7d50' if kind=='ak47' else '#687f70'
             elif 'field ripstop' in name:c='#48677c'
             elif 'glove textile' in name:c='#4c6477'
             elif 'leather' in name:c='#2e4259'

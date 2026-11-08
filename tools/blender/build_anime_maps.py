@@ -5,6 +5,7 @@ The existing map/door/building exporters remain the source of collision footprin
 import bpy, math, sys, json, hashlib, importlib.util, argparse
 from pathlib import Path
 import numpy as np
+from mathutils import Vector
 HERE=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('anime_map_base',HERE/'build_maps.py')
 a=importlib.util.module_from_spec(spec);sys.modules[spec.name]=a;spec.loader.exec_module(a)
@@ -16,7 +17,7 @@ ROOT=a.ROOT;OUT=ROOT/'models/csgo';ART=ROOT/'assets/cs-anime'
 def materials(theme):
     a.MATS.clear();a.TEX_IMAGES.clear()
     palette={'plaster':('#efceac' if theme=='dust2' else '#e6ad9a'),'plaster_light':'#f5dfbb','plaster_blue':'#91b6b5',
-      'limestone':'#d9c394','ground':'#ffffff','wood':'#a77d55','shutter':'#478e8f','steel':'#425365','duct':'#93a4b4',
+      'limestone':'#d9c394','ground':'#ffffff','wood':'#9b8368','shutter':'#478e8f','steel':'#425365','duct':'#93a4b4',
       'tunnel':'#b8b49d','roof':('#438998' if theme=='dust2' else '#627ca4'),'window_glass':'#395d69','dark':'#354959',
       'trim':'#f1d7aa','paint':'#7b4538','lamp_warm':'#ffdf9b','lamp_green':'#91e0b8','flower':'#da8dc0','leaf':'#709852','ceramic':'#b16e54'}
     images={}
@@ -39,12 +40,17 @@ def materials(theme):
             tx=mat.node_tree.nodes.new('ShaderNodeTexImage');tx.image=im;mat.node_tree.links.new(tx.outputs['Color'],bs.inputs['Base Color'])
             bs.inputs['Base Color'].default_value=(1,1,1,1)
         else:
-            n=128;yy,xx=np.mgrid[:n,:n];px=np.ones((n,n,4),dtype=np.float32)
+            n=256;yy,xx=np.mgrid[:n,:n];px=np.ones((n,n,4),dtype=np.float32)
             brush=.96+.025*np.sin(xx*.19+np.sin(yy*.10)*3)+.018*np.sin(yy*.36+xx*.03)
             if name in ['wood','shutter']:
-                grain=xx*.40+.65*np.sin(yy*.025)+.20*np.sin(yy*.11+xx*.04)
-                brush=.94+.035*np.sin(grain)+.018*np.sin(grain*2.8)
-                brush-=.035*(np.mod(xx+.6*np.sin(yy*.025),32)<1)
+                u=xx*math.tau/n;v=yy*math.tau/n
+                grain=u*24+.7*np.sin(v*2)+.25*np.sin(v*7+u*3)
+                brush=.95+.012*np.sin(grain)+.006*np.sin(grain*3)+.012*np.sin(u*3+v)
+                brush-=.035*(np.mod(xx+.20*np.sin(v*2),32)<.8)
+                # Small irregular grain knots and brush marks remain inside one albedo map.
+                for cx,cy in [(43,76),(190,192)]:
+                    radius=np.sqrt(((xx-cx)*1.4)**2+((yy-cy)*.48)**2)
+                    brush+=np.exp(-radius/18)*(.018*np.sin(radius*.65)-.025)
             px[:,:,:3]=np.array(color)[None,None,:]*brush[:,:,None]
             im=bpy.data.images.new('Illustrated '+name,width=n,height=n,alpha=False);im.pixels.foreach_set(px.ravel());im.pack();a.TEX_IMAGES.append(im)
             tx=mat.node_tree.nodes.new('ShaderNodeTexImage');tx.image=im;mat.node_tree.links.new(tx.outputs['Color'],bs.inputs['Base Color'])
@@ -57,6 +63,9 @@ def wall_details(x,z,dx,dz,variant,theme):
     def panel(mat,u,y,w,h,d=.08):
         pts=[pt(u-w/2,y-h/2,d),pt(u-w/2,y+h/2,d),pt(u+w/2,y+h/2,d),pt(u+w/2,y-h/2,d)]
         a.face(mat,pts)
+        if mat in ['wood','shutter','trim','steel'] and min(w,h)>=.12:
+            back=[pt(u-w/2,y-h/2,d-.035),pt(u-w/2,y+h/2,d-.035),pt(u+w/2,y+h/2,d-.035),pt(u+w/2,y-h/2,d-.035)]
+            for j in range(4):a.face(mat,[pts[j],back[j],back[(j+1)%4],pts[(j+1)%4]],tint=.86 if j in [0,3] else 1.05)
     panel('limestone',0,.26,4,.52,.035)
     panel('trim',0,.57,4,.09,.10)
     # Swept ceramic eave curves down over the wall, never above its 4m cover contract.
@@ -86,11 +95,16 @@ def wall_details(x,z,dx,dz,variant,theme):
     for j in range(14):
         aa=j*math.pi/14;bb=(j+1)*math.pi/14
         a.face('trim',[pt(math.cos(t)*rr,center+math.sin(t)*rr,.13) for t,rr in [(aa,r),(aa,r+.13),(bb,r+.13),(bb,r)]])
+        a.face('limestone',[pt(math.cos(t)*r,center+math.sin(t)*r,d)for t,d in [(aa,.054),(aa,.13),(bb,.13),(bb,.054)]],tint=.84)
+        a.face('trim',[pt(math.cos(t)*(r+.13),center+math.sin(t)*(r+.13),d)for t,d in [(aa,.13),(aa,.07),(bb,.07),(bb,.13)]])
     for u in [-.665,.665]:panel('trim',u,(base+center)/2,.13,center-base,.13)
     panel('trim',0,1.30,1.59,.13,.22);panel('wood',0,2.05,.05,1.46,.09);panel('wood',0,2.15,1.16,.05,.09)
     for s in [-1,1]:
         panel('shutter',s*.89,2.02,.32,1.4,.08)
         for k in range(7):panel('shutter',s*.89,1.47+k*.17,.30,.075,.11)
+        panel('steel',s*.89,1.88,.042,.19,.165)
+    # Broad painted reflection in the recess, kept behind the central mullion.
+    a.face('window_glass',[pt(-.50,1.43,.057),pt(-.50,2.58,.057),pt(-.21,2.82,.057),pt(-.27,1.43,.057)],tint=1.24)
     if variant%3==0:
         panel('wood',0,1.14,1.50,.20,.30)
         for j in range(11):
@@ -128,7 +142,9 @@ def main():
     args=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
     ap=argparse.ArgumentParser();ap.add_argument('--map',choices=['dust2','inferno','all'],default='all');cfg=ap.parse_args(args)
     a.create_materials=materials;a.wall_details=wall_details;a.site_markers=site_markers;coast_architecture.build=coast
-    layouts=a.read_layouts();manifest={'generator':'tools/blender/build_anime_maps.py','style':'Painterly anime','collisionSource':'Authored tactical MAP_ROWS, CS16TacticalMap and CS16Buildings','maps':{}}
+    manifest_path=OUT/'anime-maps-manifest.json'
+    layouts=a.read_layouts();manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {'maps':{}}
+    manifest.update({'generator':'tools/blender/build_anime_maps.py','style':'Painterly anime','collisionSource':'Authored tactical MAP_ROWS, CS16TacticalMap and CS16Buildings'})
     raw_face=a.face
     for theme,rows in layouts.items():
         if cfg.map not in ['all',theme]:continue
@@ -140,12 +156,29 @@ def main():
         zmin=(min(z for x,z in cells)-2)*4;zmax=(max(z for x,z in cells)+3)*4
         def compact_face(mat,verts,uv=None,tint=1,backdrop=False):
             if not backdrop and (max(v[0]for v in verts)<=xmin or min(v[0]for v in verts)>=xmax or max(v[2]for v in verts)<=zmin or min(v[2]for v in verts)>=zmax):return
+            if mat=='ground' and uv is None:uv=[(v[0]/2.6,v[2]/2.6)for v in verts]
+            if mat in ['plaster','plaster_light','plaster_blue','wood','trim','limestone','roof']:
+                # Hand-painted ambient volume baked once, including underside/contact darkening.
+                normal=(Vector(verts[1])-Vector(verts[0])).cross(Vector(verts[2])-Vector(verts[0]))
+                if normal.length:normal.normalize()
+                cy=sum(v[1]for v in verts)/len(verts)
+                tint*=.92+.08*max(0,normal.y)-.10*max(0,-normal.y)
+                if mat.startswith('plaster'):tint*=.91+.09*min(1,max(0,cy/.6))
             raw_face(mat,verts,uv,tint,backdrop)
         a.face=compact_face
         lamps,beacons=a.build_map(theme,rows)
         for x0,z0,x1,z1 in [(0,0,504,zmin),(0,zmax,504,504),(0,zmin,xmin,zmax),(xmax,zmin,504,zmax)]:
             for mat,y in [('ground',0),('limestone',4)]:raw_face(mat,[(x0,y,z1),(x1,y,z1),(x1,y,z0),(x0,y,z0)])
         a.face=raw_face;objects=a.bake_batches()
+        # Cover remains inside its shared collision envelope, with softly manufactured edges.
+        for ob in list(bpy.data.objects):
+            if ob.type!='MESH' or not ob.name.startswith('crate_'):continue
+            bpy.context.view_layer.objects.active=ob
+            bevel=ob.modifiers.new('Rounded cover edges','BEVEL');bevel.width=.055;bevel.segments=3
+            bpy.ops.object.modifier_apply(modifier=bevel.name)
+            for poly in ob.data.polygons:poly.use_smooth=True
+            normal=ob.modifiers.new('Weighted cover normals','WEIGHTED_NORMAL');normal.keep_sharp=True
+            bpy.ops.object.modifier_apply(modifier=normal.name)
         import bmesh
         for ob in objects:
             if ob.data.materials[0].name not in ['roof','trim','wood','ceramic','shutter','plaster','plaster_blue','plaster_light']:continue
@@ -154,11 +187,12 @@ def main():
             bpy.context.view_layer.objects.active=ob
             normal=ob.modifiers.new('Balanced surface normals','WEIGHTED_NORMAL');normal.keep_sharp=True
             bpy.ops.object.modifier_apply(modifier=normal.name)
-        tris=0
+        # Count separate interactive covers as well as material batches.
+        objects=[ob for ob in bpy.data.objects if ob.type=='MESH'];tris=0
         for ob in objects:ob.data.calc_loop_triangles();tris+=len(ob.data.loop_triangles)
         target=OUT/('anime-'+theme+'.glb')
         bpy.ops.export_scene.gltf(filepath=str(target),export_format='GLB',export_yup=True,export_apply=False,export_animations=False,export_cameras=False,export_lights=False,export_extras=True,export_image_format='AUTO',export_materials='EXPORT')
         manifest['maps'][theme]={'file':target.name,'bytes':target.stat().st_size,'triangles':tris,'meshBatches':len(objects),'layoutSha256':hashlib.sha256('\n'.join(rows).encode()).hexdigest()}
         print('ANIME_MAP',theme,json.dumps(manifest['maps'][theme]),flush=True)
-    (OUT/'anime-maps-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+    manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
 if __name__=='__main__':main()

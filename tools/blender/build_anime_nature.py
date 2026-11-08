@@ -30,7 +30,7 @@ def finish(root,prefix):
   for ob in obs:ob.select_set(True)
   bpy.context.view_layer.objects.active=obs[0];bpy.ops.object.join();ob=obs[0];ob.name=prefix+'_'+('Leaves' if 'Leaves' in mat.name else 'Bark' if 'Bark' in mat.name else 'Rock')
 def foliage(parent,centres,mat,count=14):
- verts=[];faces=[]
+ verts=[];faces=[];leaf_tones=[]
  for cx,cy,cz,r in centres:
   for i in range(count):
    az=rng.random()*math.tau;e=rng.uniform(-1,1);rad=r*rng.random()**.5
@@ -38,16 +38,21 @@ def foliage(parent,centres,mat,count=14):
    angle=rng.random()*math.tau;length=rng.uniform(.18,.32);width=length*.57
    dx,dz=math.cos(angle),math.sin(angle);tilt=rng.uniform(-.65,.65)
    n=len(verts);verts.append((x,y+.045,z))
+   leaf_tones.append(rng.uniform(.80,1.12))
    for k in range(8):
     t=k*math.tau/8;u=math.cos(t)*length;v=math.sin(t)*width
     verts.append((x+dx*u-dz*v,y+math.sin(tilt)*u,z+dz*u+dx*v))
    for k in range(8):faces.append((n,n+1+k,n+1+(k+1)%8))
  ob=a.mesh('Leaves',verts,faces,mat,parent)
- for p in ob.data.polygons:p.use_smooth=False
+ for p in ob.data.polygons:p.use_smooth=True
  colors=ob.data.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
  for poly in ob.data.polygons:
-  v=rng.uniform(.65,1.15)
-  for li in poly.loop_indices:colors.data[li].color=(v,v*1.015,v*.94,1)
+  # One painted wash per leaf, with a soft lit midrib; no random triangular patchwork.
+  tone=leaf_tones[poly.index//8]
+  for li in poly.loop_indices:
+   vertex=ob.data.loops[li].vertex_index
+   v=tone*(1.07 if vertex%9==0 else .94+.045*math.cos((vertex%9-1)*math.tau/8))
+   colors.data[li].color=(v,v*1.015,v*.94,1)
 for key in ['oak','birch','pine','bush']:
  root=a.empty(key);centres=[]
  if key=='oak':

@@ -15,6 +15,7 @@ module.exports=async function(page,outputs,errors){
    const ui=__qa.ui();ui.quality.value='high';ui.quality.onchange();return {x,z,house:b};
   },map);
   await page.waitForTimeout(1600);
+  if(map==='dust2')await require('./landscape-pools-check.cjs')(page,spot);
   reports.push({map,traversal,...await page.evaluate(()=>__qa.snapshot()),spot});
   await page.screenshot({path:path.join(outputs,'anime-'+map+'-match.png')});
   await page.mouse.click(700,450);await page.waitForTimeout(150);await page.mouse.down({button:'right'});await page.waitForTimeout(500);
@@ -70,8 +71,18 @@ module.exports=async function(page,outputs,errors){
    fs.writeFileSync(path.join(outputs,'arsenal-review.html'),'<!doctype html><meta charset="utf-8"><title>Арсенал — кадры из игры</title><style>body{margin:32px;background:#111e29;color:#efe5cd;font:16px system-ui}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px}figure{margin:0}img{width:100%;border-radius:12px}figcaption{padding:8px}a{color:inherit}</style><h1>Арсенал · локальная версия</h1><p>Кадры полного игрового клиента. Локальная подмена сетевого подключения.</p><main>'+guns.map(id=>'<figure><a href="arsenal-'+id+'.png"><img src="arsenal-'+id+'.png" loading="lazy"></a><figcaption>'+id.toUpperCase()+'</figcaption></figure>').join('')+'</main>');
   }
   await page.evaluate(()=>__qa.weapon('m4a1'));
+  if(map==='dust2'){
+   for(const id of ['m4a1','ak47','usp']){
+    await page.evaluate(({id,house})=>{__qa.aim(house.x+17,0,house.z-13,2.54,-.04);__qa.weapon(id)}, {id,house:spot.house});
+    await page.waitForTimeout(400);await page.keyboard.press('KeyI');await page.waitForTimeout(950);
+    await page.screenshot({path:path.join(outputs,'anime-pass10-inspect-'+id+'.png')});await page.waitForTimeout(1400);
+   }
+   await page.evaluate(()=>__qa.weapon('m4a1'));
+  }
   await page.evaluate(b=>__qa.aim(b.x+5.5,.02,b.z+2.3,-2.0,0),spot.house);
   await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,'anime-'+map+'-interior.png')});
+  await page.evaluate(b=>__qa.aim(b.x+7.8,.02,b.z+7.8,1.1,-.10),spot.house);
+  await page.waitForTimeout(650);await page.screenshot({path:path.join(outputs,'anime-'+map+'-furnished-room.png')});
   await page.evaluate(()=>__qa.aim(53.5*4,-3.2,67*4,-Math.PI/2,0));
   await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,'anime-'+map+'-tunnel.png')});
   await page.evaluate(()=>{__qa.aim(322,0,220,.38,-.025);__qa.weapon('ak47');});

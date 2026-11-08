@@ -141,3 +141,51 @@ the latest bundled published release. The planned entry is not stored as a
 published release in the cache. A real 6.0.0 release replaces it automatically;
 tags with/without `v` are deduplicated. The UI test covers the offline planned
 entry, its replacement by a published fixture, safe text and cached reopening.
+
+
+## Local release-review pass — 8 November 2026
+
+The complete nineteen-weapon set now uses gently oval, palm-shaped grips, with
+separate rifle/SMG/pistol palettes. Mechanisms, magazine/slide pivots, damage and
+sight alignment are unchanged. AWP and Scout keep optical zoom. Hands keep the
+previous validated four-grip model; pets and their behaviour are unchanged.
+
+Both tactical maps have deeper arched window reveals, rounded cover edges,
+finer 2.6 m paving repeats, painted underside shading, softer wood grain and
+furnished hall decoration. Floor runners, book spines and ceiling beams avoid
+all doors, firing windows and stair paths. Ground sculpting uses the same UV
+scale as the Blender exports. The map manifest now counts the separate
+interactive crates as well as merged material batches and preserves the other
+map when rebuilding only one. Dust2: 351,422 triangles / 87 mesh batches;
+Inferno: 351,332 / 86. Each file is about 31.9 MiB.
+
+Smoothed leaf fans share a coherent painted wash per leaf, replacing random
+triangle colours. Nature export is 913,868 bytes (previously 2,051,740), with
+unchanged species, placement, pool capacities and collision. Ivy, grass and
+detailed-tree buffers now refresh only after movement, quality changes or
+explicit invalidation. Wind still updates every frame. The live browser test
+checks that ten instance buffers remain untouched while stationary and refresh
+after moving or changing quality.
+
+Validation passed: GLB/geometry budgets; 192 weapon grip poses; all nineteen
+weapons and sights on the real client; both maps' doors, stairs, roof terraces,
+curved roof collisions, tunnels and A/B access; combat alignment and shared
+balance; twenty server round/map/combat/magic tests. The native Electron fixture
+loaded in about 2.2 seconds, retained 93 geometries after 180 explosions, and
+recovered from simulated WebGL context loss. Weak-CPU stress runs with ten
+players/pets, rifle fire and repeated spell bursts measured 45–52 FPS, p95
+31–36 ms and worst frames 54–62 ms. Conditions: CPU throttled 4x, four reported
+cores, 4 GB reported memory, 1280x720 low, GTX 1080. Instrumented runs include
+shader tracing/profiling overhead. This does not emulate a low-end GPU or real
+network latency and is not a promise of lag-free play on every PC.
+
+No version bump, push or deployment. Package metadata remains 5.1.0; the actual
+release number and publication are still pending owner approval. The upcoming
+6.0.0 history entry is a plan, not a published release.
+
+The isolated Windows unpacked review build was produced with Electron 44.4.3
+and publication disabled. Twenty-nine packaged runtime/model files match the
+working-tree hashes. The native test also passed while loading resources from
+`app.asar`: about 2.6 seconds startup, stable explosion geometry and WebGL
+recovery. The review build is unsigned and intended for local QA; it has not
+been distributed to employees.

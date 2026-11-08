@@ -60,6 +60,7 @@
   }
   function sculpt(T, model, grid) {
     const patches = g.CS16Terrain.layout(grid);
+    const pavingScale = g.CS16TacticalMap?.identify(grid) ? 2.6 : 4;
     model.traverse((mesh) => {
       if (!mesh.isMesh || mesh.material?.name !== 'ground') return;
       const src = mesh.geometry,
@@ -103,7 +104,7 @@
               wz = p.z - 12 + z;
             positions.push(wx, g.CS16Terrain.height(grid, wx, wz), wz);
             normals.push(...g.CS16Terrain.normal(grid, wx, wz));
-            uvs.push(wx / 4, wz / 4);
+            uvs.push(wx / pavingScale, wz / pavingScale);
             if (colors) for (let k = 0; k < co.itemSize; k++) colors.push(1);
           }
         for (let z = 0; z < 24; z++)

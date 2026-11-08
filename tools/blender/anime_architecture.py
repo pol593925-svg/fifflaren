@@ -68,6 +68,40 @@ def build(a,theme):
     for b in plan['buildings']:
         x,z=b['x'],b['z'];bid=b['id']
         def box(mat,xx,y,zz,w,h,d):rounded_box(mat,x+xx,y,z+zz,w,h,d)
+        # Decor stays inside existing rooms and above headroom, never across stairs or openings.
+        for floor in [0,3.6]:
+            for zz in [1.35,5.40,9.0]:
+                box('wood',4.60,floor+3.22,zz,8.55,.16,.20)
+                for xx in [.38,8.78]:
+                    box('trim',xx,floor+3.12,zz,.18,.25,.26)
+            # Flat woven runner and fine sun inlay follow the collision floor exactly.
+            yy=floor+.026
+            a.face('roof',[(x+4.05,yy,z+3.1),(x+4.05,yy,z+8.5),(x+8.15,yy,z+8.5),(x+8.15,yy,z+3.1)],tint=.88)
+            for zz in [3.18,8.42]:
+                a.face('trim',[(x+4.12,yy+.002,z+zz-.025),(x+4.12,yy+.002,z+zz+.025),(x+8.08,yy+.002,z+zz+.025),(x+8.08,yy+.002,z+zz-.025)])
+            for xx in [4.13,8.07]:
+                a.face('trim',[(x+xx-.025,yy+.002,z+3.18),(x+xx-.025,yy+.002,z+8.42),(x+xx+.025,yy+.002,z+8.42),(x+xx+.025,yy+.002,z+3.18)])
+            for j in range(48):
+                aa=j*math.tau/48;bb=(j+1)*math.tau/48
+                a.face('trim',[(x+6.10+math.cos(t)*r,yy+.003,z+5.80+math.sin(t)*r)
+                    for t,r in [(aa,.75),(bb,.75),(bb,.79),(aa,.79)]])
+            for j in range(8):
+                aa=j*math.tau/8;bb=aa+math.pi/8
+                a.face('trim',[(x+6.10,yy+.004,z+5.80),
+                    (x+6.10+math.cos(aa)*.62,yy+.004,z+5.80+math.sin(aa)*.62),
+                    (x+6.10+math.cos(bb)*.27,yy+.004,z+5.80+math.sin(bb)*.27)])
+            # Book spines dress the already-solid cabinet; retain its collision footprint.
+            for row in range(4):
+                for j in range(10):
+                    box(['shutter','roof','ceramic','trim'][(j+row+bid)%4],.886,floor+.39+row*.5,9.73+j*.145,.012,.25+(j%3)*.018,.12)
+                    box('trim',.895,floor+.46+row*.5,9.73+j*.145,.012,.012,.095)
+            # Framed original botanical relief on the solid west wall.
+            box('wood',.286,floor+1.89,2.0,.06,1.44,1.20)
+            box('trim',.322,floor+1.89,2.0,.018,1.28,1.05)
+            tube('leaf',[(x+.338,floor+1.35+k*.032,z+2.0+.10*math.sin(k*.10))for k in range(31)],.014,6)
+            for j in range(7):
+                cy=floor+1.44+j*.12;cz=z+2.0+.10*math.sin(j*.38);sign=1 if j%2 else -1
+                a.face('shutter',[(x+.345,cy,cz),(x+.345,cy+.06,cz+sign*.22),(x+.345,cy+.19,cz+sign*.30),(x+.345,cy+.13,cz+sign*.06)])
         def height(u):
             q=max(0,min(96,(u-.15)/8.7*96));i=min(95,int(q));t=q-i
             return plan['roofProfile'][i]*(1-t)+plan['roofProfile'][i+1]*t

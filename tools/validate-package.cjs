@@ -11,6 +11,7 @@ for(const file of ['cs16-menu.js','cs16-menu.css','assets/cs16/menu/plaza.png','
 for (const file of ['cs16-tactical-map.js','cs16-anime-materials.js','cs16-anime-nature.js','cs16-spell-effects.js','cs16-operator-batch.js','cs16-hit-feedback.js','cs16-loading.js','cs16-loading.css','assets/cs-anime/plaster-painted.png','assets/cs-anime/paving-painted.png']) assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),file);
 for (const file of ['brave-shortcuts-main.js','brave-shortcuts.js','team-office.js','team-office.css','voxel-bedrock-data.js','voxel-bedrock.js','voxel-florist.js','voxel-life.js']) assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))));
 for (const file of ['manifest.json','content.js','popup.html']) assert(fs.readFileSync(path.join(dist,'win-unpacked/resources/brave-extension',file)).equals(fs.readFileSync(path.join(root,'brave-extension',file))));
+for(const file of ['login.js','login.css','login-vault.js','assets/login/premium-office.png']) assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),file);
 const entries=asar.listPackage(archive).map(n=>n.replace(/\\/g,'/'));
 assert(!entries.some(n=>/support2|models\/s2\//i.test(n)),'Removed Support2 files must not be packaged');
 assert(!entries.includes('/toolbar.html')&&!entries.includes('/quick.html'),'Pet windows must not be packaged');

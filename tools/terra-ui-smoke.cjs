@@ -50,9 +50,9 @@ async function run(){
  const tab=async id=>{await page.evaluate(()=>HubTerra.openMenu());await page.locator('.tabs [data-tab='+id+']').click();};
  try{
  await page.goto(origin+'/index.html');await page.locator('.comic-skip').click();
- await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
+ await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.click('#authSubmitBtn');await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
  await page.locator('#tab-shift.active .my-calls-panel').waitFor();
- await page.click('#hubPatchesButton');await page.locator('#hubPatches[open]').waitFor();
+ await page.click('#hubPatchesButton');await page.locator('#hubPatches[open]').waitFor();await page.locator('.patch-release[data-tag="v6.0.0"]').click();
  assert((await page.locator('.patch-detail').textContent()).includes('В разработке · ещё не опубликовано'));
  assert.equal(await page.locator('.patch-detail time').count(),0);
  await page.screenshot({path:path.join(out,'patches-6.0.0-planned.png')});
@@ -89,7 +89,7 @@ async function run(){
  await page.setViewportSize({width:1000,height:720});await page.screenshot({path:path.join(out,'terra-1000.png')});
  await page.setViewportSize({width:700,height:650});await page.screenshot({path:path.join(out,'terra-700.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  assert.equal(await page.evaluate(()=>typeof window.THREE),'undefined','Work screens must not load the game engine');
- staff=true;await page.reload();const skip=page.locator('.comic-skip');if(await skip.isVisible())await skip.click();await page.fill('#authUsername','Alex');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');await page.locator('#tab-shift.active .my-calls-panel').waitFor();await page.evaluate(()=>HubTerra.openMenu());for(const id of ['admin','radio','tlpanel','mycalls'])assert(!(await page.locator('.tabs [data-tab='+id+']').isVisible()),'Employee must not see '+id);await page.screenshot({path:path.join(out,'terra-employee-menu.png')});await page.keyboard.press('Escape');assert(await page.locator('#radioAddSong').isVisible());
+ staff=true;await page.reload();const skip=page.locator('.comic-skip');if(await skip.isVisible())await skip.click();await page.fill('#authUsername','Alex');await page.fill('#authPassword','isolated-test');await page.click('#authSubmitBtn');await page.locator('#tab-shift.active .my-calls-panel').waitFor();await page.evaluate(()=>HubTerra.openMenu());for(const id of ['admin','radio','tlpanel','mycalls'])assert(!(await page.locator('.tabs [data-tab='+id+']').isVisible()),'Employee must not see '+id);await page.screenshot({path:path.join(out,'terra-employee-menu.png')});await page.keyboard.press('Escape');assert(await page.locator('#radioAddSong').isVisible());
  await page.setViewportSize({width:1440,height:900});await tab('voxel');await page.locator('.vx-lobby').waitFor();await page.screenshot({path:path.join(out,'terra-voxel.png')});
  if(process.env.PATCHES_ONLY){assert(await page.locator('#hubPatchesButton').isVisible());await page.click('#hubPatchesButton');assert(await page.locator('.patch-release[data-tag="6.0.0"]').isVisible());assert.equal(await page.locator('.patch-release[data-tag="v5.1.0"]').count(),1);assert.deepEqual(errors,[]);console.log('PATCHES PASS: real header, admin and employee, offline history, 5.0.0 categories, automatic feed, cached future release, safe text, Escape, responsive layout and all work flows');return;}
  await tab('cs16');await page.waitForFunction(()=>typeof window.__cs16Open==='function'&&!!document.querySelector('#tab-cs16 canvas'),null,{timeout:60000});await page.locator('.cs16-loading').waitFor({state:'hidden',timeout:120000});await page.screenshot({path:path.join(out,'terra-cs16-lobby.png')});

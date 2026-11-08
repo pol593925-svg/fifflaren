@@ -11,26 +11,40 @@
   <link rel="stylesheet" href="hub-experience.css">
   <link rel="stylesheet" href="team-office.css">
   <link rel="stylesheet" href="hub-features.css">
-  <link rel="stylesheet" href="terra.css"><link rel="stylesheet" href="cs16-menu.css">
+  <link rel="stylesheet" href="terra.css"><link rel="stylesheet" href="cs16-menu.css"><link rel="stylesheet" href="login.css">
 </head>
 <body>
 
   <!-- ЭКРАН АВТОРИЗАЦИИ И РЕГИСТРАЦИИ -->
-  <div id="authScreen" class="auth-screen">
-    <div class="auth-box">
-      <h3 id="authTitle">👤 Вход в Support Hub</h3>
-      <p id="authSubtitle">Введите данные для входа в систему:</p>
-      <input type="text" id="authUsername" placeholder="Логин (ник)...">
-      <input type="password" id="authPassword" placeholder="Пароль...">
-      <select id="authTeam" style="display:none;"><option value="">— Выбери команду —</option></select>
-      <label style="display:flex; align-items:center; gap:6px; color:#aaa; font-size:12px; margin:10px 0 2px; cursor:pointer; text-align:left; font-family:Arial, sans-serif;">
-        <input type="checkbox" id="authRemember" style="width:auto; margin:0; padding:0;"> Оставаться в системе (3.12.0)
-      </label>
-      <button id="authSubmitBtn">Войти</button>
-      <p id="authErrorMsg" class="auth-error"></p>
-      <a href="#" id="authSwitchMode">Нет аккаунта? Зарегистрироваться</a>
-    </div>
+  <div id="authScreen" class="auth-screen" aria-label="Вход в Support Hub">
+    <div class="login-brand"><span class="login-monogram" aria-hidden="true">S</span><span>Support Hub</span></div>
+    <div class="login-edition">Твоё рабочее пространство</div>
+    <main class="login-shell">
+      <section class="login-art" aria-label="Уютное рабочее пространство">
+        <div class="login-art-copy"><small>ЗДЕСЬ НАЧИНАЕТСЯ ТВОЙ ДЕНЬ</small><h2>Хороший день<br>начинается здесь</h2><p>Работа, общение и команда.<br>Всё на своём месте.</p></div>
+      </section>
+      <section class="login-panel" aria-labelledby="authTitle">
+        <div class="login-eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+        <div id="authAvatar" class="login-avatar" aria-hidden="true">S</div>
+        <h1 id="authTitle">С возвращением</h1>
+        <p id="authSubtitle">Войди в своё пространство команды.</p>
+        <form id="authForm" novalidate>
+          <div id="authPass" class="login-pass" hidden><div class="login-pass-head"><span>Личный пропуск</span><span>SUPPORT HUB</span></div><strong id="authPassName" class="login-pass-name"></strong><span class="login-pass-note">Сохранён на этом компьютере</span></div>
+          <div id="authFields">
+            <label class="login-field" for="authUsername"><span>Логин</span><input type="text" id="authUsername" placeholder="Твой ник" autocomplete="username" maxlength="100" autocapitalize="none" spellcheck="false" required></label>
+            <label class="login-field" for="authPassword"><span>Пароль</span><div class="login-password"><input type="password" id="authPassword" placeholder="Введи пароль" autocomplete="current-password" required><button type="button" id="authShowPassword" aria-label="Показать пароль" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
+            <label id="authTeamField" class="login-field" for="authTeam" hidden><span>Команда</span><select id="authTeam" style="display:none;"><option value="">— Выбери команду —</option></select></label>
+            <label id="authRememberField" class="login-remember"><input type="checkbox" id="authRemember" checked> Запомнить меня на этом компьютере</label>
+          </div>
+          <button id="authSubmitBtn" class="login-primary" type="submit">Войти <span aria-hidden="true">→</span></button>
+          <p id="authErrorMsg" role="status" aria-live="polite"></p>
+          <div class="login-links"><button type="button" class="login-link" id="authOtherAccount" hidden>Другой аккаунт</button><button type="button" class="login-link" id="authUsePassword" hidden>Войти с паролем</button><button type="button" class="login-link" id="authSwitchMode">Создать аккаунт</button></div>
+        </form>
+        <div class="login-bottom"><span id="authVersion">Support Hub</span><button type="button" class="login-link login-help" id="authHelp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 12H2v7h4v-7ZM20 12h2v7h-4v-7ZM20 19v2h-7"/></svg> Нужна помощь?</button></div>
+      </section>
+    </main>
   </div>
+
 
   <!-- БЛОК УВЕДОМЛЕНИЯ ОБ ОБНОВЛЕНИИ -->
   <div id="updateNotification" class="update-banner">
@@ -61,7 +75,7 @@
     <button class="tab-btn" data-tab="voxel">🌳 Блочный мир · 18+</button>
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
-    <button id="logoutBtn" title="Выйти из аккаунта (3.12.0)">🚪</button>
+    <button id="logoutBtn" title="Выйти из аккаунта">🚪</button>
     <!-- Вкладка ТЛ-панели (видна только ТЛ — ник совпадает с названием команды) -->
     <button class="tab-btn" data-tab="tlpanel" id="tlTabBtn" style="display: none; background: #1e2a3d; color: #4da6ff; border: 1px solid #4da6ff;">🎯 ТЛ-панель</button>
     <!-- Вкладка админки (видна только админу) -->
@@ -1108,7 +1122,7 @@
   <template id="game-scripts-voxel"><script src="voxel-bedrock-data.js"></script><script src="voxel-bedrock.js"></script><script src="voxel-core.js"></script>
   <script src="voxel-life.js"></script><script src="voxel-florist.js"></script>
 <script src="voxel-game.js"></script></template>
-  <script src="assistance-client.js"></script><script src="renderer.js"></script>
+  <script src="assistance-client.js"></script><script src="login.js"></script><script src="renderer.js"></script>
   <script src="casino-design.js"></script>
   <script src="casino-art.js"></script>
   <script src="app-ui.js"></script>

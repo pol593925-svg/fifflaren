@@ -3,6 +3,7 @@
   let session, handling=false;
   async function offer(reload=true){
     if(handling)return;handling=true;
+    await window.HubLogin?.forget();
     localStorage.removeItem('sh_auth');localStorage.removeItem('support_hub_user');localStorage.removeItem('global_worker_nick');
     try{await require('electron').ipcRenderer.invoke('offer-support-hub-removal');}finally{if(reload)location.reload();else handling=false;}
   }

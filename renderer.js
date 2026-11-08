@@ -43,137 +43,16 @@ function localDateStr(d = new Date()) {
 
 // ==================== АВТОРИЗАЦИЯ ====================
 document.addEventListener("DOMContentLoaded", () => {
-  const authScreen = document.getElementById("authScreen");
-  const authTitle = document.getElementById("authTitle");
-  const authSubtitle = document.getElementById("authSubtitle");
-  const authUsername = document.getElementById("authUsername");
-  const authPassword = document.getElementById("authPassword");
-  const authSubmitBtn = document.getElementById("authSubmitBtn");
-  const authErrorMsg = document.getElementById("authErrorMsg");
-  const authSwitchMode = document.getElementById("authSwitchMode");
-
-  let isRegisterMode = false;
-
-  // Вход при КАЖДОМ запуске — авто-входа нет намеренно
-  if (authScreen) authScreen.style.display = "flex";
-
-  if (authSwitchMode) {
-    authSwitchMode.addEventListener("click", (e) => {
-      e.preventDefault();
-      isRegisterMode = !isRegisterMode;
-      if (isRegisterMode) {
-        authTitle.innerText = "📝 Регистрация в Support Hub";
-        authSubtitle.innerText = "Создайте новый аккаунт:";
-        authSubmitBtn.innerText = "Зарегистрироваться";
-        authSwitchMode.innerText = "Уже есть аккаунт? Войти";
-      } else {
-        authTitle.innerText = "👤 Вход в Support Hub";
-        authSubtitle.innerText = "Введите данные для входа в систему:";
-        authSubmitBtn.innerText = "Войти";
-        authSwitchMode.innerText = "Нет аккаунта? Зарегистрироваться";
-      }
-      authErrorMsg.innerText = "";
-    });
-  }
-
-  if (authSubmitBtn) {
-    authSubmitBtn.addEventListener("click", async () => {
-      const username = authUsername.value.trim();
-      const password = authPassword.value.trim();
-      const teamSelect = document.getElementById("authTeam");
-      const team = teamSelect && teamSelect.style.display !== "none" ? (teamSelect.value || "") : "";
-
-      if (!username || !password) {
-        authErrorMsg.innerText = "Заполните все поля!";
-        return;
-      }
-      if (teamSelect && teamSelect.style.display !== "none" && !team) {
-        authErrorMsg.innerText = "Выбери команду!";
-        return;
-      }
-
-      const endpoint = isRegisterMode ? `${SERVER_API_URL}/api/register` : `${SERVER_API_URL}/api/login`;
-
-      authErrorMsg.innerText = "Сервер «просыпается», подождите (до 30 сек)...";
-      authSubmitBtn.disabled = true;
-
-      // Ретраи для бесплатного Render (засыпает после простоя)
-      const makeAuthRequest = async (retries = 4) => {
-        for (let i = 0; i < retries; i++) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(isRegisterMode ? { username, password, team } : { username, password }),
-              signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            return await response.json();
-          } catch (err) {
-            console.warn(`Попытка ${i + 1} не удалась:`, err.message);
-            if (i === retries - 1) throw err;
-            authErrorMsg.innerText = `Подключение к БД (попытка ${i + 2}/4)... Сервер просыпается.`;
-            await new Promise(resolve => setTimeout(resolve, 5000));
-          }
-        }
-      };
-
-      try {
-        const data = await makeAuthRequest(4);
-
-        if (!data || !data.success) {
-          if(data?.offboarded)await HubAccess.offer(false);
-          authErrorMsg.innerText = data?.message || "Ошибка авторизации!";
-          authSubmitBtn.disabled = false;
-          return;
-        }
-
-        if (isRegisterMode) {
-          alert("Регистрация успешна! Теперь войдите.");
-          isRegisterMode = false;
-          authTitle.innerText = "👤 Вход в Support Hub";
-          authSubtitle.innerText = "Введите данные для входа в систему:";
-          authSubmitBtn.innerText = "Войти";
-          authSwitchMode.innerText = "Нет аккаунта? Зарегистрироваться";
-          authPassword.value = "";
-          authErrorMsg.innerText = "";
-          authSubmitBtn.disabled = false;
-          return;
-        }
-
-        currentUser = data.username;
-        currentRole = data.role || 'user';
-        HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
-      HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
-      HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
-        localStorage.setItem('global_worker_nick', data.username);
-        localStorage.setItem('support_hub_user', data.username);
-        // 3.12.0: «Оставаться в системе»
-        const rememberBox = document.getElementById("authRemember");
-        if (rememberBox && rememberBox.checked) {
-          localStorage.setItem('sh_auth', JSON.stringify({ u: username, p: password }));
-        } else {
-          localStorage.removeItem('sh_auth');
-        }
-
-        if (authScreen) authScreen.style.display = "none";
-        document.dispatchEvent(new Event('hub:work-ready'));
-        authSubmitBtn.disabled = false;
-
-        applyNickToApp(data.username);
-        loadHQRoster();
-        if (currentRole === 'admin') setupAdminPanel();
-        checkTLStatus();
-        initSocketConnection(data.username);
-      } catch (err) {
-        console.error("Ошибка связи с сервером авторизации:", err);
-        authErrorMsg.innerText = "База данных " + (err.name === 'AbortError' ? "не ответила вовремя (таймаут)." : "недоступна. Попробуйте еще раз через минуту.");
-        authSubmitBtn.disabled = false;
-      }
-    });
-  }
+  HubLogin.mount({server:SERVER_API_URL,ipc:ipcRenderer,offboard:()=>HubAccess.offer(false),onAuthenticated:async data=>{
+    currentUser=data.username;currentRole=data.role||'user';
+    HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
+    HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+    HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
+    localStorage.setItem('global_worker_nick',data.username);localStorage.setItem('support_hub_user',data.username);
+    applyNickToApp(data.username);loadHQRoster();
+    if(currentRole==='admin')setupAdminPanel();
+    checkTLStatus();initSocketConnection(data.username);
+  }});
 
   // --- НАВИГАЦИЯ ПО ВКЛАДКАМ ---
   const tabButtons = document.querySelectorAll(".tab-btn");
@@ -4823,56 +4702,10 @@ document.addEventListener('keydown', (e) => {
   snake.dir = nd;
 });
 
-// ==================== 3.12.0: АВТОЛОГИН («Оставаться в системе») ====================
-(function () {
-  const doAutoLogin = async () => {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem('sh_auth') || 'null'); } catch (e) {}
-    if (!saved || !saved.u || !saved.p) return;
-    const authScreen = document.getElementById("authScreen");
-    const err = document.getElementById("authErrorMsg");
-    if (err) err.innerText = 'Автовход...';
-    try {
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(`${SERVER_API_URL}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: saved.u, password: saved.p }),
-        signal: controller.signal
-      });
-      clearTimeout(t);
-      const data = await response.json();
-      if (!data || !data.success) {
-        localStorage.removeItem('sh_auth');
-        if(data?.offboarded)await HubAccess.offer(false);
-        if (err) err.innerText = data?.message||'';
-        return;
-      }
-      currentUser = data.username;
-      currentRole = data.role || 'user';
-      HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
-      HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
-      HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
-      localStorage.setItem('global_worker_nick', data.username);
-      localStorage.setItem('support_hub_user', data.username);
-      if (authScreen) authScreen.style.display = 'none';
-      document.dispatchEvent(new Event('hub:work-ready'));
-      applyNickToApp(data.username);
-      loadHQRoster();
-      if (currentRole === 'admin') setupAdminPanel();
-      checkTLStatus();
-      initSocketConnection(data.username);
-    } catch (e) {
-      if (err) err.innerText = '';
-    }
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', doAutoLogin);
-  else doAutoLogin();
-})();
-
+// Saved login is managed by login.js and the native encrypted session vault.
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
+  await HubLogin.signOut();
   HubRadio.stop();
   await HubGames.close();
   for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:')&&!key.startsWith('hub-cinema-upload:')&&!key.startsWith('hub-cinema-poster:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);

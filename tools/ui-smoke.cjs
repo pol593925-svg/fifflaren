@@ -47,7 +47,7 @@ async function run(){
   assert.equal(await page.locator('.comic-dialogue p').textContent(),'Да, я найду апрув. За дело!');
   await page.keyboard.press('Enter');assert.equal(await page.locator('.hub-comic').count(),0);
   await page.screenshot({path:path.join(out,'hub-login.png')});
-  await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');
+  await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.click('#authSubmitBtn');
   await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
   await page.click('#support-chat-toggle');
   await page.locator('#support-chat-panel iframe').waitFor();

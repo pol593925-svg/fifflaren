@@ -5,6 +5,7 @@ const fs = require('fs');
 const { execFile } = require('child_process');
 
 let mainWindow = null;
+require('./login-vault').install({app,ipcMain,safeStorage:require('electron').safeStorage,getWindow:()=>mainWindow});
 require('./cinema-host-main').install({app,ipcMain,getWindow:()=>mainWindow});
 require('./radio-host-main').install({app,ipcMain,getWindow:()=>mainWindow});
 require('./cinema-links-main').install({ipcMain,shell,getWindow:()=>mainWindow});

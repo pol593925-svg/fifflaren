@@ -1,0 +1,101 @@
+/* Static backdrop + transform-only progress. No WebGL, blur filter or particle loop. */
+#tab-cs16 .cs16-loading {
+ --load-gold:#e6c587; --load-blue:#a5dbef; --load-ink:#f6f2e8;
+ position:absolute;inset:0;z-index:50;isolation:isolate;display:flex;
+ overflow:auto;background:#111f2a;color:var(--load-ink);font:14px/1.5 'Segoe UI',Arial,sans-serif;
+ align-items:stretch;justify-content:flex-start;gap:0;padding:0;text-shadow:none;
+}
+#tab-cs16 .csload-backdrop {position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,#0e1b27bf,#11233165 40%,#0d1c2be8 88%),linear-gradient(90deg,#0d1e2ce8,transparent 55%,#0d1e2cc9),var(--load-panorama,url('assets/cs16/loading-dust2.jpg')) center/cover;}
+#tab-cs16 .csload-shell {box-sizing:border-box;margin:auto;max-width:1600px;width:100%;padding:30px 4vw 25px;min-height:min(100%,760px);display:flex;flex-direction:column;gap:35px;}
+#tab-cs16 .csload-header {display:flex;align-items:center;gap:24px;padding-bottom:20px;border-bottom:1px solid #e2d2a52c;}
+#tab-cs16 .csload-brand {display:grid;gap:5px;font-size:15px;letter-spacing:5px;color:var(--load-gold);}
+#tab-cs16 .csload-brand small {font-size:9px;letter-spacing:3px;color:#c3cfd6;}
+#tab-cs16 .csload-rules {margin-left:auto;font-size:10px;letter-spacing:3px;color:#e3e7e9;}
+#tab-cs16 .cs16-loading button {border:1px solid #cad8e744;background:#132531ad;color:#e9e9de;border-radius:7px;padding:8px 14px;font:12px 'Segoe UI',sans-serif;cursor:pointer;}
+#tab-cs16 .csload-body {display:grid;grid-template-columns:minmax(235px,1fr) minmax(270px,1.25fr) minmax(235px,1fr);align-items:center;gap:clamp(18px,3vw,54px);flex:1;}
+#tab-cs16 .csload-team {min-width:0;--team:var(--load-gold);}
+#tab-cs16 .csload-ct {--team:var(--load-blue);}
+#tab-cs16 .csload-team-head {display:flex;align-items:center;gap:15px;margin-bottom:18px;}
+#tab-cs16 .csload-team-symbol {border:1px solid var(--team);border-radius:50% 50% 36% 36%;width:44px;height:48px;display:grid;place-items:center;font:500 17px Georgia,serif;color:var(--team);box-shadow:0 0 24px #b8dcf013;}
+#tab-cs16 .csload-team-head small {color:var(--team);font-size:9px;letter-spacing:3px;}
+#tab-cs16 .csload-team-head h2 {margin:0;color:var(--load-ink);font:400 26px/1.2 Georgia,serif;}
+#tab-cs16 .csload-roster {display:grid;gap:9px;}
+#tab-cs16 .csload-player {min-width:0;display:flex;gap:12px;align-items:center;padding:12px;background:linear-gradient(100deg,#142936e8,#182c37bc);border:1px solid #c5d4db21;border-left:2px solid var(--team);border-radius:4px 13px 13px 4px;box-shadow:0 6px 18px #0713221a;}
+#tab-cs16 .csload-player.is-you {background:linear-gradient(100deg,#315361e8,#1d3a47d4);border-top-color:#b8dfdc6b;border-bottom-color:#b8dfdc6b;}
+#tab-cs16 .csload-avatar {width:47px;height:53px;flex:0 0 47px;object-fit:cover;object-position:50% 20%;border-radius:6px;background:#10202b;border:1px solid #c7d1cf31;}
+#tab-cs16 .csload-player-info {flex:1;min-width:0;}
+#tab-cs16 .csload-player-line {display:flex;align-items:baseline;gap:8px;justify-content:space-between;margin-bottom:3px;}
+#tab-cs16 .csload-player-line strong {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:600;color:#f2f5ee;}
+#tab-cs16 .csload-player-value {color:var(--team);font-size:13px;font-variant-numeric:tabular-nums;flex-shrink:0;font-weight:500;}
+#tab-cs16 .csload-player-stage {color:#c1cbd2;font-size:10px;letter-spacing:.3px;margin-bottom:9px;}
+#tab-cs16 .csload-track {height:3px;background:#ffffff16;overflow:hidden;border-radius:2px;}
+#tab-cs16 .csload-track i {height:100%;width:100%;display:block;background:var(--team,var(--load-gold));transform:scaleX(0);transform-origin:0 50%;transition:transform .3s ease;border-radius:2px;}
+#tab-cs16 .csload-player.is-ready .csload-player-stage {color:#b4e0c5;}
+#tab-cs16 .csload-player.is-ready .csload-player-stage::after {content:'  ✓';}
+#tab-cs16 .csload-empty {color:#c1ccd6;border:1px dashed #c0d1db40;padding:30px 18px;border-radius:10px;font-size:12px;text-align:center;}
+#tab-cs16 .csload-center {text-align:center;display:flex;flex-direction:column;align-items:center;min-width:0;}
+#tab-cs16 .csload-emblem {display:flex;align-items:center;gap:16px;color:var(--load-gold);margin-bottom:22px;}
+#tab-cs16 .csload-emblem span {width:34px;height:34px;display:grid;place-items:center;border:1px solid #e6c58790;border-radius:50%;font:16px Georgia,serif;}
+#tab-cs16 .csload-emblem i {width:54px;height:1px;background:linear-gradient(90deg,transparent,#e6c587,transparent);position:relative;}
+#tab-cs16 .csload-emblem i::after {content:'';position:absolute;width:6px;height:6px;background:var(--load-gold);transform:rotate(45deg);left:24px;top:-3px;}
+#tab-cs16 .csload-map-code {font-size:11px;color:var(--load-gold);letter-spacing:5px;margin-bottom:12px;}
+#tab-cs16 .csload-center h1 {font:400 clamp(32px,3.6vw,56px)/1.08 Georgia,serif;color:#fff8e9;margin:0 0 20px;text-shadow:0 3px 20px #07142080;max-width:420px;}
+#tab-cs16 .csload-description {font-size:12px;line-height:1.9;color:#ebede5;max-width:290px;margin:0 0 32px;}
+#tab-cs16 .csload-count {border-top:1px solid #e6c58770;padding:13px 20px 0;font-size:15px;font-weight:500;color:#f4e0b6;}
+#tab-cs16 .csload-hint {font-size:12px;line-height:1.8;color:#d4dfe3;max-width:310px;overflow-wrap:anywhere;min-height:44px;}
+#tab-cs16 .csload-countdown {font:400 72px/1.2 Georgia,serif;color:#fce2a9;text-shadow:0 0 35px #f2c46e66;margin:8px 0 0;}
+#tab-cs16 .csload-footer {max-width:800px;width:100%;align-self:center;border-top:1px solid #c7d5dc33;padding-top:18px;}
+#tab-cs16 .csload-local-head {display:flex;align-items:baseline;gap:15px;justify-content:space-between;margin-bottom:12px;}
+#tab-cs16 .csload-local-head span {font-size:13px;color:#e5edf0;}
+#tab-cs16 .csload-local-head b {color:var(--load-gold);font-size:18px;font-weight:500;font-variant-numeric:tabular-nums;}
+#tab-cs16 .csload-local>.csload-track {height:4px;}
+#tab-cs16 .csload-stages {display:flex;justify-content:space-between;margin-top:10px;color:#9dabb7;font-size:10px;letter-spacing:1px;}
+#tab-cs16 .csload-stages .is-done {color:#c8dfd3;}
+#tab-cs16 .csload-stages .is-done::before {content:'✓ ';color:#a9dbbb;}
+#tab-cs16 .csload-bottom {display:flex;align-items:center;gap:15px;margin-top:8px;}
+#tab-cs16 .csload-bottom p {margin:10px 0 0;color:#b4c4cd;font-size:11px;flex:1;}
+#tab-cs16 .csload-bottom button {flex-shrink:0;}
+#tab-cs16 .cs16-loading [hidden] {display:none!important;}
+@media(max-width:1000px) {
+ #tab-cs16 .csload-shell {padding:20px 22px;gap:23px;}
+ #tab-cs16 .csload-body {grid-template-columns:minmax(200px,1fr) minmax(200px,.9fr) minmax(200px,1fr);gap:20px;}
+ #tab-cs16 .csload-player {padding:9px;gap:9px;}
+ #tab-cs16 .csload-avatar {width:36px;height:44px;flex-basis:36px;}
+ #tab-cs16 .csload-player-line strong {font-size:12px;}
+ #tab-cs16 .csload-description {margin-bottom:15px;}
+ #tab-cs16 .csload-center h1 {font-size:34px;}
+}
+@media(max-width:700px) {
+ #tab-cs16 .csload-shell {padding:18px;gap:18px;}
+ #tab-cs16 .csload-header {flex-wrap:wrap;gap:12px;}
+ #tab-cs16 .csload-brand {font-size:12px;letter-spacing:3px;}
+ #tab-cs16 .csload-rules {font-size:9px;letter-spacing:1px;}
+ #tab-cs16 .csload-body {grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;}
+ #tab-cs16 .csload-center {grid-column:1/-1;grid-row:1;gap:0;}
+ #tab-cs16 .csload-emblem,#tab-cs16 .csload-description {display:none;}
+ #tab-cs16 .csload-center h1 {font-size:32px;margin-bottom:14px;}
+ #tab-cs16 .csload-team-head {gap:8px;}
+ #tab-cs16 .csload-team-head h2 {font-size:21px;}
+ #tab-cs16 .csload-team-symbol {width:30px;height:34px;font-size:12px;}
+ #tab-cs16 .csload-avatar {display:none;}
+ #tab-cs16 .csload-player-stage {font-size:9px;}
+ #tab-cs16 .csload-player {padding:9px 7px;}
+ #tab-cs16 .csload-player-line strong {font-size:11px;}
+}
+@media(max-height:800px) and (min-width:701px) {
+ #tab-cs16 .csload-shell {padding-top:18px;padding-bottom:18px;gap:18px;min-height:0;}
+ #tab-cs16 .csload-header {padding-bottom:12px;}
+ #tab-cs16 .csload-team-head {margin-bottom:12px;}
+ #tab-cs16 .csload-team-symbol {height:40px;width:38px;}
+ #tab-cs16 .csload-roster {gap:7px;}
+ #tab-cs16 .csload-player {padding:8px 11px;}
+ #tab-cs16 .csload-avatar {height:43px;width:40px;flex-basis:40px;}
+ #tab-cs16 .csload-player-stage {margin-bottom:6px;}
+ #tab-cs16 .csload-footer {padding-top:12px;}
+ #tab-cs16 .csload-description {margin-bottom:20px;}
+ #tab-cs16 .csload-emblem {margin-bottom:16px;}
+ #tab-cs16 .csload-center h1 {font-size:44px;margin-bottom:15px;}
+}
+@media(prefers-reduced-motion:reduce) {#tab-cs16 .csload-track i {transition:none;}}
+
+#tab-cs16 .cs16-loading[data-map=inferno] {--load-panorama:url('assets/cs16/loading-inferno.jpg');}

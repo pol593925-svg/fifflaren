@@ -580,21 +580,23 @@
 });
   GLB_MODELS.smokegrenade = GLB_MODELS.grenade;
   let handsModel = null, combatArtPromise = null;
-  function loadCombatArt() {
+  function loadCombatArt(onProgress=()=>{}) {
+    const parts=[0,0,0],mark=(i,v)=>{parts[i]=v;onProgress(parts[0]*.7+parts[1]*.2+parts[2]*.1);};
     if (!combatArtPromise) combatArtPromise = Promise.all([
-      loadGLBAll(), CS16Graphics.loadOperators(THREE),
-      new THREE.GLTFLoader().loadAsync('models/csgo/anime-hands.glb').then(g => { handsModel = CS16AnimeMaterials.apply(THREE,g.scene,{soft:true}); })
+      loadGLBAll(v=>mark(0,v)), CS16Graphics.loadOperators(THREE).then(()=>mark(1,1)),
+      new THREE.GLTFLoader().loadAsync('models/csgo/anime-hands.glb').then(g => { handsModel = CS16AnimeMaterials.apply(THREE,g.scene,{soft:true});mark(2,1); })
     ]).catch(error => { combatArtPromise = null; throw error; });
-    return combatArtPromise;
+    return combatArtPromise.then(result=>{onProgress(1);return result;});
   }
   const glbCache = {}; // weapon -> { model: Group|null }
   // Full glTF loader preserves Blender PBR textures and material properties.
   function loadGLBAll() {
     const loader = new THREE.GLTFLoader();
+    const onProgress=arguments[0]||(()=>{});let completed=0;
     const entries=Object.entries(GLB_MODELS);let next=0;
     // Bound concurrent parsing/image decoding to avoid startup memory spikes.
     return Promise.allSettled(Array.from({length:3},async()=>{while(next<entries.length){
-      const [id,cfg]=entries[next++];if(glbCache[id]?.model)continue;
+      const [id,cfg]=entries[next++];if(glbCache[id]?.model){onProgress(++completed/entries.length);continue;}
       glbCache[id] = { model: null };
       try {
         const artUrl=/\/(grenade|c4)\.glb$/.test(cfg.url)?cfg.url:cfg.url.replace(/([^/]+)\.glb$/, 'anime-$1.glb');
@@ -627,6 +629,7 @@
           const world=wrap.clone(true),basis=world.getObjectByName('weaponBasis');
           basis.clear();basis.add(worldAsset);glbCache[id].world=world;
         }
+        onProgress(++completed/entries.length);
       } catch (error) { throw new Error('Weapon model unavailable: ' + id + ': ' + error.message); }
     }})).then(results=>{const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;});
   }
@@ -827,7 +830,7 @@
   }
   // Prepare real character, hand and optic shader variants behind the loading screen.
   // Keep the muzzle light at zero intensity so firing cannot change NUM_POINT_LIGHTS.
-  async function warmCombatArt(epoch){
+  async function warmCombatArt(epoch,onProgress=()=>{}){
     await spatialAudio()?.prepare();
     if(epoch!==worldLoadEpoch)return;
     const activeScene=scene,fx=magicView,preview=new THREE.Group(),holds=[],guns=[];
@@ -851,11 +854,13 @@
       const samples=new Set([preview.children[pooled.length],...pets,guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle,pooled[0],pooled[48]]);
       preview.position.copy(camera.position);preview.position.z-=3;activeScene.add(preview);
       // Balanced/high and economy use different shader defines. Weak PCs prepare economy only.
-      for(const enabled of (shadows?[false,true]:[false])){
+      let warmed=0;const variants=shadows?[false,true]:[false];
+      for(const enabled of variants){
         if(epoch!==worldLoadEpoch)return;
         renderer3.shadowMap.enabled=enabled;
         for(const child of preview.children)child.visible=true;
         await fx.warm(renderer3,camera,()=>{for(const child of preview.children)child.visible=samples.has(child);});
+        onProgress(++warmed/variants.length);
       }
     }finally{
       renderer3.shadowMap.enabled=shadows;preview.removeFromParent();optical.root.removeFromParent();
@@ -872,6 +877,7 @@
     CS16Terrain.layout(grid);CS16Buildings.layout(grid,curMap);
     CS16Front.apply(grid,frontNet.ids);CS16Front.setCrater(grid,frontNet.crater||null);frontView?.sync();frontView?.objective(frontNet.objective);frontView?.loot(frontNet.gold);
   }
+  let loadScreen=null;
   let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null;
   const modestHardware=(navigator.deviceMemory>0&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency>0&&navigator.hardwareConcurrency<=4);
   let graphicsQuality = modestHardware ? 'low' : 'balanced';
@@ -886,7 +892,7 @@
 
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: !modestHardware, powerPreference:'low-power' });
-    canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();if(royaleActive){HubRoyale.close();}worldReady=false;resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
+    canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();if(royaleActive){HubRoyale.close();}worldReady=false;loadScreen?.progress(0,'error','Восстанавливаем видеодрайвер…');resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
     canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';qualityMode='low';adaptive.setMode('low');try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
     camera = new THREE.PerspectiveCamera(75, 1, 0.08, 1600);
@@ -917,11 +923,15 @@
     const epoch = ++worldLoadEpoch;
     clearFieldPresentation();
     let active = null, timer, loadEnded = false;
-    worldReady = false;resetBlindness();
+    worldReady = false;resetBlindness();loadScreen?.progress(0,'map');
     ui.loading.style.display = 'flex';
     ui.loadingText.textContent = 'Подготовка ' + MAP_META[curMap].name;
     ui.loadingRetry.hidden = true;
-    const progress = text => { if (!loadEnded && epoch === worldLoadEpoch) ui.loadingText.textContent = text; };
+    let mapProgress=0,modelProgress=0;
+    const progress=(part,value)=>{if(loadEnded||epoch!==worldLoadEpoch)return;
+      if(part==='map')mapProgress=Math.max(mapProgress,Math.min(1,value));else modelProgress=Math.max(modelProgress,Math.min(1,value));
+      loadScreen?.progress(1+mapProgress*45+modelProgress*34,mapProgress<1?'map':'models');
+    };
     try {
       if(conquestUI){conquestUI.dispose();conquestUI=null;}
       if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
@@ -934,10 +944,10 @@
       frontView?.dispose();frontView=null;
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
-        onProgress: event => progress('Карта ' + MAP_META[curMap].name + (event.total ? ' · ' + Math.round(event.loaded / event.total * 100) + '%' : ' · ' + (event.loaded / 1048576).toFixed(1) + ' МБ')) });
+        onProgress: event => {if(event.total)progress('map',Math.min(.96,event.loaded/event.total*.96));} });
       worldGraphics = active;
       // Attach rejection handling before any synchronous scene construction can fail.
-      const assets = Promise.all([active.ready.then(() => progress('Подготовка моделей и материалов…')), loadCombatArt()]);
+      const assets = Promise.all([active.ready.then(() => progress('map',1)), loadCombatArt(value=>progress('models',value))]);
       assets.catch(() => {});
       // Architecture is already batched in the new GLB; create the legacy fallback only if needed.
       environmentView=CS16EnvironmentView.create({T:THREE,scene,grid,map:curMap,hud:ui.hud,getPlayer:()=>P,getActive:()=>state.phase==='live'&&me.alive&&!myVeh?.inside,getQuality:()=>graphicsQuality});
@@ -951,16 +961,17 @@
       fieldProps?.applyNature(active.nature(),graphicsQuality);
       buildingGraphics?.applyMaterials(name=>active.surface(name));environmentView?.applyMaterials(name=>active.surface(name));
       // Tactical rounds use static architecture; no army or vehicle scene.
-      await warmCombatArt(epoch);
+      loadScreen?.progress(80,'shaders');
+      await warmCombatArt(epoch,value=>{if(epoch===worldLoadEpoch)loadScreen?.progress(80+value*18,'shaders');});
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
       if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
-      worldReady = true; ui.loading.style.display = 'none';
+      worldReady = true; loadScreen?.progress(100,'ready','Ваша игра готова');
       ensureSocket(); doJoin();prepareArmy();sock?.emit("cs16_environment_get");
     } catch(error) {
       if(epoch !== worldLoadEpoch)return;
-      worldReady = false;
+      worldReady = false;loadScreen?.progress(0,'error');
       if(active)active.dispose();
       console.error('CS graphics load:', error);
       ui.loading.style.display = 'flex';
@@ -1274,12 +1285,11 @@
       try{localStorage.setItem('cs16-graphics-quality',qualityMode);}catch{}
       adaptive.setMode(qualityMode);
     };
-    ui.loading = el('div', '', r); ui.loading.className = 'cs16-loading';
-    el('div', '', ui.loading, 'SUPPORT HUB / COUNTER-STRIKE').className = 'cs16-loading-label';
-    ui.loadingText = el('div', '', ui.loading, 'Загрузка карты');
-    ui.loadingText.setAttribute('role', 'status');
-    ui.loadingRetry = el('button', '', ui.loading, 'Повторить');
-    ui.loadingRetry.hidden = true; ui.loadingRetry.onclick = () => {if(renderer3?.getContext().isContextLost()){location.reload();return;}buildWorld();};
+    loadScreen=CS16Loading.create({parent:r,getMap:()=>curMap,getNick:()=>myNick,
+      send:data=>{if(sock?.connected)sock.emit('cs16_load_progress',data);},
+      leave:()=>{sock?.emit('cs16_team',null);loadScreen.dismiss();me.team=null;renderLobby();},
+      retry:()=>{if(renderer3?.getContext().isContextLost()){location.reload();return;}buildWorld();}});
+    ui.loading=loadScreen.root;ui.loadingText=loadScreen.status;ui.loadingRetry=loadScreen.retry;
     window.addEventListener('resize', resize3);
   }
   // 3.32.0: магазин по вкладкам
@@ -1543,7 +1553,9 @@
     if (sock) return;
     sock = io(SERVER, { reconnectionAttempts: Infinity });
     sock.on('connect', () => { joined = false; doJoin(); });
-    sock.on('disconnect', () => { frontSeat=null;centerMsg('🔌 Связь с сервером потеряна...', 0); });
+    sock.on('disconnect', () => { loadScreen?.disconnected();frontSeat=null;centerMsg('🔌 Связь с сервером потеряна...', 0); });
+    sock.on('cs16_load_state',data=>{if(state.phase==='loading')loadScreen?.gate(data);});
+    sock.on('cs16_load_error',message=>{loadScreen?.error(message);});
     sock.on('cs16_state', (s) => {
       state = s;if(s.phase==='lobby'){frontSeat=null;frontPilots.clear();frontView?.ingest([]);frontView?.objective(null);}
       if (s.now) clockOffset = s.now - Date.now();
@@ -1551,6 +1563,8 @@
       if (my) { me.team = my.team; me.money = my.money; me.alive=!!my.alive&&!!my.team; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
       // 3.24.0: смена карты — пересобираем мир
       if (s.map && s.map !== curMap && typeof rebuildWorld === 'function') rebuildWorld(s.map);
+      loadScreen?.state(s,sock?.id);
+      if(s.phase==='loading'){for(const key of Object.keys(keys))keys[key]=false;if(document.pointerLockElement)document.exitPointerLock();ui.buy.style.display='none';ui.esc.style.display='none';}
       if (s.phase === 'lobby'||!my?.team) { renderLobby(); return; }
       window.CS16Menu?.stop();
       ui.lobby.style.display = 'none';
@@ -2790,7 +2804,7 @@
   function isBoss() { return state.host === myNick || myNick.toLowerCase() === 'fifflaren'; }
   function escOpen() { return ui.esc && ui.esc.style.display === 'block'; }
   function openEsc() {
-    if (state.phase === 'lobby' || state.phase === 'matchend' || !ui.esc) return;
+    if (state.phase === 'lobby' || state.phase === 'loading' || state.phase === 'matchend' || !ui.esc) return;
     ui.escRestart.style.display = isBoss() ? 'block' : 'none';
     ui.escTomenu.style.display = isBoss() ? 'block' : 'none';
     ui.esc.style.display = 'block';
@@ -2819,7 +2833,7 @@
     canvasEl.addEventListener('mousedown', (e) => {
       if(royaleActive)return;
       if(conquestUI?.blocked)return;
-      if (state.phase === 'lobby') return;
+      if (state.phase === 'lobby' || state.phase === 'loading' || !worldReady) return;
       if (!pointerLocked) { canvasEl.requestPointerLock(); return; }
       if (e.button === 0) {
         const w = WEAPONS[current];
@@ -2861,7 +2875,7 @@
     window.addEventListener('keydown', (e) => {
       if(royaleActive)return;
       if(conquestUI?.blocked){if(e.key==='Escape'){e.preventDefault();conquestUI.abort();}return;}
-      if (state.phase === 'lobby' || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+      if (state.phase === 'lobby' || state.phase === 'loading' || !worldReady || document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
       keys[normK(e.key.toLowerCase())] = true;
       if (e.code === 'Space') { keys.space = true; e.preventDefault(); }
       if (e.code === 'ControlLeft' || e.code === 'ControlRight') { keys.ctrl = true; e.preventDefault(); }
@@ -3046,7 +3060,7 @@
     if(royaleActive||!active){lastT=t;if(!royaleActive)for(const key of Object.keys(keys))keys[key]=false;return;}
     if(ui.flash&&performance.now()>Math.max(flashUntil+1200,flashExpires)){flashAlpha=0;ui.flash.style.opacity='0';}
     if(!canvasEl||canvasEl.clientWidth===0||canvasEl.clientHeight===0){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
-    if (!renderer3 || !worldReady || state.phase === 'lobby' || ui.lobby.style.display === 'block') return;
+    if (!renderer3 || !worldReady || state.phase === 'lobby' || state.phase === 'loading' || ui.lobby.style.display === 'block') {lastT=t;return;}
     try {
     adaptive.sample(t-lastT,!document.hidden&&!escOpen()&&state.phase==='live');
     const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
@@ -3238,6 +3252,6 @@
       document.addEventListener('visibilitychange',wakeLoop);
     }
     wakeLoop();
-    doJoin();
+    ensureSocket();doJoin();
   };
 })();

@@ -423,7 +423,11 @@
     const geometry=new T.BufferGeometry();
     for(const [name,array,size]of [['position',positions,3],['normal',normals,3],['color',colours,3],['skinWeight',weights,4]])geometry.setAttribute(name,new T.Float32BufferAttribute(array,size));
     geometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(joints,4));geometry.setIndex(indices);geometry.computeBoundingSphere();
-    const mesh=new T.SkinnedMesh(geometry,material);mesh.name='Companion skin';mesh.frustumCulled=false;root.add(mesh);root.updateMatrixWorld(true);mesh.bind(new T.Skeleton(bones));
+    const mesh=new T.SkinnedMesh(geometry,material);mesh.name='Companion skin';mesh.frustumCulled=false;
+    // Render sorting also requests a skin bound even when frustum culling is off.
+    // Reuse the rest envelope instead of skinning every vertex on first display.
+    mesh.boundingSphere=geometry.boundingSphere.clone();mesh.boundingSphere.radius*=1.6;
+    root.add(mesh);root.updateMatrixWorld(true);mesh.bind(new T.Skeleton(bones));
     root.userData.cs16SharedPet=true;for(const old of oldGeometries)old.dispose();return root;
   }
   function createPet(id){const source=operators.get('pet-'+id);return source?global.THREE.SkeletonUtils.clone(source):null;}

@@ -51,6 +51,8 @@ def soft_box(name,pos,size,mat,parent,bevel=.008):
                 faces.append((n,q,q+segments,n+segments))
         faces.extend([tuple(reversed(range(segments))),tuple(range((rings-1)*segments,rings*segments))])
         return a.mesh(name,verts,faces,mat,parent)
+    if name in ['Picatinny rail','Receiver rail tooth','Handguard rail lug','Magazine base','Scope mount']:
+        return base_box(name,pos,size,mat,parent,min(size)*.43)
     return base_box(name,pos,size,mat,parent,min(min(size)*.32,bevel*1.8,.014) if bevel else 0)
 a.box=soft_box
 
@@ -386,16 +388,20 @@ def world_lod(root):
         base=len(verts);transform=root.matrix_world.inverted()@ob.matrix_world
         verts.extend(tuple(transform@v.co)for v in ob.data.vertices)
         uv=ob.data.uv_layers.active
+        shade=ob.data.color_attributes.active_color
         for face in ob.data.polygons:
-            faces.append(tuple(base+i for i in face.vertices));colours.append((*colour,1))
+            faces.append(tuple(base+i for i in face.vertices))
+            for loop in face.loop_indices:
+                index=ob.data.loops[loop].vertex_index if shade and shade.domain=='POINT' else loop
+                value=shade.data[index].color[:3] if shade else (1,1,1)
+                colours.append(tuple(c*v for c,v in zip(colour,value))+(1,))
             uvs.extend(tuple(uv.data[i].uv)if uv else(0,0)for i in face.loop_indices)
     group=a.empty('worldLOD',parent=root)
     for paintable,(verts,faces,colours,uvs) in batches.items():
         mesh=bpy.data.meshes.new('World weapon surface');mesh.from_pydata(verts,[],faces);mesh.update()
         attr=mesh.color_attributes.new(name='Color',type='FLOAT_COLOR',domain='CORNER')
         uv=mesh.uv_layers.new(name='UVMap');uv.data.foreach_set('uv',np.array(uvs,dtype=np.float32).ravel())
-        for face,colour in zip(mesh.polygons,colours):
-            for i in face.loop_indices:attr.data[i].color=colour
+        for i,colour in enumerate(colours):attr.data[i].color=colour
         mat=a.surface('Weapon finish / world' if paintable else 'World weapon hardware',(1,1,1),.68,.10)
         vertex=mat.node_tree.nodes.new('ShaderNodeVertexColor');vertex.layer_name='Color'
         mat.node_tree.links.new(vertex.outputs['Color'],mat.node_tree.nodes.get('Principled BSDF').inputs['Base Color'])

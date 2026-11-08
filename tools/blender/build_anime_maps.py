@@ -86,6 +86,14 @@ def materials(theme):
 def wall_details(x,z,dx,dz,variant,theme):
     px,pz=x*4+2+dx*2,z*4+2+dz*2
     def pt(u,h,d=.08):return (px-dz*u+dx*d,h,pz+dx*u+dz*d)
+    def leaf(u,y,index,depth=.13):
+        # A curved pointed oval, with an off-axis folded tip, replaces the diamond.
+        angle=index*2.399;points=[]
+        for k in range(8):
+            t=k*math.tau/8;xx=math.cos(t)*.105;yy=math.sin(t)*.21
+            points.append(pt(u+xx*math.cos(angle)-yy*math.sin(angle),
+                y+.08+xx*math.sin(angle)+yy*math.cos(angle),depth+.04*math.sin(t)**2))
+        a.face('leaf',points,tint=.89+(index%4)*.045)
     def panel(mat,u,y,w,h,d=.08):
         pts=[pt(u-w/2,y-h/2,d),pt(u-w/2,y+h/2,d),pt(u+w/2,y+h/2,d),pt(u+w/2,y-h/2,d)]
         a.face(mat,pts)
@@ -108,7 +116,7 @@ def wall_details(x,z,dx,dz,variant,theme):
         for y in [1.5,2.05,2.6,3.05]:panel('wood',0,y,1.65,.04,.08)
         for j in range(27):
             u=math.sin(j*2.399)*(.35+(j%3)*.18);y=1.15+j*.065
-            a.face('leaf',[pt(u-.13,y,.11),pt(u,y+.20,.17),pt(u+.14,y+.04,.13),pt(u,y-.04,.10)])
+            leaf(u,y,j)
             if j%3==0:
                 for k in range(6):
                     aa=k*math.tau/6;bb=(k+1)*math.tau/6
@@ -135,7 +143,7 @@ def wall_details(x,z,dx,dz,variant,theme):
         panel('wood',0,1.14,1.50,.20,.30)
         for j in range(11):
             u=-.60+j*.12;yy=1.36+.10*math.sin(j*2.4)
-            a.face('leaf',[pt(u-.13,yy,.32),pt(u-.08,yy+.23,.36),pt(u+.13,yy+.10,.36)])
+            leaf(u,yy,j,.34)
             if j%2==0:
                 for k in range(5):
                     t=k*math.tau/5;a.face('flower',[pt(u,yy+.17,.38),pt(u+math.cos(t)*.09,yy+.17+math.sin(t)*.09,.39),pt(u+math.cos(t+.9)*.09,yy+.17+math.sin(t+.9)*.09,.39)])

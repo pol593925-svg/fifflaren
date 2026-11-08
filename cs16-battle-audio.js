@@ -2,7 +2,8 @@
   'use strict';
   function create(a, { listener, blocked, indoor }) {
     const buffers = new Map(),
-      active = new Set();
+      active = new Set(), voices=[];
+    let disposed=false;
     let lastWhizz = 0;
     const reverb = a.createConvolver(),
       wet = a.createGain();
@@ -40,18 +41,27 @@
       buffers.set(type, b);
       return b;
     }
+    function channel(){
+      const filter=a.createBiquadFilter(),volume=a.createGain(),pan=a.createStereoPanner();
+      filter.type='lowpass';filter.connect(volume);volume.connect(pan);pan.connect(a.destination);
+      const voice={filter,volume,pan,source:null,wet:false,stop(){
+        const src=voice.source;if(!src)return;voice.source=null;active.delete(voice);
+        src.onended=null;try{src.stop();}catch{}src.disconnect();
+      }};
+      voices.push(voice);return voice;
+    }
     function sound(type, pos, gain = 0.65) {
+      if(disposed)return;
       const l = listener(),
         d = Math.hypot(pos[0] - l.x, pos[1] - l.y, pos[2] - l.z);
       if (d > 150) return;
       const muffled = d > 2 && blocked([l.x, l.y, l.z], pos),
-        src = a.createBufferSource(),
-        filter = a.createBiquadFilter(),
-        volume = a.createGain(),
-        pan = a.createStereoPanner();
+        voice=voices.find(v=>!v.source)||(voices.length<28?channel():active.values().next().value);
+      voice.stop();
+      const src = a.createBufferSource(),{filter,volume,pan}=voice;
+      voice.source=src;
       src.buffer = buffer(type);
       src.playbackRate.value = 0.97 + Math.random() * 0.06;
-      filter.type = 'lowpass';
       filter.frequency.value = muffled ? 750 : Math.max(1500, 12000 - d * 65);
       volume.gain.value = (gain / (1 + (d * d) / 85)) * (muffled ? 0.36 : 1);
       pan.pan.value = Math.max(
@@ -59,33 +69,20 @@
         Math.min(1, ((pos[0] - l.x) * Math.cos(l.yaw) - (pos[2] - l.z) * Math.sin(l.yaw)) / Math.max(2, d)),
       );
       src.connect(filter);
-      filter.connect(volume);
-      volume.connect(pan);
-      pan.connect(a.destination);
-      if (indoor(pos) || indoor([l.x, l.y, l.z])) pan.connect(reverb);
-      const voice = {
-        stop() {
-          try {
-            src.stop();
-          } catch {}
-          src.disconnect();
-          filter.disconnect();
-          volume.disconnect();
-          pan.disconnect();
-          active.delete(voice);
-        },
-      };
-      if (active.size >= 28) active.values().next().value.stop();
+      const room=!!(indoor(pos)||indoor([l.x,l.y,l.z]));
+      if(room!==voice.wet){if(room)pan.connect(reverb);else pan.disconnect(reverb);voice.wet=room;}
       active.add(voice);
-      src.onended = voice.stop;
+      // A delayed ended event from a stolen voice must never stop its replacement.
+      src.onended = ()=>{if(voice.source===src){voice.source=null;active.delete(voice);src.disconnect();}};
       src.start();
     }
     return {
       async prepare() {
         // Generate sample buffers behind the loading screen, not during the first firefight.
         for(const type of ['rifle','pistol','sniper','whizz','glass','wood','stone','metal']){
-          buffer(type);await new Promise(resolve=>setTimeout(resolve,0));
+          if(disposed)return;buffer(type);await new Promise(resolve=>setTimeout(resolve,0));
         }
+        while(!disposed&&voices.length<28){for(let i=0;i<4&&voices.length<28;i++)channel();await new Promise(resolve=>setTimeout(resolve,0));}
       },
       shot(id, pos, gain=1) {
         sound(
@@ -122,7 +119,9 @@
         }
       },
       dispose() {
+        if(disposed)return;disposed=true;
         for (const v of [...active]) v.stop();
+        for(const v of voices){v.filter.disconnect();v.volume.disconnect();v.pan.disconnect();}voices.length=0;
         reverb.disconnect();
         wet.disconnect();
         buffers.clear();

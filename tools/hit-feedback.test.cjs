@@ -7,6 +7,15 @@ function fixture(){
  return {fx,scene,setTime:n=>now=n,setQuality:q=>quality=q,setVisible:v=>visible=v};
 }
 const target={x:0,y:0,z:-6},hit={target:'B',weapon:'m4a1',dmg:28,hp:72,zone:'body',head:false};
+
+test('loading uploads hit buffers and cancellation never renders a disposed scene',async()=>{
+ const {fx,scene}=fixture();let renders=0;
+ await fx.warm({compileAsync:async()=>{},render(){renders++;assert(scene.children[0].children.every(m=>m.visible&&m.count===1));}});
+ assert.equal(renders,1);assert(scene.children[0].children.every(m=>!m.visible&&m.count===0));fx.dispose();
+ const canceled=fixture();let finish;
+ const pending=canceled.fx.warm({compileAsync:()=>new Promise(resolve=>finish=resolve),render(){throw Error('Canceled warm-up rendered');}});
+ canceled.fx.dispose();finish();await pending;assert.equal(canceled.scene.children.length,0);
+});
 test('local ray prediction never displays a hit; acknowledgement consumes its contact point',()=>{
  const {fx,scene,setTime}=fixture();
  fx.remember('B','m4a1',[.1,1.3,-5.7],target);fx.update();assert.equal(fx.metrics().active,0);

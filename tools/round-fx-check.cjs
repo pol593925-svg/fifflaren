@@ -39,12 +39,16 @@ module.exports=async function(page,outputs,errors){
     fx.update=()=>{const started=performance.now();update();updateCosts.push(performance.now()-started);};
     let last=performance.now();
     for(let i=0;i<240;i++){
+     const shotAt=performance.now();
      if(i%6===0)for(let j=0;j<9;j++)__socket.receive('cs16_shoot',{nick:'Load '+j,weapon:['m4a1','ak47','awp'][j%3],origin:[x-2+j%3*3,1.5,z+8+Math.floor(j/3)*3],dir:[0,0,-1],distance:18});
+     const hitAt=performance.now();
      if(hits&&i%6===0){const started=performance.now();for(let j=0;j<9;j++)__socket.receive('cs16_hit',{target:'Load '+j,by:'Preview',weapon:'m4a1',hp:80,dmg:20,head:j%3===0,armorDamage:j%2?4:0});hitCosts.push(performance.now()-started);}
+     const magicAt=performance.now();
      if(i%45===0)for(let j=0;j<10;j++)__socket.receive('cs16_magic_fx',{
       by:j?'Load '+(j-1):'Preview',team:j<5?'ct':'t',id:Object.keys(CS16SpellEffects.styles)[j],
       slot:j<5?'hero':'pet',origin:[x-4+j*.45,1.3,z+6],pos:[x-4+j*.45,.15,z+10],dir:[0,0,1]});
-     await new Promise(requestAnimationFrame);const now=performance.now(),elapsed=now-last;dt.push(elapsed);if(elapsed>50)spikes.push({frame:i,ms:elapsed});last=now;
+     const frameAt=performance.now();
+     await new Promise(requestAnimationFrame);const now=performance.now(),elapsed=now-last;dt.push(elapsed);if(elapsed>50)spikes.push({frame:i,ms:elapsed,shots:hitAt-shotAt,hits:magicAt-hitAt,magic:frameAt-magicAt,frameWait:now-frameAt});last=now;
     }
     fx.update=update;
     const average=dt.reduce((a,b)=>a+b,0)/dt.length;dt.sort((a,b)=>a-b);
@@ -56,6 +60,12 @@ module.exports=async function(page,outputs,errors){
    },{quality,...spot,hits:hitLoad}));
    }
   }
+  // Switching work tabs must suspend the renderer and returning must wake it.
+  await page.evaluate(()=>document.getElementById('tab-cs16').style.display='none');
+  await page.waitForTimeout(100);const hiddenFrame=await page.evaluate(()=>__qa.renderer().info.render.frame);
+  await page.waitForTimeout(180);assert.equal(await page.evaluate(()=>__qa.renderer().info.render.frame),hiddenFrame);
+  await page.evaluate(()=>document.getElementById('tab-cs16').style.display='block');
+  await page.waitForFunction(before=>__qa.renderer().info.render.frame>before,hiddenFrame);
  }
  assert.equal(errors.length,0,errors.join('\n'));assert(reports.every(r=>r.players===9&&r.ready));
  // Three shares its internal depth material across rigid/skinned/instanced shadow

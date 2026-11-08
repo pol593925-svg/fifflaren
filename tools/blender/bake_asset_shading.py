@@ -44,5 +44,12 @@ def bake(root,hands=False):
     elif textile:rgb=(.95+.05*top,.975+.025*top,1.0)
     elif enamel:rgb=(1.0,.985+.015*top,.96+.04*top)
     else:rgb=(.94+.06*top,.975+.025*top,1.0)
+    # Painted edge light follows the authored curvature, with broad strokes on
+    # cloth. Baked vertex colour keeps the extra form readable on economy mode.
+    corner=max(0,1-max(abs(normal.x),abs(normal.y),abs(normal.z)))
+    if textile:
+     form*=1+.025*math.sin(point.x*41+point.y*23+point.z*17)
+    elif not skin:
+     form+=corner*(.16 if enamel else .22)*( .45+.55*top)
     for_light=cavity*form
     colours.data[vertex.index].color=tuple(min(1,c*for_light)for c in rgb)+(1,)

@@ -65,6 +65,15 @@ def build(a,theme):
                 t=j/8*math.pi;length=math.sin(t*.5)*r*1.5;angle=aa+math.cos(t)*.42
                 petal.append((cx+math.cos(angle)*length,cy+math.sin(angle)*length,cz-.05*math.sin(t)))
             a.face('flower',petal)
+    def leaf(cx,cy,cz,dx,dy,width=.10,fold=-.035):
+        # Pointed oval with a raised midrib: eight triangles, no square billboard.
+        length=math.hypot(dx,dy);ux,uy=-dy/length,dx/length
+        outline=[]
+        for t,side in [(0,0),(.25,1),(.5,1),(.75,1),(1,0),(.75,-1),(.5,-1),(.25,-1)]:
+            w=math.sin(t*math.pi)**.7*width*side
+            outline.append((cx+dx*t+ux*w,cy+dy*t+uy*w,cz+fold*.2*math.sin(t*math.pi)))
+        center=(cx+dx*.5,cy+dy*.5,cz+fold)
+        for j in range(8):a.face('leaf',[center,outline[j],outline[(j+1)%8]],tint=1.06 if j<4 else .91)
     for b in plan['buildings']:
         x,z=b['x'],b['z'];bid=b['id']
         def box(mat,xx,y,zz,w,h,d):rounded_box(mat,x+xx,y,z+zz,w,h,d)
@@ -263,7 +272,7 @@ def build(a,theme):
             cx=x+1.65+j*.266;yy=4.38+.10*math.sin(j*.71)
             for k in range(3):
                 dx=math.sin(j*2.4+k)*.16;dy=k*.14
-                a.face('leaf',[(cx-.16,yy-dy,z-1.94),(cx+dx,yy+.12-dy,z-2.06),(cx+.18,yy-dy,z-1.94),(cx,yy-.07-dy,z-2.00)])
+                leaf(cx-.16,yy-dy-.035,z-1.99,.34,.08+dx*.4,.085)
             if j%2==0:
                 for k in range(4):flower(cx+math.sin(k*2.3)*.07,yy-.12-k*.15,z-2.07,.09-k*.01)
         # Climbing leaves live on solid corners, not across doors or shooting windows.
@@ -272,7 +281,7 @@ def build(a,theme):
             ribbon('wood',points,.018)
             for j,(cx,yy,zz)in enumerate(points):
                 s=-1 if j%2 else 1
-                a.face('leaf',[(cx,yy,zz-.03),(cx+s*.23,yy+.03,zz-.08),(cx+s*.30,yy+.24,zz-.04),(cx+s*.06,yy+.18,zz-.02)])
+                leaf(cx,yy,zz-.04,s*.30,.24,.115)
                 if j%7==0:flower(cx+s*.16,yy+.12,zz-.12,.10)
         # Continuous wooden stair stringers; the collision treads stay unchanged.
         for side in [9.06,10.31]:
@@ -291,8 +300,7 @@ def build(a,theme):
         for xx in [2.25,9.75]:
             for j in range(29):
                 cx=x+xx+.32*math.sin(j*.55);yy=.75+j*.195
-                a.face('leaf',[(cx-.16,yy,z+12.14),(cx-.09,yy+.20,z+12.20),
-                    (cx+.20,yy+.14,z+12.16),(cx+.10,yy-.05,z+12.17)])
+                leaf(cx-.14,yy-.03,z+12.18,.32,.22,.105,.035)
                 if j%5==0:flower(cx,yy+.12,z+12.25,.12)
         # An original geometric sun crest breaks the blank rear plaster between the frames.
         for j in range(32):

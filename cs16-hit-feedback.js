@@ -106,6 +106,9 @@
       if(disposed)return;
       try {for(const mesh of meshes){mesh.count=1;mesh.visible=true;}
         if(renderer.compileAsync)await renderer.compileAsync(scene,camera);else renderer.compile(scene,camera);
+        // Compilation alone does not upload instance buffers. Do that while the
+        // loading screen still covers the frame, rather than on the first hit.
+        if(!disposed)renderer.render(scene,camera);
       } finally {clear();}
     }
     function dispose(){if(disposed)return;clear();disposed=true;root.removeFromParent();marker?.remove();for(const mesh of meshes){mesh.dispose();mesh.geometry.dispose();mesh.material.dispose();}}

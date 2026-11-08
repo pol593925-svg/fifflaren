@@ -9,17 +9,17 @@
     {
       "file": "anime-glock.glb",
       "triangles": 10148,
-      "bytes": 555500
+      "bytes": 555420
     },
     {
       "file": "anime-usp.glb",
       "triangles": 11882,
-      "bytes": 615548
+      "bytes": 615428
     },
     {
       "file": "anime-deagle.glb",
       "triangles": 10378,
-      "bytes": 562492
+      "bytes": 562412
     },
     {
       "file": "anime-ak47.glb",
@@ -28,28 +28,28 @@
     },
     {
       "file": "anime-m4a1.glb",
-      "triangles": 39466,
-      "bytes": 1727296
+      "triangles": 39467,
+      "bytes": 1723624
     },
     {
       "file": "anime-awp.glb",
       "triangles": 36618,
-      "bytes": 1603764
+      "bytes": 1601324
     },
     {
       "file": "anime-mp5.glb",
       "triangles": 27640,
-      "bytes": 1294864
+      "bytes": 1294544
     },
     {
       "file": "anime-p90.glb",
       "triangles": 34412,
-      "bytes": 1542776
+      "bytes": 1543016
     },
     {
       "file": "anime-ump45.glb",
       "triangles": 28162,
-      "bytes": 1312384
+      "bytes": 1312064
     },
     {
       "file": "anime-galil.glb",
@@ -59,32 +59,32 @@
     {
       "file": "anime-famas.glb",
       "triangles": 27980,
-      "bytes": 1304480
+      "bytes": 1303920
     },
     {
       "file": "anime-scout.glb",
       "triangles": 36618,
-      "bytes": 1603540
+      "bytes": 1601100
     },
     {
       "file": "anime-sg552.glb",
       "triangles": 27292,
-      "bytes": 1283748
+      "bytes": 1283348
     },
     {
       "file": "anime-aug.glb",
       "triangles": 27292,
-      "bytes": 1283344
+      "bytes": 1282904
     },
     {
       "file": "anime-m249.glb",
       "triangles": 26848,
-      "bytes": 1256180
+      "bytes": 1255860
     },
     {
       "file": "anime-fiveseven.glb",
       "triangles": 10148,
-      "bytes": 553380
+      "bytes": 553300
     },
     {
       "file": "anime-tec9.glb",
@@ -94,7 +94,7 @@
     {
       "file": "anime-elite.glb",
       "triangles": 17428,
-      "bytes": 763812
+      "bytes": 763732
     },
     {
       "file": "anime-hands.glb",

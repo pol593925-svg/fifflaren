@@ -832,24 +832,25 @@
   async function warmCombatArt(epoch,onProgress=()=>{}){
     await spatialAudio()?.prepare();
     if(epoch!==worldLoadEpoch)return;
-    const activeScene=scene,fx=magicView,preview=new THREE.Group(),holds=[],guns=[];
+    const activeScene=scene,fx=magicView,preview=new THREE.Group(),holds=[],guns=[],batches=[],bodies=[];
     const shadows=renderer3.shadowMap.enabled,optical=fieldOptical||=CS16FieldView.optic(THREE);
     if(!shotLight)shotLight=new THREE.PointLight(0xffc46a,0,6,2);
     shotLight.intensity=0;activeScene.add(shotLight);
     const pool=prepareShotPool(),pooled=[...pool.tracers.map(s=>s.line),...pool.flashes.map(s=>s.sp)];
     preview.add(...pooled);
-    const opticParent=optical.root.parent,reticle=optical.root.getObjectByName('fieldReticle'),reticleVisible=reticle?.visible;
+    const opticParent=optical.root.parent,opticVisible=optical.root.visible,reticle=optical.root.getObjectByName('fieldReticle'),reticleVisible=reticle?.visible;
     if(reticle)reticle.visible=true;
     try{
       for(const id of Object.keys(CS16Characters.profiles)){
         const body=CS16Graphics.createOperator('ct',id),holder=new THREE.Group();
-        if(!body)continue;body.add(holder);holds.push(CS16Grip.operator(THREE,body,holder,.51));preview.add(body);
+        if(!body)continue;body.add(holder);holds.push(CS16Grip.operator(THREE,body,holder,.51));
+        const batch=CS16OperatorBatch.create(THREE,body,id);if(batch)batches.push(batch);bodies.push(body);preview.add(body);
       }
       const pets=[];for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet){pets.push(pet);preview.add(pet);}}
       for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',id==='m4a1'?1.8:1);guns.push(gun);preview.add(gun);}
       const worldGun=buildGun('m4a1','',1,true);guns.push(worldGun);preview.add(worldGun);
-      const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
-      // Compile every variant, but upload only representative textures/meshes now.
+      const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh||o.isSprite)o.frustumCulled=false;});
+      // Compile every variant, then upload representative effects and the full arsenal.
       const samples=new Set([preview.children[pooled.length],...pets,guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle,pooled[0],pooled[48]]);
       preview.position.copy(camera.position);preview.position.z-=3;activeScene.add(preview);
       // Balanced/high and economy use different shader defines. Weak PCs prepare economy only.
@@ -859,14 +860,29 @@
         renderer3.shadowMap.enabled=enabled;
         for(const child of preview.children)child.visible=true;
         await fx.warm(renderer3,camera,()=>{for(const child of preview.children)child.visible=samples.has(child);});
+        // Upload each authored body and weapon in small batches behind the loading
+        // screen, so a first spawn or weapon switch does not create GPU buffers.
+        const upload=[],models=[...bodies,...guns];
+        for(let start=0;start<models.length;start+=3)upload.push(models.slice(start,start+3));
+        // Each pooled tracer/flash has its own fade material. Initialize every
+        // slot now, including sprites outside the current camera direction.
+        for(let start=0;start<pooled.length;start+=12)upload.push(pooled.slice(start,start+12));
+        for(let start=0;start<upload.length;start++){
+          if(epoch!==worldLoadEpoch)return;
+          const visible=new Set(upload[start]);
+          for(const child of preview.children)child.visible=visible.has(child);
+          renderer3.render(activeScene,camera);
+          onProgress((warmed+.5+.5*(start+1)/upload.length)/variants.length);
+          await new Promise(resolve=>setTimeout(resolve,0));
+        }
         onProgress(++warmed/variants.length);
       }
     }finally{
-      renderer3.shadowMap.enabled=shadows;preview.removeFromParent();optical.root.removeFromParent();
+      renderer3.shadowMap.enabled=shadows;preview.removeFromParent();optical.root.removeFromParent();optical.root.visible=opticVisible;
       if(opticParent&&fieldOptical===optical)opticParent.add(optical.root);
       if(reticle)reticle.visible=reticleVisible;
       for(const node of pooled)node.removeFromParent();
-      holds.forEach(h=>h.dispose());guns.forEach(disposeGun);
+      batches.forEach(b=>b.dispose());holds.forEach(h=>h.dispose());guns.forEach(disposeGun);
       preview.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});
     }
   }
@@ -1861,7 +1877,7 @@
     if (prev) { disposeOperator(prev); remotes.delete(nick); }
     const g = CS16Graphics.createOperator(team,characterId);
     if (!g) throw new Error('Operator assets must load before joining a match');
-    const heatBody=[];g.traverse(part=>{if(part.isMesh)heatBody.push(part);});
+
     const torso = g.getObjectByName('torso'), head = g.getObjectByName('head');
     const legL = g.getObjectByName('legL'), legR = g.getObjectByName('legR');
     const armL = g.getObjectByName('armL'), armR = g.getObjectByName('armR');
@@ -1869,8 +1885,10 @@
     const gunHolder = new THREE.Group();
     g.add(gunHolder);
     const hold=CS16Grip.operator(THREE,g,gunHolder,.51);
+    const batch=CS16OperatorBatch.create(THREE,g,characterId);
+    const heatBody=[];g.traverse(part=>{if(part.isMesh)heatBody.push(part);});
     // 3.22.0: вспышка на дуле чужого стрелка (видна всем)
-    const muzzleFx = new THREE.Sprite(muzzleMaterial().clone());
+    const muzzleFx = new THREE.Sprite(muzzleMaterial());
     muzzleFx.scale.set(0.5, 0.5, 1);
     muzzleFx.position.set(0, 0, -0.85);
     muzzleFx.visible = false;
@@ -1880,7 +1898,7 @@
     // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
     if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { nick, characterId, heatBody,group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
+    const r = { nick, characterId, heatBody,group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, batch, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);
@@ -1914,7 +1932,7 @@
       if (o.isMesh) for (const m of [].concat(o.material)) if (m.userData.cs16Owned) m.dispose();
     });
   }
-  function disposeOperator(r){disposeGun(r.gun);r.hold.dispose();r.group.traverse(o=>{if(o.isSprite){if(o!==r.muzzleFx)o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
+  function disposeOperator(r){disposeGun(r.gun);r.batch?.dispose();r.hold.dispose();r.group.traverse(o=>{if(o.isSprite&&o!==r.muzzleFx){o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
   function removeRemote(nick) {
     const r = remotes.get(nick);
     if (r) { disposeOperator(r); remotes.delete(nick); }
@@ -2962,6 +2980,19 @@
 
   // ---------- ГЛАВНЫЙ ЦИКЛ ----------
   let lastT = 0, posAcc = 0, nextRadar=0, nextHud=0, frameId=0, idleTimer=0;
+  let viewportVisible=false,canvasVisible=false,viewportObserver=null;
+  function observeViewport(){
+    if(viewportObserver)return;
+    // Read sizes after browser layout, never synchronously after hit/HUD writes.
+    viewportObserver=new ResizeObserver(entries=>{
+      for(const entry of entries){
+        const visible=entry.contentRect.width>0&&entry.contentRect.height>0;
+        if(entry.target===canvasEl)canvasVisible=visible;else viewportVisible=visible;
+      }
+      wakeLoop();
+    });
+    viewportObserver.observe(root());viewportObserver.observe(canvasEl);
+  }
   function refreshHud(t){
     if(t<nextHud)return;
     updateHud();nextHud=t+(graphicsQuality==='low'?60:16);
@@ -3032,17 +3063,17 @@
 
   function loop(t) {
     frameId=0;
-    const active=!document.hidden&&root()?.getClientRects().length>0;
+    const active=!document.hidden&&viewportVisible&&canvasVisible;
     if(active&&!royaleActive)wakeLoop();else idleTimer=setTimeout(wakeLoop,400);
     // 3.32.0: полный экран пока вкладка CS 1.6 открыта (проверка раз в 0.5 с)
     if (t - fsCheckAt > 500) {
       fsCheckAt = t;
-      const vis = !!(canvasEl && canvasEl.clientWidth > 0 && canvasEl.clientHeight > 0);
+      const vis = viewportVisible&&canvasVisible;
       if (vis !== fsActive) { fsActive = vis; document.getElementById('tab-cs16').classList.toggle('cs16-fullscreen',vis);resize3();try { if(ipcR)ipcR.send('cs16-fullscreen',vis); } catch(e){} }
     }
     if(royaleActive||!active){lastT=t;if(!royaleActive)for(const key of Object.keys(keys))keys[key]=false;return;}
     if(ui.flash&&performance.now()>Math.max(flashUntil+1200,flashExpires)){flashAlpha=0;ui.flash.style.opacity='0';}
-    if(!canvasEl||canvasEl.clientWidth===0||canvasEl.clientHeight===0){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
+    if(!canvasEl||!canvasVisible){lastT=t;for(const key of Object.keys(keys))keys[key]=false;return;}
     if (!renderer3 || !worldReady || state.phase === 'lobby' || state.phase === 'loading' || ui.lobby.style.display === 'block') {lastT=t;return;}
     try {
     adaptive.sample(t-lastT,!document.hidden&&!escOpen()&&state.phase==='live');
@@ -3224,6 +3255,7 @@
       buildUI();
       try{initScene();}catch(error){inited=false;ui.loading.style.display='flex';ui.loadingText.textContent='Не удалось запустить графику: '+error.message;ui.loadingRetry.hidden=false;ui.loadingRetry.onclick=()=>location.reload();console.error(error);return;}
       bindInput();
+      observeViewport();
       loadSkins();
       document.addEventListener('visibilitychange',wakeLoop);
     }

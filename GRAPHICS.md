@@ -265,3 +265,68 @@ and a batch of nine confirmations was 3.4–4.0 ms at p95. Overall frame times
 varied considerably even without impacts, so these results do not establish
 stable low-end performance or attribute the scene's remaining stalls solely
 to the new effects. See `graphics-qa/hit-feedback-performance.json`.
+
+## Arsenal finish and rendering preparation — 8 November 2026
+
+All nineteen weapons were rebuilt with softer rail/mount/magazine edges and
+subtle baked curvature highlights. The first-person sleeves retain their
+painted cloth shading. World weapon LODs now retain that shading instead of
+flattening every vertex to its material colour. No extra render pass or new
+texture is needed. The palms, grip anchors and weapon statistics are unchanged.
+Townhouse vines, balcony foliage and street window-box/trellis leaves now have
+rounded outlines and folded centres instead of quadrilateral silhouettes.
+
+Final map exports: Dust2 390,007 triangles / 87 batches / 36,978,848 bytes;
+Inferno 391,097 / 86 / 37,045,432 bytes. Both pass the existing 400k/90 limits,
+and their gameplay-layout hashes are unchanged. Pets have not been modified.
+
+`CS16OperatorBatch` merges each hero's six mesh parts into one skin, preserving
+the existing animated body pivots and two-bone elbow IK. A shared geometry is
+retained per loaded hero/material between rounds; each actor owns its skeleton.
+Source-material disposal retires the cached geometry after its last user.
+The numerical regression covers all ten heroes, moving/rotated/crouched poses,
+and over 306k sampled posed vertices: maximum difference below 1e-7 world units.
+It also checks sharing, skeleton isolation and final resource disposal.
+
+Spatial sound now reuses 28 filter/gain/pan chains. An ended event from a stolen
+voice cannot interrupt its replacement. Buffers and nodes are prepared during
+loading. All hero/weapon GPU buffers and the three hit-effect instance buffers
+are uploaded behind the same loading barrier; a canceled preparation does not
+render a disposed effect. The longer preparation is deliberate: the native
+fixture measured about 4.0 seconds, with 332 geometries before and after 180
+explosions, successful context recovery and aligned hip/ADS rendering. Memory
+counts are higher than the preceding lazy-upload version because the complete
+arsenal is resident before the first weapon switch. Every pooled muzzle/tracer
+slot is also initialized during loading. Remote muzzle sprites share their
+constant material. Visibility now comes from ResizeObserver rather than forced
+layout reads after HUD updates. A precomputed rendering bound prevents a
+one-time full-vertex skin calculation on first display; pet models/animation
+and their existing no-frustum-culling behavior are unchanged.
+
+Validation includes nineteen weapon/sight views, 192 grip poses, both maps'
+door/house/roof/tunnel routes, the ten-player loading barrier, 1,500-hit bounded
+resources, nine impact/audio unit tests and twenty-four server round/combat/
+magic/loading tests. All used local network fixtures, not an employee match.
+
+The repeated low-quality stress scene (ten actors and pets, rifle fire, magic
+and confirmed hits; 1280x720, 4x CPU throttling, reported 4 GB/four cores on a
+GTX 1080) measured 44–47 FPS, p95 28.8–31.7 ms. Draw submissions fell from about
+254–256 to 214–216 in the same fixture. Hit updates measured 0.4–0.5 ms at p95.
+An early frame still reached 62.5 ms; Inferno's maximum was 34.3 ms. These
+measurements include the final vine refinement. The profiler previously found
+forced DOM layout in the first burst and a full-vertex bounding-sphere
+calculation during initial skin rendering. Both avoidable costs are removed.
+The fixture also verifies that hiding the game tab stops rendering and showing
+it resumes rendering, without a synchronous layout query in the frame loop.
+Visual inspection caught and fixed the optic template retaining a hidden state
+after warm-up. All nineteen weapon/sight checks were repeated with effective
+ancestor visibility included, not merely the reticle's own visible flag.
+They do not establish 60 FPS or hitch-free operation on a real low-end GPU.
+The art is an original stylized interpretation, not a pixel-identical copy
+of Genshin. No version bump, push or deployment is part of this work.
+
+Final unpacked Windows QA build: 81 runtime/model files byte-match the working
+tree. Native execution from `app.asar` passed startup (2.0 seconds in the final
+run), stable geometry counts across 180 explosions (335 before/after), forced
+context loss/recovery and hip/ADS alignment. The package remains unsigned,
+version 5.1.0, and was built with `--publish never`. It is not a public release.

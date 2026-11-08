@@ -80,3 +80,16 @@
 .cs16-flight[hidden]{display:none}.cs16-flight::before{content:"";position:absolute;left:50%;top:50%;width:38px;height:38px;transform:translate(-50%,-50%);border:1px solid #a3edae;border-radius:50%}
 .cs16-flight-label{position:absolute;left:50%;bottom:12%;transform:translateX(-50%);padding:5px 12px;border-top:1px solid #90bc96;background:#12352aad;white-space:nowrap}
 .cs16-seeker{position:absolute;left:50%;top:59%;transform:translateX(-50%);padding:4px 10px;background:#0d1c1fce;border:1px solid #819d9d;color:#d4e0df;font:bold 12px monospace}.cs16-seeker.ready{color:#f7cd76;border-color:#e1b35c}.cs16-seeker[hidden]{display:none}
+
+/* Confirmed damage feedback, kept clear of the optic and its central dot. */
+.cs16-hit-feedback{--hit-color:#ffedc3;--hit-scale:1;position:absolute;left:50%;top:50%;width:48px;height:48px;transform:translate(-50%,-50%);pointer-events:none;color:var(--hit-color);z-index:8;filter:drop-shadow(0 1px 2px #16242f)}
+.cs16-hit-feedback[hidden]{display:none}
+.cs16-hit-cross{position:absolute;left:50%;top:50%;width:0;height:0;transform:scale(var(--hit-scale))}
+.cs16-hit-cross i{position:absolute;left:7px;top:-1px;width:12px;height:2px;transform-origin:-7px 1px;transform:rotate(var(--angle));background:currentColor;border-radius:2px}
+.cs16-hit-badge{position:absolute;left:51px;top:48px;min-width:110px;white-space:nowrap;font-family:'Segoe UI',sans-serif}
+.cs16-hit-badge strong{display:block;font-size:23px;line-height:1.05;font-weight:800;font-variant-numeric:tabular-nums}
+.cs16-hit-badge small{display:block;font-size:9px;font-weight:700;letter-spacing:1.3px;margin-top:5px;opacity:.94}
+.cs16-hit-feedback[data-kind="head"] .cs16-hit-cross i{height:3px;width:14px}
+.cs16-hit-feedback[data-kind="kill"] .cs16-hit-cross i{height:3px;width:17px}
+.cs16-hit-feedback[data-kind="armor"] .cs16-hit-badge::before{content:"";position:absolute;left:-15px;top:6px;width:10px;height:13px;border:1.5px solid currentColor;border-radius:3px 3px 7px 7px;box-sizing:border-box}
+@media(max-width:760px){.cs16-hit-badge{left:47px;top:46px}.cs16-hit-badge strong{font-size:19px}.cs16-hit-badge small{font-size:8px;letter-spacing:.8px}}

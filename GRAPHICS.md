@@ -227,3 +227,41 @@ maps reduced active textures from 87 to 84 but did not establish a CPU-FPS gain.
 This is not a low-end GPU measurement or a claim of stable 60 FPS on weak PCs.
 Screenshots are real local game captures in graphics-qa, not concept renders.
 No version change, push, release or deployment was performed.
+
+## Confirmed target impacts — 8 November 2026
+
+The combat HUD now distinguishes ivory body hits, cyan armor impacts, gold
+headshots and coral eliminations. A short crosshair marker and damage total
+accompany painted contact stars, expanding rings and brush-stroke sparks on
+the target. Armor-break and fatal-headshot labels use confirmed server data.
+Local ray prediction alone never displays damage. Optional shot IDs correlate
+accepted server hits with their exact predicted contact, including after a
+rejected shot; older server events retain a compatible fallback.
+
+The previous per-hit canvas/texture damage sprites are removed. The new effect
+uses three reusable instanced meshes, with twelve contact slots or six on low
+quality, and no per-hit GPU resource allocation. Low quality uses three sparks
+per contact instead of six. Shaders are prepared behind the loading screen.
+Off-screen and distant sparks are rejected before wall/smoke queries, while
+confirmed personal damage stays on the HUD. Walls/depth testing and smoke checks
+suppress hidden target effects. Round,
+map and graphics-context changes clear or dispose the same buffers and HUD.
+Weapon balance, map geometry, hand models and pets are unchanged in this pass.
+
+Six focused unit tests and twenty-four server combat/loading/magic/round tests
+passed. The real-client browser fixture verifies an emitted shot without an
+early hit marker, all four confirmed states, expiry, other players' hits,
+zero-damage events, fixed resources after 1,500 hits and map cleanup. Screenshots
+in `graphics-qa/anime-hit-*.png` are actual local game captures with scripted
+network acknowledgements, not a live employee match. Native Electron startup,
+180-explosion resource stability, WebGL recovery and ADS alignment also passed.
+The planned 6.0.0 notes include this feature; no release was published.
+
+The stress fixture can now compare the same map with and without repeated
+confirmed hits and records hit-handler/update costs separately. At 4x CPU
+throttling, low quality, 1280x720 and GTX 1080, the comparison measured 24–39 FPS
+across baseline/effect passes; the effect frame update was 0.7–1.0 ms at p95,
+and a batch of nine confirmations was 3.4–4.0 ms at p95. Overall frame times
+varied considerably even without impacts, so these results do not establish
+stable low-end performance or attribute the scene's remaining stalls solely
+to the new effects. See `graphics-qa/hit-feedback-performance.json`.

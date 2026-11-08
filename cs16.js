@@ -295,7 +295,6 @@
   let SITE_A = MAP_META.dust2.sites.A, SITE_B = MAP_META.dust2.sites.B;
   const stairsDir = new Map(); // "x,y" -> [dx,dy] направление лестницы вверх к мосту
   const stairsTop = new Map(); // 3.32.0: "x,y" -> высота верха лестницы (TOWER_H/BRIDGE_H)
-  const dmgNums = []; // 3.24.3: летящие числа урона (спрайты)
   function loadMap(name) {
     if (!MAP_ROWS[name]) name = 'dust2';
     curMap = name;
@@ -881,14 +880,14 @@
   let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null;
   const modestHardware=(navigator.deviceMemory>0&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency>0&&navigator.hardwareConcurrency<=4);
   let graphicsQuality = modestHardware ? 'low' : 'balanced';
-  let qualityMode='auto',environmentView=null,fieldEffects=null,battleAudio=null,lastDust=0;
+  let qualityMode='auto',environmentView=null,fieldEffects=null,hitFeedback=null,battleAudio=null,lastDust=0;
   try{const preference=localStorage.getItem('cs16-graphics-quality');if(['low','balanced','high'].includes(preference)){qualityMode=preference;graphicsQuality=preference;}}catch{}
   function applyQuality(value){
     graphicsQuality=value;if(worldGraphics)worldGraphics.setQuality(value);fieldProps?.setQuality(value);resize3();
     if(ui.quality){const option=[...ui.quality.options].find(o=>o.value==='auto');if(option)option.textContent='Авто · '+({low:'экономно',balanced:'баланс',high:'высоко'}[value]);}
   }
   const adaptive=CS16AdaptiveQuality.create({mode:qualityMode,quality:graphicsQuality,maxQuality:modestHardware?'low':'balanced',apply:applyQuality});
-  function clearFieldPresentation(){environmentView?.dispose();fieldEffects?.dispose();battleAudio?.dispose();environmentView=fieldEffects=battleAudio=null;adaptive.reset();}
+  function clearFieldPresentation(){environmentView?.dispose();fieldEffects?.dispose();hitFeedback?.dispose();battleAudio?.dispose();environmentView=fieldEffects=hitFeedback=battleAudio=null;adaptive.reset();}
 
   function initScene() {
     renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: !modestHardware, powerPreference:'low-power' });
@@ -908,13 +907,12 @@
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
     if(conquestUI){conquestUI.dispose();conquestUI=null;}
     if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
-    for(const d of dmgNums){d.sp.removeFromParent();d.sp.material.map?.dispose();d.sp.material.dispose();}dmgNums.length=0;
     for(const s of smokes){s.mesh.removeFromParent();s.mesh.children.forEach(p=>p.material.dispose());}smokes.length=0;
   }
   function rebuildWorld(name) {
     loadMap(name);
     remotesClear();
-    clearShotEffects(); nadesList.length = 0; clearVehicles(); smokes.forEach(s=>{scene.remove(s.mesh);s.mesh.children.forEach(sp=>sp.material.dispose());}); smokes.length = 0; if(ui.smokeVeil)ui.smokeVeil.style.opacity='0'; for(const d of dmgNums){d.sp.removeFromParent();d.sp.material.map?.dispose();d.sp.material.dispose();}dmgNums.length = 0;
+    clearShotEffects(); nadesList.length = 0; clearVehicles(); smokes.forEach(s=>{scene.remove(s.mesh);s.mesh.children.forEach(sp=>sp.material.dispose());}); smokes.length = 0; if(ui.smokeVeil)ui.smokeVeil.style.opacity='0';
     bombPlanted = null; removeBombMesh();
     buildWorld();
   }
@@ -952,6 +950,7 @@
       // Architecture is already batched in the new GLB; create the legacy fallback only if needed.
       environmentView=CS16EnvironmentView.create({T:THREE,scene,grid,map:curMap,hud:ui.hud,getPlayer:()=>P,getActive:()=>state.phase==='live'&&me.alive&&!myVeh?.inside,getQuality:()=>graphicsQuality});
       fieldEffects=CS16FieldEffects.create(THREE,scene,grid,()=>graphicsQuality,debrisFloor);
+      hitFeedback=CS16HitFeedback.create({T:THREE,scene,hud:ui.hud,camera,getQuality:()=>graphicsQuality,isVisible:pos=>losClear(P.x,P.y+eyeH(),P.z,pos.x,pos.y,pos.z)&&!smokeBlocks(P.x,P.y+eyeH(),P.z,pos.x,pos.y,pos.z)});
       fieldProps = CS16Props.create(THREE,scene,grid,curMap);
       conquestUI = CS16ConquestUI.create({T:THREE,scene,camera,hud:ui.hud,grid,getState:()=>state,getMe:()=>me,getPlayer:()=>P,getNick:()=>myNick,now:()=>Date.now()+clockOffset,send:(name,data)=>sock&&sock.emit(name,data),message:text=>killfeed(esc(text)),lock:blocked=>{for(const key of Object.keys(keys))keys[key]=false;unlockForShop=blocked;if(blocked){if(document.pointerLockElement)document.exitPointerLock();}else if(me.alive&&state.phase==='live'&&!document.pointerLockElement)canvasEl.requestPointerLock()?.catch(()=>{});}});
       buildRadarBase(); resize3();
@@ -963,6 +962,7 @@
       // Tactical rounds use static architecture; no army or vehicle scene.
       loadScreen?.progress(80,'shaders');
       await warmCombatArt(epoch,value=>{if(epoch===worldLoadEpoch)loadScreen?.progress(80+value*18,'shaders');});
+      if(epoch===worldLoadEpoch)await hitFeedback?.warm(renderer3);
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
@@ -1557,7 +1557,7 @@
     sock.on('cs16_load_state',data=>{if(state.phase==='loading')loadScreen?.gate(data);});
     sock.on('cs16_load_error',message=>{loadScreen?.error(message);});
     sock.on('cs16_state', (s) => {
-      state = s;if(s.phase==='lobby'){frontSeat=null;frontPilots.clear();frontView?.ingest([]);frontView?.objective(null);}
+      state = s;if(s.phase==='lobby'||s.phase==='loading')hitFeedback?.clear();if(s.phase==='lobby'){frontSeat=null;frontPilots.clear();frontView?.ingest([]);frontView?.objective(null);}
       if (s.now) clockOffset = s.now - Date.now();
       const my = s.players.find(p => p.nick === myNick);
       if (my) { me.team = my.team; me.money = my.money; me.alive=!!my.alive&&!!my.team; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
@@ -1617,6 +1617,7 @@
       banner('🥾 Тебя выкинул из комнаты Fifflaren', '#ff7777', 5000);
     });
     sock.on('cs16_round_start', (d) => {
+      hitFeedback?.clear();
       if(fieldProps)fieldProps.reset();
       state.round = d.round; state.scores = d.scores;
       if(state.gm==='cq'||state.gm==='assault'){primary=me.team==='t'?'ak47':'m4a1';current=primary;me.armor=100;}
@@ -1691,13 +1692,9 @@
       if (dist < 16) {const pan=((d.pos[0]-P.x)*Math.cos(P.yaw)-(d.pos[2]-P.z)*Math.sin(P.yaw))/Math.max(1,dist);sfxStep(d.surf, Math.max(0, 1 - dist / 16) * 0.8,pan);}
     });
     sock.on('cs16_hit', (d) => {
-      // 3.24.3: мой урон по врагу — число над ним + красный хитмаркер ✕
-      if (d.target !== myNick && d.by === myNick && d.dmg > 0) {
-        const t = remotes.get(d.target);
-        if (t) spawnDmgNum(t.x, t.y, t.z, d.dmg, d.head);
-        ui.hitmark.style.display = 'block';
-        clearTimeout(ui.hitmark._t);
-        ui.hitmark._t = setTimeout(() => { ui.hitmark.style.display = 'none'; }, 90);
+      if(!d)return;
+      if(worldReady&&d.target!==myNick&&['live','freeze'].includes(state.phase)){
+        hitFeedback?.confirm(d,remotes.get(d.target),d.by===myNick);
       }
       if (d.target === myNick) {
         me.hp = d.hp; if(Number.isFinite(d.armor))me.armor=d.armor;
@@ -2000,25 +1997,6 @@
     if(shotLight)shotLight.intensity=0;
     vmKick=0;vmKickVelocity=0;
   }
-  // 3.24.3: летящее число урона над врагом (как в примере: белое, хедшот — жёлтое)
-  function spawnDmgNum(x, y, z, dmg, head) {
-    if (!scene || dmgNums.length > 24) return;
-    const c = document.createElement('canvas'); c.width = 160; c.height = 80;
-    const g2 = c.getContext('2d');
-    const txt = '-' + dmg;
-    g2.font = '900 46px "Arial Black", Arial, sans-serif';
-    g2.textAlign = 'center'; g2.textBaseline = 'middle';
-    g2.lineWidth = 10; g2.strokeStyle = 'rgba(10,10,10,0.9)';
-    g2.strokeText(txt, 80, 42);
-    g2.fillStyle = head ? '#ffd21a' : '#ffffff';
-    g2.fillText(txt, 80, 42);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-    sp.position.set(x + (Math.random() - 0.5) * 0.5, y + 2.0, z + (Math.random() - 0.5) * 0.5);
-    sp.scale.set(2.0, 1.0, 1);
-    sp.renderOrder = 999;
-    scene.add(sp);
-    dmgNums.push({ sp, born: performance.now() });
-  }
   const nadesList = [];
   const smokes = []; // дымовые завесы: {mesh, until}
   function resetBlindness(){flashUntil=0;flashExpires=0;flashAlpha=0;if(ui.flash)ui.flash.style.opacity='0';}
@@ -2316,6 +2294,11 @@
     return [-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp];
   }
   // 3.24.1: механика оружия — тяжёлый удар ножа (ПКМ): дальше и больнее, но медленнее
+  function reportPlayerHit(hit,weapon,dir,heavy=false){
+    const origin=[P.x,P.y+eyeH(),P.z];
+    const hitId=hitFeedback?.remember(hit.nick,weapon,origin.map((v,i)=>v+dir[i]*hit.t),remotes.get(hit.nick));
+    sock.emit('cs16_hit',{target:hit.nick,weapon,head:hit.head||false,zone:hit.zone||'body',dist:hit.t,heavy,hitId});
+  }
   function heavySlash() {
     if (!me.alive || state.phase !== 'live') return;
     const now = performance.now();
@@ -2326,7 +2309,7 @@
     const d = dirFromCam();
     const wall=rayWall(P.x,P.y+eyeH(),P.z,...d,2.8);
     const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wall?wall.t:2.8);
-    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t, heavy: true });
+    if (hit) reportPlayerHit({...hit,head:false,zone:'body'},'knife',d,true);
   }
   function tryShoot() {
     if (!me.alive || state.phase !== 'live') return;
@@ -2357,7 +2340,7 @@
       const d = dirFromCam();
       const wall=rayWall(P.x,P.y+eyeH(),P.z,...d,2.4);
       const hit = rayPlayers(P.x, P.y + eyeH(), P.z, d, wall?wall.t:2.4);
-      if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'knife', head: false, zone: 'body', dist: hit.t });
+      if (hit) reportPlayerHit({...hit,head:false,zone:'body'},'knife',d);
       return;
     }
     // Spread is centered on the crosshair; apply this shot's bloom afterwards.
@@ -2388,7 +2371,7 @@
     spawnTracer(origin,d,distance,false);
     if(wall&&!hit&&!hitArmy)surfaceImpact(origin,d,wall);
     sock.emit('cs16_shoot',{origin,dir:d,weapon:current,distance});
-    if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: current, head: hit.head, zone: hit.zone, dist: hit.t });
+    if (hit) reportPlayerHit(hit,current,d);
     // отдача: вертикальный паттерн растёт со спреем (кликанье — точно, зажим — вверх)
     P.pitch = Math.min(1.45, P.pitch + (current === 'awp' ? 0.035 : 0.005 + sprayN * 0.0018 + Math.random() * 0.004));
     P.yaw += (Math.random() - 0.5) * (0.003 + sprayN * 0.0006);
@@ -3148,13 +3131,6 @@
       }
     }else stepAcc=0;
     if(t>=nextRadar){drawRadar();nextRadar=t+(graphicsQuality==='low'?100:40);}
-    // 3.24.3: числа урона — взлетают и гаснут
-    for (let i = dmgNums.length - 1; i >= 0; i--) {
-      const dn = dmgNums[i], age = (performance.now() - dn.born) / 1000;
-      if (age > 1.0) { scene.remove(dn.sp); if (dn.sp.material.map) dn.sp.material.map.dispose(); dn.sp.material.dispose(); dmgNums.splice(i, 1); continue; }
-      dn.sp.position.y += dt * 1.4;
-      dn.sp.material.opacity = age < 0.35 ? 1 : Math.max(0, 1 - (age - 0.35) / 0.65);
-    }
     // трассеры
     for (let i = tracers.length - 1; i >= 0; i--) {
       const tr=tracers[i],now=performance.now();
@@ -3211,7 +3187,7 @@
       const moving = keys.w || keys.a || keys.s || keys.d;
       sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
     }
-    environmentView?.update(dt,t,camera);fieldEffects?.update(dt);
+    environmentView?.update(dt,t,camera);fieldEffects?.update(dt);hitFeedback?.update();
     if(t-lastDust>140){const vehicles=myVeh?[myVeh,...vehs.values()]:[...vehs.values()];for(const v of vehicles){
       if(v.kind!=='tank'||Math.hypot(v.x-P.x,v.z-P.z)>50)continue;
       if(Number.isFinite(v.dustX)&&Math.hypot(v.x-v.dustX,v.z-v.dustZ)>.12)fieldEffects?.plume(v.x-Math.cos(v.yaw)*1.7,v.y||0,v.z+Math.sin(v.yaw)*1.7);

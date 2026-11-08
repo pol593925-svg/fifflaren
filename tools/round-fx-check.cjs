@@ -32,22 +32,29 @@ module.exports=async function(page,outputs,errors){
    assert.equal(detail.enabled,quality!=='low','map relief must follow the GPU quality budget');
    assert(detail.retained,'quality changes must retain the reusable relief texture');
    await page.waitForTimeout(1000);
-   reports.push(await page.evaluate(async({quality,x,z})=>{
+   for(const hitLoad of (process.env.HITS_COMPARE?[false,true]:[!!process.env.HITS_LOAD])){
+   reports.push(await page.evaluate(async({quality,x,z,hits})=>{
     window.__programCounts={};
-    const dt=[],spikes=[];let last=performance.now();
+    const dt=[],spikes=[],hitCosts=[],updateCosts=[],fx=__qa.hitEffects(),update=fx.update;
+    fx.update=()=>{const started=performance.now();update();updateCosts.push(performance.now()-started);};
+    let last=performance.now();
     for(let i=0;i<240;i++){
      if(i%6===0)for(let j=0;j<9;j++)__socket.receive('cs16_shoot',{nick:'Load '+j,weapon:['m4a1','ak47','awp'][j%3],origin:[x-2+j%3*3,1.5,z+8+Math.floor(j/3)*3],dir:[0,0,-1],distance:18});
+     if(hits&&i%6===0){const started=performance.now();for(let j=0;j<9;j++)__socket.receive('cs16_hit',{target:'Load '+j,by:'Preview',weapon:'m4a1',hp:80,dmg:20,head:j%3===0,armorDamage:j%2?4:0});hitCosts.push(performance.now()-started);}
      if(i%45===0)for(let j=0;j<10;j++)__socket.receive('cs16_magic_fx',{
       by:j?'Load '+(j-1):'Preview',team:j<5?'ct':'t',id:Object.keys(CS16SpellEffects.styles)[j],
       slot:j<5?'hero':'pet',origin:[x-4+j*.45,1.3,z+6],pos:[x-4+j*.45,.15,z+10],dir:[0,0,1]});
      await new Promise(requestAnimationFrame);const now=performance.now(),elapsed=now-last;dt.push(elapsed);if(elapsed>50)spikes.push({frame:i,ms:elapsed});last=now;
     }
+    fx.update=update;
     const average=dt.reduce((a,b)=>a+b,0)/dt.length;dt.sort((a,b)=>a-b);
+    const cost=values=>{values.sort((a,b)=>a-b);return {p50:values[Math.floor(values.length*.5)]||0,p95:values[Math.floor(values.length*.95)]||0,max:values.at(-1)||0};};
     const gl=__qa.renderer().getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');
-    return {quality,fps:Math.round(1000/average),p50ms:dt[120],p95ms:dt[228],maxms:dt.at(-1),spikes,
+    return {quality,hits,fps:Math.round(1000/average),p50ms:dt[120],p95ms:dt[228],maxms:dt.at(-1),spikes,hitBatchMs:cost(hitCosts),hitUpdateMs:cost(updateCosts),
      gpu:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown',antialias:gl.getContextAttributes().antialias,
-     programCounts:window.__programCounts,...__qa.snapshot()};
-   },{quality,...spot}));
+     programCounts:window.__programCounts,hitEffects:hits?__qa.hitEffects().metrics():undefined,...__qa.snapshot()};
+   },{quality,...spot,hits:hitLoad}));
+   }
   }
  }
  assert.equal(errors.length,0,errors.join('\n'));assert(reports.every(r=>r.players===9&&r.ready));
@@ -57,7 +64,8 @@ module.exports=async function(page,outputs,errors){
   assert(Object.entries(r.programCounts).filter(([key])=>!key.startsWith('MeshDepthMaterial/')).reduce((n,[,v])=>n+v,0)<240,
    'Colour shader variants should settle after loading: '+JSON.stringify(r.programCounts));
  if(process.env.WEAK_PC){for(const r of reports){r.cpuThrottle=4;r.emulatedMemoryGB=4;assert.equal(r.antialias,false,'weak-PC startup disables multisampling');}}
- fs.writeFileSync(path.join(outputs,process.env.WEAK_PC?'rounds-spell-weak-cpu.json':'rounds-spell-performance.json'),JSON.stringify(reports,null,2));
+ for(const r of reports.filter(r=>r.hits)){assert(r.hitEffects.active<=(r.quality==='low'?6:12));assert(r.hitEffects.counts[2]<=(r.quality==='low'?18:72));}
+ fs.writeFileSync(path.join(outputs,process.env.HITS_COMPARE?'hit-feedback-performance.json':process.env.WEAK_PC?'rounds-spell-weak-cpu.json':'rounds-spell-performance.json'),JSON.stringify(reports,null,2));
  if(profiler){
   const {profile}=await profiler.send('Profiler.stop');fs.writeFileSync(path.join(outputs,'rounds-spell-cpu.json'),JSON.stringify(profile));
   const finished=new Promise(resolve=>profiler.once('Tracing.tracingComplete',resolve));await profiler.send('Tracing.end');

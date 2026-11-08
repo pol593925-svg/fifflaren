@@ -146,6 +146,7 @@ async function run(){
   if(process.env.ROUND_FX_ONLY){await require('./round-fx-check.cjs')(page,outputs,errors);return;}
   if(process.env.TACTICAL_ONLY){const checks=await page.evaluate(()=>__qa.tacticalCheck());assert.equal(errors.length,0,errors.join('\n'));console.log('TACTICAL_SCENE_PASS',JSON.stringify(checks));return;}
   if(process.env.ANIME_MATCH_ONLY){await require('./anime-match-check.cjs')(page,outputs,errors);return;}
+  if(process.env.PET_DETAIL_ONLY){await require('./pet-detail-check.cjs')(page,outputs,errors);return;}
   if(process.env.COAST_PERF_ONLY){
    await page.evaluate(s=>window.__nextState=s,state());await page.evaluate(begin);
    await page.evaluate(()=>{__qa.aim(28,0,40,0,0);__qa.weapon('m4a1');for(let i=0;i<24;i++)__qa.addRemote('Load '+i,i%2?'ct':'t',22+(i%6)*2,30-Math.floor(i/6)*3);});

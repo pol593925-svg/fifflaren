@@ -11,8 +11,8 @@ module.exports=async function(page,outputs,errors){
   }
   const spot=await page.evaluate(({map,rifles})=>{
    const b=CS16Buildings.layout(__qa.grid(),map).buildings[0],x=b.x+17,z=b.z-13,now=Date.now();
-   const players=[{id:'p1',nick:'Preview',team:'ct',alive:true,characterId:'pyra'}];
-   for(let i=0;i<9;i++)players.push({id:'test'+i,nick:'Load '+i,team:i<4?'ct':'t',alive:true,characterId:['ember','neve','jade','aurora','pyra'][i%5]});
+   const players=[{id:'p1',nick:'Preview',team:'ct',alive:true,characterId:'pyra',petId:'fox'}];
+   for(let i=0;i<9;i++)players.push({id:'test'+i,nick:'Load '+i,team:i<4?'ct':'t',alive:true,characterId:['ember','neve','jade','aurora','pyra'][i%5],petId:['fox','dragon','owl','golem','deer'][i%5]});
    __socket.receive('cs16_state',{phase:'freeze',map,gm:'classic',mode:5,round:1,scores:{t:0,ct:0},players,host:'Preview',freezeEnds:now+999999,roundEnds:now+999999,buyUntil:now+999999,now});
    __socket.receive('cs16_you',{money:16000,hp:100,armor:100,team:'ct',alive:true,weapon:'m4a1'});
    __socket.receive('cs16_round_start',{round:1,scores:{t:0,ct:0},spawns:players.map((p,i)=>({id:p.id,nick:p.nick,pos:i?[x-2+i%3*3,0,z+8+Math.floor(i/3)*3]:[x,0,z]}))});

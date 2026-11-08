@@ -6,6 +6,7 @@ import numpy as np
 from pathlib import Path
 from mathutils import Vector
 HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE))
 spec=importlib.util.spec_from_file_location('anime_weapon_base',HERE/'build_weapons.py')
 w=importlib.util.module_from_spec(spec);sys.modules[spec.name]=w;spec.loader.exec_module(w);a=w.a
 OUT=w.ROOT/'models/csgo'
@@ -13,6 +14,7 @@ join_parts=a.join_parts
 # Keep authoring pieces separate until their curved surfaces have been refined.
 a.join_parts=lambda root:None
 base_box=a.box
+finger_records=[]
 def soft_box(name,pos,size,mat,parent,bevel=.008):
     if name in ['Receiver','Shoulder stock','Fore-end','Slide','Lower frame','P90 rounded frame','Cheek rest','P90 top magazine','Horizontal magazine','Ammunition box','UMP polymer lower']:
         # Rounded, slightly tapered cross-sections replace the large rectangular masses.
@@ -48,6 +50,7 @@ def curved_profile(name,outline,width,mat,parent):
 w.receiver_profile=curved_profile
 
 def sculpt(root,kind):
+    if kind=='hands':finger_records.clear()
     for ob in list(root.children_recursive):
         if ob.type!='MESH':continue
         if kind=='elite' and ob.name.startswith(('Recessed receiver pin','Pin screwdriver slot','Curved trigger','Magazine body')):
@@ -64,6 +67,8 @@ def sculpt(root,kind):
             for start in range(0,len(vertices),12):
                 ring=list(vertices[start:start+12]);centre=sum((v.co for v in ring),Vector())/len(ring)
                 for v in ring:v.co=centre+(v.co-centre)*(.91 if 'thumb' in ob.name.lower() else .85)
+            centres=[sum((v.co for v in vertices[i:i+12]),Vector())/12 for i in range(0,len(vertices),12)]
+            finger_records.append((ob.parent,[Vector((v.x,v.z,-v.y))for v in centres], 'thumb' in ob.name.lower()))
         if 'Curved ventilated' in ob.name:
             bm=bmesh.new();bm.from_mesh(ob.data);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.000001);bm.to_mesh(ob.data);bm.free()
         if kind=='hands' and any(n in ob.name for n in ['forearm','palm','digit','finger','thumb','Wrist fastening']):
@@ -134,6 +139,23 @@ def details(root,kind):
         teal=paint(a.surface('Wrist teal binding',(.1,.3,.3),.8),'#3e7688')
         gold=paint(a.surface('Cuff fastener',(.5,.3,.1),.5),'#cb9e60')
         nails=paint(a.surface('Soft ivory fingernails',(.8,.6,.5),.65),'#efd1b8')
+        crease=paint(a.surface('Warm finger creases',(.4,.2,.1),.9),'#b77e60')
+        for parent,centres,thumb in finger_records:
+            tip=centres[-1];tangent=(tip-centres[-2]).normalized()
+            outward=Vector((tip.x, .018, tip.z*.12));outward-=tangent*outward.dot(tangent)
+            if outward.length<.001:outward=Vector((0,1,0)).cross(tangent)
+            outward.normalize();across=tangent.cross(outward).normalized()
+            # A shallow domed nail follows the fingertip surface, including the curled fingers.
+            centre=tip-tangent*.005+outward*(.006 if thumb else .0043)
+            verts=[tuple(centre+outward*.0006)];faces=[]
+            for j in range(16):
+                angle=j*math.tau/16
+                verts.append(tuple(centre+across*math.cos(angle)*(.005 if thumb else .0037)+tangent*math.sin(angle)*.006))
+            for j in range(16):faces.append((0,1+j,1+(j+1)%16))
+            a.mesh('Rounded fingertip nail',verts,faces,nails,parent)
+            for joint in [1,2]:
+                c=centres[joint];r=.010 if thumb else .008
+                a.line('Soft knuckle crease',[tuple(c+outward*r*math.cos(u)+across*r*math.sin(u))for u in [-.50,-.25,0,.25,.50]],.0005,crease,parent)
         for hand in root.children:
             if hand.type!='EMPTY':continue
             side=1 if hand.name=='rightHand' else -1
@@ -154,8 +176,6 @@ def details(root,kind):
             x,y,z=pts[3]
             a.orb('Tailored cuff clasp',(x,y-.002,z),(.024,.005,.013),teal,hand,16,8)
             a.orb('Cuff brass stud',(x+side*.015,y+.003,z),(.006,.003,.008),gold,hand,12,6)
-            tip={'rightHand':(-.029,.025,-.009),'leftCup':(.042,.025,-.009),'leftVertical':(.029,.025,-.009)}.get(hand.name,(-.028,.026,-.050))
-            a.orb('Rounded thumbnail',(tip[0],tip[1]+.004,tip[2]+.005),(.0055,.0018,.008),nails,hand,12,8)
             # Curved leather bracer sits over the sleeve, following the arm instead of a box cuff.
             verts=[];faces=[]
             for j in range(15):
@@ -191,7 +211,12 @@ def details(root,kind):
                     a.orb('Tailored knuckle shell',(side*(.046+spread),yy,-.012),(.0045,.0065,.011),teal,hand,12,8)
                     a.line('Knuckle gold seam',[(side*(.050+spread),yy-.005,-.020),(side*(.052+spread),yy,-.024),(side*(.050+spread),yy+.005,-.020)],.0008,gold,hand)
         a.join_parts(root);return
-    if kind=='knife':return
+    if kind=='knife':
+        weapon=next(o for o in root.children if o.name=='weapon')
+        cord=paint(a.surface('Braided knife leather',(.2,.3,.3),.85),'#487b83')
+        for sign in [-1,1]:
+            a.line('Braided grip winding',[(math.cos(j*.32)*.025,math.sin(j*.32)*.027,.001+j*.0012)for j in range(95)] if sign>0 else [(math.cos(-j*.32)*.025,math.sin(-j*.32)*.027,.001+j*.0012)for j in range(95)],.002,cord,weapon)
+        return
     if kind=='elite':
         slide=next(o for o in root.children if o.name=='slide')
         ivory=paint(a.surface('Weapon finish / Twin ivory inlay',(.8,.7,.5),.5),'#e5d5b3')
@@ -205,6 +230,17 @@ def details(root,kind):
     enamel=paint(a.surface('Inset blue ceramic',(.1,.2,.3),.7),'#518d9d')
     ivory=paint(a.surface('Weapon finish / Ivory enamel',(.8,.7,.5),.5),'#e5d5b3')
     pistol=kind in ['glock','usp','deagle','fiveseven','tec9']
+    if not pistol and kind not in ['ak47','galil','m249','p90']:
+        magazine=next(o for o in root.children if o.name=='magazine')
+        for ob in list(magazine.children):
+            if ob.type=='MESH' and ob.name.startswith(('Magazine section','Magazine pressed channel')):bpy.data.objects.remove(ob,do_unlink=True)
+        z=.15 if kind in ['aug','famas'] else -.105
+        steel=paint(a.surface('Magazine satin alloy',(.2,.3,.35),.56,.3),'#415f73')
+        shell=w.receiver_profile('Continuous curved magazine',[(z-.039,-.055),(z+.039,-.055),(z+.035,-.19),(z+.018,-.235),(z-.058,-.233),(z-.047,-.18)],.047,steel,magazine)
+        for side in [-1,1]:
+            for dz in [-.018,.012]:
+                a.line('Pressed magazine flute',[(side*.024,-.077,z+dz),(side*.024,-.15,z+dz-.003),(side*.024,-.209,z+dz-.015)],.0018,copper,magazine)
+        a.box('Rounded magazine shoe',(0,-.235,z-.020),(.053,.012,.081),steel,magazine,.003)
     for side in [-1,1]:
         x=side*(.025 if pistol else .040)
         for j in range(3):
@@ -246,9 +282,26 @@ def main():
             results.append(previous['anime-'+kind+'.glb']);continue
         bpy.ops.wm.read_factory_settings(use_empty=True)
         root=w.hands() if kind=='hands' else w.build(kind)
-        sculpt(root,kind);finish(root,kind);details(root,kind);join_parts(root)
+        sculpt(root,kind);finish(root,kind);details(root,kind)
+        if kind=='hands':
+            # Retain curved fingers and sleeves, remove redundant subdivisions on broad surfaces.
+            for ob in root.children_recursive:
+                if ob.type=='MESH' and len(ob.data.polygons)>500:
+                    bpy.context.view_layer.objects.active=ob
+                    mod=ob.modifiers.new('Hand surface budget','DECIMATE');mod.ratio=.82
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+        from bake_asset_shading import bake
+        bake(root,kind=='hands');join_parts(root)
         if kind!='hands':world_lod(root)
-        results.append(w.export(root,OUT/('anime-'+kind+'.glb')))
+        target=OUT/('anime-'+kind+'.glb')
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob in [root]+list(root.children_recursive):ob.select_set(True)
+        bpy.context.view_layer.objects.active=root
+        bpy.ops.export_scene.gltf(filepath=str(target),export_format='GLB',use_selection=True,export_yup=True,export_apply=True,export_animations=False,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_active_vertex_color_when_no_material=True)
+        count=0
+        for ob in root.children_recursive:
+            if ob.type=='MESH':ob.data.calc_loop_triangles();count+=len(ob.data.loop_triangles)
+        results.append({'file':target.name,'triangles':count,'bytes':target.stat().st_size})
         print('ANIME_WEAPON',kind,flush=True)
     (OUT/'anime-weapons-manifest.json').write_text(json.dumps({'generator':'tools/blender/build_anime_weapons.py','assets':results},indent=2)+'\n')
 def world_lod(root):

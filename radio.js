@@ -240,6 +240,7 @@
       document.addEventListener('pointerdown',e=>{if(people.open&&!people.contains(e.target))people.open=false;});
       people.addEventListener('keydown',e=>{if(e.key==='Escape'){people.open=false;people.querySelector('summary').focus();}});
     }
+    window.HubPatches?.mount($('hubRadio'));
     showAudience(null);connectAudience(session);
     volumeControl=HubMediaVolume.mount($('radioVolumeControls'),player,{id:'radioVolume',label:'радио',key:'hub-radio-volume:'+session.username,initial:40});
     draw(false);$('radioToggle').onclick=()=>{listening=!listening;if(!listening){release();setLights(false);}draw(false);if(listening)pull();};

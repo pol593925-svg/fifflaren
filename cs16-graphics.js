@@ -356,7 +356,7 @@
           throw failed ? failed.reason : new Error('Operator loading was cancelled');
         }
         results.forEach((result, index) => {
-          const root = result.value.scene;
+          const root = ids[index].startsWith('pet-') ? skinPet(T,result.value.scene) : result.value.scene;
           prepareMeshes(T, root, null, QUALITY.high);
           operators.set(ids[index], root);
         });
@@ -378,6 +378,43 @@
     return clone;
   }
 
-  function createPet(id){const source=operators.get('pet-'+id);return source?source.clone(true):null;}
+  // Rigid authoring pivots become bones of a single draw call. Geometry/material
+  // are shared; each companion receives its own skeleton through SkeletonUtils.
+  function skinPet(T,source){
+    source.updateMatrixWorld(true);
+    const root=new T.Group(),bones=[],boneFor=new Map();root.name=source.name;
+    function hierarchy(node,parent){
+      if(node.isMesh)return;
+      const bone=new T.Bone();bone.name=node.name;bone.position.copy(node.position);
+      bone.quaternion.copy(node.quaternion);bone.scale.copy(node.scale);parent.add(bone);
+      boneFor.set(node,bones.length);bones.push(bone);
+      for(const child of node.children)hierarchy(child,bone);
+    }
+    for(const node of source.children)hierarchy(node,root);
+    const positions=[],normals=[],colours=[],indices=[],joints=[],weights=[];
+    const inv=new T.Matrix4().copy(source.matrixWorld).invert(),matrix=new T.Matrix4(),normalMatrix=new T.Matrix3(),v=new T.Vector3();
+    const oldGeometries=new Set();let material;
+    source.traverse(node=>{
+      if(!node.isMesh)return;
+      const geometry=node.geometry,position=geometry.attributes.position,normal=geometry.attributes.normal,color=geometry.attributes.color;
+      const offset=positions.length/3,bone=boneFor.get(node.parent)??0;
+      matrix.multiplyMatrices(inv,node.matrixWorld);normalMatrix.getNormalMatrix(matrix);
+      for(let i=0;i<position.count;i++){
+        v.fromBufferAttribute(position,i).applyMatrix4(matrix);positions.push(v.x,v.y,v.z);
+        if(normal)v.fromBufferAttribute(normal,i).applyNormalMatrix(normalMatrix);else v.set(0,1,0);
+        normals.push(v.x,v.y,v.z);colours.push(color?color.getX(i):1,color?color.getY(i):1,color?color.getZ(i):1);
+        joints.push(bone,0,0,0);weights.push(1,0,0,0);
+      }
+      if(geometry.index)for(let i=0;i<geometry.index.count;i++)indices.push(offset+geometry.index.getX(i));
+      else for(let i=0;i<position.count;i++)indices.push(offset+i);
+      oldGeometries.add(geometry);material=Array.isArray(node.material)?node.material[0]:node.material;
+    });
+    const geometry=new T.BufferGeometry();
+    for(const [name,array,size]of [['position',positions,3],['normal',normals,3],['color',colours,3],['skinWeight',weights,4]])geometry.setAttribute(name,new T.Float32BufferAttribute(array,size));
+    geometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(joints,4));geometry.setIndex(indices);geometry.computeBoundingSphere();
+    const mesh=new T.SkinnedMesh(geometry,material);mesh.name='Companion skin';mesh.frustumCulled=false;root.add(mesh);root.updateMatrixWorld(true);mesh.bind(new T.Skeleton(bones));
+    root.userData.cs16SharedPet=true;for(const old of oldGeometries)old.dispose();return root;
+  }
+  function createPet(id){const source=operators.get('pet-'+id);return source?global.THREE.SkeletonUtils.clone(source):null;}
   global.CS16Graphics = Object.freeze({createPet, finishPlaster, configureRenderer, createWorld, loadOperators, createOperator });
 })(window);

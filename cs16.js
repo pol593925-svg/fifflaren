@@ -843,12 +843,12 @@
         const body=CS16Graphics.createOperator('ct',id),holder=new THREE.Group();
         if(!body)continue;body.add(holder);holds.push(CS16Grip.operator(THREE,body,holder,.51));preview.add(body);
       }
-      for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet)preview.add(pet);}
+      const pets=[];for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet){pets.push(pet);preview.add(pet);}}
       for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',id==='m4a1'?1.8:1);guns.push(gun);preview.add(gun);}
       const worldGun=buildGun('m4a1','',1,true);guns.push(worldGun);preview.add(worldGun);
       const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh)o.frustumCulled=false;});
       // Compile every variant, but upload only representative textures/meshes now.
-      const samples=new Set([preview.children[pooled.length],guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle,pooled[0],pooled[48]]);
+      const samples=new Set([preview.children[pooled.length],...pets,guns[Object.keys(glbCache).indexOf('m4a1')],worldGun,optical.root,muzzle,pooled[0],pooled[48]]);
       preview.position.copy(camera.position);preview.position.z-=3;activeScene.add(preview);
       // Balanced/high and economy use different shader defines. Weak PCs prepare economy only.
       for(const enabled of (shadows?[false,true]:[false])){
@@ -863,6 +863,7 @@
       if(reticle)reticle.visible=reticleVisible;
       for(const node of pooled)node.removeFromParent();
       holds.forEach(h=>h.dispose());guns.forEach(disposeGun);
+      preview.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});
     }
   }
   function applyFront(reset=false){

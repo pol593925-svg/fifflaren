@@ -28,10 +28,11 @@ async function run(){
  const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  const page=await browser.newPage({viewport:{width:1440,height:960}}),errors=[],posts=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
- let failLog=false,staff=false;
+ let failLog=false,staff=false,releaseOffline=true;
  const devices=[{_id:'a'.repeat(24),name:'QA-1',registeredBy:'Alex',inWork:false,markedBy:''}];
  await page.route('**/*',async route=>{
   const req=route.request(),url=req.url();if(url.startsWith(origin)||url.startsWith('blob:'))return route.continue();
+  if(url.startsWith('https://api.github.com/repos/pol593925-svg/fifflaren/releases'))return route.fulfill({status:releaseOffline?503:200,contentType:'application/json',body:JSON.stringify([{tag_name:'v5.2.0',name:'Тест следующего выпуска',published_at:'2026-11-09T10:00:00Z',draft:false,prerelease:false,body:'## Добавлено\n- <img src=x onerror=window.badRelease=true>\n- Проверка нового выпуска'},{tag_name:'v9.9.9',name:'Черновик',draft:true,published_at:null}])});
   if(req.method()==='POST')posts.push({url,body:req.postData()});if(failLog&&url.endsWith('/api/logs')&&req.postData()?.includes('\"comment\"')){failLog=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({success:false,message:'Попробуй ещё раз'})});}
   if(req.resourceType()==='document')return route.fulfill({contentType:'text/html',body:'<body style="background:#191c26;color:#9ba4bc;font:14px Segoe UI;padding:30px">Чат поддержки · локальная проверка интерфейса</body>'});
  if(url.includes('/api/office/devices')){
@@ -51,6 +52,15 @@ async function run(){
  await page.goto(origin+'/index.html');await page.locator('.comic-skip').click();
  await page.fill('#authUsername','fifflaren');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');await page.waitForFunction(()=>document.getElementById('authScreen').style.display==='none');
  await page.locator('#tab-shift.active .my-calls-panel').waitFor();
+ await page.click('#hubPatchesButton');await page.locator('#hubPatches[open]').waitFor();
+ assert((await page.locator('.patch-detail').textContent()).includes('TERRA · Новое пространство команды'));
+ for(const text of ['Добавлено','Изменено','Исправлено'])assert((await page.locator('.patch-detail').textContent()).includes(text));
+ await page.waitForFunction(()=>document.querySelector('.patch-footer [role=status]').textContent.includes('Сохранённая история'));
+ await page.screenshot({path:path.join(out,'patches-5.0.0.png')});
+ releaseOffline=false;await page.locator('.patch-refresh').click();await page.locator('.patch-release[data-tag="v5.2.0"]').waitFor();
+ await page.locator('.patch-release[data-tag="v5.2.0"]').click();assert.equal(await page.locator('.patch-detail img').count(),0);assert(!await page.evaluate(()=>window.badRelease));assert.equal(await page.locator('.patch-release[data-tag="v9.9.9"]').count(),0);
+ await page.locator('.patch-release[data-tag="v5.0.0"]').click();await page.setViewportSize({width:530,height:740});await page.screenshot({path:path.join(out,'patches-mobile.png')});assert(await page.locator('#hubPatches').evaluate(e=>e.scrollWidth<=e.clientWidth));
+ await page.keyboard.press('Escape');assert.equal(await page.locator('#hubPatchesButton').evaluate(e=>e===document.activeElement),true);await page.setViewportSize({width:1440,height:960});
  assert.equal(await page.locator('#tab-shift #counterBox').count(),0);assert(await page.locator('.orbit-addOneBtn').isDisabled());
  await page.click('#startBtn');await page.locator('.orbit-addOneBtn').click();assert(await page.locator('#shiftLogDialog').isVisible());assert.equal(await page.locator('#countDisplay').textContent(),'0');
  await page.click('#addOneBtn');assert((await page.locator('#logStatus').textContent()).includes('Добавь'));await page.fill('#logLinkInput','https://example.com/log/1');await page.fill('#logCommentInput','Проверка лога');await page.screenshot({path:path.join(out,'terra-log.png')});
@@ -71,12 +81,13 @@ async function run(){
  await page.click('[data-terra-tab=cinema]');await page.locator('#hubCinema[open]').waitFor();await page.screenshot({path:path.join(out,'terra-cinema.png')});assert.equal(await page.locator('#hubCinema').evaluate(e=>e.classList.contains('cin-max')),true);await page.click('#cinExit');
  await tab('shift');await page.click('#stopBtn');assert(await page.locator('#reportBox').isVisible());assert(await page.locator('.orbit-addOneBtn').isDisabled());
  await page.evaluate(()=>HubTerra.openMenu());await page.fill('.terra-nav-search','заметки');assert(await page.locator('.tabs [data-tab=notes]').isVisible());assert(!(await page.locator('.tabs [data-tab=admin]').isVisible()));await page.screenshot({path:path.join(out,'terra-menu.png')});await page.fill('.terra-nav-search','');await page.keyboard.press('Escape');
- await page.click('#themeToggleBtn');await page.screenshot({path:path.join(out,'terra-night.png')});await page.click('#themeToggleBtn');
+ await page.click('#themeToggleBtn');await page.waitForTimeout(200);await page.screenshot({path:path.join(out,'terra-night.png')});await page.click('#themeToggleBtn');await page.waitForTimeout(200);
  await page.setViewportSize({width:1000,height:720});await page.screenshot({path:path.join(out,'terra-1000.png')});
  await page.setViewportSize({width:700,height:650});await page.screenshot({path:path.join(out,'terra-700.png')});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  assert.equal(await page.evaluate(()=>typeof window.THREE),'undefined','Work screens must not load the game engine');
  staff=true;await page.reload();const skip=page.locator('.comic-skip');if(await skip.isVisible())await skip.click();await page.fill('#authUsername','Alex');await page.fill('#authPassword','isolated-test');await page.selectOption('#authTeam','fifflaren');await page.click('#authSubmitBtn');await page.locator('#tab-shift.active .my-calls-panel').waitFor();await page.evaluate(()=>HubTerra.openMenu());for(const id of ['admin','radio','tlpanel','mycalls'])assert(!(await page.locator('.tabs [data-tab='+id+']').isVisible()),'Employee must not see '+id);await page.screenshot({path:path.join(out,'terra-employee-menu.png')});await page.keyboard.press('Escape');assert(await page.locator('#radioAddSong').isVisible());
  await page.setViewportSize({width:1440,height:900});await tab('voxel');await page.locator('.vx-lobby').waitFor();await page.screenshot({path:path.join(out,'terra-voxel.png')});
+ if(process.env.PATCHES_ONLY){assert(await page.locator('#hubPatchesButton').isVisible());await page.click('#hubPatchesButton');assert(await page.locator('.patch-release[data-tag="v5.2.0"]').isVisible());assert.equal(await page.locator('.patch-release[data-tag="v5.1.0"]').count(),1);assert.deepEqual(errors,[]);console.log('PATCHES PASS: real header, admin and employee, offline history, 5.0.0 categories, automatic feed, cached future release, safe text, Escape, responsive layout and all work flows');return;}
  await tab('cs16');await page.waitForFunction(()=>typeof window.__cs16Open==='function'&&!!document.querySelector('#tab-cs16 canvas'),null,{timeout:60000});await page.locator('.cs16-loading').waitFor({state:'hidden',timeout:120000});await page.screenshot({path:path.join(out,'terra-cs16-lobby.png')});
  assert.deepEqual(errors,[]);console.log('TERRA PASS: real app navigation, log validation/cancel/retry, call submission, live feed deduplication, report, search, 19 sections, responsive day/night, lazy game engine');
  }catch(error){console.error('BROWSER_ERRORS',JSON.stringify(errors));await page.screenshot({path:path.join(out,'terra-failure.png')});throw error;}finally{await browser.close();server.close();}

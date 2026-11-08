@@ -26,7 +26,10 @@ for(const team of ['ct','t','ember','tide','jade','aurora','classic','pyra','nev
 }
 for(const id of ['fox','dragon','owl','golem','deer']){
  const asset=glb('pet-'+id+'.glb'),names=new Set(asset.nodes.map(n=>n.name));
- assert(asset.meshes.length<=8&&asset.materials.length===1,id+' articulated pet draw budget');
+ // Authoring pivots (including eyes/ears) are fused into one skinned mesh at load.
+ assert(asset.meshes.length<=12&&asset.materials.length===1,id+' articulated pet source budget');
+ assert(fs.statSync(path.join(assets,'pet-'+id+'.glb')).size<512*1024,id+' pet download budget');
+ assert(names.has('petEyes'),id+' missing blink pivot');
  assert(names.has('petHead'),id+' missing head pivot');
  assert(names.has(id==='owl'?'limbL':'legLF'),id+' missing locomotion pivot');
 }

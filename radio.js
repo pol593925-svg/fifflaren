@@ -12,7 +12,7 @@
   function button(text,action){const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=action;return b;}
   async function request(path,init={}){
     const session=cfg;
-    const r=await fetch(session.server+'/api/radio/'+path,{...init,headers:{Authorization:'Bearer '+session.token,...init.headers},signal:init.signal||AbortSignal.timeout(30000)});
+    const r=await fetch(session.server+'/api/radio/'+path,{...init,headers:{Authorization:'Bearer '+session.token,'X-SupportHub-Radio':'youtube-v1',...init.headers},signal:init.signal||AbortSignal.timeout(30000)});
     if(session!==cfg)throw Error('Аккаунт изменился.');
     if(!r.ok){let msg;try{msg=(await r.json()).message;}catch{}throw Object.assign(Error(msg||'Радио временно недоступно.'),{status:r.status});}return r;
   }
@@ -35,7 +35,7 @@
     if(!queueChanged)return;
     const list=$('radioQueue');list.replaceChildren();station.queue.forEach((item,i)=>{
       const li=document.createElement('li'), title=document.createElement('span');li.classList.toggle('on-air',item.id===station.current);
-      title.textContent=(i+1)+'. '+item.title+' · '+time(item.duration)+(item.addedBy?' · '+item.addedBy:'');li.append(title,button('В эфир',()=>control('select',{id:item.id})));
+      title.textContent=(i+1)+'. '+item.title+' · '+(item.source==='youtube'?'YouTube · ':'Файл · ')+time(item.duration)+(item.addedBy?' · '+item.addedBy:'');li.append(title,button('В эфир',()=>control('select',{id:item.id})));
       for(const [label,op,off] of [['↑','up',i===0],['↓','down',i===station.queue.length-1],['Из очереди','remove',false]]){
         const b=button(label,()=>control(op,{id:item.id}));b.disabled=off;li.append(b);
       }list.append(li);
@@ -70,7 +70,7 @@
       const li=document.createElement('li');li.textContent=nick;list.append(li);
     }
   }
-  function audible(){return Boolean(listening&&sounding&&station?.playing&&station.current===loadedId&&!player.paused&&!player.ended&&!player.muted&&player.volume>0);}
+  function audible(){return Boolean(listening&&sounding&&station?.playing&&station.current===loadedId&&(window.HubRadioYouTube?.active?HubRadioYouTube.audible:!player.paused&&!player.ended)&&!player.muted&&player.volume>0);}
   function connectAudience(session){
     if(!session.token||!session.io)return;
     const sock=session.io(session.server+'/radio',{auth:{token:session.token}});presence=sock;
@@ -89,6 +89,7 @@
     const active=lights&&audible()&&!document.hidden;
     surface.hidden=!active;
     if(!active||reduced.matches){stopMeter();surface.style.removeProperty('--beat');return;}
+    if(window.HubRadioYouTube?.active){stopMeter();return;}
     if(lightTimer||!context||context.state!=='running'||!player.captureStream)return;
     // Tap a copy of the playing audio. The normal audio output stays independent of the lights.
     let stream;
@@ -122,14 +123,21 @@
   player.addEventListener('playing',()=>sound(true));
   for(const event of ['pause','waiting','seeking','ended','emptied','error'])player.addEventListener(event,()=>sound(false));
   player.addEventListener('seeked',()=>{if(!player.paused&&player.readyState>=3)sound(true);});
-  player.addEventListener('volumechange',refreshPlayback);
+  player.addEventListener('volumechange',()=>{refreshPlayback();if(window.HubRadioYouTube?.active)sync().catch(e=>say(e.message));});
   document.addEventListener('visibilitychange',updateLights);reduced.addEventListener('change',updateLights);
   function release(){
+    window.HubRadioYouTube?.release();
     sound(false);
     if(!pending&&!loadedId)return;pending?.abort();pending=null;player.pause();player.removeAttribute('src');player.load();loadedId='';
   }
   async function sync(){
     if(!listening||!station?.current){if(loadedId||pending)release();return;}
+    const track=station.queue.find(t=>t.id===station.current);
+    if(track?.source==='youtube'){
+      if(loadedId!==track.id){release();loadedId=track.id;}
+      window.HubRadioYouTube?.sync(track,{playing:station.playing,position:Math.min(track.duration,station.position+(station.playing?Math.max(0,performance.now()-revisionTime)/1000:0)),volume:player.muted?0:Math.round(player.volume*100)});return;
+    }
+    if(window.HubRadioYouTube?.active)release();
     if(!station.playing){if(pending)release();player.pause();return;}
     const id=station.current;
     if(loadedId!==id){
@@ -215,7 +223,7 @@
     finally{input.value='';uploading=false;for(const id of ['radioFiles','radioGuestFiles'])if($(id))$(id).disabled=false;}
   }
   function stop(){
-    window.HubRadioQR?.stop();
+    window.HubRadioQR?.stop();window.HubRadioYouTube?.stop();
     if($('radioUploadDialog')?.open)$('radioUploadDialog').close();if($('radioGuestStatus'))$('radioGuestStatus').textContent='';
     volumeControl?.destroy();volumeControl=null;
     if(owner())cfg?.radioPC?.stop();window.HubCinema?.stop();clearInterval(timer);listening=false;station=null;release();setLights(false);
@@ -243,6 +251,8 @@
     }
     window.HubPatches?.mount($('hubRadio'));
     window.HubRadioQR?.mount(session);
+    const pausePersonal=()=>{if(listening){listening=false;release();setLights(false);draw(false);}};
+    window.HubRadioYouTube?.mount({server:session.server,isOwner:owner(),api:async(route,body)=>await(await request(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json(),onAdded:(s,playNow)=>{if(playNow)listening=true;installState(s);},onPreviewPlaying:pausePersonal,onPlayback:sound,onStop:pausePersonal});
     showAudience(null);connectAudience(session);
     volumeControl=HubMediaVolume.mount($('radioVolumeControls'),player,{id:'radioVolume',label:'радио',key:'hub-radio-volume:'+session.username,initial:40});
     draw(false);$('radioToggle').onclick=()=>{listening=!listening;if(!listening){release();setLights(false);}draw(false);if(listening)pull();};

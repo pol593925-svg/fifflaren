@@ -21,7 +21,7 @@
   function render(p){
     const connected=p.connected;$('radioQrImage').hidden=connected;$('radioQrImage').src=p.qr;$('radioQrConnected').hidden=!connected;
     $('radioQrCopy').disabled=connected||p.expiresAt<=Date.now();$('radioQrRevoke').disabled=false;
-    $('radioQrHost').textContent=p.hostOnline?'● ПК Fifflaren в сети':'ПК Fifflaren не в сети. Открой на нём Support Hub для загрузки песен.';
+    $('radioQrHost').textContent=p.hostOnline?'● ПК Fifflaren в сети':'ПК Fifflaren не в сети. Загрузка файлов недоступна; ссылки YouTube можно добавлять.';
     const minutes=Math.max(0,Math.ceil((p.expiresAt-Date.now())/60000));
     $('radioQrExpiry').textContent=connected?'Подключение активно до '+new Date(p.expiresAt).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'QR действует ещё '+minutes+' мин. · Одно подключение';
     const box=$('radioQrUploads');box.replaceChildren();
@@ -43,7 +43,7 @@
     if(!cfg||kind==='dj'&&cfg.username.toLowerCase()!=='fifflaren')return;mode=kind;setupDialog();
     $('radioQrTitle').textContent=kind==='dj'?'DJ-пульт на телефоне':'Добавить музыку с телефона';$('radioQrKind').textContent=kind==='dj'?'ЛИЧНЫЙ ПУЛЬТ FIFFLAREN':'БЕЗ ПАРОЛЯ';
     $('radioQrIntro').textContent=kind==='dj'?'Управляй общим эфиром: включай песни, меняй очередь и перематывай.':'Выбирай несколько песен на телефоне. Текущий трек продолжит играть.';
-    $('radioQrStep').textContent=kind==='dj'?'Введи пароль пульта и управляй эфиром.':'Выбери аудиофайлы и дождись загрузки.';
+    $('radioQrStep').textContent=kind==='dj'?'Введи пароль пульта и управляй эфиром.':'Выбери аудиофайлы или вставь ссылку YouTube / Music.';
     $('radioQrNotice').textContent='';$('radioQrRenew').disabled=false;if(!dialog.open)dialog.showModal();
     clearInterval(timer);timer=setInterval(poll,2500);const p=pairs.get(kind);if(p){render(p);await poll();}else await generate();
   }

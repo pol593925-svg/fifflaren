@@ -106,10 +106,10 @@
     function shatter(position) {
       spray(position, [0, 0.3, 0], 'glass', getQuality() === 'low' ? 8 : 18);
     }
-    function eject(origin, direction) {
+    function eject(origin, direction, port=null) {
       const right = [-direction[2], 0, direction[0]];
       add(brass, {
-        pos: [
+        pos: port ? [port[0]+right[0]*.045,port[1]+.012,port[2]+right[2]*.045] : [
           origin[0] + direction[0] * 0.4 + right[0] * 0.25,
           origin[1] - 0.18,
           origin[2] + direction[2] * 0.4 + right[2] * 0.25,

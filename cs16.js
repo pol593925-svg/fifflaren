@@ -668,7 +668,7 @@
   let current = 'usp';          // текущий слот
   let ammo = {};                // weapon -> {mag, reserve}
   let nades = { he: 0, flash: 0, smoke: 0 };
-  let scoped = false, reloading = 0, lastShot = 0, bloom = 0;
+  let scoped = false, reloading = 0, lastShot = 0, lastFiredAt = -Infinity, bloom = 0;
   let sprayN = 0, sprayTimer = null; // 3.23.0: нарастание разброса при зажиме (спрей-паттерн)
   let freezeLeft = 0;
 
@@ -1486,9 +1486,9 @@
             <button class="cs16MapBtn" data-m="inferno" style="padding:3px 10px; cursor:pointer; background:${state.map === 'inferno' ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_inferno</button>
           </span>
           <span class="cs16-round-format">5×5 · раунды · C4 · до 16 побед</span>
-          <span>Боты:
+          <span class="cs16-bot-controls">Боты:
             <button id="cs16BotAdd" style="padding:3px 10px; cursor:pointer; background:#2d4a22; color:#dfffcf; border:1px solid #4a8a3a;">+ Добавить</button>
-            <button id="cs16BotDel" style="padding:3px 10px; cursor:pointer; background:#4a2d22; color:#ffd9cf; border:1px solid #8a4a3a;">− Убрать</button>
+            <button id="cs16BotDel" title="Убрать одного бота и отключить автозаполнение" style="padding:3px 10px; cursor:pointer; background:#4a2d22; color:#ffd9cf; border:1px solid #8a4a3a;">− Один</button><button id="cs16BotClear" type="button">Убрать всех ботов</button><label><input id="cs16BotFill" type="checkbox" ${state.botFill!==false?'checked':''}> Автозаполнение до 5×5</label>
           </span>
         </div>
         ${inMatch ? `<div style="text-align:center; margin:10px 0; padding:8px; background:#1a2a3a; border:1px solid #3a6a9a;">⚔️ Матч идёт — раунд ${state.round}, счёт <b style="color:#e8c34a">${state.scores.t}</b> : <b style="color:#5aa2e8">${state.scores.ct}</b>. Вступай в команду — начнёшь играть со следующего раунда!</div>` : ''}
@@ -1505,7 +1505,7 @@
           </div>
         </div>
         <div class="cs16-matchControls" style="margin-top:12px; background:#201c15; border-radius:6px; padding:10px; text-align:center;">
-          <p class="cs16-round-format">Две команды по 5. Пустые места при старте займут боты.</p>
+          <p class="cs16-round-format">${state.botFill!==false?'До 5 игроков в команде. Пустые места займут боты.':'Автозаполнение выключено. Для старта нужен участник в каждой команде.'}</p>
           <div class="cs16-hostStatus"><span>Хост: <b>${esc(state.host || '—')}</b>${state.host === myNick ? ' · это ты' : ''}</span>
             ${isFiff && state.host !== myNick ? `<button class="cs16HostBtn cs16-takeHost" data-n="${esc(myNick)}">Забрать хост себе</button>` : ''}
             ${isFiff && state.host && state.host.toLowerCase() !== myNick.toLowerCase() ? `<button class="cs16KickBtn" data-n="${esc(state.host)}">Кикнуть хоста</button>` : ''}
@@ -1540,6 +1540,11 @@
     if(state.army){if(ba)ba.disabled=true;if(bd)bd.disabled=true;}
     if (ba) ba.onclick = () => sock && sock.emit('cs16_botadd');
     if (bd) bd.onclick = () => sock && sock.emit('cs16_botdel');
+    const clearBots=document.getElementById('cs16BotClear'),fillBots=document.getElementById('cs16BotFill');
+    if(clearBots)clearBots.onclick=()=>sock?.emit('cs16_botclear');
+    if(fillBots)fillBots.onchange=()=>sock?.emit('cs16_botfill',fillBots.checked);
+    for(const b of [ba,bd,clearBots,fillBots])if(b)b.disabled=state.host!==myNick||inMatch;
+
     const sb = document.getElementById('cs16StartBtn');
     if (sb) sb.onclick = () => sock && sock.emit('cs16_start');
     document.querySelectorAll('.cs16HostBtn').forEach(b => b.onclick = () => sock && sock.emit('cs16_sethost', b.dataset.n));
@@ -1982,13 +1987,14 @@
     }
     return shotPool;
   }
-  function flashAt(pos) {
+  function flashAt(pos,weapon=current) {
     if(!scene)return;
     if(!shotLight)shotLight=new THREE.PointLight(0xffc46a,0,6,2);
     if(shotLight.parent!==scene)scene.add(shotLight);
     shotLight.position.copy(pos);shotLight.intensity=1.7;
     const slot=prepareShotPool().flashes.find(s=>!s.busy);if(!slot)return;
-    slot.busy=true;slot.size=.18+Math.random()*.12;slot.born=performance.now();slot.die=slot.born+65;
+    const shot=CS16WeaponAnimation.shot(weapon,0.02);
+    slot.busy=true;slot.size=shot.flashSize*(.9+Math.random()*.2);slot.born=performance.now();slot.die=slot.born+shot.flashLife;
     slot.sp.scale.set(slot.size,slot.size,1);slot.sp.material.rotation=Math.random()*Math.PI;slot.sp.material.opacity=.95;
     slot.sp.visible=true;slot.sp.position.copy(pos);scene.add(slot.sp);shotFlashes.push(slot);
   }
@@ -2000,8 +2006,11 @@
     slot.core.quaternion.setFromUnitVectors(pool.up,slot.d);slot.core.position.copy(slot.o);slot.core.scale.y=.01;slot.core.material.opacity=.85;
     slot.line.visible=true;slot.head.position.copy(slot.o);slot.head.material.opacity=.9;scene.add(slot.line);tracers.push(slot);
     pool.flashPosition.copy(slot.o);
-    if(!isRemote){pool.flashPosition.addScaledVector(slot.d,.75);pool.flashPosition.x+=.15;pool.flashPosition.y-=.17;}
-    flashAt(pool.flashPosition);
+    if(!isRemote){
+      if(vm?.visible&&vm.userData.grip?.bore){vm.updateWorldMatrix(true,false);pool.flashPosition.fromArray(vm.userData.grip.bore);pool.flashPosition.z-=.025;vm.localToWorld(pool.flashPosition);}
+      else {pool.flashPosition.addScaledVector(slot.d,.75);pool.flashPosition.y-=.17;}
+    }
+    flashAt(pool.flashPosition,isRemote?'m4a1':current);
   }
   function disposeShot(object) {
     if(object.userData.shotLease){object.removeFromParent();object.userData.shotLease.busy=false;return;}
@@ -2274,7 +2283,7 @@
     if(shake>0){vm.position.x+=Math.sin(t*.071)*shake*.018;vm.position.y+=Math.cos(t*.083)*shake*.018;}
     const progress=reloading>0?1-reloading/WEAPONS[current].reload:-1;
     const inspect=Math.max(0,(t-inspectStart)/2300);
-    CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastShot)/1000),inspect<1?inspect:0);
+    CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastFiredAt)/1000),inspect<1?inspect:0);
     CS16FieldView.align(vm,dot,Math.min(1,Math.max(0,(fieldAimMix-.72)/.20)),sightPoint);
     if(!ads&&!reloading){const cast=magicView?.gesture(t)||0;vm.position.y-=cast*.045;vm.rotation.z+=cast*.035;const hand=vm.userData.animation?.leftHand;if(hand&&cast>0){hand.n.position.y+=cast*.012;hand.n.position.x-=cast*.015;hand.n.position.z-=cast*.045;hand.n.rotation.z-=cast*.08;hand.n.rotation.x-=cast*.06;}}
     vm.visible = frontSeat==null&&me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
@@ -2350,9 +2359,14 @@
     if (a && a.mag <= 0) { if (!burstTimers.length) startReload(); return; }
     if (!burstTimers.length) lastShot = performance.now();
     if (a) a.mag--;
-    vmKickVelocity = Math.min(24,vmKickVelocity + (w.scope ? 16 : w.melee ? 18 : w.auto ? 10 : 13));
+    lastFiredAt=performance.now();
+    if(w.melee)vmKickVelocity=Math.min(24,vmKickVelocity+18);
     inspectStart=-Infinity;sfxShot(current);
-    if(!w.melee&&!w.rocket)fieldEffects?.eject([P.x,P.y+eyeH(),P.z],dirFromCam());
+    if(!w.melee&&!w.rocket){
+      let port=null;const bolt=vm?.userData.animation?.bolt?.n||vm?.userData.animation?.slide?.n;
+      if(bolt&&vm.visible){bolt.updateWorldMatrix(true,false);bolt.getWorldPosition(sightPoint);port=sightPoint.toArray();}
+      fieldEffects?.eject([P.x,P.y+eyeH(),P.z],dirFromCam(),port);
+    }
     if (w.melee) {
       // нож: короткая дистанция
       const d = dirFromCam();
@@ -2364,10 +2378,7 @@
     // Spread is centered on the crosshair; apply this shot's bloom afterwards.
     const spreadDeg = Combat.spread(w, {scoped:scoped||fieldAimMix>.92,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
     const d = Combat.direction(P.yaw,P.pitch,spreadDeg);
-    sprayN = Math.min(14,sprayN+1);
-    if(sprayTimer)clearTimeout(sprayTimer);
-    sprayTimer=setTimeout(()=>{sprayN=0;},300);
-    bloom=Math.min(bloom+(w.auto?.35:.8),2.5);
+    sprayN=0;bloom=0;
     const MAXT = 200;
     const wall = rayWall(P.x, P.y + eyeH(), P.z, d[0], d[1], d[2], MAXT);
     const wallT = wall ? wall.t : MAXT;
@@ -2390,9 +2401,7 @@
     if(wall&&!hit&&!hitArmy)surfaceImpact(origin,d,wall);
     sock.emit('cs16_shoot',{origin,dir:d,weapon:current,distance});
     if (hit) reportPlayerHit(hit,current,d);
-    // отдача: вертикальный паттерн растёт со спреем (кликанье — точно, зажим — вверх)
-    P.pitch = Math.min(1.45, P.pitch + (current === 'awp' ? 0.035 : 0.005 + sprayN * 0.0018 + Math.random() * 0.004));
-    P.yaw += (Math.random() - 0.5) * (0.003 + sprayN * 0.0006);
+    // Shots never change the camera aim. Mechanical animation is viewmodel-only.
   }
   function rayPlayers(ox, oy, oz, d, maxT) {
     let best = null;
@@ -3174,10 +3183,10 @@
     }
     // 3.22.0: вспышки выстрелов гаснут + солнце с тенями следует за камерой
     for (let i = shotFlashes.length - 1; i >= 0; i--) {
-      const sf=shotFlashes[i],age=(performance.now()-sf.born)/65;
+      const sf=shotFlashes[i],age=(performance.now()-sf.born)/(sf.die-sf.born);
       if (age>=1) { disposeShot(sf.sp); shotFlashes.splice(i, 1);continue; }
-      sf.sp.material.opacity=(1-age)*.9;
-      sf.sp.scale.setScalar(sf.size*(1+age*.7));
+      sf.sp.material.opacity=(1-age)*(1-age)*.95;
+      sf.sp.scale.setScalar(sf.size*(.75+Math.sin(age*Math.PI)*.6));
     }
     if (shotLight) shotLight.intensity = Math.max(0, shotLight.intensity - dt * 34);
     // 3.24.0: спектр — после смерти камера следует за живым teammates

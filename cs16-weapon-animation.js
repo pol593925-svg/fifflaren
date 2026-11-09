@@ -19,6 +19,12 @@
     x = Math.max(0, Math.min(1, x));
     return x * x * (3 - 2 * x);
   };
+  // Fast mechanical opening, a readable hold, then a soft return. Never moves aim.
+  function shot(id,age){
+    const kind=family(id),a=Math.max(0,age),pistol=kind==='pistol',boltAction=kind==='bolt';
+    const cycle=boltAction?smooth((a-.12)/.11)*(1-smooth((a-.34)/.20)):smooth(a/.012)*(1-smooth((a-.026)/.065));
+    return {cycle,trigger:(1-smooth(a/.105))*.14,flashSize:boltAction?.30:pistol?.17:kind==='box'?.25:.22,flashLife:boltAction?78:pistol?60:48};
+  }
   function pose(id, progress, shotAge, inspect = 0) {
     const kind = family(id),
       active = progress >= 0 && progress < 1,
@@ -26,9 +32,7 @@
       out = active ? smooth((p - 0.12) / 0.16) * (1 - smooth((p - 0.56) / 0.18)) : 0,
       bolt = active
         ? Math.sin(smooth((p - 0.76) / 0.18) * Math.PI)
-        : kind === 'bolt'
-          ? Math.sin(smooth((shotAge - 0.12) / 0.48) * Math.PI)
-          : Math.max(0, 1 - shotAge / 0.09),
+        : shot(id,shotAge).cycle,
       show = Math.sin(Math.max(0, Math.min(1, inspect)) * Math.PI);
     return {
       magY: out * reloadPath[kind][0],
@@ -73,7 +77,7 @@
     }
     if (nodes.bolt) nodes.bolt.n.position.z += p.boltZ;
     if (nodes.slide) nodes.slide.n.position.z += p.slideZ;
-    if (nodes.trigger) nodes.trigger.n.rotation.x -= Math.max(0, 1 - shotAge / 0.1) * 0.14;
+    if (nodes.trigger) nodes.trigger.n.rotation.x -= shot(id,shotAge).trigger;
     if (nodes.leftHand && p.active) {
       const n = nodes.leftHand.n;
       n.visible = true;
@@ -92,5 +96,5 @@
     model.position.x += p.inspectX;
     return p;
   }
-  return { family, pose, bind, update };
+  return { family, shot, pose, bind, update };
 });

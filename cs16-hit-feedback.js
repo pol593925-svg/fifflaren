@@ -5,7 +5,7 @@
   let nextShotId=1;
   function create({T,scene,hud,camera,getQuality=()=> 'balanced',clock=()=>performance.now(),isVisible=()=>true}){
     const root=new T.Group();root.name='Confirmed target impacts';scene.add(root);
-    const capacity=12,slots=Array.from({length:capacity},()=>({born:-Infinity,pos:new T.Vector3(),kind:'body',scale:1}));
+    const capacity=12,slots=Array.from({length:capacity},()=>({born:-Infinity,pos:new T.Vector3(),kind:'body',scale:1,broken:false}));
     const pending=Array.from({length:32},()=>({born:-Infinity,target:'',weapon:'',point:new T.Vector3(),anchor:new T.Vector3()}));
     let cursor=0,pendingCursor=0,disposed=false,hudBorn=-Infinity,lastTarget='',total=0,lastKind='body',active=0;
     const dummy=new T.Object3D(),color=new T.Color(),direction=new T.Vector3(),point=new T.Vector3();
@@ -24,7 +24,7 @@
       for(let i=0;i<max;i++)mesh.setColorAt(i,color.setHex(0xffffff));
       mesh.instanceColor.setUsage(T.DynamicDrawUsage);root.add(mesh);return mesh;
     }
-    const flashes=pool('Painted contact flashes',star,capacity),rings=pool('Armor and precision ripples',new T.RingGeometry(.77,1,24),capacity),sparks=pool('Contact brush strokes',diamond,capacity*6);
+    const flashes=pool('Painted contact flashes',star,capacity),rings=pool('Armor and precision ripples',new T.RingGeometry(.88,1,28,1,.15,Math.PI*1.65),capacity*2),sparks=pool('Contact brush strokes',diamond,capacity*6);
     const meshes=[flashes,rings,sparks];
     let marker=null,value=null,label=null;
     if(hud){
@@ -68,7 +68,7 @@
       if(direction.z<-1||direction.z>1||Math.abs(direction.x)>1.15||Math.abs(direction.y)>1.15)return true;
       if(!isVisible(point))return true;
       direction.copy(camera.position).sub(point).normalize();point.addScaledVector(direction,.045);slot.pos.copy(point);
-      slot.scale=.18+Math.min(.14,camera.position.distanceTo(slot.pos)*.004);slot.kind=kind;slot.born=now;cursor++;
+      slot.scale=.18+Math.min(.14,camera.position.distanceTo(slot.pos)*.004);slot.kind=kind;slot.broken=!!event.armorBreak;slot.born=now;cursor++;
       return true;
     }
     function put(mesh,index,pos,size,stretch,rotation,tint,fade){
@@ -79,17 +79,18 @@
       if(disposed)return;
       const now=clock(),low=getQuality()==='low',limit=low?6:capacity;let nf=0,nr=0,ns=0;
       for(let i=0;i<slots.length;i++){
-        const slot=slots[i],age=(now-slot.born)/1000,life=slot.kind==='kill'?.42:.30;
+        const slot=slots[i],age=(now-slot.born)/1000,life=slot.kind==='kill'?.48:slot.broken?.42:.34;
         if(i>=limit){slot.born=-Infinity;continue;}
         if(age<0||age>=life)continue;
         const t=age/life,fade=(1-t)*(1-t),tint=styles[slot.kind].color,size=slot.scale*(.65+Math.sin(t*Math.PI)*.6);
-        put(flashes,nf++,slot.pos,size,1,Math.PI/4+i*.7,tint,fade);
-        if(slot.kind!=='body')put(rings,nr++,slot.pos,slot.scale*(.5+t*1.65),1,0,tint,fade*.65);
+        put(flashes,nf++,slot.pos,size*(1-t*.65),1,Math.PI/4+i*.7,t<.16?0xfff9e8:tint,Math.max(0,1-t*3));
+        put(rings,nr++,slot.pos,slot.scale*(.35+Math.sqrt(t)*1.65),1,i+t*2,tint,fade*(slot.kind==='body'?.3:.75));
+        if(!low&&(slot.broken||slot.kind==='head'||slot.kind==='kill'))put(rings,nr++,slot.pos,slot.scale*(.25+t*2.6),.78,-i-t*3,tint,fade*.45);
         const rays=low?3:6;
         for(let j=0;j<rays;j++){
-          const angle=j*Math.PI*2/rays+i*.73,reach=slot.scale*(.5+t*2.2);
-          direction.set(Math.cos(angle)*reach,Math.sin(angle)*reach,0).applyQuaternion(camera.quaternion).add(slot.pos);
-          put(sparks,ns++,direction,size*.085,3.8,angle-Math.PI/2,tint,fade);
+          const angle=j*Math.PI*2/rays+i*.73,reach=slot.scale*(.3+(1-Math.pow(1-t,2))*3)*(j%2?.8:1.1);
+          direction.set(Math.cos(angle)*reach,Math.sin(angle)*reach-slot.scale*t*t*1.4,0).applyQuaternion(camera.quaternion).add(slot.pos);
+          put(sparks,ns++,direction,slot.scale*.065*(1-t),4.8,angle-Math.PI/2,tint,fade);
         }
       }
       active=nf;

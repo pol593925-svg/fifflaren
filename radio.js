@@ -215,6 +215,7 @@
     finally{input.value='';uploading=false;for(const id of ['radioFiles','radioGuestFiles'])if($(id))$(id).disabled=false;}
   }
   function stop(){
+    window.HubRadioQR?.stop();
     if($('radioUploadDialog')?.open)$('radioUploadDialog').close();if($('radioGuestStatus'))$('radioGuestStatus').textContent='';
     volumeControl?.destroy();volumeControl=null;
     if(owner())cfg?.radioPC?.stop();window.HubCinema?.stop();clearInterval(timer);listening=false;station=null;release();setLights(false);
@@ -241,6 +242,7 @@
       people.addEventListener('keydown',e=>{if(e.key==='Escape'){people.open=false;people.querySelector('summary').focus();}});
     }
     window.HubPatches?.mount($('hubRadio'));
+    window.HubRadioQR?.mount(session);
     showAudience(null);connectAudience(session);
     volumeControl=HubMediaVolume.mount($('radioVolumeControls'),player,{id:'radioVolume',label:'радио',key:'hub-radio-volume:'+session.username,initial:40});
     draw(false);$('radioToggle').onclick=()=>{listening=!listening;if(!listening){release();setLights(false);}draw(false);if(listening)pull();};

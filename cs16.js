@@ -378,39 +378,7 @@
     return hit;
   }
   function rayGridWall(ox, oy, oz, dx, dy, dz, maxT) {
-    let cx = Math.floor(ox / CELL), cy = Math.floor(oz / CELL);
-    const stepX = dx > 0 ? 1 : -1, stepY = dz > 0 ? 1 : -1;
-    const tDeltaX = dx !== 0 ? Math.abs(CELL / dx) : Infinity;
-    const tDeltaY = dz !== 0 ? Math.abs(CELL / dz) : Infinity;
-    let tMaxX = dx !== 0 ? (((dx > 0 ? (cx + 1) * CELL : cx * CELL) - ox) / dx) : Infinity;
-    let tMaxY = dz !== 0 ? (((dz > 0 ? (cy + 1) * CELL : cy * CELL) - oz) / dz) : Infinity;
-    let t = 0, nx = 0, nz = 0;
-    for (let i = 0; i < 128; i++) {
-      if (tMaxX < tMaxY) { t = tMaxX; tMaxX += tDeltaX; cx += stepX; nx = -stepX; nz = 0; }
-      else { t = tMaxY; tMaxY += tDeltaY; cy += stepY; nx = 0; nz = -stepY; }
-      if (t > maxT) return null;
-      const c = (cx < 0 || cy < 0 || cx >= MW || cy >= MH) ? 1 : grid[cy][cx];
-      if (c === 4) { // 3.16.0: глубокий туннель (пол -3.2, потолок -1.3) — снаружи корка непростреливается
-        const hy = oy + dy * t;
-        if (hy < TUN_CEIL && hy > TUN_FLOOR[4]) continue; // внутри туннеля — летит дальше
-        return { t, nx, nz, cell: c };
-      }
-      // 3.24.0: вентиляция — снаружи непростреливается, внутри (ниже потолка) летит
-      if (c === 8) {
-        const hy = oy + dy * t;
-        if (hy > 0 && hy < VENT_CEIL) continue;
-        return { t, nx, nz, cell: c };
-      }
-      if (c === 9 || c === 10) continue; // мосты/лестницы — можно стрелять снизу
-      if (c !== 0 && c !== 5 && c !== 6 && c !== 7) {
-        const hy = oy + dy * t;
-        const h = cellH(c);
-        // Попали в объём ячейки (сверху может перелететь)
-        if (hy >= 0 && hy <= h) return { t, nx, nz, cell: c };
-        if (dy > 0 && hy > h) continue; // летим выше стены
-      }
-    }
-    return null;
+    return CS16Buildings.gridHit(grid,[ox,oy,oz],[dx,dy,dz],maxT);
   }
   function losClear(ax, ay, az, bx, by, bz) {
     const dx = bx - ax, dy = by - ay, dz = bz - az;
@@ -1188,7 +1156,8 @@
     const c = cellAt(P.x, P.z);
     if (c === 8 && P.y < VENT_CEIL) return 'metal';
     if (c===12) return 'stone';
-    if (P.y < -.1 || P.y > .25 || CS16Buildings.contains(grid,curMap,P.x,P.z,.2)) return 'stone';
+    if (P.y>=0 && P.y<7.15 && CS16Buildings.contains(grid,curMap,P.x,P.z,.1)) return 'wood';
+    if (P.y < -.1 || P.y > .25) return 'stone';
     return worldGraphics?.groundSurface(P.x,P.z) || 'stone';
   }
   function sfxHit() { sfxNoise(0.05, 3000, 0.2, 'highpass'); }
@@ -2324,7 +2293,7 @@
   function reportPlayerHit(hit,weapon,dir,heavy=false){
     const origin=[P.x,P.y+eyeH(),P.z];
     const hitId=hitFeedback?.remember(hit.nick,weapon,origin.map((v,i)=>v+dir[i]*hit.t),remotes.get(hit.nick));
-    sock.emit('cs16_hit',{target:hit.nick,weapon,head:hit.head||false,zone:hit.zone||'body',dist:hit.t,heavy,hitId});
+    sock.emit('cs16_hit',{target:hit.nick,weapon,head:hit.head||false,zone:hit.zone||'body',dist:hit.t,heavy,hitId,origin,point:origin.map((v,i)=>v+dir[i]*hit.t)});
   }
   function heavySlash() {
     if (!me.alive || state.phase !== 'live') return;

@@ -11,12 +11,13 @@ module.exports=async function(page,out,errors){
    const data={id,meshes:meshes.length,bones:meshes[0].skeleton.bones.length,triangles:meshes[0].geometry.index.count/3};
    a.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose()});b.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose()});
    const now=Date.now(),house=CS16Buildings.layout(__qa.grid(),'dust2').buildings[0],x=house.x+17,z=house.z-13;
-   __socket.receive('cs16_state',{phase:'freeze',map:'dust2',gm:'classic',mode:5,round:3,scores:{t:1,ct:1},players:[{id:'p1',nick:'Preview',team:'ct',alive:true,characterId:'neve',petId:id}],host:'Preview',freezeEnds:now+999999,roundEnds:now+999999,buyUntil:now+999999,now});
+   __socket.receive('cs16_state',{phase:'freeze',map:'dust2',gm:'classic',mode:5,round:3,scores:{t:1,ct:1},players:[{id:'p1',nick:'Preview',team:'ct',alive:true,characterId:'neve'},{id:'p2',nick:'Companion',team:'ct',alive:true,characterId:'neve',petId:id}],host:'Preview',freezeEnds:now+999999,roundEnds:now+999999,buyUntil:now+999999,now});
    __socket.receive('cs16_you',{money:3200,hp:100,armor:100,team:'ct',alive:true,weapon:'m4a1'});
    __socket.receive('cs16_round_start',{round:3,scores:{t:1,ct:1},spawns:[{id:'p1',nick:'Preview',pos:[x,0,z]}]});
-   __qa.aim(x,0,z,2.54,id==='owl'||id==='dragon'?-.24:-.43);__qa.weapon(id==='golem'?'usp':'m4a1');__qa.hideMessages();const ui=__qa.ui();ui.quality.value='high';ui.quality.onchange();return data;
+   __qa.addRemote('Companion','ct',x,z);__socket.receive('cs16_pos',{nick:'Companion',team:'ct',pos:[x,0,z],yaw:Math.PI,pitch:0,weapon:'m4a1',move:false,characterId:'neve'});
+   __qa.aim(x+3,0,z-6,2.75,-.05);__qa.weapon(id==='golem'?'usp':'m4a1');__qa.hideMessages();const ui=__qa.ui();ui.quality.value='high';ui.quality.onchange();return data;
   },id));
-  await page.waitForTimeout(1800);await page.waitForFunction(()=>{const p=__qa.scene().children.find(o=>o.userData.cs16SharedPet);return p&&Math.cos(p.rotation.y-5.75)>.985},null,{timeout:15000});await page.screenshot({path:path.join(out,'detail-'+id+'.png')});
+  await page.waitForTimeout(1800);await page.waitForFunction(()=>{const p=__qa.scene().children.find(o=>o.userData.cs16SharedPet);return p&&p.visible},null,{timeout:15000});await page.screenshot({path:path.join(out,'detail-'+id+'.png')});
   const live=await page.evaluate(()=>{const pet=__qa.scene().children.find(o=>o.userData.cs16SharedPet);if(!pet)throw Error('No living pet');return {position:pet.position.toArray(),visible:pet.visible}});assert(live.visible);reports.at(-1).live=live;
  }
  for(const id of ['m4a1','usp','knife']){

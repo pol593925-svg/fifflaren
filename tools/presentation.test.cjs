@@ -31,43 +31,33 @@ for (const id of ['awp','ak47','m4a1','glock','deagle','scout','mp5','p90']) {
 }
 console.log('WEAPONS: real GLB groups retain glass/steel/rubber; skins are matte receiver paint');
 
-// A prior per-face upper-floor decision produced roof slabs at y=6.5 without walls.
-for(const map of ['dust2','inferno']) {
-  const g=glb(map+'.glb');let checked=0;
-  for(const node of g.nodes) {
-    if(node.mesh===undefined || !/^[01]_[01]_(plaster|plaster_light|plaster_blue|trim|window_glass|roof)$/.test(node.name))continue;
-    for(const primitive of g.meshes[node.mesh].primitives) {
-      const accessor=g.accessors[primitive.attributes.POSITION];
-      assert(accessor.max[1]<=4.21,map+': floating facade above collision roof in '+node.name+' at '+accessor.max[1]);checked++;
-    }
-  }
-  assert(checked>=4,map+' architectural batches not checked');
-}
-console.log('HOUSES: both rebuilt maps contain no floating facade/roof above solid 4m cover');
+// The old 4m legacy-map assertion is obsolete: active anime maps have enterable
+// upper floors and curved roofs. Their collision is covered by roof-combat and field-update.
 
 const node=()=>({append(){},remove(){},style:{},classList:{toggle(){}}});
 let player={x:80,y:0,z:90,yaw:0,inVehicle:false};const scene=new T.Scene();
-const window={CS16Magic:{petValid:()=>true,spells:{},pets:{}},CS16Characters:{profiles:{}},CS16Graphics:{createPet:()=>new T.Group()}};
+const window={CS16Magic:{petValid:()=>true,spells:{},pets:{}},CS16Characters:{profiles:{}},CS16SpellEffects:{create:()=>({clear(){},update(){},dispose(){},fx(){}})},CS16Graphics:{createPet:()=>new T.Group()}};
 vm.runInNewContext(fs.readFileSync(path.join(root,'cs16-magic-client.js'),'utf8'),{window,document:{createElement:node},performance:{now:()=>1},Math,Number,Set,Map});
 const api=window.CS16MagicView;
 for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2,1.2]) {
  const target=api.followTarget(player,yaw),dx=target.x-player.x,dz=target.z-player.z;
- assert(Math.abs(-Math.sin(yaw)*dx-Math.cos(yaw)*dz-2.35)<1e-9);
- assert(Math.abs(Math.cos(yaw)*dx-Math.sin(yaw)*dz+.95)<1e-9);
+ assert(Math.abs(-Math.sin(yaw)*dx-Math.cos(yaw)*dz+2.15)<1e-9);
+ assert(Math.abs(Math.cos(yaw)*dx-Math.sin(yaw)*dz+.8)<1e-9);
 }
 let tick=0;
 const companion=api.create({T,scene,hud:node(),getState:()=>({players:[{nick:'me',alive:true,team:'ct',petId:'fox'}]}),getNick:()=> 'me',getPlayer:()=>player,getRemotes:()=>new Map(),now:()=>0});
 for(const yaw of [0,0,Math.PI/2,Math.PI,Math.PI,-Math.PI/2]) {
  player.yaw=yaw;player.x-=Math.sin(yaw)*.3;player.z-=Math.cos(yaw)*.3;
- companion.update(.016,tick+=16);const pet=scene.children[0],dx=pet.position.x-player.x,dz=pet.position.z-player.z;
- assert(-Math.sin(yaw)*dx-Math.cos(yaw)*dz>.25,'pet behind camera after turn');
+ for(let i=0;i<180;i++)companion.update(.016,tick+=16);
+ const pet=scene.children[0],dx=pet.position.x-player.x,dz=pet.position.z-player.z;
+ assert(-Math.sin(yaw)*dx-Math.cos(yaw)*dz<-1.7,'pet must settle behind after turn');
  assert(Number.isFinite(pet.position.y));
 }
 player.inVehicle=true;companion.update(.016,tick+=16);assert.equal(scene.children[0].visible,false);
 companion.dispose();assert.equal(scene.children.length,0);
-console.log('PETS: stay in front across movement/half-turns, hide in vehicles, clean disposal');
+console.log('PETS: follow behind after movement/half-turns, hide in vehicles, clean disposal');
 
-for(const rate of [22050,44100,48000])for(const surface of ['stone','earth','grass','metal']) {
+for(const rate of [22050,44100,48000])for(const surface of ['stone','earth','grass','metal','wood']) {
  const pcm=footsteps.samples(surface,0,rate),other=footsteps.samples(surface,1,rate);
  assert(pcm.every(Number.isFinite));assert(Math.max(...pcm.map(Math.abs))<.9);assert(pcm.at(-1)===0);
  assert(pcm.some((n,i)=>Math.abs(n-other[i])>.01));

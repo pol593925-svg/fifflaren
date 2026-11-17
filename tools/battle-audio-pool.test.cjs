@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 function fixture(){
  const counts={},sources=[],nodes=[];let inside=false;
  const node=kind=>{counts[kind]=(counts[kind]||0)+1;const n={gain:{},pan:{},frequency:{},playbackRate:{},links:new Set(),connect(to){this.links.add(to);},disconnect(to){if(to)this.links.delete(to);else this.links.clear();},start(){},stop(){this.stopped=true;}};nodes.push(n);return n;};
- const a={sampleRate:100, destination:{},createConvolver:()=>node('reverb'),createGain:()=>node('gain'),createBiquadFilter:()=>node('filter'),createStereoPanner:()=>node('pan'),createBufferSource:()=>{const n=node('source');sources.push(n);return n;},createBuffer:(channels,size)=>({getChannelData:()=>new Float32Array(size)})};
+ const a={sampleRate:100, destination:{},createDynamicsCompressor:()=>Object.assign(node('compressor'),{threshold:{},knee:{},ratio:{},attack:{},release:{}}),createConvolver:()=>node('reverb'),createGain:()=>node('gain'),createBiquadFilter:()=>node('filter'),createStereoPanner:()=>node('pan'),createBufferSource:()=>{const n=node('source');sources.push(n);return n;},createBuffer:(channels,size)=>({getChannelData:()=>new Float32Array(size)})};
  const window={};vm.runInNewContext(fs.readFileSync('cs16-battle-audio.js','utf8'),{window,performance,setTimeout,Math});
  const audio=window.CS16BattleAudio.create(a,{listener:()=>({x:0,y:0,z:0,yaw:0}),blocked:()=>false,indoor:()=>inside});
  return {audio,counts,sources,nodes,indoor:v=>inside=v};

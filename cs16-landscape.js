@@ -23,6 +23,45 @@
    }if(n>=limit)break;}mesh.count=n;mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   },dispose(){mesh.removeFromParent();geo.dispose();mat.dispose();texture.dispose();}};
  }
+ // Small garden borders are foliage only. Doorways and shooting apertures stay clear.
+ // One shared mesh, instanced only near the player, including the economy preset.
+ function gardens(T,scene,buildings){
+  const positions=[],colors=[],indices=[],color=new T.Color();
+  function face(points,hex){
+   const n=positions.length/3;color.set(hex);
+   points.forEach((p,i)=>{positions.push(...p);const light=i===0?.82:1;colors.push(color.r*light,color.g*light,color.b*light)});
+   for(let i=1;i<points.length-1;i++)indices.push(n,n+i,n+i+1);
+  }
+  for(let i=0;i<32;i++){
+   const a=i*2.399,r=.12+Math.sqrt(noise(i,13))*.58,x=Math.cos(a)*r,z=Math.sin(a)*r*.58,h=.18+noise(i,4)*.32;
+   face([[x-.008,0,z],[x+.008,0,z],[x+.012,h,z],[x,h,z]],'#59875b');
+   for(let k=0;k<4;k++){
+    const angle=a+k*2.4,dx=Math.cos(angle),dz=Math.sin(angle),y=h*(.2+k*.13),l=.14+noise(i,k)*.11;
+    face([[x,y,z],[x+dx*l*.45-dz*.05,y+.045,z+dz*l*.45+dx*.05],[x+dx*l,y+.09,z+dz*l],
+      [x+dx*l*.45+dz*.05,y+.045,z+dz*l*.45-dx*.05]],k%2?'#8eaf6d':'#5a916a');
+   }
+   const flower=i%3===0?'#e8b47d':i%3===1?'#b5a1d7':'#edb7c6';
+   for(let k=0;k<6;k++){
+    const angle=k*Math.PI/3,dx=Math.cos(angle),dz=Math.sin(angle),l=.075+noise(i,22)*.04;
+    face([[x,h,z],[x+dx*l*.5-dz*l*.43,h+.026,z+dz*l*.5+dx*l*.43],
+     [x+dx*l,h+.018,z+dz*l],[x+dx*l*.5+dz*l*.43,h+.026,z+dz*l*.5-dx*l*.43]],flower);
+   }
+   const disc=[];for(let k=0;k<8;k++)disc.push([x+Math.cos(k*Math.PI/4)*.026,h+.027,z+Math.sin(k*Math.PI/4)*.026]);
+   face(disc,'#f1d590');
+  }
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.setIndex(indices);geometry.computeVertexNormals();
+  const material=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.94});
+  const mesh=new T.InstancedMesh(geometry,material,20);mesh.name='Painted courtyard flower borders';mesh.count=0;mesh.frustumCulled=false;mesh.receiveShadow=true;scene.add(mesh);
+  const patches=[];for(const b of buildings)for(const [x,z]of [[1.5,-.48],[9.8,-.48],[-.32,1.8],[-.32,10.1],[12.32,1.8],[12.32,10.1],[2,12.32],[9.8,12.32]])patches.push({x:b.x+x,z:b.z+z,angle:z<0?0:x<0||x>12?Math.PI/2:0});
+  const dummy=new T.Object3D();let tick=-Infinity,viewX=Infinity,viewZ=Infinity,lastQuality='';
+  return{update(camera,time,quality){
+   if(time-tick<350)return;tick=time;if(quality===lastQuality&&Math.hypot(camera.position.x-viewX,camera.position.z-viewZ)<1)return;
+   viewX=camera.position.x;viewZ=camera.position.z;lastQuality=quality;
+   const range=quality==='low'?24:52,limit=quality==='low'?8:20;
+   const near=patches.map(p=>({p,d:(p.x-viewX)**2+(p.z-viewZ)**2})).filter(v=>v.d<range*range).sort((a,b)=>a.d-b.d).slice(0,limit);
+   mesh.count=near.length;near.forEach(({p},i)=>{dummy.position.set(p.x,.016,p.z);dummy.rotation.y=p.angle;dummy.scale.setScalar(1);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix)});mesh.instanceMatrix.needsUpdate=true;
+  },dispose(){mesh.removeFromParent();mesh.dispose();geometry.dispose();material.dispose()}};
+ }
  function create({T,scene,grid,map,model}){
   const size=grid.length,world=size*4,maskBytes=new Uint8Array(size*size*4),clearance=new Uint16Array(size*size),queue=[];
   const buildings=global.CS16Buildings.layout(grid,map).buildings;
@@ -66,7 +105,7 @@
    };
    m.customProgramCacheKey=()=> 'terra-ground-2';m.needsUpdate=true;
   }});
-  const facadeIvy=ivy(T,scene,grid);const group=new T.Group();group.name='Evolution valley landscape';scene.add(group);
+  const gardenBorders=gardens(T,scene,buildings),facadeIvy=ivy(T,scene,grid);const group=new T.Group();group.name='Evolution valley landscape';scene.add(group);
   const vertices=[],colors=[],indices=[],res=116,extent=1350,center=world/2;
   function height(x,z){const edge=Math.max(0,-x-75,-z-75,x-world-75,z-world-75),r=Math.hypot(x-center,z-center),a=Math.atan2(z-center,x-center);return Math.min(1,edge/100)*(30+Math.sin(x*.011+z*.003)*Math.cos(z*.008)*18+Math.pow(.5+.5*Math.sin(a*5+1),2)*42+Math.sin(x*.035+z*.021)*3.5)*Math.min(1,(r-world*.48)/100);}
   for(let z=0;z<=res;z++)for(let x=0;x<=res;x++){
@@ -100,7 +139,7 @@
    vec2 offset=instanceMatrix[3].xz-meadowActor;float reach=1.-smoothstep(.05,1.7,length(offset));transformed.xz+=offset/max(.05,length(offset))*reach*position.y*.8;
    transformed.x+=sin(meadowTime*1.7+instanceMatrix[3].x*.5+instanceMatrix[3].z*.3)*position.y*.22;`);};
   const grass=new T.InstancedMesh(blade,grassMat,700);grass.count=0;grass.name='Nearby meadow grass';grass.frustumCulled=false;grass.receiveShadow=true;group.add(grass);const dummy=new T.Object3D();let last=-Infinity,viewX=Infinity,viewZ=Infinity,lastQuality='';
-  return {mask,groundSurface(x,z){const i=(Math.max(0,Math.min(size-1,Math.floor(z/4)))*size+Math.max(0,Math.min(size-1,Math.floor(x/4))))*4;return maskBytes[i]>.45*255?'grass':maskBytes[i+1]>.5*255?'stone':'earth';},update(camera,time,quality){facadeIvy.update(camera,time,quality);wind.value=time*.001;actor.value.set(camera.position.x,camera.position.z);if(time-last<250)return;last=time;if(quality===lastQuality&&Math.hypot(camera.position.x-viewX,camera.position.z-viewZ)<.75)return;viewX=camera.position.x;viewZ=camera.position.z;lastQuality=quality;const max=quality==='low'?220:quality==='high'?700:420,near=[];const cx=Math.floor(camera.position.x/32),cz=Math.floor(camera.position.z/32);for(let z=cz-2;z<=cz+2;z++)for(let x=cx-2;x<=cx+2;x++)for(const p of pointsByCell.get(x+','+z)||[]){const d=(p.x-camera.position.x)**2+(p.z-camera.position.z)**2;if(d<(quality==='low'?28*28:quality==='high'?55*55:44*44))near.push({p,d});}near.sort((a,b)=>a.d-b.d);grass.count=Math.min(max,near.length);for(let i=0;i<grass.count;i++){const p=near[i].p;dummy.position.set(p.x,global.CS16Terrain.height(grid,p.x,p.z)+.012,p.z);dummy.rotation.y=noise(p.x,p.z)*6.28;dummy.scale.setScalar(1);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}grass.instanceMatrix.needsUpdate=true;},dispose(){facadeIvy.dispose();treeGeo.dispose();treeMat.dispose();treeAtlas.dispose();earth.dispose();mask.dispose();geo.dispose();mat.dispose();blade.dispose();grassMat.dispose();group.removeFromParent();}};
+  return {mask,groundSurface(x,z){const i=(Math.max(0,Math.min(size-1,Math.floor(z/4)))*size+Math.max(0,Math.min(size-1,Math.floor(x/4))))*4;return maskBytes[i]>.45*255?'grass':maskBytes[i+1]>.5*255?'stone':'earth';},update(camera,time,quality){gardenBorders.update(camera,time,quality);facadeIvy.update(camera,time,quality);wind.value=time*.001;actor.value.set(camera.position.x,camera.position.z);if(time-last<250)return;last=time;if(quality===lastQuality&&Math.hypot(camera.position.x-viewX,camera.position.z-viewZ)<.75)return;viewX=camera.position.x;viewZ=camera.position.z;lastQuality=quality;const max=quality==='low'?220:quality==='high'?700:420,near=[];const cx=Math.floor(camera.position.x/32),cz=Math.floor(camera.position.z/32);for(let z=cz-2;z<=cz+2;z++)for(let x=cx-2;x<=cx+2;x++)for(const p of pointsByCell.get(x+','+z)||[]){const d=(p.x-camera.position.x)**2+(p.z-camera.position.z)**2;if(d<(quality==='low'?28*28:quality==='high'?55*55:44*44))near.push({p,d});}near.sort((a,b)=>a.d-b.d);grass.count=Math.min(max,near.length);for(let i=0;i<grass.count;i++){const p=near[i].p;dummy.position.set(p.x,global.CS16Terrain.height(grid,p.x,p.z)+.012,p.z);dummy.rotation.y=noise(p.x,p.z)*6.28;dummy.scale.setScalar(1);dummy.updateMatrix();grass.setMatrixAt(i,dummy.matrix);}grass.instanceMatrix.needsUpdate=true;},dispose(){gardenBorders.dispose();facadeIvy.dispose();treeGeo.dispose();treeMat.dispose();treeAtlas.dispose();earth.dispose();mask.dispose();geo.dispose();mat.dispose();blade.dispose();grassMat.dispose();group.removeFromParent();}};
  }
  function vegetation({T,group,nature,items,slots,broken,grid}){
   const root=new T.Group();root.name='Evolution detailed vegetation';group.add(root);nature.updateMatrixWorld(true);

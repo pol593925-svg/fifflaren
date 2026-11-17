@@ -44,7 +44,7 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.04;
+    renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
@@ -122,7 +122,7 @@
   }
 
   function makeSky(T, inferno, radius) {
-    const direction = new T.Vector3(0.48, 0.77, 0.39).normalize();
+    const direction = new T.Vector3(0.48, 0.70, -0.53).normalize();
     const material = new T.ShaderMaterial({
       name: 'CS16 daylight atmosphere',
       side: T.BackSide,
@@ -130,8 +130,8 @@
       depthTest: false,
       uniforms: {
         sunDirection: { value: direction },
-        zenith: { value: new T.Color(inferno ? '#4689ba' : '#327fbc') },
-        horizon: { value: new T.Color(inferno ? '#c9d7dd' : '#c0d5df') },
+        zenith: { value: new T.Color(inferno ? '#3589c5' : '#278acb') },
+        horizon: { value: new T.Color(inferno ? '#c5dce3' : '#b9dce9') },
         ground: { value: new T.Color(inferno ? '#827466' : '#94856f') },
       },
       vertexShader: [
@@ -204,9 +204,9 @@
     scene.background = null;
     scene.fog = new T.Fog(mapName === 'inferno' ? 0xc6d9e5 : 0xc2dfe7, 155, 500);
 
-    const hemisphere = new T.HemisphereLight(0xe3f1ff, 0x9289a5, .72);
+    const hemisphere = new T.HemisphereLight(0xd9eeff, 0x8b8eaf, 1.12);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffe8c5, 1.55);
+    const sun = new T.DirectionalLight(0xffe8c4, 2.1);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -304,8 +304,8 @@
         throw error;
       }
       model = gltf.scene;nature=natureAsset.scene;
-      global.CS16AnimeMaterials.apply(T,model);
-      global.CS16AnimeMaterials.apply(T,nature);
+      global.CS16AnimeMaterials.apply(T,model,{environment:true});
+      global.CS16AnimeMaterials.apply(T,nature,{environment:true});
       bakedBuildings=false;model.traverse(o=>{if(o.userData.coastArchitecture)bakedBuildings=true;});
       const oldBuildings=scene.getObjectByName('Walkable two-storey buildings');if(bakedBuildings&&oldBuildings)oldBuildings.visible=false;
       model.name = 'CS16 ' + mapName + ' geometry';

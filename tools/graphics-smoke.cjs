@@ -12,6 +12,7 @@ window.io=()=>{const handlers={};window.__socket={connected:true,on(n,f){handler
 </script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-spell-effects.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-tactical-map.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-hit-feedback.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-anime-nature.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-operator-batch.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-anime-materials.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16-loading.js"></script><script src="/cs16-menu.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ roofCheck:${require('./roof-scene-check.cjs').toString()},
  shotCheck:(id)=>{const old=state.phase;state.phase='live';current=id;ammo[id]={mag:1000,reserve:1000};me.alive=true;reloading=0;P.onGround=true;scoped=false;fieldAim=false;fieldAimMix=0;for(const k of Object.keys(keys))keys[k]=false;vmSwayX=vmSwayY=vmKick=vmKickVelocity=0;shake=0;updateViewmodel(.016,performance.now());const yaw=P.yaw,pitch=P.pitch;for(let i=0;i<20;i++)fireOne();updateViewmodel(.016,performance.now());const result={yawDelta:P.yaw-yaw,pitchDelta:P.pitch-pitch,kick:vmKickVelocity,shots:20,flash:shotFlashes.at(-1)?.sp.position.toArray(),bore:vm?.userData.grip?.bore,animation:CS16WeaponAnimation.pose(id,-1,.025),rest:CS16WeaponAnimation.pose(id,-1,1)};state.phase=old;return result;},
  hitEffects:()=>hitFeedback,fireHitTest:()=>{state.phase='live';fireOne();state.phase='freeze';},
  shotPool:()=>{const pool=prepareShotPool();return {capacity:[pool.tracers.length,pool.flashes.length],active:[tracers.length,shotFlashes.length],busy:[pool.tracers.filter(s=>s.busy).length,pool.flashes.filter(s=>s.busy).length],visible:[tracers.filter(s=>s.line.visible).length,shotFlashes.filter(s=>s.sp.visible).length],geometry:pool.tracers[0].core.geometry.uuid,material:pool.tracers[0].core.material.uuid};},
@@ -144,6 +145,7 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
+  if(process.env.COMPANION_AUDIO_ONLY){await require('./companion-audio-check.cjs')(page,outputs,errors);return;}
   if(process.env.LOADING_GATE_ONLY){await require('./loading-screen-check.cjs')(page,outputs,errors);return;}
   if(process.env.SHOOTING_UPDATE_ONLY){await require('./shooting-update-check.cjs')(page,outputs,errors);return;}
   if(process.env.COAST_MENU_ONLY){await require('./coast-menu-check.cjs')(page,outputs,errors);return;}
@@ -151,6 +153,7 @@ async function run(){
   if(process.env.ROUND_FX_ONLY){await require('./round-fx-check.cjs')(page,outputs,errors);return;}
   if(process.env.TACTICAL_ONLY){const checks=await page.evaluate(()=>__qa.tacticalCheck());assert.equal(errors.length,0,errors.join('\n'));console.log('TACTICAL_SCENE_PASS',JSON.stringify(checks));return;}
   if(process.env.HIT_FEEDBACK_ONLY){await require('./hit-feedback-check.cjs')(page,outputs,errors);return;}
+  if(process.env.ANIME_GRAPHICS_PREVIEW){await require('./anime-graphics-preview.cjs')(page,outputs,errors);return;}
   if(process.env.ANIME_MATCH_ONLY){await require('./anime-match-check.cjs')(page,outputs,errors);return;}
   if(process.env.PET_DETAIL_ONLY){await require('./pet-detail-check.cjs')(page,outputs,errors);return;}
   if(process.env.COAST_PERF_ONLY){

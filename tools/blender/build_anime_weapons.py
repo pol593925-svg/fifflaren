@@ -171,7 +171,9 @@ def finish(root,kind):
                     c={'glock':'#7c9a9e','mp5':'#356a78','galil':'#496c68','famas':'#637a97','sg552':'#52746e'}[kind]
                 if 'Olive' in name and kind=='scout':c='#6c929d'
                 if 'Walnut' in name:c='#ae7d50' if kind=='ak47' else '#687f70'
-            elif 'field ripstop' in name:c='#48677c'
+                if kind=='m4a1' and 'Parkerized steel' in name:c='#9fb7b7'
+                if kind=='m4a1' and 'Polymer' in name:c='#bec9c4'
+            elif 'field ripstop' in name:c='#d0c7ae'
             elif 'glove textile' in name:c='#4c6477'
             elif 'leather' in name:c='#2e4259'
             elif 'finger protection' in name:c='#607c88'

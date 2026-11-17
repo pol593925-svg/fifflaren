@@ -4,7 +4,7 @@ function fixture(){
  const scene=new T.Scene(),camera=new T.PerspectiveCamera();camera.position.set(0,1.6,0);
  let now=0,quality='high',visible=true;
  const fx=global.CS16HitFeedback.create({T,scene,camera,getQuality:()=>quality,clock:()=>now,isVisible:()=>visible});
- return {fx,scene,setTime:n=>now=n,setQuality:q=>quality=q,setVisible:v=>visible=v};
+ return {fx,scene,camera,setTime:n=>now=n,setQuality:q=>quality=q,setVisible:v=>visible=v};
 }
 const target={x:0,y:0,z:-6},hit={target:'B',weapon:'m4a1',dmg:28,hp:72,zone:'body',head:false};
 
@@ -32,13 +32,41 @@ test('head, armor, fatal and legacy events are distinct; zero/invalid damage is 
  }
  fx.clear();assert.equal(fx.confirm({...hit,dmg:0},target,true),false);assert.equal(fx.confirm({...hit,dmg:NaN},target,true),false);fx.update();assert.equal(fx.metrics().active,0);fx.dispose();
 });
+test('contact core is brief, armor chips are conditional, and fading strokes stay compact',()=>{
+ const {fx,scene,setTime}=fixture(),meshes=scene.children[0].children,matrix=new T.Matrix4(),contact=new T.Vector3(),position=new T.Vector3(),tint=new T.Color();
+ fx.confirm(hit,target,true);fx.update();assert.deepEqual(fx.metrics().counts,[1,0,6]);
+ meshes[0].getMatrixAt(0,matrix);contact.setFromMatrixPosition(matrix);
+ meshes[2].getColorAt(0,tint);const initialBrightness=tint.r+tint.g+tint.b;
+ setTime(120);fx.update();assert.deepEqual(fx.metrics().counts,[0,0,6]);assert.equal(fx.metrics().active,1,'strokes remain active after the core expires');
+ const offsets=[];
+ for(let i=0;i<meshes[2].count;i++){
+  meshes[2].getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix).sub(contact);offsets.push(position.clone());
+  assert(position.length()<.45,'impact strokes must not obscure a whole player');
+ }
+ const mean=offsets.reduce((sum,offset)=>sum.add(offset),new T.Vector3()).normalize();
+ assert(offsets.every(offset=>offset.dot(mean)>0),'strokes form a directional fan, not a circular burst');
+ meshes[2].getColorAt(0,tint);assert(tint.r+tint.g+tint.b<initialBrightness*.4,'late strokes fade instead of remaining solid');
+ setTime(270);fx.update();assert.equal(fx.metrics().active,0);assert.deepEqual(fx.metrics().counts,[0,0,0]);
+ fx.confirm({...hit,armorDamage:5,armorBreak:true},target,true);fx.update();assert.deepEqual(fx.metrics().counts,[1,2,6]);
+ setTime(400);fx.update();assert.deepEqual(fx.metrics().counts,[0,2,6]);
+ assert(meshes.every(mesh=>mesh.geometry.type!=='RingGeometry'),'no expanding rings cover the contact');fx.dispose();
+});
+test('emitted strokes and armor chips keep their world trajectory when the camera turns',()=>{
+ const {fx,scene,camera,setTime}=fixture();fx.confirm({...hit,armorDamage:5},target,true);setTime(100);fx.update();
+ const meshes=scene.children[0].children,before=meshes.map(mesh=>Array.from(mesh.instanceMatrix.array));
+ camera.rotation.set(.15,.65,-.1);camera.position.x=1;camera.updateMatrixWorld();fx.update();
+ assert.deepEqual(meshes.map(mesh=>Array.from(mesh.instanceMatrix.array)),before);fx.dispose();
+});
 test('server shot IDs skip rejected predictions and match out-of-order acknowledgements',()=>{
  const {fx,scene}=fixture();
- fx.remember('B','m4a1',[.1,1.1,-5.7],target);
+ const earlier=fx.remember('B','m4a1',[.1,1.1,-5.7],target);
  const accepted=fx.remember('B','m4a1',[-.2,1.7,-5.7],target);
  fx.confirm({...hit,hitId:accepted,head:true},target,true);fx.update();
  const matrix=new T.Matrix4(),point=new T.Vector3();scene.children[0].children[0].getMatrixAt(0,matrix);point.setFromMatrixPosition(matrix);
- assert(Math.abs(point.x+.2)<.05);assert(Math.abs(point.y-1.7)<.05);assert.equal(fx.metrics().pending,1);fx.dispose();
+ assert(Math.abs(point.x+.2)<.05);assert(Math.abs(point.y-1.7)<.05);assert.equal(fx.metrics().pending,1);
+ fx.confirm({...hit,hitId:accepted,head:true},target,true);
+ assert.equal(fx.metrics().pending,1,'a repeated acknowledgement must not consume another shot contact');
+ fx.confirm({...hit,hitId:earlier},target,true);assert.equal(fx.metrics().pending,0);fx.dispose();
 });
 test('hidden enemies have no world effect; occluded hit cannot move a previous visible flash',()=>{
  const {fx,scene,setVisible}=fixture();fx.confirm(hit,target,true);fx.update();
@@ -50,9 +78,9 @@ test('hidden enemies have no world effect; occluded hit cannot move a previous v
 test('thousands of rapid hits reuse three buffers/materials and respect weak-PC capacity',()=>{
  const {fx,scene,setQuality,setTime}=fixture(),meshes=scene.children[0].children;
  const resources=meshes.map(m=>[m.geometry,m.material,m.instanceMatrix,m.instanceColor]);
- for(let i=0;i<2000;i++)fx.confirm({...hit,head:i%3===0},target,true);
- fx.update();assert.equal(fx.metrics().active,12);assert.equal(fx.metrics().counts[2],72);
- setQuality('low');fx.update();assert.equal(fx.metrics().active,6);assert.equal(fx.metrics().counts[2],18);
+ for(let i=0;i<2000;i++)fx.confirm({...hit,head:i%3===0,armorDamage:3,armorBreak:true},target,true);
+ fx.update();assert.equal(fx.metrics().active,12);assert.deepEqual(fx.metrics().counts,[12,24,72]);
+ setQuality('low');fx.update();assert.equal(fx.metrics().active,6);assert.deepEqual(fx.metrics().counts,[6,6,18]);
  assert.deepEqual(meshes.map(m=>[m.geometry,m.material,m.instanceMatrix,m.instanceColor]),resources);
  for(const mesh of meshes){assert(mesh.material.depthTest);assert.equal(mesh.material.depthWrite,false);assert(mesh.material.forceSinglePass);}
  setTime(2000);fx.update();assert.deepEqual(fx.metrics().counts,[0,0,0]);fx.dispose();assert.equal(scene.children.length,0);assert.equal(fx.confirm(hit,target,true),false);

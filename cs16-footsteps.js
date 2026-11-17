@@ -1,4 +1,4 @@
-/* Short, cached heel/toe Foley layers. No downloads or per-step PCM allocation. */
+/* Cached surface Foley recordings; procedural heel/toe fallback if an asset cannot decode. */
 (function (global) {
   'use strict';
   const types = ['stone', 'earth', 'grass', 'metal', 'wood'];
@@ -36,23 +36,75 @@
   }
   function create(context) {
     const bank = new Map(), active = new Set(), counters = new Map();
-    function play(surface, volume = 1, pan = 0) {
-      if (!Number.isFinite(volume) || volume <= 0 || context.state === 'closed') return;
-      surface = normalize(surface);
-      if (!bank.has(surface)) bank.set(surface, Array.from({length: 4}, (_, v) => {
-        const pcm = samples(surface, v, context.sampleRate), buffer = context.createBuffer(1, pcm.length, context.sampleRate);
-        buffer.copyToChannel(pcm, 0); return buffer;
-      }));
-      const index = (counters.get(surface) || 0) % 4; counters.set(surface, index + 1);
-      const source = context.createBufferSource(), gain = context.createGain(), panner = context.createStereoPanner();
-      source.buffer = bank.get(surface)[index]; source.playbackRate.value = [.98, 1.025, 1.01, .97][index];
-      gain.gain.value = Math.min(1, volume) * .28; panner.pan.value = Math.max(-1, Math.min(1, pan || 0));
-      source.connect(gain); gain.connect(panner); panner.connect(context.destination);
-      const voice = { source, stop() { try { source.stop(); } catch {} source.disconnect(); gain.disconnect(); panner.disconnect(); active.delete(voice); } };
-      if (active.size >= 16) active.values().next().value.stop();
-      active.add(voice); source.onended = () => voice.stop(); source.start();
+    const recordings = global.CS16SoundBank ? global.CS16SoundBank.create(context) : null;
+    const voices = [];
+    let disposed = false;
+    function buffer(surface, variant) {
+      const recording = recordings && recordings.get('step.' + surface, variant);
+      if (!recording) {
+        const pcm = samples(surface, variant, context.sampleRate), fallback = context.createBuffer(1, pcm.length, context.sampleRate);
+        fallback.copyToChannel(pcm, 0); return fallback;
+      }
+      // Metal flooring is a recorded sole contact plus a quiet recorded plate resonance.
+      const ring = surface === 'metal' ? recordings.get('metal', variant) : null;
+      const result = context.createBuffer(1, Math.max(recording.length, ring ? ring.length : 0), context.sampleRate);
+      const pcm = result.getChannelData(0);
+      function add(source, amount) {
+        for (let channel = 0; channel < source.numberOfChannels; channel++) {
+          const input = source.getChannelData(channel);
+          for (let i = 0; i < input.length; i++) pcm[i] += input[i] * amount / source.numberOfChannels;
+        }
+      }
+      add(recording, 1); if (ring) add(ring, .22);
+      let peak = 0; for (const value of pcm) peak = Math.max(peak, Math.abs(value));
+      if (peak > 0) for (let i = 0; i < pcm.length; i++) pcm[i] *= .56 / peak;
+      return result;
     }
-    return { play, dispose() { for (const voice of [...active]) voice.stop(); bank.clear(); } };
+    function surfaceBank(surface) {
+      if (!bank.has(surface)) bank.set(surface, Array.from({length: 4}, (_, i) => buffer(surface, i)));
+      return bank.get(surface);
+    }
+    function channel() {
+      const filter = context.createBiquadFilter(), gain = context.createGain(), pan = context.createStereoPanner();
+      filter.type = 'lowpass'; filter.connect(gain); gain.connect(pan); pan.connect(recordings?.destination || context.destination);
+      const voice = {filter, gain, pan, source: null, stop() {
+        const source = voice.source; if (!source) return;
+        voice.source = null; source.onended = null;
+        try { source.stop(); } catch {} source.disconnect(); active.delete(voice);
+      }};
+      voices.push(voice); return voice;
+    }
+    function play(surface, volume = 1, pan = 0) {
+      if (disposed || !Number.isFinite(volume) || volume <= 0 || context.state === 'closed') return;
+      surface = normalize(surface);
+      const index = (counters.get(surface) || 0) % 4; counters.set(surface, index + 1);
+      const voice = voices.find(v => !v.source) || (voices.length < 8 ? channel() : active.values().next().value);
+      voice.stop();
+      const source = context.createBufferSource(); voice.source = source;
+      source.buffer = surfaceBank(surface)[index]; source.playbackRate.value = [.99, 1.015, 1.005, .985][index];
+      voice.filter.frequency.value = surface === 'earth' ? 1800 : surface === 'grass' ? 4700 : surface === 'metal' ? 7000 : 5800;
+      voice.gain.gain.value = Math.min(1, volume) * .28; voice.pan.pan.value = Math.max(-1, Math.min(1, pan || 0));
+      source.connect(voice.filter); active.add(voice);
+      source.onended = () => { if (voice.source === source) { voice.source = null; active.delete(voice); source.disconnect(); } };
+      source.start();
+    }
+    return {
+      play,
+      async prepare() {
+        if (disposed) return;
+        if (recordings) await recordings.prepare('steps');
+        if (disposed) return;
+        bank.clear();
+        for (const surface of types) { surfaceBank(surface); await new Promise(resolve => setTimeout(resolve, 0)); if (disposed) return; }
+        while (voices.length < 8) channel();
+      },
+      dispose() {
+        if (disposed) return; disposed = true;
+        for (const voice of [...active]) voice.stop();
+        for (const voice of voices) { voice.filter.disconnect(); voice.gain.disconnect(); voice.pan.disconnect(); }
+        voices.length = 0; bank.clear(); if (recordings) recordings.dispose();
+      },
+    };
   }
   const api = { create, samples, normalize };
   global.CS16Footsteps = api;

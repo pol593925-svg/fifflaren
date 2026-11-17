@@ -30,14 +30,15 @@
     return out;
   }
   function create(a, { listener, blocked, indoor }) {
+    const recordings = g.CS16SoundBank ? g.CS16SoundBank.create(a) : null;
     const buffers = new Map(),
       active = new Set(), voices=[];
     let disposed=false;
     let lastWhizz = 0;const counters=new Map();
-    const mix=a.createDynamicsCompressor();mix.threshold.value=-13;mix.knee.value=16;mix.ratio.value=3.5;mix.attack.value=.005;mix.release.value=.12;mix.connect(a.destination);
+    const mix=a.createDynamicsCompressor();mix.threshold.value=-13;mix.knee.value=16;mix.ratio.value=3.5;mix.attack.value=.005;mix.release.value=.12;mix.connect(recordings?.destination||a.destination);
     const reverb = a.createConvolver(),
       wet = a.createGain();
-    wet.gain.value = 0.10;
+    wet.gain.value = 0.065;
     reverb.connect(wet);
     wet.connect(mix);
     const impulse = a.createBuffer(2, Math.ceil(a.sampleRate * 0.48), a.sampleRate);
@@ -47,7 +48,10 @@
         p[i] = (Math.random() * 2 - 1) * Math.exp((-i / a.sampleRate) * 12) * 0.35;
     }
     reverb.buffer = impulse;
-    function buffer(type,variant=0) {
+    function buffer(type,variant=0,recordingType=type) {
+      const recorded = recordings && recordings.get(recordingType,variant);
+      if(recorded)return recorded;
+      variant%=4;
       const key=type+'/'+variant;if(buffers.has(key))return buffers.get(key);
       const pcm=samples(type,variant,a.sampleRate),b=a.createBuffer(1,pcm.length,a.sampleRate);b.getChannelData(0).set(pcm);
       buffers.set(key, b);
@@ -62,7 +66,7 @@
       }};
       voices.push(voice);return voice;
     }
-    function sound(type, pos, gain = 0.65) {
+    function sound(type, pos, gain = 0.65, recordingType = type) {
       if(disposed)return;
       const l = listener(),
         d = Math.hypot(pos[0] - l.x, pos[1] - l.y, pos[2] - l.z);
@@ -72,9 +76,9 @@
       voice.stop();
       const src = a.createBufferSource(),{filter,volume,pan}=voice;
       voice.source=src;
-      const variant=(counters.get(type)||0)%4;counters.set(type,variant+1);src.buffer = buffer(type,variant);
-      src.playbackRate.value = 0.97 + Math.random() * 0.06;
-      filter.frequency.value = muffled ? 700 : Math.max(1400, 6800 - d * 45);
+      const variant=counters.get(recordingType)||0;counters.set(recordingType,(variant+1)%12);src.buffer = buffer(type,variant,recordingType);
+      src.playbackRate.value = 0.985 + Math.random() * 0.03;
+      filter.frequency.value = muffled ? 700 : type==='suppressed' ? Math.max(1100, 3400-d*22) : Math.max(1600, 15000-d*110);
       volume.gain.value = (gain / (1 + (d * d) / 85)) * (muffled ? 0.36 : 1);
       pan.pan.value = Math.max(
         -1,
@@ -90,15 +94,22 @@
     }
     return {
       async prepare() {
-        // Generate sample buffers behind the loading screen, not during the first firefight.
+        // Decode bundled recordings behind the loading screen. Missing files use the cached synthesis fallback.
+        if(recordings)await recordings.prepare('battle');
         for(const type of ['rifle','pistol','sniper','smg','suppressed','whizz','glass','wood','stone','metal']){
-          if(disposed)return;for(let i=0;i<4;i++)buffer(type,i);await new Promise(resolve=>setTimeout(resolve,0));
+          if(disposed)return;for(let i=0;i<4;i++){
+            buffer(type,i);
+            // USP uses the pistol recordings with the suppressed fallback envelope.
+            // Prepare that fallback too when PPQ failed but the AR recordings succeeded.
+            if(type==='suppressed')buffer(type,i,'suppressedPistol');
+          }await new Promise(resolve=>setTimeout(resolve,0));
         }
         while(!disposed&&voices.length<28){for(let i=0;i<4&&voices.length<28;i++)channel();await new Promise(resolve=>setTimeout(resolve,0));}
       },
       shot(id, pos, gain=1) {
         const type=['awp','scout'].includes(id)?'sniper':['m4a1','usp'].includes(id)?'suppressed':['mp5','p90','ump45'].includes(id)?'smg':['glock','deagle','fiveseven','elite','tec9'].includes(id)?'pistol':'rifle';
-        sound(type,pos,({sniper:.55,rifle:.48,pistol:.43,smg:.39,suppressed:.36}[type])*gain);
+        const recordingType=type==='rifle'?(['ak47','galil'].includes(id)?'rifleAk':'rifleAr'):id==='usp'?'suppressedPistol':type;
+        sound(type,pos,({sniper:.55,rifle:.48,pistol:.43,smg:.39,suppressed:.36}[type])*gain,recordingType);
       },
       impact(kind, pos) {
         sound(
@@ -131,6 +142,7 @@
         wet.disconnect();
         mix.disconnect();
         buffers.clear();
+        if(recordings)recordings.dispose();
       },
     };
   }

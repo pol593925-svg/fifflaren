@@ -63,8 +63,16 @@ for(const rate of [22050,44100,48000])for(const surface of ['stone','earth','gra
  assert(pcm.some((n,i)=>Math.abs(n-other[i])>.01));
  assert(pcm.reduce((s,n)=>s+n*n,0)/pcm.length>.0001,'silent '+surface);
 }
-let allocations=0,sources=0,stopped=0;
-const context={state:'running',sampleRate:44100,destination:{},createBuffer(n,length){allocations++;return {copyToChannel(){}};},createBufferSource(){sources++;return {playbackRate:{},connect(){},disconnect(){},start(){},stop(){stopped++;}};},createGain(){return {gain:{},connect(){},disconnect(){}};},createStereoPanner(){return {pan:{},connect(){},disconnect(){}};}};
+let allocations=0,sources=0,stopped=0,filters=0,gains=0,panners=0;
+const audioNodes=[],audioNode=()=>{const value={links:new Set(),connect(to){this.links.add(to);},disconnect(){this.links.clear();}};audioNodes.push(value);return value;};
+const context={state:'running',sampleRate:44100,destination:{},
+ createBuffer(n,length){allocations++;return {copyToChannel(pcm){assert.equal(pcm.length,length);}};},
+ createBufferSource(){sources++;return Object.assign(audioNode(),{playbackRate:{},start(){},stop(){stopped++;}});},
+ createBiquadFilter(){filters++;return Object.assign(audioNode(),{frequency:{},type:'lowpass'});},
+ createGain(){gains++;return Object.assign(audioNode(),{gain:{}});},
+ createStereoPanner(){panners++;return Object.assign(audioNode(),{pan:{}});},
+};
 const audio=footsteps.create(context);for(let i=0;i<100;i++)audio.play('grass');
-assert.equal(allocations,4);assert.equal(sources-stopped,16);audio.dispose();assert.equal(sources,stopped);
-console.log('FOLEY: four variations per surface, finite unclipped PCM, cached buffers, <=16 active sounds');
+assert.equal(allocations,4);assert.equal(sources-stopped,8);assert.equal(filters,8);assert.equal(gains,8);assert.equal(panners,8);
+audio.dispose();assert.equal(sources,stopped);assert(audioNodes.every(node=>node.links.size===0),'disposed footstep nodes must disconnect');
+console.log('FOLEY: four variations per surface, finite unclipped PCM, cached buffers, eight reused channels, clean disposal');

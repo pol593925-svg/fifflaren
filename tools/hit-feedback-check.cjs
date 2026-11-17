@@ -23,7 +23,8 @@ module.exports=async function(page,outputs,errors){
   await page.waitForTimeout(45);
   assert.equal(await page.locator('.cs16-hit-feedback').getAttribute('data-kind'),kind);
   assert(await page.locator('.cs16-hit-feedback').isVisible());
-  const info=await page.evaluate(()=>__qa.hitEffects().metrics());assert(info.active>0,'visible confirmed target needs a world impact');reports.push({kind,...info});
+  const info=await page.evaluate(()=>__qa.hitEffects().metrics());assert(info.active>0,'visible confirmed target needs a world impact');
+  assert.equal(info.counts[1],kind==='armor'?2:0,'only armor contacts emit compact armor chips');reports.push({kind,...info});
   await page.screenshot({path:path.join(outputs,'anime-hit-'+kind+'.png')});
   await page.waitForTimeout(750);assert.equal(await page.locator('.cs16-hit-feedback').isVisible(),false);
  }
@@ -34,17 +35,19 @@ module.exports=async function(page,outputs,errors){
  assert.equal(await page.locator('.cs16-hit-feedback').isVisible(),false);
  const resources=await page.evaluate(()=>{
   const fx=__qa.hitEffects(),root=__qa.scene().getObjectByName('Confirmed target impacts');
-  const before=root.children.map(m=>[m.geometry.uuid,m.material.uuid,m.instanceMatrix.uuid||m.instanceMatrix.array.length]);
+  const before=root.children.map(m=>[m.geometry.uuid,m.material.uuid,m.instanceMatrix.uuid||m.instanceMatrix.array.length,m.instanceColor.uuid||m.instanceColor.array.length]);
+  const materials=root.children.map(m=>({name:m.name,geometry:m.geometry.type,depthTest:m.material.depthTest,depthWrite:m.material.depthWrite}));
   const target={x:__qa.snapshot().position[0],y:0,z:__qa.snapshot().position[2]+6};
-  for(let i=0;i<1500;i++)fx.confirm({target:'Target',by:'Preview',dmg:20,hp:80,head:i%2===0},target,true);
+  for(let i=0;i<1500;i++)fx.confirm({target:'Target',by:'Preview',dmg:20,hp:80,head:i%2===0,armorDamage:4,armorBreak:true},target,true);
   fx.update();const peak=fx.metrics();
   const ui=__qa.ui();ui.quality.value='low';ui.quality.onchange();fx.update();const low=fx.metrics();
-  const after=root.children.map(m=>[m.geometry.uuid,m.material.uuid,m.instanceMatrix.uuid||m.instanceMatrix.array.length]);fx.clear();
-  return {before,after,peak,low};
+  const after=root.children.map(m=>[m.geometry.uuid,m.material.uuid,m.instanceMatrix.uuid||m.instanceMatrix.array.length,m.instanceColor.uuid||m.instanceColor.array.length]);fx.clear();
+  return {before,after,materials,peak,low};
  });
- assert.deepEqual(resources.before,resources.after);assert(resources.peak.active<=12);assert(resources.low.active<=6);assert(resources.low.counts[2]<=18);
+ assert.deepEqual(resources.before,resources.after);assert.equal(resources.materials.length,3);assert(resources.peak.active<=12);assert(resources.peak.counts[1]<=24);assert(resources.low.active<=6);assert(resources.low.counts[1]<=6);assert(resources.low.counts[2]<=18);
+ assert(resources.materials.every(m=>m.geometry!=='RingGeometry'&&m.depthTest&&!m.depthWrite),'compact depth-tested impacts must not draw through walls');
  await page.evaluate(e=>__socket.receive('cs16_hit',e),event);
  await page.evaluate(()=>__qa.map('inferno'));await page.waitForFunction(()=>__qa.snapshot().ready&&__qa.snapshot().map==='inferno',null,{timeout:120000});
  assert.equal(await page.locator('.cs16-hit-feedback').count(),1,'map rebuild must dispose the previous HUD');assert.equal(await page.locator('.cs16-hit-feedback').isVisible(),false);
- assert.deepEqual(errors,[]);fs.writeFileSync(path.join(outputs,'hit-feedback-checks.json'),JSON.stringify({reports,resources},null,2));console.log('HIT_FEEDBACK_PASS: confirmed ray, body/armor/head/kill, expiry, remote hits, 1500-hit resource budget and map cleanup');
+ assert.deepEqual(errors,[]);fs.writeFileSync(path.join(outputs,'hit-feedback-checks.json'),JSON.stringify({reports,resources},null,2));console.log('HIT_FEEDBACK_PASS: confirmed ray, body/armor/head/kill, compact armor chips, expiry, remote hits, 1500-hit resource budget and map cleanup');
 };

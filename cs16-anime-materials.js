@@ -12,8 +12,16 @@
     function convert(m) {
       if (!m || /glass/i.test(m.name) || m.transparent && m.opacity < .5) return m;
       if (converted.has(m)) return converted.get(m);
+      const cloth=/textile|ripstop|leather|binding|cord|glove|sleeve|stitch/i.test(m.name),skin=/exposed fingers|fingernail|finger crease|nails/i.test(m.name),
+        brass=/brass|copper/i.test(m.name),metal=/steel|edges|receiver|alloy|graphite|mechanism/i.test(m.name)&&!cloth,
+        enamel=/enamel|ceramic|ivory/i.test(m.name),rubber=/rubber|grip|polymer/i.test(m.name)&&!enamel;
       const next = new (options.soft?T.MeshStandardMaterial:T.MeshToonMaterial)({
-        name: m.name, map: m.map, color: m.color, ...(options.soft?{roughness:/textile|ripstop|leather/i.test(m.name)?.84:/finger|nail/i.test(m.name)?.67:/enamel|ceramic/i.test(m.name)?.32:.38,normalMap:m.normalMap,normalScale:m.normalScale?.clone().multiplyScalar(/textile|ripstop/i.test(m.name)?.22:1),metalness:/steel|edges|brass|receiver|alloy/i.test(m.name)?.38:0,envMapIntensity:.58}:{gradientMap:ramp}),
+        name: m.name, map: m.map, color: m.color, ...(options.soft?{
+          roughness:cloth?.94:skin?.66:brass?.31:metal?.43:rubber?.88:enamel?.34:.62,
+          metalness:brass?.72:metal?.62:0,envMapIntensity:metal||brass?.72:.42,
+          normalMap:m.normalMap,normalScale:m.normalScale?.clone().multiplyScalar(cloth?.38:skin?.45:1),
+          roughnessMap:m.roughnessMap||null,aoMap:m.aoMap||null,aoMapIntensity:m.aoMapIntensity??1
+        }:{gradientMap:ramp}),
         ...(!options.soft && m.normalMap ? {normalMap:m.normalMap,normalScale:m.normalScale?.clone()} : {}),
         vertexColors: m.vertexColors, side: m.side, alphaTest: m.alphaTest,
         emissive: m.emissive, emissiveMap: m.emissiveMap,
@@ -37,10 +45,10 @@
           shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>',
             '#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=vec3(.86,.94,1.12);');
           if(options.soft)shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`float paintedRim=pow(1.-max(0.,dot(normal,normalize(vViewPosition))),3.);
-            outgoingLight+=diffuseColor.rgb*paintedRim*.15;
+            outgoingLight+=diffuseColor.rgb*paintedRim*${cloth?'.045':skin?'.10':'.12'};
             #include <opaque_fragment>`);
         };
-        next.customProgramCacheKey=()=> 'anime-surface-2-'+(plaster?'plaster':options.soft?'soft':'world');
+        next.customProgramCacheKey=()=> 'anime-surface-3-'+(plaster?'plaster':options.soft?(cloth?'cloth':skin?'skin':'soft'):'world');
       }
       converted.set(m, next);
       return next;

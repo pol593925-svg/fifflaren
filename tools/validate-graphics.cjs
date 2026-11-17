@@ -57,6 +57,12 @@ for(const item of animeWeapons){
  if(item.file==='anime-hands.glb')for(const name of ['rightHand','leftHand','leftCup','leftVertical'])assert(g.nodes.some(n=>n.name===name),'missing anime grip '+name);
 }
 const animeNature=glb('anime-nature.glb');
+const karambit=glb('anime-karambit.glb'),knifeHand=glb('anime-karambit-hand.glb');
+assert(fs.statSync(path.join(assets,'anime-karambit.glb')).size<512*1024);
+assert(fs.statSync(path.join(assets,'anime-karambit-hand.glb')).size<1024*1024);
+assert(karambit.nodes.some(n=>n.name==='weapon'&&n.extras?.spinPivot?.length===3),'karambit ring pivot');
+for(const name of ['rightHand','attackHand'])assert(knifeHand.nodes.some(n=>n.name===name),'karambit hand pose '+name);
+assert(html.indexOf('cs16-karambit.js')<html.indexOf('src="cs16.js"'),'karambit script load order');
 assert(animeNature.meshes.length<=12&&fs.statSync(path.join(assets,'anime-nature.glb')).size<3*1024*1024);
 for(const name of ['cs16-hit-feedback.js','cs16-loading.js','cs16-tactical-map.js','cs16-anime-materials.js','cs16-anime-nature.js','cs16-spell-effects.js'])assert(html.indexOf(name)>=0&&html.indexOf(name)<html.indexOf('src="cs16.js"'),'missing/late '+name);
 console.log('Anime: both complete layouts synchronized, 20 weapon/hand assets, nature and load order OK');

@@ -5,17 +5,19 @@
   let nextShotId=1;
   function create({T,scene,hud,camera,getQuality=()=> 'balanced',clock=()=>performance.now(),isVisible=()=>true}){
     const root=new T.Group();root.name='Confirmed target impacts';scene.add(root);
-    const capacity=12,slots=Array.from({length:capacity},()=>({born:-Infinity,pos:new T.Vector3(),kind:'body',scale:1,broken:false}));
+    const capacity=12,slots=Array.from({length:capacity},()=>({born:-Infinity,pos:new T.Vector3(),orientation:new T.Quaternion(),kind:'body',scale:1,broken:false,armored:false,axis:0,seed:0}));
     const pending=Array.from({length:32},()=>({born:-Infinity,target:'',weapon:'',point:new T.Vector3(),anchor:new T.Vector3()}));
     let cursor=0,pendingCursor=0,disposed=false,hudBorn=-Infinity,lastTarget='',total=0,lastKind='body',active=0;
-    const dummy=new T.Object3D(),color=new T.Color(),direction=new T.Vector3(),point=new T.Vector3();
+    const dummy=new T.Object3D(),color=new T.Color(),direction=new T.Vector3(),point=new T.Vector3(),viewInverse=new T.Quaternion();
+    const rayAngles=[-.94,-.48,-.13,.24,.61,1.02],raySpeeds=[.88,1.16,.7,1.04,.81,1.24];
     function shape(points){
       const vertices=[];
       for(let j=0;j<points.length;j++)vertices.push(0,0,0,...points[j],0,...points[(j+1)%points.length],0);
       const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.computeVertexNormals();return geo;
     }
-    const star=shape(Array.from({length:8},(_,j)=>{const a=j*Math.PI/4,r=j%2?.17:1;return [Math.cos(a)*r,Math.sin(a)*r];}));
+    const star=shape([[0,1],[.08,.21],[.62,.46],[.18,.04],[1,0],[.2,-.08],[.3,-.5],[.03,-.18],[0,-.8],[-.08,-.2],[-.72,-.3],[-.22,.04],[-.5,.52],[-.07,.24]]);
     const diamond=shape([[0,1],[.24,0],[0,-1],[-.24,0]]);
+    const shard=shape([[-.48,-.7],[.42,-.36],[.6,.55],[-.16,1],[-.57,.12]]);
     function pool(name,geometry,max){
       const material=new T.MeshBasicMaterial({transparent:true,opacity:.9,depthWrite:false,depthTest:true,blending:T.AdditiveBlending,toneMapped:false,side:T.DoubleSide,forceSinglePass:true});
       const mesh=new T.InstancedMesh(geometry,material,max);mesh.name=name;mesh.count=0;mesh.visible=false;mesh.frustumCulled=false;
@@ -24,8 +26,8 @@
       for(let i=0;i<max;i++)mesh.setColorAt(i,color.setHex(0xffffff));
       mesh.instanceColor.setUsage(T.DynamicDrawUsage);root.add(mesh);return mesh;
     }
-    const flashes=pool('Painted contact flashes',star,capacity),rings=pool('Armor and precision ripples',new T.RingGeometry(.88,1,28,1,.15,Math.PI*1.65),capacity*2),sparks=pool('Contact brush strokes',diamond,capacity*6);
-    const meshes=[flashes,rings,sparks];
+    const flashes=pool('Painted contact flashes',star,capacity),shards=pool('Armor contact shards',shard,capacity*2),sparks=pool('Directional contact strokes',diamond,capacity*6);
+    const meshes=[flashes,shards,sparks];
     let marker=null,value=null,label=null;
     if(hud){
       marker=document.createElement('div');marker.className='cs16-hit-feedback';marker.hidden=true;marker.setAttribute('aria-hidden','true');
@@ -67,34 +69,48 @@
       direction.copy(point).project(camera);
       if(direction.z<-1||direction.z>1||Math.abs(direction.x)>1.15||Math.abs(direction.y)>1.15)return true;
       if(!isVisible(point))return true;
+      // The impact plane and fan direction belong to this contact. Camera turns
+      // must not drag already-emitted particles around the target.
+      slot.orientation.copy(camera.quaternion);viewInverse.copy(camera.quaternion).invert();
+      direction.set(point.x-target.x,point.y-target.y-1.15*scale,point.z-target.z).applyQuaternion(viewInverse);
+      slot.seed=cursor*2.3999632297;
+      slot.axis=direction.x*direction.x+direction.y*direction.y>.006?Math.atan2(direction.y,direction.x):.6+Math.sin(slot.seed)*.45;
       direction.copy(camera.position).sub(point).normalize();point.addScaledVector(direction,.045);slot.pos.copy(point);
-      slot.scale=.18+Math.min(.14,camera.position.distanceTo(slot.pos)*.004);slot.kind=kind;slot.broken=!!event.armorBreak;slot.born=now;cursor++;
+      slot.scale=.13+Math.min(.07,camera.position.distanceTo(slot.pos)*.0018);slot.kind=kind;slot.broken=!!event.armorBreak;slot.armored=event.armorDamage>0||slot.broken;slot.born=now;cursor++;
       return true;
     }
-    function put(mesh,index,pos,size,stretch,rotation,tint,fade){
-      dummy.position.copy(pos);dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(rotation);dummy.scale.set(size,size*stretch,1);dummy.updateMatrix();
+    function put(mesh,index,pos,size,stretch,rotation,tint,fade,orientation){
+      dummy.position.copy(pos);dummy.quaternion.copy(orientation);dummy.rotateZ(rotation);dummy.scale.set(size,size*stretch,1);dummy.updateMatrix();
       mesh.setMatrixAt(index,dummy.matrix);mesh.setColorAt(index,color.setHex(tint).multiplyScalar(fade));
     }
     function update(){
       if(disposed)return;
-      const now=clock(),low=getQuality()==='low',limit=low?6:capacity;let nf=0,nr=0,ns=0;
+      const now=clock(),low=getQuality()==='low',limit=low?6:capacity;let nf=0,nr=0,ns=0;active=0;
       for(let i=0;i<slots.length;i++){
-        const slot=slots[i],age=(now-slot.born)/1000,life=slot.kind==='kill'?.48:slot.broken?.42:.34;
+        const slot=slots[i],age=(now-slot.born)/1000,life=slot.broken?.4:slot.kind==='kill'?.36:slot.armored?.32:slot.kind==='head'?.3:.26;
         if(i>=limit){slot.born=-Infinity;continue;}
         if(age<0||age>=life)continue;
-        const t=age/life,fade=(1-t)*(1-t),tint=styles[slot.kind].color,size=slot.scale*(.65+Math.sin(t*Math.PI)*.6);
-        put(flashes,nf++,slot.pos,size*(1-t*.65),1,Math.PI/4+i*.7,t<.16?0xfff9e8:tint,Math.max(0,1-t*3));
-        put(rings,nr++,slot.pos,slot.scale*(.35+Math.sqrt(t)*1.65),1,i+t*2,tint,fade*(slot.kind==='body'?.3:.75));
-        if(!low&&(slot.broken||slot.kind==='head'||slot.kind==='kill'))put(rings,nr++,slot.pos,slot.scale*(.25+t*2.6),.78,-i-t*3,tint,fade*.45);
+        active++;
+        const t=age/life,fade=(1-t)*(1-t),travel=1-Math.pow(1-t,2),tint=styles[slot.kind].color,core=1-age/.095;
+        // The bright contact disappears in 95 ms. Only thin strokes and small
+        // armor chips remain, leaving the target silhouette readable.
+        if(core>0)put(flashes,nf++,slot.pos,slot.scale*(.55+Math.sin(core*Math.PI)*.18),.85,slot.axis-.65,age<.032?0xfff9e8:tint,core*core,slot.orientation);
+        if(slot.armored){
+          const chips=low?1:2;
+          for(let j=0;j<chips;j++){
+            const angle=slot.axis+(j?-.85:.95),reach=slot.scale*(.12+travel*(slot.broken?2.35:1.65));
+            direction.set(Math.cos(angle)*reach,Math.sin(angle)*reach-slot.scale*t*t*1.5,0).applyQuaternion(slot.orientation).add(slot.pos);
+            put(shards,nr++,direction,slot.scale*(slot.broken?.19:.13)*(1-t*.7),1.5,slot.seed+(j?-1:1)*t*5,0xa5e8ff,fade*.8,slot.orientation);
+          }
+        }
         const rays=low?3:6;
         for(let j=0;j<rays;j++){
-          const angle=j*Math.PI*2/rays+i*.73,reach=slot.scale*(.3+(1-Math.pow(1-t,2))*3)*(j%2?.8:1.1);
-          direction.set(Math.cos(angle)*reach,Math.sin(angle)*reach-slot.scale*t*t*1.4,0).applyQuaternion(camera.quaternion).add(slot.pos);
-          put(sparks,ns++,direction,slot.scale*.065*(1-t),4.8,angle-Math.PI/2,tint,fade);
+          const ray=low?j*2:j,angle=slot.axis+rayAngles[ray]+Math.sin(slot.seed+ray)*.09,reach=slot.scale*(.12+travel*2.2)*raySpeeds[ray];
+          direction.set(Math.cos(angle)*reach,Math.sin(angle)*reach-slot.scale*t*t*.9,0).applyQuaternion(slot.orientation).add(slot.pos);
+          put(sparks,ns++,direction,slot.scale*.052*(1-t),3.8+Math.sin(t*Math.PI)*2.6,angle-Math.PI/2,age<.045?0xfff4d8:tint,fade,slot.orientation);
         }
       }
-      active=nf;
-      [nf,nr,ns].forEach((count,i)=>{const mesh=meshes[i];mesh.count=count;mesh.visible=count>0;if(count){mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;}});
+      for(let i=0;i<meshes.length;i++){const count=i===0?nf:i===1?nr:ns,mesh=meshes[i];mesh.count=count;mesh.visible=count>0;if(count){mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;}}
       if(marker&&!marker.hidden){
         const t=(now-hudBorn)/(lastKind==='kill'?700:460);
         if(t>=1)marker.hidden=true;

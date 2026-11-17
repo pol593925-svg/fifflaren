@@ -1,0 +1,145 @@
+[
+  {
+    "output": "rifle-ak-0.wav",
+    "source": "C_28P.wav",
+    "weapon": "AK-47",
+    "sourceStartSeconds": 0.6081666666666666,
+    "durationSeconds": 0.8,
+    "sourceSha256": "e0934c1d79192d2216db62fdf6ab57bf9d5d585267af367a1cfb21f0972a537d",
+    "sha256": "21725e32f0c3d815cb11cffb8781f143902527df4bfb37e3106c7b59a61160e3",
+    "bytes": 76844,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/AK-47/C_28P.wav"
+  },
+  {
+    "output": "rifle-ak-1.wav",
+    "source": "C_28P.wav",
+    "weapon": "AK-47",
+    "sourceStartSeconds": 3.2543854166666666,
+    "durationSeconds": 0.8,
+    "sourceSha256": "e0934c1d79192d2216db62fdf6ab57bf9d5d585267af367a1cfb21f0972a537d",
+    "sha256": "da67a0f176f05cbb7774a9b76efd539b5ea3d4c8dcc24af0493ea60cbae590d5",
+    "bytes": 76844,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/AK-47/C_28P.wav"
+  },
+  {
+    "output": "rifle-ar-0.wav",
+    "source": "D_32P.wav",
+    "weapon": "AR-15",
+    "sourceStartSeconds": 0.7007291666666666,
+    "durationSeconds": 0.8,
+    "sourceSha256": "acee9d2106b68fe5956225a19d7aedf943d97793817f9bda9d486a2b74b0a812",
+    "sha256": "be2bc7df31e2457393f9d55c54d2d471ee4174bf7f800e1d65ea155de309065d",
+    "bytes": 76844,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/AR-15/D_32P.wav"
+  },
+  {
+    "output": "rifle-ar-1.wav",
+    "source": "D_32P.wav",
+    "weapon": "AR-15",
+    "sourceStartSeconds": 5.644416666666666,
+    "durationSeconds": 0.8,
+    "sourceSha256": "acee9d2106b68fe5956225a19d7aedf943d97793817f9bda9d486a2b74b0a812",
+    "sha256": "3144eabafaf59f150a702d89db1f0befc7a830e32734725a1a04213ba40ec94d",
+    "bytes": 76844,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/AR-15/D_32P.wav"
+  },
+  {
+    "output": "smg-0.wav",
+    "source": "G_31P.wav",
+    "weapon": "Carl Gustav M45",
+    "sourceStartSeconds": 0.3072916666666667,
+    "durationSeconds": 0.65,
+    "sourceSha256": "5982c6c2fa44545b750ba6217ed57797a6a15c02f5c9943ac0e99e5f3ab2b158",
+    "sha256": "546c7e57041fc12d3b907cea025e4771714c94e45d05feed67d1436821c05d23",
+    "bytes": 62444,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Carl%20Gustav%20M45/G_31P.wav"
+  },
+  {
+    "output": "smg-1.wav",
+    "source": "G_31P.wav",
+    "weapon": "Carl Gustav M45",
+    "sourceStartSeconds": 3.49825,
+    "durationSeconds": 0.65,
+    "sourceSha256": "5982c6c2fa44545b750ba6217ed57797a6a15c02f5c9943ac0e99e5f3ab2b158",
+    "sha256": "c2cae701c3b1b2a445040e10889137d57001aeca07facaf1134591468a1b639d",
+    "bytes": 62444,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Carl%20Gustav%20M45/G_31P.wav"
+  },
+  {
+    "output": "smg-2.wav",
+    "source": "G_31P.wav",
+    "weapon": "Carl Gustav M45",
+    "sourceStartSeconds": 6.724760416666666,
+    "durationSeconds": 0.65,
+    "sourceSha256": "5982c6c2fa44545b750ba6217ed57797a6a15c02f5c9943ac0e99e5f3ab2b158",
+    "sha256": "3556037234cecf2d5ab2241e52a5390f2fd01204cb71b8687858b9b530e9191c",
+    "bytes": 62444,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Carl%20Gustav%20M45/G_31P.wav"
+  },
+  {
+    "output": "sniper-0.wav",
+    "source": "M_21P.wav",
+    "weapon": "Mosin Nagant",
+    "sourceStartSeconds": 1.0307916666666668,
+    "durationSeconds": 1.1,
+    "sourceSha256": "970ed2322ba61579dc8afaefb4f25e6ae791a3acb1e6e23372ea948cfe2a97b3",
+    "sha256": "d64ff22cf97a17bee85bec69752b85df27548828dd3e2292b2ca4d5ee0bb3bae",
+    "bytes": 105644,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Mosin%20Nagant/M_21P.wav"
+  },
+  {
+    "output": "sniper-1.wav",
+    "source": "M_21P.wav",
+    "weapon": "Mosin Nagant",
+    "sourceStartSeconds": 5.016770833333333,
+    "durationSeconds": 1.1,
+    "sourceSha256": "970ed2322ba61579dc8afaefb4f25e6ae791a3acb1e6e23372ea948cfe2a97b3",
+    "sha256": "8daf080c2296957cd9c9a8aacf36022e2412ecf73e7ba3d1e5a665cf97fd52ab",
+    "bytes": 105644,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Mosin%20Nagant/M_21P.wav"
+  },
+  {
+    "output": "sniper-2.wav",
+    "source": "M_21P.wav",
+    "weapon": "Mosin Nagant",
+    "sourceStartSeconds": 9.152625,
+    "durationSeconds": 1.1,
+    "sourceSha256": "970ed2322ba61579dc8afaefb4f25e6ae791a3acb1e6e23372ea948cfe2a97b3",
+    "sha256": "e316bdfcde8678fb0a53c920fcdcb8702ea66b78fe2d00f840072e4d672e359c",
+    "bytes": 105644,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Mosin%20Nagant/M_21P.wav"
+  },
+  {
+    "output": "pistol-0.wav",
+    "source": "X_39P.wav",
+    "weapon": "Walther PPQ",
+    "sourceStartSeconds": 1.4039270833333333,
+    "durationSeconds": 0.65,
+    "sourceSha256": "d679a3cd87eae2898d984159f83544392932e6b77526045b672e3aaa9c2dda9f",
+    "sha256": "3fc655c74da881556eb180e36bfe88aba6a46035f7315402bcecfd4f70f4d43c",
+    "bytes": 62444,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Walther%20PPQ/X_39P.wav"
+  },
+  {
+    "output": "pistol-1.wav",
+    "source": "X_39P.wav",
+    "weapon": "Walther PPQ",
+    "sourceStartSeconds": 6.4414375,
+    "durationSeconds": 0.65,
+    "sourceSha256": "d679a3cd87eae2898d984159f83544392932e6b77526045b672e3aaa9c2dda9f",
+    "sha256": "161be545392e42ef241561428d4cefa78688e50e7f3f14bde5f8ccf11421dbd0",
+    "bytes": 62444,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Walther%20PPQ/X_39P.wav"
+  },
+  {
+    "output": "pistol-2.wav",
+    "source": "X_39P.wav",
+    "weapon": "Walther PPQ",
+    "sourceStartSeconds": 10.657291666666667,
+    "durationSeconds": 0.65,
+    "sourceSha256": "d679a3cd87eae2898d984159f83544392932e6b77526045b672e3aaa9c2dda9f",
+    "sha256": "41dc4b44f87aa2267b9229658c0139ce0ebb9fdb2f93fefc44faea7768645431",
+    "bytes": 62444,
+    "download": "https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/firearm_sfx/Prepared%20SFX%20Library/Walther%20PPQ/X_39P.wav"
+  }
+]

@@ -223,10 +223,13 @@ def main():
             bpy.ops.object.modifier_apply(modifier=normal.name)
         # Count separate interactive covers as well as material batches.
         objects=[ob for ob in bpy.data.objects if ob.type=='MESH'];tris=0
+        import bake_map_contact_shading
+        contact_shading=bake_map_contact_shading.bake(objects)
         for ob in objects:ob.data.calc_loop_triangles();tris+=len(ob.data.loop_triangles)
         target=OUT/('anime-'+theme+'.glb')
-        bpy.ops.export_scene.gltf(filepath=str(target),export_format='GLB',export_yup=True,export_apply=False,export_animations=False,export_cameras=False,export_lights=False,export_extras=True,export_image_format='AUTO',export_materials='EXPORT')
-        manifest['maps'][theme]={'file':target.name,'bytes':target.stat().st_size,'triangles':tris,'meshBatches':len(objects),'layoutSha256':hashlib.sha256('\n'.join(rows).encode()).hexdigest()}
+        bpy.ops.export_scene.gltf(filepath=str(target),export_format='GLB',export_yup=True,export_apply=False,export_animations=False,export_cameras=False,export_lights=False,export_extras=True,export_image_format='AUTO',export_materials='EXPORT',export_vertex_color='ACTIVE',export_all_vertex_colors=False,export_active_vertex_color_when_no_material=True)
+        bake_map_contact_shading.pack_export(target)
+        manifest['maps'][theme]={'file':target.name,'bytes':target.stat().st_size,'triangles':tris,'meshBatches':len(objects),'layoutSha256':hashlib.sha256('\n'.join(rows).encode()).hexdigest(),'contactShading':contact_shading}
         print('ANIME_MAP',theme,json.dumps(manifest['maps'][theme]),flush=True)
     manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
 if __name__=='__main__':main()

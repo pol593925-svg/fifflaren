@@ -414,6 +414,8 @@
   const Combat = window.CS16Combat;
   for (const [id, profile] of Object.entries(Combat.weapons)) Object.assign(WEAPONS[id], profile);
   const BUY_ITEMS = [
+    { id: 'knife', meleeStyle: 'karambit', label: 'Керамбит · вращение на пальце', price: 0 },
+    { id: 'knife', meleeStyle: 'knife', label: 'Классический нож', price: 0 },
     { id: 'kevlar',     label: '🦺 Бронежилет',    price: 650 },
     { id: 'deagle',     label: '🔫 Desert Eagle',  price: 650 },
     { id: 'tec9',       label: '🔫 Tec-9 (T)',     price: 500 },
@@ -546,12 +548,24 @@
   }
 });
   GLB_MODELS.smokegrenade = GLB_MODELS.grenade;
-  let handsModel = null, combatArtPromise = null;
+  GLB_MODELS.karambit = {url:'models/csgo/karambit.glb',len:.25};
+  let meleeStyle='karambit',meleeSwing=0;
+  try{if(localStorage.getItem('cs16-melee-style')==='knife')meleeStyle='knife';}catch{}
+  const visualWeapon=(weapon,style=meleeStyle)=>weapon==='knife'&&style==='karambit'?'karambit':weapon;
+  function chooseMelee(style){
+    meleeStyle=style==='karambit'?'karambit':'knife';
+    try{localStorage.setItem('cs16-melee-style',meleeStyle);}catch{}
+    switchSlot('knife');refreshViewmodelSkin();renderBuyList();
+  }
+  let handsModel = null,karambitHandsModel=null, combatArtPromise = null;
   function loadCombatArt(onProgress=()=>{}) {
     const parts=[0,0,0],mark=(i,v)=>{parts[i]=v;onProgress(parts[0]*.7+parts[1]*.2+parts[2]*.1);};
     if (!combatArtPromise) combatArtPromise = Promise.all([
       loadGLBAll(v=>mark(0,v)), CS16Graphics.loadOperators(THREE).then(()=>mark(1,1)),
-      new THREE.GLTFLoader().loadAsync('models/csgo/anime-hands.glb').then(g => { handsModel = CS16AnimeMaterials.apply(THREE,g.scene,{soft:true});mark(2,1); })
+      Promise.all(['anime-hands.glb','anime-karambit-hand.glb'].map(file=>new THREE.GLTFLoader().loadAsync('models/csgo/'+file))).then(([normal,karambit]) => {
+        handsModel=CS16AnimeMaterials.apply(THREE,normal.scene,{soft:true});
+        karambitHandsModel=CS16AnimeMaterials.apply(THREE,karambit.scene,{soft:true});mark(2,1);
+      })
     ]).catch(error => { combatArtPromise = null; throw error; });
     return combatArtPromise.then(result=>{onProgress(1);return result;});
   }
@@ -798,7 +812,9 @@
   // Prepare real character, hand and optic shader variants behind the loading screen.
   // Keep the muzzle light at zero intensity so firing cannot change NUM_POINT_LIGHTS.
   async function warmCombatArt(epoch,onProgress=()=>{}){
-    await spatialAudio()?.prepare();
+    const context=ac();
+    if(context&&!footsteps)footsteps=CS16Footsteps.create(context);
+    await Promise.all([spatialAudio()?.prepare(),footsteps?.prepare()]);
     if(epoch!==worldLoadEpoch)return;
     const activeScene=scene,fx=magicView,preview=new THREE.Group(),holds=[],guns=[],batches=[],bodies=[];
     const shadows=renderer3.shadowMap.enabled,optical=fieldOptical||=CS16FieldView.optic(THREE);
@@ -815,7 +831,7 @@
         const batch=CS16OperatorBatch.create(THREE,body,id);if(batch)batches.push(batch);bodies.push(body);preview.add(body);
       }
       const pets=[];for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet){pets.push(pet);preview.add(pet);}}
-      for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',id==='m4a1'?1.8:1);guns.push(gun);preview.add(gun);}
+      for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',['m4a1','karambit'].includes(id)?1.8:1,false,'knife');if(gun.userData.karambit?.attackHand)gun.userData.karambit.attackHand.visible=true;guns.push(gun);preview.add(gun);}
       const worldGun=buildGun('m4a1','',1,true);guns.push(worldGun);preview.add(worldGun);
       const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh||o.isSprite)o.frustumCulled=false;});
       // Compile every variant, then upload representative effects and the full arsenal.
@@ -933,7 +949,7 @@
       assets.catch(() => {});
       // Architecture is already batched in the new GLB; create the legacy fallback only if needed.
       environmentView=CS16EnvironmentView.create({T:THREE,scene,grid,map:curMap,hud:ui.hud,getPlayer:()=>P,getActive:()=>state.phase==='live'&&me.alive&&!myVeh?.inside,getQuality:()=>graphicsQuality});
-      fieldEffects=CS16FieldEffects.create(THREE,scene,grid,()=>graphicsQuality,debrisFloor);
+      fieldEffects=CS16FieldEffects.create(THREE,scene,grid,()=>graphicsQuality,debrisFloor,camera);
       hitFeedback=CS16HitFeedback.create({T:THREE,scene,hud:ui.hud,camera,getQuality:()=>graphicsQuality,isVisible:pos=>losClear(P.x,P.y+eyeH(),P.z,pos.x,pos.y,pos.z)&&!smokeBlocks(P.x,P.y+eyeH(),P.z,pos.x,pos.y,pos.z)});
       fieldProps = CS16Props.create(THREE,scene,grid,curMap);
       conquestUI = CS16ConquestUI.create({T:THREE,scene,camera,hud:ui.hud,grid,getState:()=>state,getMe:()=>me,getPlayer:()=>P,getNick:()=>myNick,now:()=>Date.now()+clockOffset,send:(name,data)=>sock&&sock.emit(name,data),message:text=>killfeed(esc(text)),lock:blocked=>{for(const key of Object.keys(keys))keys[key]=false;unlockForShop=blocked;if(blocked){if(document.pointerLockElement)document.exitPointerLock();}else if(me.alive&&state.phase==='live'&&!document.pointerLockElement)canvasEl.requestPointerLock()?.catch(()=>{});}});
@@ -947,6 +963,7 @@
       loadScreen?.progress(80,'shaders');
       await warmCombatArt(epoch,value=>{if(epoch===worldLoadEpoch)loadScreen?.progress(80+value*18,'shaders');});
       if(epoch===worldLoadEpoch)await hitFeedback?.warm(renderer3);
+      if(epoch===worldLoadEpoch)await fieldEffects?.warm(renderer3);
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
       renderer3.render(scene, camera);
@@ -1281,6 +1298,7 @@
   let buyTab = 'rifle';
   const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение']];
   function buyTabOf(it) {
+    if(it.meleeStyle)return 'gear';
     if (it.id === 'hegrenade' || it.id === 'flashbang' || it.id === 'smokegrenade') return 'nade';
     if (it.id === 'kevlar' || it.id === 'defuser') return 'gear';
     if (['deagle','tec9','fiveseven','elite'].indexOf(it.id) >= 0) return 'pist';
@@ -1314,8 +1332,9 @@
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
       b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
       if (dis) b.disabled = true;
-      if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent=w.rocket?'Взрывной урон · 4 ракеты · радиус 6 м':'Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
-      b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
+      if(it.meleeStyle){b.textContent=it.label+(meleeStyle===it.meleeStyle?' · Выбран':' · Бесплатно');b.dataset.meleeStyle=it.meleeStyle;b.setAttribute('aria-pressed',String(meleeStyle===it.meleeStyle));}
+      else if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent=w.rocket?'Взрывной урон · 4 ракеты · радиус 6 м':'Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
+      b.onclick = () => { if(it.meleeStyle)chooseMelee(it.meleeStyle);else sock && sock.emit('cs16_buy', it.id); };
     }
     if (!items.length) ui.buyList.innerHTML = '<div style="color:#777;font:12px monospace;padding:8px">В этой вкладке пусто</div>';
   }
@@ -1551,6 +1570,7 @@
       if (s.now) clockOffset = s.now - Date.now();
       const my = s.players.find(p => p.nick === myNick);
       if (my) { me.team = my.team; me.money = my.money; me.alive=!!my.alive&&!!my.team; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
+      for(const p of s.players){const r=remotes.get(p.nick);if(r){r.meleeStyle=p.meleeStyle==='karambit'?'karambit':'knife';if(r.meleeSwing==null)r.meleeSwing=p.meleeSwing||0;}}
       // 3.24.0: смена карты — пересобираем мир
       if (s.map && s.map !== curMap && typeof rebuildWorld === 'function') rebuildWorld(s.map);
       loadScreen?.state(s,sock?.id);
@@ -1633,6 +1653,7 @@
         if (!pl || pl.nick === myNick) continue;
         spawnNicks.add(pl.nick);
         const r = addRemote(pl.nick, pl.team);
+        r.meleeStyle=pl.meleeStyle==='karambit'?'karambit':'knife';
         r.alive = true; // 3.15.2: воскрешаем модельки на новый раунд
         r.group.rotation.z = 0;
         r.x = r.tx = s.pos[0]; r.y = r.ty = s.pos[1] - EYE; r.z = r.tz = s.pos[2];
@@ -1656,14 +1677,16 @@
       let r = remotes.get(d.nick);
       const characterId=CS16Characters.normalize(d.characterId);
       if (!r) r = addRemote(d.nick, d.team,characterId);
-      else if(r.characterId!==characterId||r.team!==d.team){const old=r;r=addRemote(d.nick,d.team,characterId);for(const k of ['x','y','z','tx','ty','tz','yaw','tyaw','pitch','tpitch','alive','moving','crouched','walkPhase','weapon','skin'])r[k]=old[k];r.group.position.set(r.x,r.y,r.z);}
+      else if(r.characterId!==characterId||r.team!==d.team){const old=r;r=addRemote(d.nick,d.team,characterId);for(const k of ['x','y','z','tx','ty','tz','yaw','tyaw','pitch','tpitch','alive','moving','crouched','walkPhase','weapon','skin','meleeStyle','meleeAt','meleeSwing'])r[k]=old[k];r.group.position.set(r.x,r.y,r.z);}
 
       r.tx = d.pos[0]; r.ty = d.pos[1]; r.tz = d.pos[2];
-      r.tyaw = d.yaw; r.tpitch = d.pitch; r.weapon = d.weapon; r.skin = d.skin || ''; r.lastSeen = performance.now();
+      r.tyaw = d.yaw; r.tpitch = d.pitch; r.weapon = d.weapon; r.skin = d.skin || ''; r.meleeStyle=d.meleeStyle==='karambit'?'karambit':'knife';r.lastSeen = performance.now();
+      if(Number.isSafeInteger(d.meleeSwing)){if(r.meleeSwing!=null&&d.meleeSwing!==r.meleeSwing&&d.weapon==='knife')r.meleeAt=performance.now();r.meleeSwing=d.meleeSwing;}
       r.moving = !!d.move; r.crouched = !!d.crouched;
     });
     sock.on('cs16_shoot', (d) => {
       const r = remotes.get(d.nick);
+      if(r&&WEAPONS[d.weapon]?.melee)r.meleeAt=performance.now();
       if (r) { r.muzzle = WEAPONS[d.weapon]?.melee ? 0 : performance.now(); }
       if (WEAPONS[d.weapon] && !WEAPONS[d.weapon].melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(200,d.distance)) : 60, true);
       sfxShot(d.weapon,d.origin);
@@ -1880,23 +1903,25 @@
   }
   // Оружие в руках пересобираем при смене оружия/скина
   function setRemoteGun(r) {
-    const hasGlb = !!(glbCache[r.weapon || 'usp'] && glbCache[r.weapon || 'usp'].model);
-    if (r.gunWeapon === r.weapon && r.gunSkin === r.skin && r.gunGlb === hasGlb) return;
-    r.gunWeapon = r.weapon; r.gunSkin = r.skin; r.gunGlb = hasGlb;
+    const visual=visualWeapon(r.weapon||'usp',r.meleeStyle||'knife'),hasGlb=!!glbCache[visual]?.model;
+    if (r.gunWeapon === visual && r.gunSkin === r.skin && r.gunGlb === hasGlb) return;
+    r.gunWeapon = visual; r.gunSkin = r.skin; r.gunGlb = hasGlb;
     if (r.gun) { disposeGun(r.gun); r.gunHolder.remove(r.gun); }
-    r.gun = buildGun(r.weapon || 'usp', r.skin, 1, true);
+    r.gun = buildGun(r.weapon || 'usp', r.skin, 1, true,r.meleeStyle||'knife');
     r.gunHolder.add(r.gun);
     const grip=r.gun.userData.grip;if(grip)r.muzzleFx.position.set(grip.bore[0]-grip.right[0],grip.bore[1]-grip.right[1],grip.bore[2]-grip.right[2]-.03);
   }
   // Модель оружия из примитивов по мотивам CS:GO (АК с изогнутым магазином, AWP с прицелом и затвором),
   // красится скином. scale>1.5 — вид от первого лица (более детально).
-  function buildGun(weapon, skin, scale, world = false) {
+  function buildGun(weapon, skin, scale, world = false,style=meleeStyle) {
     const group = new THREE.Group();
-    const model = glbGunClone(WEAPONS[weapon]?weapon:'usp', skin, world);
+    const visual=visualWeapon(weapon,style);
+    const model = glbGunClone(glbCache[visual]?visual:'usp', skin, world);
     if (model) group.add(model);
     if(model){
-      CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon);
-      if(scale>1.5){CS16Grip.fitHands(group,handsModel);group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
+      CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon==='karambit'?'knife':weapon);
+      if(visual==='karambit')CS16Karambit.bind(THREE,group,model.getObjectByName('weaponBasis'),scale>1.5);
+      if(scale>1.5){if(!CS16Karambit.fitHands(THREE,group,karambitHandsModel))CS16Grip.fitHands(group,handsModel);group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
     }
     return group;
   }
@@ -2211,8 +2236,9 @@
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
-    if (vmWeapon !== current || vmSkin !== mySkin || vmGlb !== !!(glbCache[current] && glbCache[current].model)) {
-      vmWeapon = current; vmSkin = mySkin; vmGlb = !!(glbCache[current] && glbCache[current].model);
+    const visual=visualWeapon(current),hasGlb=!!glbCache[visual]?.model;
+    if (vmWeapon !== visual || vmSkin !== mySkin || vmGlb !== hasGlb) {
+      vmWeapon = visual; vmSkin = mySkin; vmGlb = hasGlb;
       if (vm) { disposeGun(vm); camera.remove(vm); }
       vm = buildGun(current, mySkin, 1.8);
       if(CS16FieldView.supported(current)&&vm.userData.grip){
@@ -2229,6 +2255,7 @@
     const ads=vm.userData.reticle&&fieldAim&&pointerLocked&&me.alive&&!reloading&&!myVeh?.inside&&CS16FieldView.supported(current);
     fieldAimMix+=((ads?1:0)-fieldAimMix)*Math.min(1,dt*16);
     CS16FieldView.frame(vm.position,fieldAimMix,true,vm.userData.grip);
+    if(vm.userData.karambit){vm.position.x+=.04;vm.position.y+=.095;vm.position.z-=.20;}
     vm.position.y+=(moving?Math.abs(Math.sin(t/110))*.011:0)*(1-fieldAimMix);
     vm.position.x+=(moving?Math.sin(t/220)*.007:0)*(1-fieldAimMix);
     const dot=vm.userData.reticle;if(dot)dot.visible=ads&&fieldAimMix>.92;
@@ -2253,6 +2280,7 @@
     const progress=reloading>0?1-reloading/WEAPONS[current].reload:-1;
     const inspect=Math.max(0,(t-inspectStart)/2300);
     CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastFiredAt)/1000),inspect<1?inspect:0);
+    CS16Karambit.update(vm,dt,t/1000,lastFiredAt/1000);
     CS16FieldView.align(vm,dot,Math.min(1,Math.max(0,(fieldAimMix-.72)/.20)),sightPoint);
     if(!ads&&!reloading){const cast=magicView?.gesture(t)||0;vm.position.y-=cast*.045;vm.rotation.z+=cast*.035;const hand=vm.userData.animation?.leftHand;if(hand&&cast>0){hand.n.position.y+=cast*.012;hand.n.position.x-=cast*.015;hand.n.position.z-=cast*.045;hand.n.rotation.z-=cast*.08;hand.n.rotation.x-=cast*.06;}}
     vm.visible = frontSeat==null&&me.alive && !conquestUI?.blocked && !scoped && !(myVeh && myVeh.inside);
@@ -2300,6 +2328,8 @@
     const now = performance.now();
     if (reloading > 0 || now - lastShot < 900) return;
     lastShot = now;
+    lastFiredAt=now;
+    meleeSwing=(meleeSwing+1)&2147483647;
     vmKickVelocity=18;
     sfxShot('knife');
     const d = dirFromCam();
@@ -2337,6 +2367,7 @@
       fieldEffects?.eject([P.x,P.y+eyeH(),P.z],dirFromCam(),port);
     }
     if (w.melee) {
+      meleeSwing=(meleeSwing+1)&2147483647;
       // нож: короткая дистанция
       const d = dirFromCam();
       const wall=rayWall(P.x,P.y+eyeH(),P.z,...d,2.4);
@@ -2936,7 +2967,7 @@
     const a = ammo[current];
     ui.ammo.textContent = w.melee ? '∞' : (a ? `${a.mag} / ${a.reserve}` : '');
     ui.nadeTxt.textContent = `HE  ${nades.he}    FLASH  ${nades.flash}    SMOKE  ${nades.smoke}`;
-    ui.weaponName.textContent = w.name;
+    ui.weaponName.textContent = current==='knife'&&meleeStyle==='karambit'?'Керамбит':w.name;
     ui.location.textContent = MAP_META[curMap].name.toUpperCase();
     ui.bearing.textContent=CS16FieldView.bearing(P.yaw);
     ui.crosshair.style.display = (scoped || !me.alive || fieldAimMix>.92) ? 'none' : 'block';
@@ -3099,6 +3130,7 @@
         r.legR.rotation.x = -sw;
         r.armL.rotation.x=0;r.armR.rotation.x=0;
         r.hold.update(r.gun,r.pitch,Math.max(0,1-(performance.now()-r.muzzle)/160),r.moving?Math.abs(sw)*.035:0);
+        CS16Karambit.update(r.gun,dt,t/1000,(r.meleeAt||-Infinity)/1000);
         const bob = r.moving ? Math.abs(Math.sin(r.walkPhase)) * 0.05 : 0;
         r.torso.position.y = 1.18 + bob;
         r.head.position.y = 1.72 + bob;
@@ -3194,7 +3226,7 @@
     if (posAcc > 1 / 15 && sock && sock.connected && me.alive) {
       posAcc = 0;
       const moving = keys.w || keys.a || keys.s || keys.d;
-      sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin });
+      sock.emit('cs16_pos', { pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3), weapon: current, move: !!moving, crouched:!!P.crouched, skin: mySkin,meleeStyle,meleeSwing });
     }
     environmentView?.update(dt,t,camera);fieldEffects?.update(dt);hitFeedback?.update();
     if(t-lastDust>140){const vehicles=myVeh?[myVeh,...vehs.values()]:[...vehs.values()];for(const v of vehicles){

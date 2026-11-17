@@ -1,0 +1,174 @@
+{
+  "source": "https://kenney.nl/assets/impact-sounds",
+  "archiveSha256": "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8",
+  "files": [
+    {
+      "output": "footstep_concrete_000.ogg",
+      "archivePath": "Audio/footstep_concrete_000.ogg",
+      "bytes": 5808,
+      "sha256": "d7267e183067757c92c169de2a379abea592cfca6b39bb2e8feea15221ad79fe"
+    },
+    {
+      "output": "footstep_concrete_001.ogg",
+      "archivePath": "Audio/footstep_concrete_001.ogg",
+      "bytes": 6308,
+      "sha256": "507a75eb19b897087855a3be3cf11a12d7fa37d143ad535eeebe0b8031c7325d"
+    },
+    {
+      "output": "footstep_concrete_002.ogg",
+      "archivePath": "Audio/footstep_concrete_002.ogg",
+      "bytes": 6255,
+      "sha256": "b21fa546d74941196b25da8a20b7010abd8c05c4fcf93545d1f344e66a664e13"
+    },
+    {
+      "output": "footstep_concrete_003.ogg",
+      "archivePath": "Audio/footstep_concrete_003.ogg",
+      "bytes": 5805,
+      "sha256": "8b513c2f0316324060b9174b8f28df6c2147418c506e6a53b77f18e149a5547b"
+    },
+    {
+      "output": "footstep_grass_000.ogg",
+      "archivePath": "Audio/footstep_grass_000.ogg",
+      "bytes": 8290,
+      "sha256": "9d49497777405d78d7cf7f2888e28277f3a23192300cfd1d79d54876b20f479f"
+    },
+    {
+      "output": "footstep_grass_001.ogg",
+      "archivePath": "Audio/footstep_grass_001.ogg",
+      "bytes": 8313,
+      "sha256": "fb28781bd22b2eefdc14077f1adf5c94d7fe9c3a130194633b55f3e0d39d9f04"
+    },
+    {
+      "output": "footstep_grass_002.ogg",
+      "archivePath": "Audio/footstep_grass_002.ogg",
+      "bytes": 8278,
+      "sha256": "73a520139f5be716a403bfe9c80e0e94d1e61d8e9de04a354b336392164b53dc"
+    },
+    {
+      "output": "footstep_grass_003.ogg",
+      "archivePath": "Audio/footstep_grass_003.ogg",
+      "bytes": 8129,
+      "sha256": "0546e1d8ab2def714425701a18bd34c5ee2794b12e858e5b595aabcf38a34137"
+    },
+    {
+      "output": "footstep_wood_000.ogg",
+      "archivePath": "Audio/footstep_wood_000.ogg",
+      "bytes": 5949,
+      "sha256": "5f1c252942a220d658121bd9417448cd19649ded9fff2ff15f6e50899373ce8e"
+    },
+    {
+      "output": "footstep_wood_001.ogg",
+      "archivePath": "Audio/footstep_wood_001.ogg",
+      "bytes": 5929,
+      "sha256": "e4f68e1c9fd55b4dc8ca89ed2bbab6f200171bc54bdc18aa96b80d8e7336f462"
+    },
+    {
+      "output": "footstep_wood_002.ogg",
+      "archivePath": "Audio/footstep_wood_002.ogg",
+      "bytes": 5895,
+      "sha256": "9ff095b05cee5eec40b081defe3f0eef7232bb16d4865ce03b9f6dbab875cfdd"
+    },
+    {
+      "output": "footstep_wood_003.ogg",
+      "archivePath": "Audio/footstep_wood_003.ogg",
+      "bytes": 6207,
+      "sha256": "2a68a083daa9eda08fed0ea5da5280dfbe0de226196c576be02f95259dd139d9"
+    },
+    {
+      "output": "impactGeneric_light_000.ogg",
+      "archivePath": "Audio/impactGeneric_light_000.ogg",
+      "bytes": 5827,
+      "sha256": "f0e982611e97512fee5f777986b67e8b435434b601f94992ec044f7e89fb5acb"
+    },
+    {
+      "output": "impactGeneric_light_001.ogg",
+      "archivePath": "Audio/impactGeneric_light_001.ogg",
+      "bytes": 5636,
+      "sha256": "c3cd1c073d186ae8fa35788ba94de581f1826e7427a7bb26490b2695fac18efa"
+    },
+    {
+      "output": "impactGeneric_light_002.ogg",
+      "archivePath": "Audio/impactGeneric_light_002.ogg",
+      "bytes": 5795,
+      "sha256": "d0bf60905b59ff630ffe01eb0edeeacd2504eaa8fb6523aeef7d2458b78264d3"
+    },
+    {
+      "output": "impactGeneric_light_003.ogg",
+      "archivePath": "Audio/impactGeneric_light_003.ogg",
+      "bytes": 5792,
+      "sha256": "0e8896706130f6bc88cdf1f0157aaacdbe88dce86cf0330f9136e44eb1209e81"
+    },
+    {
+      "output": "impactGlass_medium_000.ogg",
+      "archivePath": "Audio/impactGlass_medium_000.ogg",
+      "bytes": 8400,
+      "sha256": "9252d50bfb85edb17d6073c4a7806e10cdb9de56d3dbfc93a4b9727146d2df6d"
+    },
+    {
+      "output": "impactGlass_medium_001.ogg",
+      "archivePath": "Audio/impactGlass_medium_001.ogg",
+      "bytes": 8605,
+      "sha256": "d3d806cb3012c9ddd87010b30295ccb74d6d8b690077d19e67afd09a9d8feb03"
+    },
+    {
+      "output": "impactGlass_medium_002.ogg",
+      "archivePath": "Audio/impactGlass_medium_002.ogg",
+      "bytes": 8341,
+      "sha256": "48616f22c95589ed9fe55babf0fd012721d7b2ef1b9e85c2ad6408a2cd7c164f"
+    },
+    {
+      "output": "impactGlass_medium_003.ogg",
+      "archivePath": "Audio/impactGlass_medium_003.ogg",
+      "bytes": 8596,
+      "sha256": "dccea1ecc3d942ee5fd217c684632638f6c039c97cd3ae59c75ab15d0c3f0b59"
+    },
+    {
+      "output": "impactMetal_heavy_000.ogg",
+      "archivePath": "Audio/impactMetal_heavy_000.ogg",
+      "bytes": 6110,
+      "sha256": "e07045693e4a2b3d165c424e3dab4c781d9ff8880a386880ac89a51315d7f831"
+    },
+    {
+      "output": "impactMetal_heavy_001.ogg",
+      "archivePath": "Audio/impactMetal_heavy_001.ogg",
+      "bytes": 7279,
+      "sha256": "83554049f81f4db9209379e103c30bfa63f65c42189a03f300b045c2c82e23ae"
+    },
+    {
+      "output": "impactMetal_heavy_002.ogg",
+      "archivePath": "Audio/impactMetal_heavy_002.ogg",
+      "bytes": 5634,
+      "sha256": "b914c8f1eb7c0f34bb165d7c77f4be0351f6be0660c13c53e65424e262e2c093"
+    },
+    {
+      "output": "impactMetal_heavy_003.ogg",
+      "archivePath": "Audio/impactMetal_heavy_003.ogg",
+      "bytes": 6209,
+      "sha256": "b0f2ba4dabde9a87eb9c188a19d31e0c2300fd321adeba08d3b9b8aa011d7037"
+    },
+    {
+      "output": "impactWood_heavy_000.ogg",
+      "archivePath": "Audio/impactWood_heavy_000.ogg",
+      "bytes": 6233,
+      "sha256": "15ff82332f342c30e469215539e1cc57e11b221aa2cf7e11e811d313a9927f3d"
+    },
+    {
+      "output": "impactWood_heavy_001.ogg",
+      "archivePath": "Audio/impactWood_heavy_001.ogg",
+      "bytes": 6239,
+      "sha256": "f1b07a53ac10c615fff9ba470511fdeb722b5902e1a8520759fc20ad6f546015"
+    },
+    {
+      "output": "impactWood_heavy_002.ogg",
+      "archivePath": "Audio/impactWood_heavy_002.ogg",
+      "bytes": 6146,
+      "sha256": "ce1e06f2a05f2634c645cb72f6a1623e64bc2d92be34917430a61031fb6597d4"
+    },
+    {
+      "output": "impactWood_heavy_003.ogg",
+      "archivePath": "Audio/impactWood_heavy_003.ogg",
+      "bytes": 6181,
+      "sha256": "af07511902b309b3f6d8f0e1fafbe93869127fb88099ebdc0aa6a00a98dc3cb0"
+    }
+  ]
+}

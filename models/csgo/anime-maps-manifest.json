@@ -5,17 +5,147 @@
   "maps": {
     "dust2": {
       "file": "anime-dust2.glb",
-      "bytes": 36978848,
+      "bytes": 26214400,
       "triangles": 390007,
       "meshBatches": 87,
-      "layoutSha256": "b207403e862acf968e8cf57fa531c5896a1c921a18e948c59260944dc4eb689d"
+      "layoutSha256": "b207403e862acf968e8cf57fa531c5896a1c921a18e948c59260944dc4eb689d",
+      "contactShading": {
+        "method": "short-range cosine hemisphere BVH vertex AO",
+        "samples": 16,
+        "radiusMeters": 0.48,
+        "biasMeters": 0.006,
+        "maximumDarkening": 0.28,
+        "shadedCorners": 427884,
+        "sampledCorners": 596338,
+        "meanFactor": 0.90547,
+        "minimumFactor": 0.72,
+        "materials": {
+          "ceramic": {
+            "meanFactor": 0.96044,
+            "minimumFactor": 0.79272
+          },
+          "ground": {
+            "meanFactor": 0.96605,
+            "minimumFactor": 0.84
+          },
+          "limestone": {
+            "meanFactor": 0.87117,
+            "minimumFactor": 0.72
+          },
+          "plaster": {
+            "meanFactor": 0.9068,
+            "minimumFactor": 0.72
+          },
+          "plaster_blue": {
+            "meanFactor": 0.90497,
+            "minimumFactor": 0.72
+          },
+          "plaster_light": {
+            "meanFactor": 0.90378,
+            "minimumFactor": 0.72
+          },
+          "roof": {
+            "meanFactor": 0.96033,
+            "minimumFactor": 0.72
+          },
+          "shutter": {
+            "meanFactor": 0.96957,
+            "minimumFactor": 0.72287
+          },
+          "steel": {
+            "meanFactor": 0.96076,
+            "minimumFactor": 0.73677
+          },
+          "trim": {
+            "meanFactor": 0.87894,
+            "minimumFactor": 0.72
+          },
+          "tunnel": {
+            "meanFactor": 0.8309,
+            "minimumFactor": 0.72
+          },
+          "window_glass": {
+            "meanFactor": 0.81497,
+            "minimumFactor": 0.72
+          },
+          "wood": {
+            "meanFactor": 0.9148,
+            "minimumFactor": 0.72
+          }
+        }
+      }
     },
     "inferno": {
       "file": "anime-inferno.glb",
-      "bytes": 37045432,
+      "bytes": 26278488,
       "triangles": 391097,
       "meshBatches": 86,
-      "layoutSha256": "8e9f2308f95430da98ec18c5facc7f89b40e381637febb951d16c07a802af971"
+      "layoutSha256": "8e9f2308f95430da98ec18c5facc7f89b40e381637febb951d16c07a802af971",
+      "contactShading": {
+        "method": "short-range cosine hemisphere BVH vertex AO",
+        "samples": 16,
+        "radiusMeters": 0.48,
+        "biasMeters": 0.006,
+        "maximumDarkening": 0.28,
+        "shadedCorners": 425764,
+        "sampledCorners": 593792,
+        "meanFactor": 0.9055,
+        "minimumFactor": 0.72,
+        "materials": {
+          "ceramic": {
+            "meanFactor": 0.96044,
+            "minimumFactor": 0.79272
+          },
+          "ground": {
+            "meanFactor": 0.96561,
+            "minimumFactor": 0.84
+          },
+          "limestone": {
+            "meanFactor": 0.8715,
+            "minimumFactor": 0.72
+          },
+          "plaster": {
+            "meanFactor": 0.90688,
+            "minimumFactor": 0.72
+          },
+          "plaster_blue": {
+            "meanFactor": 0.90491,
+            "minimumFactor": 0.72
+          },
+          "plaster_light": {
+            "meanFactor": 0.90362,
+            "minimumFactor": 0.72
+          },
+          "roof": {
+            "meanFactor": 0.95998,
+            "minimumFactor": 0.72
+          },
+          "shutter": {
+            "meanFactor": 0.96923,
+            "minimumFactor": 0.72287
+          },
+          "steel": {
+            "meanFactor": 0.96084,
+            "minimumFactor": 0.73677
+          },
+          "trim": {
+            "meanFactor": 0.8788,
+            "minimumFactor": 0.72
+          },
+          "tunnel": {
+            "meanFactor": 0.8309,
+            "minimumFactor": 0.72
+          },
+          "window_glass": {
+            "meanFactor": 0.81691,
+            "minimumFactor": 0.72
+          },
+          "wood": {
+            "meanFactor": 0.91508,
+            "minimumFactor": 0.72
+          }
+        }
+      }
     }
   }
 }

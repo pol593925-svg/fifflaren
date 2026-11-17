@@ -14,7 +14,7 @@
   async function group(name){
     for(const el of document.getElementById('game-scripts-'+name).content.querySelectorAll('script[src]'))await script(el.getAttribute('src'));
   }
-  function configure(cfg){session=cfg;window.HubVoxels?.configure(cfg);window.HubRoyale?.configure(cfg);}
+  function configure(cfg){session=cfg;window.HubVoxels?.configure(cfg);window.HubRoyale?.configure(cfg);window.__cs16Configure?.(cfg);}
   async function open(id,nick){
     if(opening.has(id))return opening.get(id);
     const tab=document.getElementById('tab-'+id);
@@ -24,7 +24,7 @@
       try{
         await group('engine');await group(id);
         if(!session||!tab.classList.contains('active')){message.remove();return;}
-        if(id==='cs16'){window.HubRoyale?.configure(session);window.__cs16Open(nick);}
+        if(id==='cs16'){window.HubRoyale?.configure(session);window.__cs16Configure?.(session);window.__cs16Open(nick);}
         else{window.HubVoxels.configure(session);window.HubVoxels.open();}
       }catch(e){
         message.textContent=e.message+'. ';const retry=document.createElement('button');retry.textContent='Попробовать ещё раз';
@@ -34,6 +34,6 @@
     })();
     opening.set(id,task);return task;
   }
-  async function close(){session=null;window.HubRoyale?.close();await window.HubVoxels?.leave();}
+  async function close(){session=null;window.__cs16Configure?.(null);window.HubRoyale?.close();await window.HubVoxels?.leave();}
   window.HubGames={configure,open,close};
 })();

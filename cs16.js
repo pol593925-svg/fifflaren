@@ -6,6 +6,7 @@
   'use strict';
 
   const SERVER = 'https://support-hub-server-v3.onrender.com';
+  let privateSessionToken='',adminTools=null,lastAdminAim=0;
 
   // ---------- КАРТА (сетка 126x126, ячейка 4 юнита; 3.31.0: карта увеличена в 3 раза) ----------
   const MW = 126, MH = 126, CELL = 4;
@@ -1287,6 +1288,7 @@
       try{localStorage.setItem('cs16-graphics-quality',qualityMode);}catch{}
       adaptive.setMode(qualityMode);
     };
+    adminTools=CS16AdminTools.create({T:THREE,menu:ew,hud:ui.hud,send:flags=>sock?.connected&&sock.emit('cs16_admin_tools',flags)});
     loadScreen=CS16Loading.create({parent:r,getMap:()=>curMap,getNick:()=>myNick,
       send:data=>{if(sock?.connected)sock.emit('cs16_load_progress',data);},
       leave:()=>{sock?.emit('cs16_team',null);loadScreen.dismiss();me.team=null;renderLobby();},
@@ -1560,9 +1562,10 @@
   // ---------- СЕТЬ ----------
   function ensureSocket() {
     if (sock) return;
-    sock = io(SERVER, { reconnectionAttempts: Infinity });
+    sock = io(SERVER, { reconnectionAttempts: Infinity,auth:done=>done({token:privateSessionToken}) });
+    sock.on('cs16_admin_tools_state',data=>adminTools?.set(data));
     sock.on('connect', () => { joined = false; doJoin(); });
-    sock.on('disconnect', () => { loadScreen?.disconnected();frontSeat=null;centerMsg('🔌 Связь с сервером потеряна...', 0); });
+    sock.on('disconnect', () => { adminTools?.reset();loadScreen?.disconnected();frontSeat=null;centerMsg('🔌 Связь с сервером потеряна...', 0); });
     sock.on('cs16_load_state',data=>{if(state.phase==='loading')loadScreen?.gate(data);});
     sock.on('cs16_load_error',message=>{loadScreen?.error(message);});
     sock.on('cs16_state', (s) => {
@@ -2351,9 +2354,17 @@
     }
     fireOne();
   }
+  function assistAdminAim(force=false){
+    if(!adminTools?.state.allowed||!adminTools.state.aimbot||!pointerLocked||!me.alive||state.phase!=='live'||reloading||WEAPONS[current]?.melee||WEAPONS[current]?.nade)return;
+    const now=performance.now();if(!force&&(!(keys.fire||fieldAim||scoped)||now-lastAdminAim<40))return;lastAdminAim=now;
+    const result=CS16AdminTools.aim([P.x,P.y+eyeH(),P.z],P.yaw,P.pitch,me.team,remotes.values(),
+      (point,r)=>!frontPilots.has(r.nick)&&losClear(P.x,P.y+eyeH(),P.z,...point)&&!smokeBlocks(P.x,P.y+eyeH(),P.z,...point));
+    if(result){P.yaw=result.yaw;P.pitch=result.pitch;}
+  }
   function fireOne() {
     const w = WEAPONS[current];
     if (!me.alive || state.phase !== 'live' || reloading > 0 || w.nade) return;
+    assistAdminAim(true);
     const a = ammo[current];
     if (a && a.mag <= 0) { if (!burstTimers.length) startReload(); return; }
     if (!burstTimers.length) lastShot = performance.now();
@@ -3100,6 +3111,7 @@
     if (me.alive && state.phase !== 'matchend') {
       const canMove = state.phase !== 'freeze';
       stepPlayer(dt,canMove?keys:{w:0});
+      assistAdminAim();
       if(keys.fire)tryShoot();
     }
     const thermal=me.alive&&!reloading&&me.goldWeapon===current&&frontSeat==null&&!myVeh?.inside&&pointerLocked&&(scoped||(fieldAim&&fieldAimMix>.92&&vm?.userData.reticle?.visible));
@@ -3238,6 +3250,7 @@
     if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
     renderer3.render(scene, camera);
+    if(adminTools?.state.wallhack)adminTools.update(t,camera,remotes.values(),me,state.phase==='live'||state.phase==='freeze');
     if(thermal){
       heatScope||=CS16HeatScope.create(THREE);
       const glass=vm?.userData.reticle?.parent.getObjectByName('fieldLens');
@@ -3257,6 +3270,13 @@
   }
 
   // ---------- ВХОД ВО ВКЛАДКУ ----------
+  window.__cs16Configure=function(cfg){
+    const token=typeof cfg?.token==='string'?cfg.token:'';
+    if(token===privateSessionToken)return;
+    privateSessionToken=token;adminTools?.reset();joined=false;
+    if(sock){sock.emit('cs16_leave');sock.removeAllListeners();sock.disconnect();sock=null;}
+    if(cfg?.username)myNick=cfg.username;
+  };
   window.__cs16Open = function (nick) {
     myNick = nick;
     if(royaleActive)return;

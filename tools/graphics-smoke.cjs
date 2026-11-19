@@ -3,15 +3,17 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const assert = require('assert/strict');
-const root = process.env.GRAPHICS_REPO || path.resolve(__dirname, '..');
+const root = path.resolve(process.env.GRAPHICS_REPO || path.resolve(__dirname, '..'));
 const outputs = process.env.GRAPHICS_OUTPUT || path.resolve(root, 'graphics-qa');
 fs.mkdirSync(outputs,{recursive:true});
 const mime = {'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.png':'image/png','.jpg':'image/jpeg','.json':'application/json'};
 const harness = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/cs16-graphics.css"><link rel="stylesheet" href="/terra.css"><link rel="stylesheet" href="/cs16-menu.css"><link rel="stylesheet" href="/cs16-loading.css"><style>body{margin:0;background:#101b24}#tab-cs16{height:100vh!important;min-height:100vh!important}</style><body class="terra light"><div id="tab-cs16"></div><script>
 window.io=(server,options)=>{options?.auth?.(data=>window.__socketAuth=data);const handlers={};window.__socket={connected:true,on(n,f){handlers[n]=f;return this},emit(n,d){(window.__emitted||=[]).push({n,d});return this},receive(n,d){if(handlers[n])handlers[n](d)},removeAllListeners(){for(const key of Object.keys(handlers))delete handlers[key];return this},disconnect(){this.connected=false;handlers.disconnect?.();return this}};return window.__socket};
-</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-spell-effects.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-tactical-map.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-hit-feedback.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-sound-bank.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-karambit.js"></script><script src="/cs16-admin-tools.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-anime-nature.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-operator-batch.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-anime-materials.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16-loading.js"></script><script src="/cs16-menu.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
+</script><script src="/three.min.js"></script><script src="/GLTFLoader.js"></script><script src="/RGBELoader.js"></script><script src="/SkeletonUtils.js"></script><script src="/cs16-combat.js"></script><script src="/cs16-characters.js"></script><script src="/cs16-magic.js"></script><script src="/cs16-spell-effects.js"></script><script src="/cs16-magic-client.js"></script><script src="/cs16-passages.js"></script><script src="/cs16-passage-view.js"></script><script src="/cs16-front.js"></script><script src="/cs16-heat-scope.js"></script><script src="/cs16-front-view.js"></script><script src="/cs16-missile-view.js"></script><script src="/cs16-tactical-map.js"></script><script src="/cs16-terrain.js"></script><script src="/cs16-environment.js"></script><script src="/cs16-environment-view.js"></script><script src="/cs16-field-effects.js"></script><script src="/cs16-hit-feedback.js"></script><script src="/cs16-adaptive-quality.js"></script><script src="/cs16-sound-bank.js"></script><script src="/cs16-battle-audio.js"></script><script src="/cs16-weapon-animation.js"></script><script src="/cs16-karambit.js"></script><script src="/cs16-admin-tools.js"></script><script src="/cs16-footsteps.js"></script><script src="/cs16-weapon-finish.js"></script><script src="/cs16-anime-nature.js"></script><script src="/cs16-landscape.js"></script><script src="/cs16-realistic-world.js"></script><script src="/cs16-weapon-grip.js"></script><script src="/cs16-operator-batch.js"></script><script src="/cs16-field-view.js"></script><script src="/cs16-anime-materials.js"></script><script src="/cs16-graphics.js"></script><script src="/cs16-cinematic.js"></script><script src="/cs16-buildings.js"></script><script src="/cs16-classes.js"></script><script src="/cs16-props.js"></script><script src="/cs16-conquest-ui.js"></script><script src="/cs16-loading.js"></script><script src="/cs16-menu.js"></script><script src="/cs16.js"></script><script>__cs16Open('Preview');</script>`;
 const hooks = `
 window.__qa={
+ hudStable:()=>{updateHud();const watch=new MutationObserver(()=>{});watch.observe(ui.hud,{subtree:true,childList:true,characterData:true});for(let i=0;i<50;i++)updateHud();const n=watch.takeRecords().length;watch.disconnect();return n;},
+ cinematic:()=>cinematic,
  admin:()=>({tools:adminTools,apply:()=>{const old=pointerLocked;pointerLocked=true;assistAdminAim(true);pointerLocked=old;return {yaw:P.yaw,pitch:P.pitch};},position:()=>({...P}),visible:r=>losClear(P.x,P.y+eyeH(),P.z,r.x,r.y+1.72,r.z)}),
  karambit:()=>({vm,current,meleeStyle,chooseMelee,heavySlash,remotes}),
  roofCheck:${require('./roof-scene-check.cjs').toString()},
@@ -114,7 +116,7 @@ const server=http.createServer((req,res)=>{
  if(url.pathname==='/'){res.setHeader('Content-Type','text/html');res.end(harness);return;}
  const name=path.resolve(root,'.'+decodeURIComponent(url.pathname));
  if(!name.startsWith(root+path.sep)){res.statusCode=403;res.end();return;}
- if(!fs.existsSync(name)){res.statusCode=404;res.end('Not found');return;}
+ if(!fs.existsSync(name)){if(url.pathname==='/cs16-cinematic.js'){res.setHeader('Content-Type','text/javascript');res.end('');return;}res.statusCode=404;res.end('Not found');return;}
  res.setHeader('Content-Type',mime[path.extname(name)]||'application/octet-stream');
  if(name===path.join(root,'cs16.js')){res.end(fs.readFileSync(name,'utf8').replace(/\}\)\(\);\s*$/,hooks+'})();'));return;}
  if(process.env.TRACE_PROGRAMS && name===path.join(root,'three.min.js')){
@@ -134,9 +136,24 @@ function begin(map='dust2'){
 async function run(){
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin='http://127.0.0.1:'+server.address().port;
- const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:[...(process.env.REAL_GPU?[]:['--use-angle=swiftshader','--enable-unsafe-swiftshader']),'--disable-background-timer-throttling']});
+ let previewProcess=null,browser;
+ if(process.env.CDP_WEBSOCKET){
+  const profile=fs.mkdtempSync(path.join(require('os').tmpdir(),'hub-graphics-cdp-'));
+  const args=['--headless=new','--no-first-run','--no-default-browser-check','--no-sandbox','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--hide-scrollbars','--mute-audio','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'];
+  if(!process.env.REAL_GPU)args.push('--use-angle=swiftshader','--enable-unsafe-swiftshader');
+  previewProcess=require('child_process').spawn(process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args,{windowsHide:true,stdio:'ignore'});
+  const portFile=path.join(profile,'DevToolsActivePort');let port;
+  try{
+   for(let wait=0;wait<600;wait++){
+    try{const value=fs.readFileSync(portFile,'utf8').split('\n')[0];if(/^\d+$/.test(value)){port=value;break;}}catch(error){if(!['ENOENT','EBUSY','EPERM'].includes(error.code))throw error;}
+    await new Promise(r=>setTimeout(r,100));
+   }
+   if(!port)throw Error('Chrome debugger did not start');
+   browser=await chromium.connectOverCDP('http://127.0.0.1:'+port);
+  }catch(error){previewProcess.kill();server.close();throw error;}
+ }else browser=await chromium.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:[...(process.env.REAL_GPU?[]:['--use-angle=swiftshader','--enable-unsafe-swiftshader']),'--disable-background-timer-throttling']});
  const weak=!!process.env.WEAK_PC;
- const page=await browser.newPage({viewport:weak?{width:1280,height:720}:{width:1440,height:900},deviceScaleFactor:1});
+ const page=await browser.newPage({viewport:weak?{width:1280,height:720}:{width:Number(process.env.VIEWPORT_WIDTH)||1920,height:Number(process.env.VIEWPORT_HEIGHT)||1080},deviceScaleFactor:1});
  if(weak){
   await page.addInitScript(()=>{Object.defineProperties(Navigator.prototype,{deviceMemory:{get:()=>4},hardwareConcurrency:{get:()=>4}})});
   const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});
@@ -147,6 +164,8 @@ async function run(){
  try{
   await page.goto(origin,{waitUntil:'load'});
   await page.waitForFunction(()=>window.__qa&&__qa.snapshot().ready,null,{timeout:120000});
+  if(process.env.REALISM_DETAILS_ONLY){await require('./realism-details-check.cjs')(page,outputs,errors);return;}
+  if(process.env.MAX_GRAPHICS_PREVIEW){await require('./max-graphics-preview.cjs')(page,outputs,errors);return;}
   if(process.env.COMPANION_AUDIO_ONLY){await require('./companion-audio-check.cjs')(page,outputs,errors);return;}
   if(process.env.LOADING_GATE_ONLY){await require('./loading-screen-check.cjs')(page,outputs,errors);return;}
   if(process.env.SHOOTING_UPDATE_ONLY){await require('./shooting-update-check.cjs')(page,outputs,errors);return;}
@@ -270,6 +289,6 @@ async function run(){
   console.log('LIVE_COMBAT',JSON.stringify(combat));
   fs.writeFileSync(path.join(outputs,'graphics-validation.json'),JSON.stringify({first,final,dustSurfaces,infernoSurfaces,errors},null,2));
   if(process.env.KEEP_PREVIEW){console.log('PREVIEW_URL '+origin);await new Promise(()=>{});}
- }finally{await browser.close();server.close();}
+ }finally{if(previewProcess){try{const session=await browser.newBrowserCDPSession();await session.send('Browser.close');}catch{}}await browser.close();previewProcess?.kill();server.close();}
 }
 run().catch(e=>{console.error(e);server.close();process.exitCode=1;});

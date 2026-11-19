@@ -44,7 +44,7 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 1.02;
     renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
@@ -57,6 +57,7 @@
     if (!root) return;
     const geometries = new Set(), materials = new Set(), textures = new Set();
     root.traverse(object => {
+      if(object.isInstancedMesh)object.dispose();
       if (object.geometry) geometries.add(object.geometry);
       const list = Array.isArray(object.material) ? object.material : [object.material];
       list.forEach(material => {
@@ -98,7 +99,7 @@
         // Low quality keeps the painted albedo but skips the extra normal-map
         // sample/derivatives. Retain the texture on the material so disposeTree
         // still owns it, and changing quality restores it without another download.
-        if (material.isMeshToonMaterial && (material.normalMap || material.cs16DetailNormalMap)) {
+        if ((material.isMeshToonMaterial || material.userData.cs16PaintedPhysical || material.userData.cs16WorldSurface) && (material.normalMap || material.cs16DetailNormalMap)) {
           material.cs16DetailNormalMap ||= material.normalMap;
           const normal = quality === QUALITY.low ? null : material.cs16DetailNormalMap;
           if (material.normalMap !== normal) {
@@ -107,8 +108,11 @@
           }
         }
         if (material.isMeshStandardMaterial || material.isMeshPhysicalMaterial) {
-          material.envMapIntensity = 0.40;
-          if(material.normalMap)material.normalScale.set(.35,.35);
+          // Quality changes geometry/shader cost, not the authored lighting.
+          // Lowering this value still samples the same environment texture and
+          // made PBR stone and metal turn nearly black on the low preset.
+          material.envMapIntensity = material.userData.cs16EnvironmentIntensity ?? .40;
+          if(material.normalMap&&!material.userData.cs16PaintedPhysical&&!material.userData.cs16Realistic)material.normalScale.set(.35,.35);
           material.dithering = true;
         }
         // GLTFLoader already assigns sRGB to color maps and linear to data maps.
@@ -122,7 +126,7 @@
   }
 
   function makeSky(T, inferno, radius) {
-    const direction = new T.Vector3(0.48, 0.70, -0.53).normalize();
+    const direction = new T.Vector3(-0.40, 0.72, -0.57).normalize();
     const material = new T.ShaderMaterial({
       name: 'CS16 daylight atmosphere',
       side: T.BackSide,
@@ -130,9 +134,9 @@
       depthTest: false,
       uniforms: {
         sunDirection: { value: direction },
-        zenith: { value: new T.Color(inferno ? '#3589c5' : '#278acb') },
-        horizon: { value: new T.Color(inferno ? '#c5dce3' : '#b9dce9') },
-        ground: { value: new T.Color(inferno ? '#827466' : '#94856f') },
+        zenith: { value: new T.Color(inferno ? '#226bb8' : '#176fbe') },
+        horizon: { value: new T.Color(inferno ? '#c7deeb' : '#beddea') },
+        ground: { value: new T.Color(inferno ? '#888780' : '#899087') },
       },
       vertexShader: [
         'varying vec3 vSkyDirection;',
@@ -154,22 +158,33 @@
         '  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);',
         '}',
         'float cloud(vec2 p) {',
-        '  float f=0.0; f+=0.5*noise(p); p=mat2(1.6,1.2,-1.2,1.6)*p;',
-        '  f+=0.25*noise(p); p=mat2(1.6,1.2,-1.2,1.6)*p;',
-        '  f+=0.125*noise(p); return f;',
+        '  float f=.62*noise(p); p=mat2(1.6,1.2,-1.2,1.6)*p+13.7;',
+        '  f+=.21*noise(p); p=mat2(1.6,1.2,-1.2,1.6)*p+7.1;',
+        '  f+=.09*noise(p); return f;',
         '}',
         'void main() {',
         '  vec3 d=normalize(vSkyDirection);',
         '  float altitude=max(d.y,0.0);',
-        '  vec3 color=mix(horizon,zenith,pow(altitude,0.48));',
-        '  color=mix(ground,color,smoothstep(-0.12,0.03,d.y));',
-        '  vec2 p=d.xz/(0.18+max(d.y,0.0))*2.1;',
-        '  float wisps=smoothstep(0.51,0.76,cloud(p))*smoothstep(0.05,0.25,d.y);',
-        '  color=mix(color,vec3(0.91,0.93,0.94),wisps*0.68);',
         '  float alignment=max(dot(d,sunDirection),0.0);',
-        '  color+=vec3(1.0,0.79,0.48)*pow(alignment,28.0)*0.16;',
-        '  color+=vec3(1.0,0.91,0.73)*pow(alignment,700.0)*0.75;',
-        '  color+=vec3(4.0,3.4,2.4)*smoothstep(0.99988,0.99997,alignment);',
+        '  vec3 color=mix(horizon,zenith,pow(altitude,0.23));',
+        '  color=mix(ground,color,smoothstep(-0.14,0.025,d.y));',
+        '  color+=vec3(.38,.24,.10)*pow(alignment,12.0);',
+        // Cloud density and a neighbour toward the sun approximate softly lit
+        // cumulus in the existing sky pass; no volume raymarch or additional mesh.
+        '  vec2 p=d.xz/(.30+altitude)*3.05+vec2(8.1,-3.7);',
+        '  float density=cloud(p);',
+        '  float cloudMask=smoothstep(.48,.615,density)*smoothstep(.015,.20,d.y);',
+        '  float towardSun=cloud(p+sunDirection.xz*.48);',
+        '  float edgeLight=clamp((density-towardSun)*4.4+.56,.0,1.);',
+        '  float volume=smoothstep(.50,.78,density);',
+        '  vec3 cloudShadow=vec3(.28,.40,.59);',
+        '  vec3 cloudLight=vec3(1.25,1.18,1.05);',
+        '  vec3 cloudColor=mix(cloudShadow,cloudLight,clamp(edgeLight-volume*.23,.0,1.));',
+        '  cloudColor+=vec3(.28,.22,.13)*pow(alignment,18.0)*(1.-volume);',
+        '  color=mix(color,cloudColor,cloudMask*.96);',
+        '  float sunVisibility=1.-cloudMask*.90;',
+        '  color+=vec3(1.0,.82,.57)*pow(alignment,300.0)*.36*sunVisibility;',
+        '  color+=vec3(5.0,4.0,2.5)*smoothstep(.99986,.99997,alignment)*sunVisibility;',
         '  gl_FragColor=vec4(color,1.0);',
         '  #include <tonemapping_fragment>',
         '  #include <colorspace_fragment>',
@@ -188,7 +203,7 @@
     const { renderer, scene, camera, grid } = options;
     const mapName = ['inferno','frontline'].includes(options.map)?options.map:'dust2';
     let quality = qualityOf(renderer.userData && renderer.userData.cs16Quality);
-    let disposed = false, model = null, environmentTarget = null, nature = null, landscape = null, bakedBuildings = false;
+    let disposed = false, model = null, environmentTarget = null, skyTexture = null, nature = null, landscape = null, realisticWorld = null, bakedBuildings = false;
     let lampsTick = -Infinity;
     const CELL = options.CELL || 4;
     const group = new T.Group();
@@ -200,13 +215,15 @@
     group.updateMatrix(); group.matrixAutoUpdate = false;
 
     const sky = makeSky(T, mapName === 'inferno', 1100);
+    // Direction measured from the brightest texel of the bundled CC0 HDRI.
+    sky.direction.set(.554562,.741980,.376731).normalize();
     group.add(sky.mesh);
     scene.background = null;
-    scene.fog = new T.Fog(mapName === 'inferno' ? 0xc6d9e5 : 0xc2dfe7, 155, 500);
+    scene.fog = new T.Fog(0xb9c7ce, 145, 600);
 
-    const hemisphere = new T.HemisphereLight(0xd9eeff, 0x8b8eaf, 1.12);
+    const hemisphere = new T.HemisphereLight(0xd8e4ef, 0x868176, .55);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffe8c4, 2.1);
+    const sun = new T.DirectionalLight(0xffefd8, 2.8);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -217,19 +234,16 @@
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
-    // The painted atmosphere is the live sky; no photographic panorama replaces it.
-    // Reuse the same atmosphere for metal reflections; no remote HDR dependency.
-    const envScene = new T.Scene();
-    const envSky = makeSky(T, mapName === 'inferno', 10);
-    envScene.add(envSky.mesh);
-    const pmrem = new T.PMREMGenerator(renderer);
-    try {
-      environmentTarget = pmrem.fromScene(envScene, 0.035, 0.1, 30);
-      scene.environment = environmentTarget.texture;
-    } finally {
-      pmrem.dispose();
-      disposeTree(envSky.mesh);
-    }
+    // Actual CC0 pure-sky capture supplies background and physically coherent
+    // rough reflections. The street and buildings remain navigable 3D geometry.
+    const skyReady=new T.RGBELoader().loadAsync(ASSETS+'realistic/daylight-2k.hdr').then(texture=>{
+      if(disposed){texture.dispose();return;}
+      skyTexture=texture;texture.mapping=T.EquirectangularReflectionMapping;
+      const pmrem=new T.PMREMGenerator(renderer);
+      try{environmentTarget=pmrem.fromEquirectangular(texture);}finally{pmrem.dispose();}
+      scene.background=texture;scene.backgroundIntensity=.70;
+      scene.environment=environmentTarget.texture;sky.mesh.visible=false;
+    });
 
     // Four lights are a fixed shader budget, independent of tunnel length.
     const lampCandidates = [];
@@ -261,6 +275,7 @@
     function update(activeCamera, time) {
       if (disposed || !activeCamera) return;
       sky.mesh.position.copy(activeCamera.position);
+      realisticWorld?.update(activeCamera,typeof time==='number'?time:performance.now(),renderer.userData.cs16Quality);
       if(landscape)landscape.update(activeCamera,typeof time==='number'?time:performance.now(),renderer.userData.cs16Quality);
       groundPoint.set(activeCamera.position.x, 0, activeCamera.position.z);
       // Quantize in LIGHT coordinates to stop shadows swimming as the player walks.
@@ -294,8 +309,8 @@
       });
     }
 
-    const ready = Promise.allSettled([loadGLTF(T, ASSETS + (mapName==='frontline'?'':'anime-') + mapName + '.glb', options.onProgress),loadGLTF(T, ASSETS+'anime-nature.glb')]).then(results => {
-      const failed=results.find(r=>r.status==='rejected');if(failed){for(const r of results)if(r.status==='fulfilled')disposeTree(r.value.scene);throw failed.reason;}
+    const ready = Promise.allSettled([loadGLTF(T, ASSETS + (mapName==='frontline'?'':'anime-') + mapName + '.glb', options.onProgress),loadGLTF(T, ASSETS+'anime-nature.glb'),skyReady]).then(async results => {
+      const failed=results.find(r=>r.status==='rejected');if(failed){for(const r of results)if(r.status==='fulfilled'&&r.value?.scene)disposeTree(r.value.scene);throw failed.reason;}
       const [gltf,natureAsset]=results.map(r=>r.value);
       if (disposed) {
         disposeTree(gltf.scene);disposeTree(natureAsset.scene);
@@ -303,7 +318,11 @@
         error.name = 'AbortError';
         throw error;
       }
-      model = gltf.scene;nature=natureAsset.scene;
+      let preparedWorld;
+      try{preparedWorld=await global.CS16RealisticWorld?.prepare({T,model:gltf.scene,grid,map:mapName,renderer});}
+      catch(error){disposeTree(gltf.scene);disposeTree(natureAsset.scene);throw error;}
+      if(disposed){preparedWorld?.dispose();disposeTree(gltf.scene);disposeTree(natureAsset.scene);const error=Error('World replaced during material preparation');error.name='AbortError';throw error;}
+      model=gltf.scene;nature=natureAsset.scene;realisticWorld=preparedWorld;
       global.CS16AnimeMaterials.apply(T,model,{environment:true});
       global.CS16AnimeMaterials.apply(T,nature,{environment:true});
       bakedBuildings=false;model.traverse(o=>{if(o.userData.coastArchitecture)bakedBuildings=true;});
@@ -336,6 +355,7 @@
       if (disposed) return;
       disposed = true;
       if(landscape){landscape.dispose();landscape=null;}
+      realisticWorld?.dispose();realisticWorld=null;
       if(nature){disposeTree(nature);nature=null;}
       if (model) { disposeTree(model); model = null; }
       disposeTree(sky.mesh);
@@ -346,6 +366,7 @@
         environmentTarget.dispose();
         environmentTarget = null;
       }
+      if(skyTexture){if(scene.background===skyTexture)scene.background=null;skyTexture.dispose();skyTexture=null;}
       if (group.parent) group.parent.remove(group);
       group.clear();
     }

@@ -1,0 +1,5 @@
+Amazon Lumberyard Bistro, Open Research Content Archive (ORCA), 2017.
+https://developer.nvidia.com/orca/amazon-lumberyard-bistro
+Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/
+Modified for Support Hub: DDS conversion, BC5 normal Z reconstruction, DirectX normal green-channel conversion, missing constant AO normalization, resized WebP textures, geometry extraction/decimation/batching, fitted window apertures and gameplay placement.
+Original scene and archive are retained separately from packaged assets.

@@ -23,46 +23,184 @@
    }if(n>=limit)break;}mesh.count=n;mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   },dispose(){mesh.removeFromParent();geo.dispose();mat.dispose();texture.dispose();}};
  }
- // Small garden borders are foliage only. Doorways and shooting apertures stay clear.
- // One shared mesh, instanced only near the player, including the economy preset.
+ // Authored courtyard beds and ceramic-vase planting. Instances stay against solid
+ // facade sections: no new obstacle, doorway, stair, or window collision is introduced.
  function gardens(T,scene,buildings){
-  const positions=[],colors=[],indices=[],color=new T.Color();
-  function face(points,hex){
-   const n=positions.length/3;color.set(hex);
-   points.forEach((p,i)=>{positions.push(...p);const light=i===0?.82:1;colors.push(color.r*light,color.g*light,color.b*light)});
-   for(let i=1;i<points.length-1;i++)indices.push(n,n+i,n+i+1);
-  }
-  for(let i=0;i<32;i++){
-   const a=i*2.399,r=.12+Math.sqrt(noise(i,13))*.58,x=Math.cos(a)*r,z=Math.sin(a)*r*.58,h=.18+noise(i,4)*.32;
-   face([[x-.008,0,z],[x+.008,0,z],[x+.012,h,z],[x,h,z]],'#59875b');
-   for(let k=0;k<4;k++){
-    const angle=a+k*2.4,dx=Math.cos(angle),dz=Math.sin(angle),y=h*(.2+k*.13),l=.14+noise(i,k)*.11;
-    face([[x,y,z],[x+dx*l*.45-dz*.05,y+.045,z+dz*l*.45+dx*.05],[x+dx*l,y+.09,z+dz*l],
-      [x+dx*l*.45+dz*.05,y+.045,z+dz*l*.45-dx*.05]],k%2?'#8eaf6d':'#5a916a');
+  function builder(){
+   const positions=[],normals=[],colors=[],indices=[],p=new T.Vector3(),n=new T.Vector3(),nm=new T.Matrix3(),tint=new T.Color();
+   function face(points,hex){
+    // Leaf ends meet at a point. Skip collapsed fan triangles and choose a
+    // non-degenerate normal: a zero normal otherwise poisons the HDR lighting.
+    const origin=new T.Vector3(...points[0]),normal=new T.Vector3(),valid=[];
+    for(let i=1;i<points.length-1;i++){
+     const area=new T.Vector3(...points[i]).sub(origin).cross(new T.Vector3(...points[i+1]).sub(origin));
+     if(area.lengthSq()<1e-18)continue;
+     valid.push(i);if(normal.lengthSq()===0)normal.copy(area).normalize();
+    }
+    if(!valid.length)return;
+    const base=positions.length/3;tint.set(hex);
+    points.forEach(v=>{positions.push(...v);normals.push(normal.x,normal.y,normal.z);colors.push(tint.r,tint.g,tint.b)});
+    for(const i of valid)indices.push(base,base+i,base+i+1);
    }
-   const flower=i%3===0?'#e8b47d':i%3===1?'#b5a1d7':'#edb7c6';
-   for(let k=0;k<6;k++){
-    const angle=k*Math.PI/3,dx=Math.cos(angle),dz=Math.sin(angle),l=.075+noise(i,22)*.04;
-    face([[x,h,z],[x+dx*l*.5-dz*l*.43,h+.026,z+dz*l*.5+dx*l*.43],
-     [x+dx*l,h+.018,z+dz*l],[x+dx*l*.5+dz*l*.43,h+.026,z+dz*l*.5-dx*l*.43]],flower);
+   function append(geometry,matrix,hex){
+    const base=positions.length/3,a=geometry.attributes.position,b=geometry.attributes.normal;tint.set(hex);nm.getNormalMatrix(matrix);
+    for(let i=0;i<a.count;i++){p.fromBufferAttribute(a,i).applyMatrix4(matrix);n.fromBufferAttribute(b,i).applyNormalMatrix(nm);positions.push(p.x,p.y,p.z);normals.push(n.x,n.y,n.z);colors.push(tint.r,tint.g,tint.b)}
+    if(geometry.index)for(const i of geometry.index.array)indices.push(base+i);else for(let i=0;i<a.count;i++)indices.push(base+i);
    }
-   const disc=[];for(let k=0;k<8;k++)disc.push([x+Math.cos(k*Math.PI/4)*.026,h+.027,z+Math.sin(k*Math.PI/4)*.026]);
-   face(disc,'#f1d590');
+   function leaf(x,y,z,angle,length,width,lift,hex){
+    const dx=Math.cos(angle),dz=Math.sin(angle),rows=[];
+    for(let k=0;k<=5;k++){
+     const q=k/5,w=Math.sin(q*Math.PI)*width,curl=Math.sin(q*Math.PI)*length*.19;
+     rows.push([-1,0,1].map(side=>[x+dx*q*length-dz*side*w,y+q*lift+curl-(side?Math.sin(q*Math.PI)*width*.27:0),z+dz*q*length+dx*side*w]));
+    }
+    for(let k=0;k<5;k++)for(let side=0;side<2;side++)face([rows[k][side],rows[k+1][side],rows[k+1][side+1],rows[k][side+1]],hex);
+   }
+   function blossom(x,y,z,r,hex){
+    const petals=6;
+    for(let k=0;k<petals;k++){
+     const a=k*Math.PI*2/petals,dx=Math.cos(a),dz=Math.sin(a),side=.48*r;
+     face([[x,y,z],[x+dx*r*.55-dz*side,y+r*.12,z+dz*r*.55+dx*side],
+      [x+dx*r,y+r*.30,z+dz*r],[x+dx*r*.55+dz*side,y+r*.12,z+dz*r*.55-dx*side]],hex);
+    }
+    const disk=[];for(let k=0;k<8;k++)disk.push([x+Math.cos(-k*Math.PI/4)*r*.23,y+r*.10,z+Math.sin(-k*Math.PI/4)*r*.23]);face(disk,'#f1cc78');
+   }
+   function finish(){const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('color',new T.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeBoundingSphere();return g;}
+   return {face,append,leaf,blossom,finish};
   }
-  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.setIndex(indices);geometry.computeVertexNormals();
-  const material=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.94});
-  const mesh=new T.InstancedMesh(geometry,material,20);mesh.name='Painted courtyard flower borders';mesh.count=0;mesh.frustumCulled=false;mesh.receiveShadow=true;scene.add(mesh);
-  const patches=[];for(const b of buildings)for(const [x,z]of [[1.5,-.48],[9.8,-.48],[-.32,1.8],[-.32,10.1],[12.32,1.8],[12.32,10.1],[2,12.32],[9.8,12.32]])patches.push({x:b.x+x,z:b.z+z,angle:z<0?0:x<0||x>12?Math.PI/2:0});
-  const dummy=new T.Object3D();let tick=-Infinity,viewX=Infinity,viewZ=Infinity,lastQuality='';
+  const dummy=new T.Object3D(),stone=new T.SphereGeometry(1,10,5),bed=builder();
+  // Slightly varied rounded limestone edging rather than a flat rectangular decal.
+  for(let i=0;i<22;i++){
+   const a=i*Math.PI*2/22,x=Math.cos(a)*1.08,z=Math.sin(a)*.29;
+   dummy.position.set(x,.095,z);dummy.rotation.set(noise(i,13)*.2,a,noise(i,71)*.15);
+   dummy.scale.set(.20+noise(i,19)*.025,.105+noise(i,23)*.018,.135);dummy.updateMatrix();
+   bed.append(stone,dummy.matrix,['#c3b89a','#cec2a6','#b9ae91','#d1c7b0'][i%4]);
+  }
+  const soil=[];for(let i=0;i<28;i++){const a=-i*Math.PI*2/28;soil.push([Math.cos(a)*1.07,.075,Math.sin(a)*.27]);}bed.face(soil,'#6a6250');
+  // Sage and lavender rosettes: folded broad leaves, small clustered flowers,
+  // and varied heights provide readable volume without alpha-card overdraw.
+  for(let i=0;i<15;i++){
+   const x=-.87+(i%5)*.435+(noise(i,52)-.5)*.09,z=(Math.floor(i/5)-1)*.16;
+   const h=.29+noise(i,9)*.26,a=i*2.399,lavender=i%3===0;
+   bed.face([[x-.007,.08,z],[x+.007,.08,z],[x+.018,h+.11,z],[x+.004,h+.11,z]],'#61774e');
+   for(let k=0;k<5;k++)bed.leaf(x,.105+k*.032,z,a+k*2.399,.20+noise(i,k)*.12,.04+noise(k,i)*.015,.045+noise(k,i+3)*.11,
+    ['#557746','#73975a','#8ea76a','#698e56','#91ad72'][(i+k)%5]);
+   if(lavender){
+    for(let j=0;j<5;j++)for(let k=0;k<3;k++){
+     const aa=k*Math.PI*2/3+j*.7;bed.blossom(x+Math.cos(aa)*.025,h-.06+j*.045,z+Math.sin(aa)*.025,.035-j*.002,['#ac9abe','#c5b2d4','#9b8fb6'][j%3]);
+    }
+   }else bed.blossom(x,h+.09,z,.085+noise(i,61)*.035,i%2?'#e6c5a4':'#e2c5d0');
+  }
+  // Tiny foundation gravel connects the raised beds to the paving, not the path.
+  for(let i=0;i<12;i++){
+   const a=i*2.399;dummy.position.set(Math.cos(a)*(1.13+noise(i,3)*.08),.028,Math.sin(a)*(.32+noise(i,9)*.09));
+   dummy.scale.set(.035+noise(i,10)*.025,.025,.03+noise(i,11)*.02);dummy.rotation.y=a;dummy.updateMatrix();bed.append(stone,dummy.matrix,'#bcb399');
+  }
+  const pot=builder();
+  for(let i=0;i<15;i++){
+   const a=i*2.399,r=Math.sqrt(noise(i,27))*.19,x=Math.cos(a)*r,z=Math.sin(a)*r,h=.09+noise(i,83)*.30;
+   pot.face([[x-.007,0,z],[x+.007,0,z],[x+.012,h+.10,z],[x,h+.10,z]],'#647e4c');
+   for(let k=0;k<5;k++)pot.leaf(x,k*.035,z,a+k*2.399,.18+noise(k,i)*.16,.045+noise(i,k)*.03,.05+noise(i,k+8)*.15,
+     ['#4c7443','#7d9d62','#6a8d54','#90aa70'][(i+k)%4]);
+   if(i%2===0)pot.blossom(x,h+.11,z,.095,['#d8b1c5','#e6c2cd','#d0b9da'][i%3]);
+  }
+  stone.dispose();
+  const material=new T.MeshStandardMaterial({name:'Courtyard sculpted planting',vertexColors:true,side:T.DoubleSide,roughness:.87,metalness:0,envMapIntensity:.35,dithering:true});
+  const bedGeo=bed.finish(),potGeo=pot.finish();
+  const beds=new T.InstancedMesh(bedGeo,material,18),pots=new T.InstancedMesh(potGeo,material,16);
+  beds.name='Sculpted limestone herb borders';pots.name='Full ceramic-vase planting';
+  for(const mesh of [beds,pots]){mesh.count=0;mesh.frustumCulled=false;mesh.receiveShadow=true;mesh.castShadow=true;scene.add(mesh);}
+  const patches=[],vases=[];
+  for(const b of buildings){
+   for(const [x,z,angle]of [[2.55,-.43,0],[8.65,-.43,0],[-.37,5.7,Math.PI/2],[12.37,5.7,Math.PI/2],[2.45,12.37,0],[9.5,12.37,0]])patches.push({x:b.x+x,z:b.z+z,angle});
+   for(const x of [.85,10.8])vases.push({x:b.x+x,z:b.z-.6,angle:b.id*2.399});
+  }
+  let tick=-Infinity,viewX=Infinity,viewZ=Infinity,lastQuality='';
+  function place(mesh,items,range,limit,y){
+   const near=[];for(const p of items){const d=(p.x-viewX)**2+(p.z-viewZ)**2;if(d<range*range)near.push({p,d});}
+   near.sort((a,b)=>a.d-b.d);mesh.count=Math.min(limit,near.length);
+   for(let i=0;i<mesh.count;i++){const p=near[i].p;dummy.position.set(p.x,y,p.z);dummy.rotation.set(0,p.angle,0);dummy.scale.setScalar(1);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);}
+   mesh.instanceMatrix.needsUpdate=true;
+  }
   return{update(camera,time,quality){
    if(time-tick<350)return;tick=time;if(quality===lastQuality&&Math.hypot(camera.position.x-viewX,camera.position.z-viewZ)<1)return;
    viewX=camera.position.x;viewZ=camera.position.z;lastQuality=quality;
-   const range=quality==='low'?24:52,limit=quality==='low'?8:20;
-   const near=patches.map(p=>({p,d:(p.x-viewX)**2+(p.z-viewZ)**2})).filter(v=>v.d<range*range).sort((a,b)=>a.d-b.d).slice(0,limit);
-   mesh.count=near.length;near.forEach(({p},i)=>{dummy.position.set(p.x,.016,p.z);dummy.rotation.y=p.angle;dummy.scale.setScalar(1);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix)});mesh.instanceMatrix.needsUpdate=true;
-  },dispose(){mesh.removeFromParent();mesh.dispose();geometry.dispose();material.dispose()}};
+   const low=quality==='low',high=quality==='high';
+   beds.castShadow=pots.castShadow=!low;
+   place(beds,patches,low?23:high?56:42,low?6:high?18:12,.012);
+   place(pots,vases,low?26:high?60:44,low?6:high?16:10,.68);
+  },dispose(){for(const mesh of [beds,pots]){mesh.removeFromParent();mesh.dispose();}bedGeo.dispose();potGeo.dispose();material.dispose();}};
+ }
+ // Recover each authored leaf's local axis once, then paint veins in its existing
+ // material pass. Shared-position normal averaging softens the eight-triangle
+ // midrib without adding geometry or moving a single facade vertex.
+ function leafSurfaceDetail(T,model){
+  const patchedMaterials=new Set();
+  model.traverse(mesh=>{
+   if(!mesh.isMesh||Array.isArray(mesh.material)||mesh.material?.name!=='leaf'||mesh.geometry.userData?.cs16VeinedLeaves)return;
+   const geometry=mesh.geometry,position=geometry.attributes.position,normals=geometry.attributes.normal,index=geometry.index;
+   if(!position||!normals||!index)return;
+   const parents=Array.from({length:position.count},(_,i)=>i),canonical=new Map(),pointGroups=new Map();
+   function find(x){while(parents[x]!==x){parents[x]=parents[parents[x]];x=parents[x];}return x;}
+   function join(a,b){a=find(a);b=find(b);if(a!==b)parents[b]=a;}
+   for(let i=0;i<position.count;i++){
+    const key=[position.getX(i),position.getY(i),position.getZ(i)].map(v=>Math.round(v*100000)).join(',');
+    if(canonical.has(key))join(i,canonical.get(key));else canonical.set(key,i);
+    if(!pointGroups.has(key))pointGroups.set(key,[]);pointGroups.get(key).push(i);
+   }
+   for(let i=0;i<index.count;i+=3){join(index.getX(i),index.getX(i+1));join(index.getX(i),index.getX(i+2));}
+   const groups=new Map();for(const i of canonical.values()){const key=find(i);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);}
+   const uv=new Float32Array(position.count*3),a=new T.Vector3(),b=new T.Vector3(),axis=new T.Vector3(),side=new T.Vector3(),meanNormal=new T.Vector3(),point=new T.Vector3();
+   const charts=new Map();
+   for(const [id,vertices]of groups){
+    if(vertices.length<3||vertices.length>40)continue;
+    let longest=0,start=vertices[0],end=start;
+    for(let i=0;i<vertices.length;i++)for(let j=i+1;j<vertices.length;j++){
+     a.fromBufferAttribute(position,vertices[i]);b.fromBufferAttribute(position,vertices[j]);const d=a.distanceToSquared(b);
+     if(d>longest){longest=d;start=vertices[i];end=vertices[j];}
+    }
+    if(longest<.0025||longest>1.4)continue;
+    a.fromBufferAttribute(position,start);axis.fromBufferAttribute(position,end).sub(a).normalize();meanNormal.set(0,0,0);
+    for(const i of vertices){point.fromBufferAttribute(normals,i);meanNormal.add(point);}
+    if(meanNormal.lengthSq()<1e-10)continue;meanNormal.normalize();side.crossVectors(meanNormal,axis);
+    if(side.lengthSq()<1e-10)continue;side.normalize();
+    let minU=Infinity,maxU=-Infinity,minV=Infinity,maxV=-Infinity;
+    for(const i of vertices){point.fromBufferAttribute(position,i);const u=point.dot(axis),v=point.dot(side);minU=Math.min(minU,u);maxU=Math.max(maxU,u);minV=Math.min(minV,v);maxV=Math.max(maxV,v);}
+    if(maxU-minU<.01||maxV-minV<.01)continue;
+    charts.set(id,{axis:axis.clone(),side:side.clone(),minU,minV,du:maxU-minU,dv:maxV-minV});
+   }
+   for(const ids of pointGroups.values()){
+    const chart=charts.get(find(ids[0]));if(!chart)continue;
+    point.fromBufferAttribute(position,ids[0]);const u=(point.dot(chart.axis)-chart.minU)/chart.du,v=(point.dot(chart.side)-chart.minV)/chart.dv;
+    meanNormal.set(0,0,0);for(const i of ids){a.fromBufferAttribute(normals,i);meanNormal.add(a);}
+    if(meanNormal.lengthSq()>1e-10)meanNormal.normalize();
+    for(const i of ids){uv[i*3]=u;uv[i*3+1]=v;uv[i*3+2]=1;if(meanNormal.lengthSq()>.99)normals.setXYZ(i,meanNormal.x,meanNormal.y,meanNormal.z);}
+   }
+   geometry.setAttribute('leafDetailUv',new T.BufferAttribute(uv,3));normals.needsUpdate=true;geometry.userData.cs16VeinedLeaves=true;
+   const material=mesh.material;if(patchedMaterials.has(material))return;patchedMaterials.add(material);
+   const compile=material.onBeforeCompile,cache=material.customProgramCacheKey?.bind(material);
+   material.onBeforeCompile=shader=>{
+    compile?.(shader);
+    shader.vertexShader='attribute vec3 leafDetailUv;varying vec3 paintedLeafUV;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\npaintedLeafUV=leafDetailUv;');
+    shader.fragmentShader='varying vec3 paintedLeafUV;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+     float leafD=abs(paintedLeafUV.y-.5);
+     float leafMidrib=1.-smoothstep(.008,.026,leafD);
+     float leafBranchDistance=abs(fract(paintedLeafUV.x*5.-leafD*2.75)-.5);
+     float leafVeins=(1.-smoothstep(.012,.045,leafBranchDistance))*(1.-smoothstep(.24,.48,leafD))*(1.-leafMidrib);
+     float leafEdge=smoothstep(.26,.50,leafD);
+     float leafBrush=sin(paintedLeafUV.x*39.+paintedLeafUV.y*7.)*sin(paintedLeafUV.y*27.)*.025;
+     vec3 leafTint=vec3(1.)+vec3(.13,.10,.045)*leafMidrib+vec3(.075,.065,.025)*leafVeins-vec3(.10,.075,.045)*leafEdge+leafBrush;
+     diffuseColor.rgb*=mix(vec3(1.),leafTint,paintedLeafUV.z);
+    `);
+   };
+   material.customProgramCacheKey=()=> (cache?cache():'leaf')+'-sculpted-veins-1';material.needsUpdate=true;
+  });
  }
  function create({T,scene,grid,map,model}){
+  // The photographic Bistro courtyard owns its real 3D trees and potted ivy.
+  // Its paving must not spawn the old meadow blades, paper flowers, white hills
+  // or billboard forest. Skip their allocations and recurring work altogether.
+  if(model.userData.cs16Realistic)return{mask:null,groundSurface(){return 'stone';},update(){},dispose(){}};
+  leafSurfaceDetail(T,model);
   const size=grid.length,world=size*4,maskBytes=new Uint8Array(size*size*4),clearance=new Uint16Array(size*size),queue=[];
   const buildings=global.CS16Buildings.layout(grid,map).buildings;
   for(let z=0;z<size;z++)for(let x=0;x<size;x++){
@@ -82,7 +220,7 @@
   const earth=new T.TextureLoader().load('assets/cs-anime/plaster-painted.png');earth.wrapS=earth.wrapT=T.RepeatWrapping;earth.colorSpace=T.SRGBColorSpace;earth.anisotropy=4;
   const patched=new Set();
   model.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material])){
-   if(!m||m.name!=='ground'||patched.has(m))continue;patched.add(m);
+   if(!m||m.name!=='ground'||m.userData.cs16Realistic||patched.has(m))continue;patched.add(m);
    m.onBeforeCompile=shader=>{
     shader.uniforms.fieldEarth={value:earth};shader.uniforms.meadowMask={value:mask};shader.uniforms.meadowSize={value:world};
     shader.vertexShader='varying vec3 meadowWorld;\n'+shader.vertexShader;
@@ -105,7 +243,7 @@
    };
    m.customProgramCacheKey=()=> 'terra-ground-2';m.needsUpdate=true;
   }});
-  const gardenBorders=gardens(T,scene,buildings),facadeIvy=ivy(T,scene,grid);const group=new T.Group();group.name='Evolution valley landscape';scene.add(group);
+  const gardenBorders=gardens(T,scene,buildings),facadeIvy=model.userData.cs16Realistic?{update(){},dispose(){}}:ivy(T,scene,grid);const group=new T.Group();group.name='Evolution valley landscape';scene.add(group);
   const vertices=[],colors=[],indices=[],res=116,extent=1350,center=world/2;
   function height(x,z){const edge=Math.max(0,-x-75,-z-75,x-world-75,z-world-75),r=Math.hypot(x-center,z-center),a=Math.atan2(z-center,x-center);return Math.min(1,edge/100)*(30+Math.sin(x*.011+z*.003)*Math.cos(z*.008)*18+Math.pow(.5+.5*Math.sin(a*5+1),2)*42+Math.sin(x*.035+z*.021)*3.5)*Math.min(1,(r-world*.48)/100);}
   for(let z=0;z<=res;z++)for(let x=0;x<=res;x++){
@@ -121,9 +259,9 @@
     for(const a of [i*2.4,i*2.4+Math.PI/2]){const dx=Math.cos(a)*w,dz=Math.sin(a)*w,n=treePos.length/3;treePos.push(x-dx,y,z-dz,x+dx,y,z+dz,x-dx,y+h,z-dz,x+dx,y+h,z+dz);treeUv.push(u,0,u+.5,0,u,1,u+.5,1);treeIx.push(n,n+1,n+2,n+1,n+3,n+2);}
   }
   const treeGeo=new T.BufferGeometry();treeGeo.setAttribute('position',new T.Float32BufferAttribute(treePos,3));treeGeo.setAttribute('uv',new T.Float32BufferAttribute(treeUv,2));treeGeo.setIndex(treeIx);
-  const treeMat=new T.MeshBasicMaterial({map:treeAtlas,side:T.DoubleSide,alphaTest:.44});group.add(new T.Mesh(treeGeo,treeMat));
+  const treeMat=new T.MeshBasicMaterial({map:treeAtlas,side:T.DoubleSide,alphaTest:.44,color:model.userData.cs16Realistic?0x75846b:0xffffff});group.add(new T.Mesh(treeGeo,treeMat));
   const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.setIndex(indices);geo.computeVertexNormals();geo.computeBoundingSphere();
-  const mat=new T.MeshStandardMaterial({vertexColors:true,roughness:1});const hills=new T.Mesh(geo,mat);hills.name='Soft distant ridges';hills.receiveShadow=false;group.add(hills);
+  const mat=new T.MeshStandardMaterial({vertexColors:true,roughness:1,envMapIntensity:.20,color:model.userData.cs16Realistic?0x6b7868:0xffffff});const hills=new T.Mesh(geo,mat);hills.name='Soft distant ridges';hills.receiveShadow=false;group.add(hills);
   // Local, pooled grass blades: only nearby meadow patches enter the draw call.
   const points=[],pointsByCell=new Map();
   for(let z=2;z<world-2;z+=2.6)for(let x=2;x<world-2;x+=2.6){const weight=maskBytes[(Math.floor(z/4)*size+Math.floor(x/4))*4]/255;if(weight<.56||noise(x,z)<.3)continue;const p={x:x+(noise(z,x)-.5)*1.5,z:z+(noise(x+9,z)-.5)*1.5};points.push(p);const key=Math.floor(p.x/32)+','+Math.floor(p.z/32);if(!pointsByCell.has(key))pointsByCell.set(key,[]);pointsByCell.get(key).push(p);}

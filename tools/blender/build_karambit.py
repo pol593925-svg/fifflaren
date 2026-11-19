@@ -280,14 +280,15 @@ def main():
     for node in (root, weapon):
         node['spinPivot'] = list(SPIN_PIVOT)
         node['spinAxis'] = list(SPIN_AXIS)
-    root['artStyle'] = 'Original soft anime / Support Hub'
+    root['artStyle'] = 'Original realistic satin steel / Support Hub'
+    root['cs16Realistic'] = True
     root['gripContact'] = [0, 0, .055]
     root['ringInnerRadius'] = .0155
-    steel = material('Karambit satin blade', '#a6c0c8', .46, .36)
-    edge = material('Karambit honed edge', '#e5ece5', .31, .45)
-    ceramic = material('Weapon finish / Karambit ceramic', '#55939c', .52, .12)
-    dark = material('Karambit graphite grip', '#263e50', .72, .06)
-    brass = material('Karambit brass inlay', '#cfa765', .43, .34)
+    steel = material('Karambit satin blade', '#85898c', .43, .84)
+    edge = material('Karambit honed edge', '#b5b7b9', .32, .90)
+    ceramic = material('Weapon finish / Karambit grip scale', '#3d4142', .72, .04)
+    dark = material('Karambit graphite grip', '#303335', .77, .02)
+    brass = material('Karambit machined fasteners', '#64696c', .47, .78)
     blade(weapon, steel, edge)
     grip(weapon, dark, ceramic, brass)
     a.box('Rounded blade bolster', (0, .001, -.007), (.043, .042, .013), brass, weapon, .004)
@@ -295,10 +296,10 @@ def main():
     for sign in (-1, 1):
         ring(weapon, brass, 'Ring face inlay', (sign * .0061, SPIN_PIVOT[1], SPIN_PIVOT[2]), .021, .0008, .0008, 40, 6)
     sys.path.insert(0, str(HERE))
-    from bake_asset_shading import bake
-    bake(root)
+    from build_realistic_arsenal import neutralize, lod as realistic_lod
+    neutralize(root)
     a.join_parts(root)
-    lod = world_lod(root)
+    lod = realistic_lod(root, .20)
     bpy.context.view_layer.update()
     points = [root.matrix_world.inverted() @ ob.matrix_world @ vertex.co for ob in weapon.children_recursive if ob.type == 'MESH' for vertex in ob.data.vertices]
     game_points = [(p.x, p.z, -p.y) for p in points]

@@ -16,9 +16,9 @@
   function optic(T) {
     const root = new T.Group(),
       owned = new Set(),
-      metal = new T.MeshStandardMaterial({ color: 0xc9c5b8, metalness: 0.30, roughness: 0.48 }),
-      edge = new T.MeshStandardMaterial({ color: 0x405d6b, metalness: 0.45, roughness: 0.43 }),
-      brass = new T.MeshStandardMaterial({color:0xb69a65,metalness:.6,roughness:.36}),
+      metal = new T.MeshStandardMaterial({ name:'Optic anodized alloy', color: 0x272b2b, metalness: 0.72, roughness: 0.39 }),
+      edge = new T.MeshStandardMaterial({ name:'Optic rubber hood', color: 0x191d1c, metalness: 0.12, roughness: 0.69 }),
+      brass = new T.MeshStandardMaterial({name:'Optic worn edge',color:0x595c58,metalness:.76,roughness:.42}),
       glass = new T.MeshBasicMaterial({
         color: 0x6d9695,
         transparent: true,

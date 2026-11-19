@@ -1,0 +1,22 @@
+Asset: fps arms (rigged only)
+Author: para
+Published: 2015-03-18
+Primary source: https://opengameart.org/content/fps-arms-rigged-only
+Original download: https://opengameart.org/sites/default/files/fps%20arms.7z
+License displayed by the author on the primary source: CC0
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Verified and downloaded: 2026-11-19
+
+The source FBX is FPS ARMS RIG 1.fbx from the original archive, renamed here
+to cc0-para-fps-arms.fbx. SHA-256:
+8aeb5a2e5ee6277ecc40e99a6dc5034b0fff321ef6d86f53e10b3461fdbae35b
+
+Support Hub uses the anatomical hand portion of this mesh. The source rig is
+used offline to bake four static weapon grip poses, then discarded. Tactical
+glove materials, textures, sleeves, stitches, folds and padding are original
+Support Hub additions. Original source skin texture is not included in the
+runtime asset. No commercial shooter files were extracted or incorporated.
+
+CC0 1.0 Universal dedicates the work to the public domain to the fullest extent
+permitted by applicable law. This notice records provenance; it is not a new
+restriction on the CC0 source asset. Consult the license URL for its full terms.

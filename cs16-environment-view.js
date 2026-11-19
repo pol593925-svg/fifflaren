@@ -247,9 +247,15 @@
               (g.CS16Buildings.contains(grid, map, p.x, p.z) && p.y < 7.2) ||
               (grid[Math.floor(p.z / 4)]?.[Math.floor(p.x / 4)] === 12 && p.y < 3.58),
             limit = getQuality() === 'low' ? 0 : getQuality() === 'high' ? 2 : 1;
-          const closest = lampPlaces
-            .slice()
-            .sort((a, b) => a.distanceToSquared(camera.position) - b.distanceToSquared(camera.position));
+          // Only two lamps can be active; avoid sorting the entire map and do
+          // no nearest-light work outdoors or on economy quality.
+          let first=null,second=null,firstDistance=Infinity,secondDistance=Infinity;
+          if(indoor&&limit)for(const point of lampPlaces){
+            const distance=point.distanceToSquared(camera.position);
+            if(distance<firstDistance){second=first;secondDistance=firstDistance;first=point;firstDistance=distance;}
+            else if(limit>1&&distance<secondDistance){second=point;secondDistance=distance;}
+          }
+          const closest=[first,second];
           lights.forEach((l, i) => {
             l.intensity = indoor && i < limit ? 9 : 0;
             if (closest[i]) l.position.copy(closest[i]);

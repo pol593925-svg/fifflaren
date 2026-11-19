@@ -81,7 +81,13 @@
     }
   }
   function bindGun(T, gun, basis, id) {
-    const def = contacts(id);
+    // Imported rifles carry authored contacts in the same local coordinate system
+    // as their geometry. Keep the standard sockets for all other loadouts.
+    let authored = null;
+    basis?.traverse(node => { if (!authored && node.userData?.cs16Grip) authored = node.userData.cs16Grip; });
+    const validPoint = value => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
+    if (authored && !['right','left','mag','rail','bore'].every(key => validPoint(authored[key]))) authored = null;
+    const def = authored || contacts(id);
     basis?.updateMatrix();
     const coords = (v) => {
       if (!v) return null;
@@ -99,8 +105,8 @@
             ? 0.093
             : 0.09;
     const mountY = id === 'famas' ? 0.18 : ['awp','scout'].includes(id) ? 0.195 : id === 'rpg' ? 0.15 : railY;
-    const rail = coords([id === 'elite' ? 0.09 : 0, mountY, pistols.has(id) ? 0.009 : id === 'p90' ? -0.15 : -0.045]),
-      bore = coords([0, pistols.has(id) ? 0.025 : 0.035, 0]);
+    const rail = coords(authored?.rail || [id === 'elite' ? 0.09 : 0, mountY, pistols.has(id) ? 0.009 : id === 'p90' ? -0.15 : -0.045]),
+      bore = coords(authored?.bore || [0, pistols.has(id) ? 0.025 : 0.035, 0]);
     const bounds = new T.Box3().setFromObject(basis || gun);
     if (!bounds.isEmpty()) bore[2] = bounds.min.z;
     gun.userData.grip = {

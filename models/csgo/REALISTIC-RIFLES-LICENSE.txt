@@ -1,0 +1,34 @@
+Realistic M4A1 and AK-47 replacement models
+=========================================
+
+Original author: 3DModelsCC0
+Original pack: Free CC0 Guns & Explosives Pack
+Author source: https://3dmodelscc0.itch.io/free-cc0-guns-explosives-pack
+License: CC0 1.0 Universal (public-domain dedication)
+License text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Downloaded: 2026-11-19, through the author's ordinary free download flow.
+Original archive: Guns&Explosives.rar, itch.io upload 9000802, 162200198 bytes.
+Archive SHA-256: 275679f1f8c7d22aa413c04012571a92e6c7b266ed7174125b64b9d8533f7a1a
+
+Included files:
+- anime-m4a1.glb: M4A1/M4A1.fbx and its original PBR texture set.
+- anime-ak47.glb: AK-47/AK47.fbx and its original PBR texture set.
+
+Support Hub modifications:
+- Rebuilt missing FBX material links using the original albedo, normal,
+  roughness and metallic textures.
+- Converted DirectX normal orientation to OpenGL for AK-47.
+- Resized normal/material maps to 1024, retained 2048 base color.
+- Baked source transforms into metre-scale geometry; added grip metadata.
+- Preserved separate magazine, bolt and trigger animation nodes.
+- Batched static geometry and added one simplified world mesh per weapon.
+- Added an original graphite dovetail/rail adapter to physically support the
+  AK-47 reflex sight; the M4 sight mounts directly onto its existing rail.
+- Exported embedded, self-contained glTF binary files.
+
+The historical anime-* filenames are retained for loader compatibility;
+these two files now contain the realistic CC0 replacement models.
+
+These are NOT the Adaptive Combat Rifle by doomsentinel shown in the proposal.
+That separate model's official Sketchfab download currently requires login.
+No Sketchfab viewer data or assets from a commercial shooter were extracted.

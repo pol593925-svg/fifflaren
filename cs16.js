@@ -878,7 +878,7 @@
     CS16Front.apply(grid,frontNet.ids);CS16Front.setCrater(grid,frontNet.crater||null);frontView?.sync();frontView?.objective(frontNet.objective);frontView?.loot(frontNet.gold);
   }
   let loadScreen=null;
-  let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null;
+  let worldGraphics = null, worldReady = false, fieldProps=null,conquestUI=null,buildingGraphics=null,cinematic=null;
   const modestHardware=(navigator.deviceMemory>0&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency>0&&navigator.hardwareConcurrency<=4);
   let graphicsQuality = modestHardware ? 'low' : 'balanced';
   let qualityMode='auto',environmentView=null,fieldEffects=null,hitFeedback=null,battleAudio=null,lastDust=0;
@@ -899,6 +899,7 @@
     buildWorld();
   }
   function releaseLostGraphics(){heatScope?.dispose();heatScope=null;if(ui.thermalLens)ui.thermalLens.style.display='none';fieldOptical?.dispose();fieldOptical=null;fieldAim=false;fieldAimMix=0;
+    cinematic?.dispose();cinematic=null;
     worldLoadEpoch++;
     frontView?.dispose();frontView=null;missileView?.dispose();missileView=null;
     clearFieldPresentation();
@@ -919,6 +920,7 @@
   }
   let worldLoadEpoch = 0;
   async function buildWorld() {
+    cinematic ||= window.CS16Cinematic?.create(THREE,renderer3);
     const epoch = ++worldLoadEpoch;
     clearFieldPresentation();
     let active = null, timer, loadEnded = false;
@@ -967,7 +969,7 @@
       if(epoch===worldLoadEpoch)await fieldEffects?.warm(renderer3);
       if(epoch !== worldLoadEpoch)return;
       // Catch first-frame shader/GPU errors before dismissing the loading screen.
-      renderer3.render(scene, camera);
+      renderFrame();
       if(P.x<4||P.z<4||!Number.isFinite(P.x+P.z))placePlayerSpawn();
       worldReady = true; loadScreen?.progress(100,'ready','Ваша игра готова');
       ensureSocket(); doJoin();prepareArmy();sock?.emit("cs16_environment_get");
@@ -982,6 +984,7 @@
     } finally { loadEnded = true; clearTimeout(timer); }
   }
   function placePlayerSpawn(pos){const base=CS16TacticalMap.identify(grid)?CS16TacticalMap.spawn(curMap,me.team,0):(me.team==='t'?[curMap==='inferno'?206:194,0,curMap==='inferno'?422:434]:[230,0,38]);const safe=CS16Props.safeSpawn(grid,pos||base);P.x=safe[0];P.y=CS16Terrain.walkHeight(grid,safe[0],safe[2]);P.z=safe[2];P.vx=P.vy=P.vz=0;P.onGround=true;}
+  function renderFrame(){if(cinematic)cinematic.render(scene,camera);else renderer3.render(scene,camera);}
   function resize3() {
     if (!renderer3) return;
     if(royaleActive)return;
@@ -2958,6 +2961,9 @@
   }
 
   // ---------- HUD UPDATE ----------
+  // Avoid replacing unchanged text nodes every frame: that invalidates layout
+  // around the radar, weapon panel and scores on low-power CPUs.
+  function hudText(node,value){value=String(value);if(node.textContent!==value)node.textContent=value;}
   function updateHud() {
     if (state.phase === 'lobby') return;
     const nowSrv = Date.now() + clockOffset;
@@ -2965,32 +2971,32 @@
     const left = Math.max(0, ends - nowSrv);
     const mm = String(Math.floor(left / 60000)), ss = String(Math.floor(left % 60000 / 1000)).padStart(2, '0');
     const phaseTxt = state.phase === 'freeze' ? 'ПОКУПКИ' : state.phase === 'live' ? '' : '—';
-    ui.topBar.textContent = state.gm==='assault'?'ШТУРМ '+Math.min(3,1+(frontNet.stage||0))+'/3 · '+(frontNet.objective?.name||'')+' · '+Math.floor((frontNet.capture||0)/8*100)+'% · резервы '+(frontNet.tickets??100)+' · '+mm+':'+ss:state.gm==='cq'?`ЗАХВАТ · ${mm}:${ss} · ДО 50 ${phaseTxt}`:`РАУНД ${state.round} · ${mm}:${ss} ${phaseTxt}`;
-    ui.scoreT.textContent = 'T  ' + state.scores.t;
-    ui.scoreCT.textContent = state.scores.ct + '  CT';
-    ui.hpTxt.textContent = '+ ' + Math.max(0, me.hp);
-    ui.armorTxt.textContent = 'БРОНЯ  ' + Math.max(0, me.armor);
-    ui.money.textContent = '$' + me.money;
-    ui.frontFlight.hidden=frontSeat==null;if(frontSeat!=null){ui.frontFlight.firstChild.textContent=(frontSeat%50===49?'САМОЛЁТ':'ВЕРТОЛЁТ')+'   ·   '+Math.round(P.y)+' м   ·   '+(frontRocket?'РАКЕТЫ':'ПУЛЕМЁТ')+(ownedStrike?(frontNet.bombUsed?' · заряд израсходован':' · G: спецбоеприпас'):'');}else if(state.army&&frontNet.counts)ui.topBar.textContent+=' · армия '+frontNet.counts.join(' / ');
-    if(frontSeat!=null)ui.topBar.textContent+=' · ПИЛОТ · '+(frontRocket?'ракеты':'пулемёт')+' · '+Math.round(P.y)+' м';
-    if(myVeh)ui.topBar.textContent+=' · '+VEH_TYPES[myVeh.variant||myVeh.kind].name+' '+Math.max(0,myVehHp)+' HP'+(myVeh.inside?' · '+(myVeh.passenger?'СТРЕЛОК':'ПИЛОТ')+' · Q: '+VEH_WEAPON_NAMES[myVeh.mode]:' · E: сесть');
+    let topText = state.gm==='assault'?'ШТУРМ '+Math.min(3,1+(frontNet.stage||0))+'/3 · '+(frontNet.objective?.name||'')+' · '+Math.floor((frontNet.capture||0)/8*100)+'% · резервы '+(frontNet.tickets??100)+' · '+mm+':'+ss:state.gm==='cq'?`ЗАХВАТ · ${mm}:${ss} · ДО 50 ${phaseTxt}`:`РАУНД ${state.round} · ${mm}:${ss} ${phaseTxt}`;
+    hudText(ui.scoreT,'T  ' + state.scores.t);
+    hudText(ui.scoreCT,state.scores.ct + '  CT');
+    hudText(ui.hpTxt,'+ ' + Math.max(0, me.hp));
+    hudText(ui.armorTxt,'БРОНЯ  ' + Math.max(0, me.armor));
+    hudText(ui.money,'$' + me.money);
+    ui.frontFlight.hidden=frontSeat==null;if(frontSeat!=null){ui.frontFlight.firstChild.textContent=(frontSeat%50===49?'САМОЛЁТ':'ВЕРТОЛЁТ')+'   ·   '+Math.round(P.y)+' м   ·   '+(frontRocket?'РАКЕТЫ':'ПУЛЕМЁТ')+(ownedStrike?(frontNet.bombUsed?' · заряд израсходован':' · G: спецбоеприпас'):'');}else if(state.army&&frontNet.counts)topText+=' · армия '+frontNet.counts.join(' / ');
+    if(frontSeat!=null)topText+=' · ПИЛОТ · '+(frontRocket?'ракеты':'пулемёт')+' · '+Math.round(P.y)+' м';
+    if(myVeh)topText+=' · '+VEH_TYPES[myVeh.variant||myVeh.kind].name+' '+Math.max(0,myVehHp)+' HP'+(myVeh.inside?' · '+(myVeh.passenger?'СТРЕЛОК':'ПИЛОТ')+' · Q: '+VEH_WEAPON_NAMES[myVeh.mode]:' · E: сесть');
+    hudText(ui.topBar,topText);
     const w = WEAPONS[current];
     const a = ammo[current];
-    ui.ammo.textContent = w.melee ? '∞' : (a ? `${a.mag} / ${a.reserve}` : '');
-    ui.nadeTxt.textContent = `HE  ${nades.he}    FLASH  ${nades.flash}    SMOKE  ${nades.smoke}`;
-    ui.weaponName.textContent = current==='knife'&&meleeStyle==='karambit'?'Керамбит':w.name;
-    ui.location.textContent = MAP_META[curMap].name.toUpperCase();
-    ui.bearing.textContent=CS16FieldView.bearing(P.yaw);
+    hudText(ui.ammo,reloading>0?'перезарядка...':w.melee ? '∞' : (a ? `${a.mag} / ${a.reserve}` : ''));
+    hudText(ui.nadeTxt,`HE  ${nades.he}    FLASH  ${nades.flash}    SMOKE  ${nades.smoke}`);
+    hudText(ui.weaponName,current==='knife'&&meleeStyle==='karambit'?'Керамбит':w.name);
+    hudText(ui.location,MAP_META[curMap].name.toUpperCase());
+    hudText(ui.bearing,CS16FieldView.bearing(P.yaw));
     ui.crosshair.style.display = (scoped || !me.alive || fieldAimMix>.92) ? 'none' : 'block';
     const cone=Combat.spread(w,{scoped:scoped||fieldAimMix>.92,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
     ui.crosshair.style.transform='translate(-50%,-50%) scale('+Math.min(3,1+cone*.22)+')';
     ui.scope.style.display = scoped ? 'block' : 'none';
     ui.flash.style.opacity = String(Math.min(1, flashAlpha));
-    if (reloading > 0) ui.ammo.textContent = 'перезарядка...';
     // таймер бомбы
     if (bombPlanted) {
       const bleft = Math.max(0, bombPlanted.explodesAt - nowSrv);
-      ui.bombTimer.textContent = '💣 ' + Math.ceil(bleft / 1000);
+      hudText(ui.bombTimer,'💣 ' + Math.ceil(bleft / 1000));
       ui.bombTimer.style.display = 'block';
       ui.bombTimer.style.color = bleft < 10000 ? '#ff2222' : '#ffaa44';
     } else ui.bombTimer.style.display = 'none';
@@ -3218,7 +3224,7 @@
           refreshHud(t);
           if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
-          renderer3.render(scene, camera);
+          renderFrame();
           return; // пропускаем собственную камеру
         }
       } else specTarget = null;
@@ -3249,7 +3255,7 @@
     if(fieldProps)fieldProps.update(Math.min(.05,dt),camera);
     if(conquestUI)conquestUI.update(t);
     worldGraphics.update(camera, t);
-    renderer3.render(scene, camera);
+    renderFrame();
     if(adminTools?.state.wallhack)adminTools.update(t,camera,remotes.values(),me,state.phase==='live'||state.phase==='freeze');
     if(thermal){
       heatScope||=CS16HeatScope.create(THREE);

@@ -1,0 +1,62 @@
+Support Hub realistic arsenal provenance (2026-11-19)
+===================================================
+
+1. Imported M4A1 and AK-47: 3DModelsCC0
+   Author's source: https://3dmodelscc0.itch.io/free-cc0-guns-explosives-pack
+   License: CC0 1.0 Universal
+   https://creativecommons.org/publicdomain/zero/1.0/
+   Obtained through the author's public free itch.io download flow.
+   Archive SHA256:
+   275679f1f8c7d22aa413c04012571a92e6c7b266ed7174125b64b9d8533f7a1a
+   Importer: tools/blender/import_cc0_rifles.py
+   Adaptations: normalized metres, original UVs and geometry, packed material
+   maps, OpenGL normals, rigid animation pivots, source grip contacts, optimized
+   remote LOD, original AK dovetail mount. No source hands are included.
+
+2. Imported MP5 and Tec-9: Stein Games
+   Author's source: https://stein-indie.itch.io/classic-weapons-pack
+   Source archive: Classic Weapons Pack v1.1.zip
+   License: CC0 1.0 Universal, confirmed on the author page and license.txt:
+   "The license is CC0 1.0. You can copy, modify, distribute and perform the
+   assets, even for commercial purposes, all without asking permission.
+   You don't need to give credit but I would of course appreciate it.
+   By Stein Games"
+   Archive SHA256:
+   e91fd8954226cf99f72bd27065e0ef1042675a96cd9b600d77c623c2f50e90c0
+   Importer: tools/blender/import_cc0_compacts.py
+   Adaptations: source bone-weighted parts converted to rigid magazine, bolt
+   and trigger pivots; normalized metre axes; authored optics contacts;
+   albedo 1024 and MP5 normal/ORM 512; static remote LOD reuses the same maps.
+   Tec-9 source includes albedo only; its material roughness and metal values
+   are original project modifications, not claimed to be source PBR maps.
+
+3. Imported Glock-18 mesh: locarem
+   Primary source: https://opengameart.org/content/high-poly-glock-18-no-textures
+   Source file: https://opengameart.org/sites/default/files/Glock_HighPoly.obj
+   License: CC0 1.0 Universal, confirmed on the primary author page.
+   File SHA256:
+   5437aa4cbacfb9838c2ff06cabb13ccf68779ce8af4652a1672923772f35d089
+   Importer: tools/blender/import_cc0_compacts.py
+   Adaptations: original high-poly silhouette optimized to ~10k triangles,
+   separated rigid slide/magazine/trigger, source-grip placement, original
+   graphite steel/polymer materials and small supported optics adapter.
+   The source is untextured; no missing MTL, textures or brand graphics are
+   required. Material maps and the adapter are original project additions.
+
+4. All remaining firearms, classic knife and karambit
+   Original authored Support Hub geometry and materials, refined from the
+   project's original procedural models. These are NOT imported models from
+   CS, Warzone or another commercial shooter, and not renamed M4/AK models.
+   Files: anime-usp, deagle, awp, scout, p90, ump45, galil, famas, sg552, aug,
+   m249, fiveseven, elite, knife and karambit .glb.
+   Generators: tools/blender/build_realistic_arsenal.py,
+   tools/blender/build_karambit.py, with original base construction helpers.
+   Improvements: neutral PBR, planar metal with manufactured edge radii,
+   curved grips, continuous magazines, mechanical controls, supported optics,
+   distinct compact Scout and thumbhole AWP stock, folding UMP/SG stocks,
+   conservative first-person geometry and offline remote LODs.
+   No exact reproduction of commercial shooter assets is asserted.
+
+No material from the Adaptive Combat Rifle Sketchfab viewer was extracted.
+Its official archive requires authenticated download and is not included.
+The hands have independent provenance in their own manifest/license files.

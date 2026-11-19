@@ -1,105 +1,384 @@
 {
-  "generator": "tools/blender/build_anime_weapons.py",
+  "generator": "Per-entry generators; see REALISTIC-ARSENAL-LICENSE.txt",
   "assets": [
     {
       "file": "anime-knife.glb",
-      "triangles": 4911,
-      "bytes": 314660
+      "bytes": 630012,
+      "triangles": 3467,
+      "viewmodelTriangles": 2890,
+      "worldTriangles": 577,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-glock.glb",
-      "triangles": 10148,
-      "bytes": 555420
+      "bytes": 1299420,
+      "triangles": 11990,
+      "viewmodelTriangles": 10248,
+      "worldTriangles": 1742,
+      "source": "locarem / High Poly Glock-18 (No Textures), adapted PBR",
+      "cs16Realistic": true,
+      "license": "CC0-1.0",
+      "sourceUrl": "https://opengameart.org/content/high-poly-glock-18-no-textures",
+      "grip": {
+        "right": [
+          0,
+          -0.062,
+          0.022
+        ],
+        "left": [
+          0,
+          -0.076,
+          0.038
+        ],
+        "mag": [
+          0,
+          -0.1,
+          0.024
+        ],
+        "rail": [
+          0,
+          0.0278,
+          0.008
+        ],
+        "bore": [
+          0,
+          0.0129,
+          0
+        ],
+        "style": "cup"
+      },
+      "generator": "tools/blender/import_cc0_compacts.py"
     },
     {
       "file": "anime-usp.glb",
-      "triangles": 11882,
-      "bytes": 615428
+      "bytes": 1265304,
+      "triangles": 13022,
+      "viewmodelTriangles": 11024,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-deagle.glb",
-      "triangles": 10378,
-      "bytes": 562412
+      "bytes": 1243096,
+      "triangles": 12270,
+      "viewmodelTriangles": 10272,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-ak47.glb",
-      "triangles": 24436,
-      "bytes": 1190056
+      "bytes": 3664264,
+      "triangles": 7558,
+      "viewmodelTriangles": 6097,
+      "worldTriangles": 1461,
+      "batches": {
+        "Realistic bolt mesh": 252,
+        "Realistic magazine mesh": 444,
+        "Realistic receiver and furniture": 5349,
+        "Realistic trigger mesh": 52,
+        "Realistic rifle world silhouette": 1461
+      },
+      "source": "3DModelsCC0 Guns & Explosives",
+      "license": "CC0-1.0",
+      "cs16Realistic": true,
+      "grip": {
+        "right": [
+          0,
+          -0.089,
+          0.035
+        ],
+        "left": [
+          0,
+          -0.006,
+          -0.25
+        ],
+        "mag": [
+          0,
+          -0.13,
+          -0.13
+        ],
+        "rail": [
+          0,
+          0.0535,
+          -0.1
+        ],
+        "bore": [
+          0,
+          0.005,
+          0
+        ],
+        "style": "tube"
+      },
+      "generator": "tools/blender/import_cc0_rifles.py"
     },
     {
       "file": "anime-m4a1.glb",
-      "triangles": 39466,
-      "bytes": 1720472
+      "bytes": 2727120,
+      "triangles": 11448,
+      "viewmodelTriangles": 9236,
+      "worldTriangles": 2212,
+      "batches": {
+        "Realistic bolt mesh": 124,
+        "Realistic magazine mesh": 736,
+        "Realistic receiver and furniture": 8308,
+        "Realistic trigger mesh": 68,
+        "Realistic rifle world silhouette": 2212
+      },
+      "source": "3DModelsCC0 Guns & Explosives",
+      "license": "CC0-1.0",
+      "cs16Realistic": true,
+      "grip": {
+        "right": [
+          0,
+          -0.092,
+          0.035
+        ],
+        "left": [
+          0,
+          0.005,
+          -0.273
+        ],
+        "mag": [
+          0,
+          -0.105,
+          -0.105
+        ],
+        "rail": [
+          0,
+          0.0475,
+          -0.023
+        ],
+        "bore": [
+          0,
+          0.017,
+          0
+        ],
+        "style": "tube"
+      },
+      "generator": "tools/blender/import_cc0_rifles.py"
     },
     {
       "file": "anime-awp.glb",
-      "triangles": 36618,
-      "bytes": 1601324
+      "bytes": 1524368,
+      "triangles": 19964,
+      "viewmodelTriangles": 17998,
+      "worldTriangles": 1966,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-mp5.glb",
-      "triangles": 27640,
-      "bytes": 1294544
+      "bytes": 2965256,
+      "triangles": 16664,
+      "viewmodelTriangles": 13887,
+      "worldTriangles": 2777,
+      "source": "Stein Games / Free Classic Weapons Pack v1.1",
+      "cs16Realistic": true,
+      "license": "CC0-1.0",
+      "sourceUrl": "https://stein-indie.itch.io/classic-weapons-pack",
+      "grip": {
+        "right": [
+          0,
+          -0.1,
+          0.035
+        ],
+        "left": [
+          0,
+          -0.025,
+          -0.225
+        ],
+        "mag": [
+          0,
+          -0.145,
+          -0.121
+        ],
+        "rail": [
+          0,
+          0.047385,
+          -0.0715
+        ],
+        "bore": [
+          0,
+          -0.01569,
+          0
+        ],
+        "style": "tube"
+      },
+      "generator": "tools/blender/import_cc0_compacts.py"
     },
     {
       "file": "anime-p90.glb",
-      "triangles": 34412,
-      "bytes": 1543016
+      "bytes": 1484548,
+      "triangles": 19986,
+      "viewmodelTriangles": 17992,
+      "worldTriangles": 1994,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-ump45.glb",
-      "triangles": 28162,
-      "bytes": 1312064
+      "bytes": 1386624,
+      "triangles": 17134,
+      "viewmodelTriangles": 15136,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-galil.glb",
-      "triangles": 24436,
-      "bytes": 1189936
+      "bytes": 1366020,
+      "triangles": 16343,
+      "viewmodelTriangles": 14344,
+      "worldTriangles": 1999,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-famas.glb",
-      "triangles": 27980,
-      "bytes": 1303920
+      "bytes": 1420304,
+      "triangles": 18542,
+      "viewmodelTriangles": 16544,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-scout.glb",
-      "triangles": 36618,
-      "bytes": 1601100
+      "bytes": 1509008,
+      "triangles": 19970,
+      "viewmodelTriangles": 18006,
+      "worldTriangles": 1964,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-sg552.glb",
-      "triangles": 27292,
-      "bytes": 1283348
+      "bytes": 1380464,
+      "triangles": 16946,
+      "viewmodelTriangles": 14948,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-aug.glb",
-      "triangles": 27292,
-      "bytes": 1282904
+      "bytes": 1405660,
+      "triangles": 17978,
+      "viewmodelTriangles": 15980,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-m249.glb",
-      "triangles": 26848,
-      "bytes": 1255860
+      "bytes": 1862204,
+      "triangles": 18881,
+      "viewmodelTriangles": 16884,
+      "worldTriangles": 1997,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-fiveseven.glb",
-      "triangles": 10148,
-      "bytes": 553300
+      "bytes": 1238180,
+      "triangles": 12082,
+      "viewmodelTriangles": 10084,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-tec9.glb",
-      "triangles": 11412,
-      "bytes": 594972
+      "bytes": 2067020,
+      "triangles": 13474,
+      "viewmodelTriangles": 11229,
+      "worldTriangles": 2245,
+      "source": "Stein Games / Free Classic Weapons Pack v1.1",
+      "cs16Realistic": true,
+      "license": "CC0-1.0",
+      "sourceUrl": "https://stein-indie.itch.io/classic-weapons-pack",
+      "grip": {
+        "right": [
+          0,
+          -0.074,
+          0.025
+        ],
+        "left": [
+          0,
+          -0.088,
+          0.04
+        ],
+        "mag": [
+          0,
+          -0.145,
+          -0.098
+        ],
+        "rail": [
+          0,
+          0.031763,
+          -0.087
+        ],
+        "bore": [
+          0,
+          -0.00019,
+          0
+        ],
+        "style": "cup"
+      },
+      "generator": "tools/blender/import_cc0_compacts.py"
     },
     {
       "file": "anime-elite.glb",
-      "triangles": 17428,
-      "bytes": 763732
+      "bytes": 1453008,
+      "triangles": 19992,
+      "viewmodelTriangles": 17994,
+      "worldTriangles": 1998,
+      "source": "Original authored Support Hub geometry",
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_arsenal.py",
+      "license": "Original project asset"
     },
     {
       "file": "anime-hands.glb",
-      "triangles": 40908,
-      "bytes": 2075176
+      "triangles": 35632,
+      "bytes": 2466876,
+      "cs16Realistic": true,
+      "generator": "tools/blender/build_realistic_hands.py",
+      "source": "para / fps arms (rigged only), anatomical hand mesh; Support Hub cloth, materials and baked grip poses",
+      "license": "CC0-1.0 + original project modifications",
+      "sourceUrl": "https://opengameart.org/content/fps-arms-rigged-only",
+      "materials": 4,
+      "drawCallsPerActivePair": 8
     }
-  ]
+  ],
+  "previewSurfacePass": "tools/blender/polish_anime_viewmodels.py"
 }

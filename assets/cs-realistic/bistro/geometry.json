@@ -1,0 +1,116 @@
+{
+  "lantern": {
+    "triangles": 2445,
+    "dimensions": [
+      1.2273,
+      0.7861,
+      1.8723
+    ]
+  },
+  "planter": {
+    "triangles": 1230,
+    "dimensions": [
+      1.0131,
+      1.0067,
+      0.7481
+    ]
+  },
+  "awning": {
+    "triangles": 3554,
+    "dimensions": [
+      2.7039,
+      1.3984,
+      1.7601
+    ]
+  },
+  "sign": {
+    "triangles": 1146,
+    "dimensions": [
+      1.1391,
+      0.1547,
+      1.0139
+    ]
+  },
+  "balcony_fascia": {
+    "triangles": 1000,
+    "dimensions": [
+      8.0,
+      0.13,
+      0.18
+    ]
+  },
+  "shutter_panel": {
+    "triangles": 208,
+    "dimensions": [
+      0.44,
+      0.075,
+      1.49
+    ]
+  },
+  "tree": {
+    "triangles": 15493,
+    "dimensions": [
+      26.9744,
+      19.2959,
+      21.7454
+    ]
+  },
+  "cypress": {
+    "triangles": 5677,
+    "dimensions": [
+      2.5613,
+      2.6324,
+      6.7047
+    ]
+  },
+  "ivy": {
+    "triangles": 1296,
+    "dimensions": [
+      5.586,
+      1.8467,
+      1.8148
+    ]
+  },
+  "table": {
+    "triangles": 1692,
+    "dimensions": [
+      1.4342,
+      1.4342,
+      1.3495
+    ]
+  },
+  "chair": {
+    "triangles": 3328,
+    "dimensions": [
+      0.9358,
+      1.0262,
+      1.6414
+    ]
+  },
+  "window_frame": {
+    "triangles": 545,
+    "dimensions": [
+      2.48,
+      0.2,
+      1.94
+    ]
+  },
+  "pilaster": {
+    "triangles": 2080,
+    "dimensions": [
+      0.48,
+      0.32,
+      6.86
+    ]
+  },
+  "townhouses": {
+    "triangles": 34983,
+    "dimensions": [
+      32.5462,
+      40.9216,
+      34.3939
+    ]
+  },
+  "bytes": 8967704,
+  "delivery": "EXT_texture_webp"
+}

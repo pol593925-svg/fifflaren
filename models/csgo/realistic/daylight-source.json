@@ -1,0 +1,12 @@
+{
+  "asset": "daylight-2k.hdr",
+  "title": "Kloofendal 48d Partly Cloudy (Pure Sky)",
+  "authors": ["Greg Zaal", "Jarod Guest"],
+  "source": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+  "download": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/kloofendal_48d_partly_cloudy_puresky_2k.hdr",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "md5": "2eba3a4d7eeb23cbfbeca364c97e7980",
+  "use": "Bundled HDR background and prefiltered environment light, not a replacement for 3D map geometry",
+  "downloaded": "2026-11-19"
+}

@@ -10,15 +10,17 @@ window.require=n=>{
  if(n==='fs')return {existsSync:p=>p in __writes,readFileSync:p=>__writes[p],writeFileSync:(p,v)=>__writes[p]=v};
  if(n==='path')return {join:(...a)=>a.join('/')};
  if(n==='electron')return {ipcRenderer:ipc,desktopCapturer:{getSources:async()=>[]}};
+ if(n==='./assistance-stream')return {AssistanceStream:class{}};
+ if(n==='./assistance-protocol')return {KEYS:{}};
  if(n==='socket.io-client')return {io:()=>{const h={};return {on(n,f){h[n]=f;return this},off(){return this},emit(n){if(n==='cs16_join')setTimeout(()=>h.cs16_state?.({phase:'lobby',map:'dust2',gm:'classic',mode:5,round:0,scores:{t:0,ct:0},host:'knyaz',players:[{nick:'fifflaren',team:null},{nick:'knyaz',team:null}],now:Date.now()}),0)},disconnect(){},connected:true}}};
  throw Error('Unmocked module '+n);
 };
-window.Audio=class{play(){return Promise.resolve()}pause(){}addEventListener(){}};
+window.Audio=class{play(){return Promise.resolve()}pause(){}addEventListener(){}removeEventListener(){}};
 </script>`;
 const server=http.createServer((req,res)=>{
  const file=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname);
  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.statusCode=404;return res.end();}
- res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png'})[path.extname(file)]||'application/octet-stream');
+ res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.webp':'image/webp'})[path.extname(file)]||'application/octet-stream');
  if(file.endsWith('index.html'))return res.end(fs.readFileSync(file,'utf8').replace('<script src="game-loader.js">',mocks+'<script src="game-loader.js">'));
  fs.createReadStream(file).pipe(res);
 });

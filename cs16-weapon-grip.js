@@ -276,8 +276,8 @@
     };
   }
   function operator(T, body, holder, palmY) {
-    const left = rigArm(T, body.getObjectByName('armL'), -1, palmY),
-      right = rigArm(T, body.getObjectByName('armR'), 1, palmY);
+    const left = body.userData.classicExterior?null:rigArm(T, body.getObjectByName('armL'), -1, palmY),
+      right = body.userData.classicExterior?null:rigArm(T, body.getObjectByName('armR'), 1, palmY);
     const offset = new T.Vector3();
     let lastGun = null, lastGrip = null, lastPitch = NaN, lastRecoil = NaN, lastBob = NaN;
     return {

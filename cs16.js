@@ -559,6 +559,29 @@
     switchSlot('knife');refreshViewmodelSkin();renderBuyList();
   }
   let handsModel = null,karambitHandsModel=null, combatArtPromise = null;
+  const classicSleeves = {};
+  function recolourSleeves(source, team) {
+    const clone = source.clone(true), palette = new Map();
+    clone.traverse(node => {
+      if (!node.isMesh) return;
+      const change = material => {
+        if (!/field ripstop|olive.*stitching/i.test(material.name)) return material;
+        if (!palette.has(material)) {
+          const textile = material.clone();
+          if (team === 'ct') textile.color.multiply(new THREE.Color().setRGB(.63,.54,.84));
+          else textile.color.multiply(new THREE.Color().setRGB(1,.94,.72));
+          palette.set(material,textile);
+        }
+        return palette.get(material);
+      };
+      node.material=Array.isArray(node.material)?node.material.map(change):change(node.material);
+    });
+    return clone;
+  }
+  function currentSleeveTeam() {
+    const character=state.players.find(p=>p.nick===myNick)?.characterId||chosenCharacter;
+    return character==='classic'&&(me.team==='t'||me.team==='ct')?me.team:'';
+  }
   function loadCombatArt(onProgress=()=>{}) {
     const parts=[0,0,0],mark=(i,v)=>{parts[i]=v;onProgress(parts[0]*.7+parts[1]*.2+parts[2]*.1);};
     if (!combatArtPromise) combatArtPromise = Promise.all([
@@ -572,7 +595,9 @@
           material.roughness = Math.min(.98, Math.max(.64, material.roughness * .87));
           if (material.normalMap) material.normalScale.multiplyScalar(1.18);
         }
-        karambitHandsModel=CS16AnimeMaterials.apply(THREE,karambit.scene,{soft:true});mark(2,1);
+        karambitHandsModel=CS16AnimeMaterials.apply(THREE,karambit.scene,{soft:true});
+        for(const team of ['t','ct'])classicSleeves[team]={firearm:recolourSleeves(handsModel,team),knife:recolourSleeves(karambitHandsModel,team)};
+        mark(2,1);
       })
     ]).catch(error => { combatArtPromise = null; throw error; });
     return combatArtPromise.then(result=>{onProgress(1);return result;});
@@ -1919,8 +1944,8 @@
     const gunHolder = new THREE.Group();
     g.add(gunHolder);
     const hold=CS16Grip.operator(THREE,g,gunHolder,.51);
-    const batch=CS16OperatorBatch.create(THREE,g,characterId);
-    const heatBody=[];g.traverse(part=>{if(part.isMesh)heatBody.push(part);});
+    const exterior=g.userData.classicExterior;const batch=exterior?null:CS16OperatorBatch.create(THREE,g,characterId);
+    const heatBody=[];g.traverse(part=>{if(part.isMesh&&part.visible)heatBody.push(part);});
     // 3.22.0: вспышка на дуле чужого стрелка (видна всем)
     const muzzleFx = new THREE.Sprite(muzzleMaterial());
     muzzleFx.scale.set(0.5, 0.5, 1);
@@ -1932,7 +1957,7 @@
     // 3.15.5: табличку с ником видят только свои — ники врагов не показываем
     if (team && me.team && team === me.team) g.add(makeTag(nick, team === 't' ? '#ffd95e' : '#7ec2ff'));
     scene.add(g);
-    const r = { nick, characterId, heatBody,group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, batch, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
+    const r = { nick, characterId, heatBody,group: g, torso, head, legL, legR, armL, armR, gunHolder, hold, batch, exterior, gun: null, gunWeapon: '', gunSkin: '', muzzleFx,
       x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, tyaw: 0, pitch: 0, tpitch: 0,
       weapon: 'usp', skin: '', team, alive: false, moving: false, muzzle: 0, walkPhase: Math.random() * 6 };
     remotes.set(nick, r);
@@ -1958,7 +1983,7 @@
     if(model){
       CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon==='karambit'?'knife':weapon);
       if(visual==='karambit')CS16Karambit.bind(THREE,group,model.getObjectByName('weaponBasis'),scale>1.5);
-      if(scale>1.5){if(!CS16Karambit.fitHands(THREE,group,karambitHandsModel))CS16Grip.fitHands(group,handsModel);if(group.getObjectByName('Stein_CC0_AK47_PREVIEW'))group.getObjectByName('rightHand')?.position.add(new THREE.Vector3(.014,-.037,0));group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
+      if(scale>1.5){const cuffs=classicSleeves[currentSleeveTeam()];if(!CS16Karambit.fitHands(THREE,group,cuffs?.knife||karambitHandsModel))CS16Grip.fitHands(group,cuffs?.firearm||handsModel);if(group.getObjectByName('Stein_CC0_AK47_PREVIEW'))group.getObjectByName('rightHand')?.position.add(new THREE.Vector3(.014,-.037,0));group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
     }
     return group;
   }
@@ -1968,7 +1993,7 @@
       if (o.isMesh) for (const m of [].concat(o.material)) if (m.userData.cs16Owned) m.dispose();
     });
   }
-  function disposeOperator(r){disposeGun(r.gun);r.batch?.dispose();r.hold.dispose();r.group.traverse(o=>{if(o.isSprite&&o!==r.muzzleFx){o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
+  function disposeOperator(r){disposeGun(r.gun);r.batch?.dispose();r.exterior?.dispose();r.hold.dispose();r.group.traverse(o=>{if(o.isSprite&&o!==r.muzzleFx){o.material.map?.dispose();o.material.dispose();}});r.group.removeFromParent();}
   function removeRemote(nick) {
     const r = remotes.get(nick);
     if (r) { disposeOperator(r); remotes.delete(nick); }
@@ -2268,14 +2293,15 @@
 
   // ---------- ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА ----------
   let inspectStart=-Infinity,fieldOptical=null,fieldAim=false,fieldAimMix=0;
-  let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmKick = 0, vmKickVelocity = 0, vmSwayX = 0, vmSwayY = 0;
+  let vm = null, vmWeapon = '', vmSkin = '', vmGlb = false, vmSleeveTeam = '', vmKick = 0, vmKickVelocity = 0, vmSwayX = 0, vmSwayY = 0;
   const sightPoint = new THREE.Vector3();
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
     const visual=visualWeapon(current),hasGlb=!!glbCache[visual]?.model;
-    if (vmWeapon !== visual || vmSkin !== mySkin || vmGlb !== hasGlb) {
-      vmWeapon = visual; vmSkin = mySkin; vmGlb = hasGlb;
+    const sleeveTeam = currentSleeveTeam();
+    if (vmWeapon !== visual || vmSkin !== mySkin || vmGlb !== hasGlb || vmSleeveTeam !== sleeveTeam) {
+      vmWeapon = visual; vmSkin = mySkin; vmGlb = hasGlb; vmSleeveTeam = sleeveTeam;
       if (vm) { disposeGun(vm); camera.remove(vm); }
       vm = buildGun(current, mySkin, 1.8);
       if(CS16FieldView.supported(current)&&vm.userData.grip){
@@ -3178,7 +3204,7 @@
         r.legL.rotation.x = sw;              // ноги ходят вразножку
         r.legR.rotation.x = -sw;
         r.armL.rotation.x=0;r.armR.rotation.x=0;
-        r.hold.update(r.gun,r.pitch,Math.max(0,1-(performance.now()-r.muzzle)/160),r.moving?Math.abs(sw)*.035:0);
+        r.hold.update(r.gun,r.pitch,Math.max(0,1-(performance.now()-r.muzzle)/160),r.moving?Math.abs(sw)*.035:0);r.exterior?.pose(r.gun,{stride:sw,pitch:r.pitch,crouched:r.crouched});
         CS16Karambit.update(r.gun,dt,t/1000,(r.meleeAt||-Infinity)/1000);
         const bob = r.moving ? Math.abs(Math.sin(r.walkPhase)) * 0.05 : 0;
         r.torso.position.y = 1.18 + bob;
@@ -3188,7 +3214,7 @@
         r.group.rotation.z = -Math.PI / 2;   // убитый — лежит
         r.group.position.y = r.y + 0.35;
         r.legL.rotation.x = 0.15; r.legR.rotation.x = -0.1;
-        r.hold.relax();r.armL.rotation.x = 0.3; r.armR.rotation.x = 0.2;
+        r.hold.relax();r.exterior?.pose(null,{alive:false});r.armL.rotation.x = 0.3; r.armR.rotation.x = 0.2;
       }
     }
     stepNades(dt);

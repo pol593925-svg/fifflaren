@@ -1,0 +1,36 @@
+Support Hub CS Classic appearances and lobby pets
+================================================
+
+CT exterior: "FREE [Military Soldier] RIGGED" by BAMEN (bamenwo05),
+licensed CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Original: https://sketchfab.com/3d-models/free-military-soldier-rigged-e9c56308a67d4a3db62e914fafa4d198
+Derived from soldier.glb in cktang88/3d-fps at commit
+130ac2a5c856401ec36e7d35afcfefe40c5801f4, source SHA-256:
+6f229176b1ca49ff33605718ebfcca7fcee8f65d6d311ce3c86693df9310d2d7.
+Support Hub removed all third-party animation clips and their bytes,
+normalized the model and poses the existing rig using original code.
+
+T exterior: "Military tactical suit (LowPolyGameReady)" by DanlyVostok
+(1799danly), licensed CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Original: https://sketchfab.com/3d-models/military-tactical-suit-lowpolygameready-ef698ce36b1545a78ce592dd3db4c7ed
+Derived from soldier_tac.glb in cktang88/3d-fps at the same commit,
+source SHA-256 fe02bc307077d7a5a74069d085893988d93751495871c84082256e60bf9bfc9e.
+That project merged meshes and re-encoded textures to WebP.
+Support Hub normalized the model, removed the detached headset from display
+and poses the existing rig using original code. No third-party motion imported.
+Source distribution credits: https://github.com/cktang88/3d-fps#credits--licences
+
+Lobby Corgi and Brahma chicken: Gobkit, CC0 1.0,
+https://creativecommons.org/publicdomain/zero/1.0/
+Official distribution/licensing: https://gobkit.com/freebies
+Model URLs:
+https://gobkit.com/freebies/animal/Corgi.glb
+https://gobkit.com/freebies/animal009/BrahmaChicken.glb
+SHA-256 Corgi: 7137f257c72d7171ae5416dabf1df75b3b4ebfd5cab226354b14dc0ae720cf68
+SHA-256 chicken: f3c0932ef9b3aa3dca7ff29eff5470b7ba85fba5eafa83c54b555a7ecfd18763
+Both files are unchanged; Support Hub uses their included idle clips.
+
+First-person team sleeves are a material variant of the existing Support Hub
+hands. The arms source attribution is in REALISTIC-HANDS-LICENSE.txt.
+No third-party first-person files, Fab animation data or other source code
+are included by this update.

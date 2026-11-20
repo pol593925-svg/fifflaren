@@ -1,5 +1,6 @@
 // Bundled release snapshot, including this packaged release. Refresh with tools/sync-release-history.cjs.
 window.HubReleaseHistory = [
+{"tag":"v5.9.2","title":"Support Hub 5.9.2","date":"2026-11-20T11:24:55.0318194Z","preview":false,"body":"Team-specific Classic appearances and first-person sleeve colors. Two animated lobby pets: Corgi and Brahma chicken. Gameplay and existing hero/pet abilities are unchanged. Artists: BAMEN and DanlyVostok (CC BY 4.0); Gobkit (CC0). See models/csgo/CLASSIC-AND-LOBBY-CREDITS.txt."},
 {"tag":"v5.9.1","title":"Support Hub 5.9.1","date":"2026-11-20T10:54:47.7020370Z","preview":false,"body":"Updated the first-person AK-47 model and glove materials. Corrected the right-hand fit. The external player model is unchanged."},
   {
     "tag": "v5.9.0",

@@ -375,6 +375,201 @@
     return { ready, update, dispose, setQuality, bakedArchitecture:()=>bakedBuildings, groundSurface:(x,z)=>landscape?.groundSurface(x,z)||'stone', nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
   }
 
+  const exteriorFiles = Object.freeze({ct:'classic-ct-bamen.glb',t:'classic-t-danly.glb'});
+  const exteriorSources = new Map();
+  const exteriorKey = name => name.replace(/^mixamorig:?/i,'').replace(/_\d+$/,'').toLowerCase();
+  // One part per Classic character for both the main scene and shadow passes.
+  // Pack the artist's textures and material constants once for all actor clones.
+  function batchExterior(T,root) {
+    root.updateMatrixWorld(true);
+    const meshes=[],materials=[];
+    root.traverse(node=>{
+      if(!node.isSkinnedMesh)return;
+      if(Array.isArray(node.material))throw new Error('Unsupported Classic primitive groups');
+      node.skeleton.update();meshes.push(node);
+      if(!materials.includes(node.material))materials.push(node.material);
+    });
+    if(!meshes.length||materials.length>16)throw new Error('Classic atlas scale not supported');
+    const TILE=512,PAD=8,LENGTH=4*TILE;
+    const layers=['color','normal','orm'].map(()=>{
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=LENGTH;
+      return {canvas,ctx:canvas.getContext('2d',{willReadFrequently:true})};
+    });
+    const temporary=document.createElement('canvas');temporary.width=temporary.height=TILE;
+    const paint=temporary.getContext('2d',{willReadFrequently:true});
+    const rect=i=>[i%4*TILE,Math.floor(i/4)*TILE];
+    function makeTile(layer,material,i){
+      const [x,y]=rect(i),ctx=layers[layer].ctx;
+      const map=layer===0?material.map:layer===1?material.normalMap:material.roughnessMap||material.metalnessMap;
+      paint.fillStyle=layer===0?'#ffffff':layer===1?'rgb(128,128,255)':'#ffffff';
+      paint.fillRect(0,0,TILE,TILE);
+      if(map?.image)paint.drawImage(map.image,0,0,TILE,TILE);
+      const rgba=paint.getImageData(0,0,TILE,TILE),pixels=rgba.data;
+      const color=material.color.clone().convertLinearToSRGB();
+      const sn=material.normalScale;
+      for(let offset=0;offset<pixels.length;offset+=4){
+        if(layer===0){pixels[offset]*=color.r;pixels[offset+1]*=color.g;pixels[offset+2]*=color.b;}
+        else if(layer===1){
+          pixels[offset]=128+(pixels[offset]-128)*(sn?.x??1);
+          pixels[offset+1]=128+(pixels[offset+1]-128)*(sn?.y??1);
+        }else{
+          pixels[offset]=255;
+          pixels[offset+1]=(material.roughnessMap?pixels[offset+1]:255)*material.roughness;
+          pixels[offset+2]=(material.metalnessMap?pixels[offset+2]:255)*material.metalness;
+        }
+        pixels[offset+3]=255;
+      }
+      paint.putImageData(rgba,0,0);
+      ctx.drawImage(temporary,x+PAD,y+PAD,TILE-2*PAD,TILE-2*PAD);
+      const a=TILE-2*PAD;
+      ctx.drawImage(temporary,0,0,TILE,1,x,y,TILE,PAD);
+      ctx.drawImage(temporary,0,TILE-1,TILE,1,x,y+TILE-PAD,TILE,PAD);
+      ctx.drawImage(temporary,0,0,1,TILE,x,y+PAD,PAD,a);
+      ctx.drawImage(temporary,TILE-1,0,1,TILE,x+TILE-PAD,y+PAD,PAD,a);
+    }
+    materials.forEach((m,i)=>{for(let layer=0;layer<layers.length;layer++)makeTile(layer,m,i);});
+    const atlas=layers.map(({canvas},i)=>{
+      const texture=new T.CanvasTexture(canvas);
+      texture.flipY=false;
+      if(i===0)texture.colorSpace=T.SRGBColorSpace;
+      return texture;
+    });
+    const packed=new T.MeshStandardMaterial({name:'Classic shared texture atlas',map:atlas[0],normalMap:atlas[1],roughnessMap:atlas[2],metalnessMap:atlas[2],roughness:1,metalness:1,side:T.DoubleSide});
+    const positions=[],normals=[],uvs=[],indices=[],joints=[],weights=[],bones=[],boneIndices=new Map();
+    const inv=root.matrixWorld.clone().invert(),relative=new T.Matrix4(),normalsToRoot=new T.Matrix3();
+    const v=new T.Vector3(),where=new T.Vector3(),normal=new T.Vector3();
+    for(const mesh of meshes){
+      const geometry=mesh.geometry,{position,normal:n,uv,skinIndex,skinWeight}=geometry.attributes,offset=positions.length/3,[x,y]=rect(materials.indexOf(mesh.material));
+      relative.multiplyMatrices(inv,mesh.matrixWorld);normalsToRoot.getNormalMatrix(relative);
+      for(let i=0;i<position.count;i++){
+        mesh.getVertexPosition(i,v);
+        where.copy(v).applyMatrix4(relative);positions.push(where.x,where.y,where.z);
+        normal.fromBufferAttribute(n,i).add(where.fromBufferAttribute(position,i));
+        mesh.applyBoneTransform(i,normal);
+        normal.sub(v).applyMatrix3(normalsToRoot).normalize();normals.push(normal.x,normal.y,normal.z);
+        const u=T.MathUtils.clamp(uv?.getX(i)??.5,0,1),w=T.MathUtils.clamp(uv?.getY(i)??.5,0,1);
+        uvs.push((x+PAD+u*(TILE-2*PAD))/LENGTH,(y+PAD+w*(TILE-2*PAD))/LENGTH);
+        for(let j=0;j<4;j++){
+          const component=['getX','getY','getZ','getW'][j];const bone=mesh.skeleton.bones[skinIndex[component](i)];
+          if(!boneIndices.has(bone)){boneIndices.set(bone,bones.length);bones.push(bone);}
+          joints.push(boneIndices.get(bone));weights.push(skinWeight[component](i));
+        }
+      }
+      if(geometry.index)for(let i=0;i<geometry.index.count;i++)indices.push(offset+geometry.index.getX(i));
+      else for(let i=0;i<position.count;i++)indices.push(offset+i);
+    }
+    const geometry=new T.BufferGeometry();
+    for(const [name,data,size]of [['position',positions,3],['normal',normals,3],['uv',uvs,2],['skinWeight',weights,4]])geometry.setAttribute(name,new T.Float32BufferAttribute(data,size));
+    geometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(joints,4));geometry.setIndex(indices);geometry.computeBoundingSphere();
+    const mesh=new T.SkinnedMesh(geometry,packed);mesh.name='Batched Classic exterior';root.add(mesh);mesh.updateMatrixWorld(true);
+    mesh.bind(new T.Skeleton(bones),root.matrixWorld);
+    mesh.boundingSphere=geometry.boundingSphere.clone();mesh.boundingSphere.radius*=1.45;
+    const old=new T.Group(),previousSkeletons=new Set();
+    for(const part of meshes){old.add(part);previousSkeletons.add(part.skeleton);}
+    disposeTree(old);
+    for(const skeleton of previousSkeletons)skeleton.dispose();
+  }
+  async function loadExterior(T, team) {
+    const {scene} = await loadGLTF(T,ASSETS+exteriorFiles[team]);
+    if(team==='t') {
+      const detached=[];
+      scene.traverse(node=>{if(node.isMesh&&[].concat(node.material).every(m=>m?.name==='HeadphonesT'))detached.push(node);});
+      for(const node of detached){node.removeFromParent();disposeTree(node);}
+    }
+    scene.updateMatrixWorld(true);
+    scene.traverse(node=>{if(node.isSkinnedMesh)node.skeleton.update();});
+    const box=new T.Box3().setFromObject(scene,true),height=box.max.y-box.min.y;
+    if(!(height>1&&height<3))throw new Error('Unexpected Classic body bounds: '+team);
+    let hips=null;
+    scene.traverse(node=>{if(node.isBone&&exteriorKey(node.name)==='hips')hips=node.getWorldPosition(new T.Vector3());});
+    if(!hips)throw new Error('Classic body rig is missing hips: '+team);
+    const normalized = new T.Group(), facing = new T.Group(), scale=1.8/height;
+    scene.position.set(-hips.x*scale,-box.min.y*scale,-hips.z*scale);
+    scene.scale.multiplyScalar(scale);
+    facing.rotation.y=Math.PI;facing.add(scene);normalized.add(facing);
+    normalized.name='ClassicExterior-'+team;
+    batchExterior(T,normalized);
+    prepareMeshes(T,normalized,null,QUALITY.high);
+    normalized.traverse(node=>{
+      if(node.isSkinnedMesh){
+        node.computeBoundingSphere();
+        node.boundingSphere.radius*=1.45;
+      }
+    });
+    exteriorSources.set(team,normalized);
+  }
+
+  function fitExterior(T, actor, exterior) {
+    const bones=new Map(), rest=new Map();
+    exterior.traverse(node=>{
+      if(node.isBone){const key=exteriorKey(node.name);bones.set(key,node);rest.set(node,node.quaternion.clone());}
+    });
+    const limbs=['left','right'].map(side=>({
+      side,
+      upper:bones.get(side+'arm'), elbow:bones.get(side+'forearm'), hand:bones.get(side+'hand'),
+      thigh:bones.get(side+'upleg'), shin:bones.get(side+'leg')
+    }));
+    if(limbs.some(l=>!l.upper||!l.elbow||!l.hand||!l.thigh||!l.shin))throw new Error('Classic exterior has incomplete limbs');
+    const head=bones.get('head'),rootRotation=new T.Quaternion(),q=new T.Quaternion(),parent=new T.Quaternion();
+    const v=()=>new T.Vector3(),start=v(),mid=v(),end=v(),direction=v(),pole=v(),target=v(),joint=v(),axis=v(),current=v(),wanted=v();
+    const xAxis=new T.Vector3(1,0,0);
+    let changed;
+    const worldRotate=(bone,rotation)=>{
+      bone.parent.getWorldQuaternion(parent);
+      bone.quaternion.premultiply(q.copy(parent).invert().multiply(rotation).multiply(parent));
+      bone.updateWorldMatrix(false,false);
+    };
+    const direct=(bone, child, goal)=>{
+      bone.getWorldPosition(start);child.getWorldPosition(current).sub(start).normalize();
+      wanted.copy(goal).sub(start).normalize();
+      if(current.lengthSq()>.90&&wanted.lengthSq()>.90){
+        deltaRotation.setFromUnitVectors(current,wanted);worldRotate(bone,deltaRotation);
+      }
+    };
+    const deltaRotation=new T.Quaternion();
+    function solveArm(l,gun,grip){
+      l.upper.getWorldPosition(start);l.elbow.getWorldPosition(mid);l.hand.getWorldPosition(end);
+      target.fromArray(grip);gun.localToWorld(target);
+      const a=start.distanceTo(mid),b=mid.distanceTo(end);
+      direction.copy(target).sub(start);
+      const length=direction.length();if(length<.001||a<.001||b<.001)return;
+      direction.divideScalar(length);
+      const distance=T.MathUtils.clamp(length,Math.abs(a-b)+.003,a+b-.003);
+      pole.set(l.side==='left'?-.43:.43,.94,-.14);actor.localToWorld(pole);pole.sub(start);
+      pole.addScaledVector(direction,-pole.dot(direction)).normalize();
+      if(pole.lengthSq()<.01)pole.set(0,-1,0);
+      const along=(a*a-b*b+distance*distance)/(2*distance);
+      joint.copy(start).addScaledVector(direction,along).addScaledVector(pole,Math.sqrt(Math.max(0,a*a-along*along)));
+      const reached=target.copy(start).addScaledVector(direction,distance);
+      direct(l.upper,l.elbow,joint);
+      direct(l.elbow,l.hand,reached);
+    }
+    return {
+      pose(gun,{stride=0,pitch=0,alive=true,crouched=false}={}){
+        const signature=gun?.uuid+'/'+stride+'/'+pitch+'/'+alive+'/'+crouched;
+        if(signature===changed)return;
+        changed=signature;
+        for(const [bone,rotation]of rest)bone.quaternion.copy(rotation);
+        actor.getWorldQuaternion(rootRotation);axis.copy(xAxis).applyQuaternion(rootRotation);
+        if(alive&&Math.abs(stride)>.01){
+          for(const limb of limbs){
+            const swing=(limb.side==='left'?stride:-stride)*.76;
+            deltaRotation.setFromAxisAngle(axis,swing);worldRotate(limb.thigh,deltaRotation);
+            deltaRotation.setFromAxisAngle(axis,Math.max(0,-swing)*.38);worldRotate(limb.shin,deltaRotation);
+          }
+        }
+        if(alive&&head&&Math.abs(pitch)>.02){
+          deltaRotation.setFromAxisAngle(axis,Math.max(-.48,Math.min(.48,pitch)));worldRotate(head,deltaRotation);
+        }
+        const grip=gun?.userData?.grip;
+        if(alive&&grip?.right&&grip?.left){
+          solveArm(limbs[0],gun,grip.left);
+          solveArm(limbs[1],gun,grip.right);
+        }
+      },
+      dispose(){const set=new Set();exterior.traverse(node=>{if(node.isSkinnedMesh)set.add(node.skeleton);});for(const skeleton of set)skeleton.dispose();}
+    };
+  }
   function loadOperators(THREE) {
     const T = THREE || global.THREE;
     if (operatorPromise) return operatorPromise;
@@ -392,7 +587,7 @@
           prepareMeshes(T, root, null, QUALITY.high);
           operators.set(ids[index], root);
         });
-        return true;
+        return Promise.allSettled(['ct','t'].map(team=>exteriorSources.has(team)?true:loadExterior(T,team))).then(results=>{for(const item of results)if(item.status==='rejected')console.warn('Classic exterior unavailable',item.reason?.message||item.reason);return true;});
       }).catch(error => {
         if (epoch === operatorEpoch) operatorPromise = null;
         throw error;
@@ -407,6 +602,13 @@
     const T = global.THREE;
     const clone = T.SkeletonUtils && T.SkeletonUtils.clone ? T.SkeletonUtils.clone(source) : source.clone(true);
     clone.userData.cs16SharedOperator = true;
+    const external=id==='classic'?exteriorSources.get(team):null;
+    if(external){
+      const body=T.SkeletonUtils.clone(external);
+      clone.traverse(node=>{if(node.isMesh)node.visible=false;});
+      clone.add(body);
+      clone.userData.classicExterior=fitExterior(T,clone,body);
+    }
     return clone;
   }
 

@@ -1,6 +1,7 @@
 /* Coast menu. Existing controls and socket handlers are moved, never duplicated. */
 (function (g) {
   'use strict';
+  let chosenLobbyPet = 'corgi';
   let active = 'plaza', weapon = 'm4a1', teardown = null, scroll = 0, refresh = null;
   const labels = {plaza:'Площадь',squad:'Отряд',arsenal:'Арсенал',character:'Персонаж',settings:'Настройки'};
   const text = (tag, content, cls) => {const e=document.createElement(tag);e.textContent=content;if(cls)e.className=cls;return e;};
@@ -33,6 +34,48 @@
     }catch(e){status.textContent=e.message||'Осмотр временно недоступен';}
     return ()=>{disposed=true;cancelAnimationFrame(raf);watch?.disconnect();if(gun)api.disposeGun(gun);environment?.dispose();renderer?.dispose();renderer?.forceContextLoss();};
   }
+  function lobbyPetPreview(host, kind) {
+    const T = g.THREE;
+    const file = {corgi:'lobby-corgi.glb', chicken:'lobby-chicken.glb'}[kind];
+    let renderer, watch, mixer, model, raf = 0, stopped = false, last = 0;
+    const status = text('p','Загружаю модель…','coast-note');
+    status.setAttribute('role','status');
+    host.replaceChildren(status);
+    const disposeModel = root => {
+      const geometry=new Set(),materials=new Set(),textures=new Set();
+      root.traverse(o=>{if(!o.isMesh)return;geometry.add(o.geometry);for(const m of [].concat(o.material)){if(!m)continue;materials.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}o.skeleton?.dispose();});
+      geometry.forEach(v=>v.dispose());materials.forEach(v=>v.dispose());textures.forEach(v=>v.dispose());
+    };
+    const close = () => {
+      stopped=true;cancelAnimationFrame(raf);watch?.disconnect();mixer?.stopAllAction();
+      if(model){mixer?.uncacheRoot(model);disposeModel(model);}
+      renderer?.dispose();renderer?.forceContextLoss();host.replaceChildren();
+    };
+    new T.GLTFLoader().loadAsync('models/csgo/'+file).then(({scene:modelRoot,animations})=>{
+      if(stopped){disposeModel(modelRoot);return;}
+      model=modelRoot;
+      const clip=animations.find(a=>/idle/i.test(a.name));
+      if(clip){mixer=new T.AnimationMixer(model);mixer.clipAction(clip).play();mixer.setTime(0);}
+      model.updateMatrixWorld(true);
+      const bounds=new T.Box3().setFromObject(model,true),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
+      if(bounds.isEmpty()||!(size.length()>0))throw Error('Invalid pet geometry');
+      const scene=new T.Scene(),camera=new T.PerspectiveCamera(36,1,.01,12),pivot=new T.Group(),normalizer=new T.Group(),scale=1/Math.max(size.x,size.y,size.z);
+      normalizer.position.copy(center).multiplyScalar(-scale);normalizer.scale.setScalar(scale);normalizer.add(model);pivot.add(normalizer);scene.add(pivot);
+      pivot.rotation.y=-.55;camera.position.set(1.8,.9,2.05);camera.lookAt(0,0,0);
+      scene.add(new T.HemisphereLight(0xfff3df,0x677287,2.3));
+      const sun=new T.DirectionalLight(0xfff3df,2.6);sun.position.set(3,4,2);scene.add(sun);
+      renderer=new T.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});
+      renderer.setPixelRatio(Math.min(g.devicePixelRatio||1,1.25));renderer.outputColorSpace=T.SRGBColorSpace;
+      renderer.domElement.setAttribute('aria-label',kind==='corgi'?'3D-модель корги':'3D-модель курицы брама');
+      status.remove();host.append(renderer.domElement);
+      const animate=!!clip&&!g.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const draw=()=>{renderer.render(scene,camera);};
+      watch=new ResizeObserver(()=>{const w=Math.min(640,host.clientWidth||320),h=240;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();draw();});watch.observe(host);
+      if(animate){const frame=t=>{if(stopped)return;if(!last||t-last>=1000/30){mixer.update(last?Math.min(.07,(t-last)/1000):0);last=t;draw();}raf=requestAnimationFrame(frame);};raf=requestAnimationFrame(frame);}
+    }).catch(()=>{if(!stopped){close();host.append(text('p','Не удалось открыть 3D-модель.','coast-note'));}});
+    return close;
+  }
+
   function mount(root, api) {
     stop();const old=root.firstElementChild;if(!old)return;
     const pick=s=>old.querySelector(s), heroes=pick('.cs16-character-panel'), classes=pick('.cs16-class-panel'), teams=pick('.cs16-teamCards'), controls=pick('.cs16-matchControls'), skins=pick('#cs16SkinsPanel'), royale=pick('.cs16-br-entry');
@@ -44,7 +87,7 @@
     const nav=text('nav','','coast-nav');nav.setAttribute('aria-label','Меню КС');header.append(nav);
     const content=text('main','','coast-content'),footer=text('footer','','coast-footer');shell.append(header,content,footer);root.append(shell);
     const sections={};for(const key of Object.keys(labels)){const panel=text('section','','coast-page coast-'+key);panel.dataset.page=key;sections[key]=panel;content.append(panel);}
-    const go=key=>{if(!sections[key])return;stop();active=key;scroll=0;shell.dataset.scene=key==='arsenal'?'arsenal':key==='squad'?'squad':'plaza';content.scrollTop=0;for(const[k,p]of Object.entries(sections))p.hidden=k!==key;for(const b of nav.children)b.setAttribute('aria-current',b.dataset.page===key?'page':'false');if(key==='arsenal'){preview.replaceChildren();teardown=weaponPreview(preview,api);}};
+    const go=key=>{if(!sections[key])return;stop();active=key;scroll=0;shell.dataset.scene=key==='arsenal'?'arsenal':key==='squad'?'squad':'plaza';content.scrollTop=0;for(const[k,p]of Object.entries(sections))p.hidden=k!==key;for(const b of nav.children)b.setAttribute('aria-current',b.dataset.page===key?'page':'false');if(key==='arsenal'){preview.replaceChildren();teardown=weaponPreview(preview,api);}if(key==='character')openLobbyPet();};
     for(const [key,label]of Object.entries(labels)){const b=button(label,()=>go(key));b.dataset.page=key;nav.append(b);}
     const home=text('div','','coast-home');home.append(text('small','СОЛНЦЕ. КАМЕНЬ. ТВОЯ КОМАНДА.','coast-eyebrow'),text('h1','Встретимся на площади'),text('p','Собери отряд, выбери снаряжение — и выходи на улицы Каменного Берега.'),button('ИГРАТЬ  →',()=>go('squad'),'coast-play'),button('Осмотреть снаряжение',()=>go('arsenal'),'coast-secondary'));
     sections.plaza.append(home);
@@ -60,13 +103,21 @@
     const selector=document.createElement('select');selector.setAttribute('aria-label','Оружие для осмотра');for(const[id,w]of Object.entries(api.weapons)){if(!api.hasGun(id))continue;selector.add(new Option(w.name||id.toUpperCase(),id));}if(![...selector.options].some(o=>o.value===weapon))weapon=selector.options[0]?.value||'m4a1';selector.value=weapon;selector.onchange=()=>{weapon=selector.value;stop();preview.replaceChildren();teardown=weaponPreview(preview,api);};inspect.append(selector,preview,text('p','Осмотр не покупает оружие. Во время боя магазин открывается на B.','coast-note'));armory.append(inspect);
     if(skins){skins.style.display='block';skins.classList.add('coast-panel');armory.append(skins);}sections.arsenal.append(armory);
     if(heroes)sections.character.append(heroes);if(classes)sections.character.append(classes);
+    const petPanel=text('section','','coast-panel coast-lobby-pets'),petHost=text('div','','coast-preview'),petButtons=text('div');
+    const openLobbyPet=()=>{stop();teardown=lobbyPetPreview(petHost,chosenLobbyPet);};
+    const chooseLobbyPet=(key)=>{chosenLobbyPet=key;for(const b of petButtons.children)b.setAttribute('aria-pressed',String(b.dataset.pet===key));openLobbyPet();};
+    for(const [key,name] of [['corgi','Корги'],['chicken','Курица брама']]){
+      const b=button(name,()=>chooseLobbyPet(key));b.dataset.pet=key;b.setAttribute('aria-pressed',String(chosenLobbyPet===key));petButtons.append(b);
+    }
+    petPanel.append(text('h2','Питомцы в лобби'),text('p','Декоративные модели. Не влияют на матч.','coast-note'),petButtons,petHost);
+    sections.character.append(petPanel);
     const prefs=text('div','','coast-panel coast-preferences');prefs.append(text('h2','Настройки и управление'));
     const qLabel=text('label','Качество графики'),quality=api.quality.cloneNode(true);quality.removeAttribute('id');quality.setAttribute('aria-label','Качество графики в меню');quality.value=api.quality.value;quality.onchange=()=>{api.quality.value=quality.value;api.quality.onchange();};qLabel.append(quality);prefs.append(qLabel,text('p','Авто подстраивает качество под нагрузку. В режиме «Производительность» ниже разрешение и отключены тени.','coast-note'));if(guide&&!guide.classList.contains('cs16-class-panel'))prefs.append(guide);sections.settings.append(prefs);
     const my=api.state.players.find(p=>p.nick===api.nick),character=g.CS16Characters.profiles[my?.characterId||api.character];
     const profile=text('div','','coast-profile');profile.append(text('strong',api.nick),text('small',(character?.name||'Оператор')+' · '+(my?.team==='ct'?'CT':my?.team==='t'?'T':'Без команды')));
     const roster=button('ОТРЯД  '+api.state.players.length+'  →',()=>go('squad'),'coast-roster');
     const hostInfo=text('span',api.state.host?'Хост: '+api.state.host:'Подключаемся к комнате…','coast-note');footer.append(profile,hostInfo,roster);
-    refresh=()=>{if(active==='arsenal'&&root.getClientRects().length&&root.style.display!=='none')go(active);};
+    refresh=()=>{if((active==='arsenal'||active==='character')&&root.getClientRects().length&&root.style.display!=='none')go(active);};
     const before=scroll;go(active);content.scrollTop=before;
   }
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else refresh?.();});

@@ -60,3 +60,14 @@ Support Hub realistic arsenal provenance (2026-11-19)
 No material from the Adaptive Combat Rifle Sketchfab viewer was extracted.
 Its official archive requires authenticated download and is not included.
 The hands have independent provenance in their own manifest/license files.
+
+
+5. First-person alternate AK-47: Stein Games
+   Source: https://stein-indie.itch.io/classic-weapons-pack
+   Archive: Classic Weapons Pack v1.1.zip, original itch.io distribution, not Fab.
+   Archive SHA256: e91fd8954226cf99f72bd27065e0ef1042675a96cd9b600d77c623c2f50e90c0
+   SKM_AK47.fbx SHA256: b477a963e34173eee5814c731416926386305cdb2caacfd5ce6310eadc26b34f
+   FBX, all three map files and bundled license were matched to the ZIP bytes.
+   License: CC0 1.0 Universal, https://creativecommons.org/publicdomain/zero/1.0/
+   Asset: stein-ak47-viewmodel.glb. UVs, source textures, graphics pivots and
+   fit adapted for first-person view. Existing remote AK mesh is unchanged.

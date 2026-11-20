@@ -1,5 +1,6 @@
 // Bundled release snapshot, including this packaged release. Refresh with tools/sync-release-history.cjs.
 window.HubReleaseHistory = [
+{"tag":"v5.9.1","title":"Support Hub 5.9.1","date":"2026-11-20T10:54:47.7020370Z","preview":false,"body":"Updated the first-person AK-47 model and glove materials. Corrected the right-hand fit. The external player model is unchanged."},
   {
     "tag": "v5.9.0",
     "title": "Support Hub 5.9.0 · Новый облик боя",

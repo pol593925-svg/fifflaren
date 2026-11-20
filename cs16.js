@@ -565,6 +565,13 @@
       loadGLBAll(v=>mark(0,v)), CS16Graphics.loadOperators(THREE).then(()=>mark(1,1)),
       Promise.all(['anime-hands.glb','anime-karambit-hand.glb'].map(file=>new THREE.GLTFLoader().loadAsync('models/csgo/'+file))).then(([normal,karambit]) => {
         handsModel=CS16AnimeMaterials.apply(THREE,normal.scene,{soft:true});
+        const gloves = new Set();
+        handsModel.traverse(node => { if (node.isMesh) for (const material of [].concat(node.material)) gloves.add(material); });
+        for (const material of gloves) {
+          if (!material?.isMeshStandardMaterial) continue;
+          material.roughness = Math.min(.98, Math.max(.64, material.roughness * .87));
+          if (material.normalMap) material.normalScale.multiplyScalar(1.18);
+        }
         karambitHandsModel=CS16AnimeMaterials.apply(THREE,karambit.scene,{soft:true});mark(2,1);
       })
     ]).catch(error => { combatArtPromise = null; throw error; });
@@ -611,6 +618,30 @@
           const world=wrap.clone(true),basis=world.getObjectByName('weaponBasis');
           basis.clear();basis.add(worldAsset);glbCache[id].world=world;
         }
+        // Only the local first-person AK uses the detailed alternative mesh.
+        if (id === 'ak47') {
+          const art = await loader.loadAsync('models/csgo/stein-ak47-viewmodel.glb');
+          const basis = new THREE.Group();basis.name = 'weaponBasis';
+          basis.add(art.scene);
+          if (cfg.rotY) basis.rotation.y = cfg.rotY;
+          if (cfg.rotX) basis.rotation.x = cfg.rotX;
+          basis.updateMatrixWorld(true);
+          const bounds = new THREE.Box3().setFromObject(basis);
+          const size = bounds.getSize(new THREE.Vector3());
+          basis.scale.setScalar(cfg.len / (Math.max(size.x, size.y, size.z) || 1));
+          basis.updateMatrixWorld(true);
+          basis.position.sub(new THREE.Box3().setFromObject(basis).getCenter(new THREE.Vector3()));
+          basis.traverse(node => {
+            if (!node.isMesh) return;
+            for (const material of [].concat(node.material)) {
+              material.envMapIntensity = 0.75;
+              if (material.map) material.map.anisotropy = Math.min(8, renderer3.capabilities.getMaxAnisotropy());
+            }
+          });
+          const detailed = new THREE.Group();
+          detailed.add(basis);
+          glbCache[id].firstPerson = detailed;
+        }
         onProgress(++completed/entries.length);
       } catch (error) { throw new Error('Weapon model unavailable: ' + id + ': ' + error.message); }
     }})).then(results=>{const failed=results.find(r=>r.status==='rejected');if(failed)throw failed.reason;});
@@ -619,7 +650,7 @@
   function glbGunClone(weapon, skin, world = false) {
     const entry = glbCache[weapon];
     if (!entry || !entry.model) return null;
-    const m = (world && entry.world ? entry.world : entry.model).clone();
+    const m = (world ? entry.world || entry.model : entry.firstPerson || entry.model).clone();
     if (SKINS[skin]) {
       const map = skinTex(skin);
       CS16WeaponFinish.apply(m, map, SKINS[skin], skin);
@@ -1927,7 +1958,7 @@
     if(model){
       CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon==='karambit'?'knife':weapon);
       if(visual==='karambit')CS16Karambit.bind(THREE,group,model.getObjectByName('weaponBasis'),scale>1.5);
-      if(scale>1.5){if(!CS16Karambit.fitHands(THREE,group,karambitHandsModel))CS16Grip.fitHands(group,handsModel);group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
+      if(scale>1.5){if(!CS16Karambit.fitHands(THREE,group,karambitHandsModel))CS16Grip.fitHands(group,handsModel);if(group.getObjectByName('Stein_CC0_AK47_PREVIEW'))group.getObjectByName('rightHand')?.position.add(new THREE.Vector3(.014,-.037,0));group.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});}
     }
     return group;
   }

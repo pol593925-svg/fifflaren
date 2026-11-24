@@ -1,4 +1,4 @@
-/* Premium login and saved badge. A badge never authenticates without server validation. */
+/* Login and saved session. Continuing always validates the session with the server. */
 (function(global){'use strict';
  let cfg,profile=null,mode='login',busy=false,activeToken='',mounted=false,dirty=false;
  const $=id=>document.getElementById(id);
@@ -6,7 +6,7 @@
  const invoke=(name,data)=>cfg.ipc.invoke(name,data);
  function draw(){
   const badge=mode==='pass',register=mode==='register';
-  $('authFields').hidden=badge;$('authPass').hidden=!badge;
+  $('authFields').hidden=badge;$('authScreen').dataset.savedAccount=String(badge);
   $('authTeamField').hidden=!register;$('authRememberField').hidden=register;
   $('authOtherAccount').hidden=!badge;$('authUsePassword').hidden=!badge;$('authSwitchMode').hidden=badge;
   $('authPassword').autocomplete=register?'new-password':'current-password';
@@ -14,7 +14,6 @@
   $('authTitle').textContent=badge?'С возвращением, '+profile.username:register?'Добро пожаловать':'С возвращением';
   $('authSubtitle').textContent=badge?'Твоё пространство готово. Продолжим?':register?'Создай свой профиль в команде.':'Войди в своё пространство команды.';
   $('authAvatar').textContent=Array.from(badge?profile.username:$('authUsername').value.trim()||'S')[0].toUpperCase();
-  $('authPassName').textContent=profile?.username||'';
   $('authSubmitBtn').textContent=badge?'Продолжить как '+profile.username:register?'Создать аккаунт':'Войти →';
   $('authSwitchMode').textContent=register?'Уже есть аккаунт? Войти':'Создать аккаунт';
  }
@@ -44,17 +43,17 @@
    if(!password){say('Введи пароль.');$('authPassword').focus();return;}
    if(register&&$('authTeam').options.length>1&&!team){say('Выбери свою команду.');$('authTeam').focus();return;}
   }
-  lock(true);say(badge?'Проверяем личный пропуск…':'Подключаемся к твоему пространству…','info');
+  lock(true);say(badge?'Проверяем вход…':'Подключаемся к твоему пространству…','info');
   const slow=setTimeout(()=>say('Сервер ещё отвечает. Подождём немного…','info'),8000);
   try{
    let result;
    if(badge){
     const saved=await invoke('auth-session-read');
-    if(!saved){$('authUsername').value=profile?.username||'';await forget();mode='login';draw();say('Пропуск истёк. Введи пароль, чтобы продолжить.');return;}
+    if(!saved){$('authUsername').value=profile?.username||'';await forget();mode='login';draw();say('Срок входа истёк. Введи пароль, чтобы продолжить.');return;}
     result=await api('/api/auth/session',{token:saved.token});
     if(result.status===401||result.status===403){
      $('authUsername').value=profile?.username||saved.username;await forget();mode='login';draw();
-     say(result.data.message||'Пропуск истёк. Войди с паролем.');return;
+     say(result.data.message||'Срок входа истёк. Войди с паролем.');return;
     }
     if(result.status===404){say('Для быстрого входа нужен обновлённый сервер. Пока выбери «Войти с паролем».');return;}
    }else result=await api(register?'/api/register':'/api/login',{body:register?{username,password,team}:{username,password}});

@@ -70,10 +70,10 @@ async function run(){
   await login(true);assert.equal(await page.evaluate(()=>window.__workReady),1);assert.equal(await page.evaluate(()=>isWorking),false);
   assert.equal(await page.evaluate(()=>typeof window.THREE),'undefined');
   assert.equal(JSON.parse(authRequests.findLast(r=>r.url.endsWith('/api/login')).body).password,' qa password ');
-  await reload();await page.locator('#authPass').waitFor();assert((await page.locator('#authSubmitBtn').textContent()).includes('Продолжить как Fifflaren'));
+  await reload();await page.locator('#authScreen[data-saved-account="true"]').waitFor();assert.equal(await page.locator('#authPass').count(),0,'Personal pass card removed');assert((await page.locator('#authSubmitBtn').textContent()).includes('Продолжить как Fifflaren'));
   assert.equal(await page.evaluate(()=>currentUser),'');await page.screenshot({path:path.join(out,'login-premium-pass.png')});
   const before=authRequests.length;resumeStatus=503;await page.click('#authSubmitBtn');await page.waitForFunction(()=>!document.getElementById('authSubmitBtn').disabled);
-  assert(await page.locator('#authPass').isVisible());assert(await page.evaluate(()=>!!localStorage.getItem('__qaSavedPass')));
+  assert(await page.locator('#authScreen[data-saved-account="true"]').isVisible());assert(await page.evaluate(()=>!!localStorage.getItem('__qaSavedPass')));
   resumeStatus=200;await page.click('#authSubmitBtn');await page.locator('#authScreen').waitFor({state:'hidden'});
   assert.equal(await page.evaluate(()=>currentRole),'user','Current role comes from server');
   assert.equal(authRequests[before].authorization,'Bearer '+'t'.repeat(43));
@@ -88,13 +88,13 @@ async function run(){
   loginDelay=250;const postCount=authRequests.filter(r=>r.url.endsWith('/api/login')).length;
   await page.fill('#authUsername','Fifflaren');await page.fill('#authPassword','qa');await page.press('#authPassword','Enter');await page.press('#authPassword','Enter');
   await page.locator('#authScreen').waitFor({state:'hidden'});assert.equal(authRequests.filter(r=>r.url.endsWith('/api/login')).length,postCount+1);
-  await reload();await page.locator('#authPass').waitFor();await page.click('#authOtherAccount');await page.locator('#authFields').waitFor();
+  await reload();await page.locator('#authScreen[data-saved-account="true"]').waitFor();await page.click('#authOtherAccount');await page.locator('#authFields').waitFor();
   assert.equal(await page.inputValue('#authUsername'),'');assert.equal(await page.evaluate(()=>localStorage.getItem('__qaSavedPass')),null);
   assert(authRequests.some(r=>r.url.endsWith('/api/auth/logout')));
   await login(true);await page.click('#logoutBtn');await page.locator('#authScreen').waitFor({state:'visible'});
   assert(!(await page.locator('#authPass').isVisible()));assert.equal(await page.evaluate(()=>localStorage.getItem('__qaSavedPass')),null);
   assert.deepEqual(errors,[]);
-  console.log('LOGIN UI PASS: real app, Enter, errors, saved badge, no automatic login, server role, expiry, offline retry, registration, account switch, duplicate submit, 1440/900/530px, lazy game engine.');
+  console.log('LOGIN UI PASS: real app, Enter, errors, saved session without pass card, no automatic login, server role, expiry, offline retry, registration, account switch, duplicate submit, 1440/900/530px, lazy game engine.');
  }catch(e){console.error('BROWSER_ERRORS',errors);await page.screenshot({path:path.join(out,'login-failure.png')});throw e;}
  finally{await browser.close();server.close();}
 }

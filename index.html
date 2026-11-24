@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="hub-features.css">
   <link rel="stylesheet" href="terra.css"><link rel="stylesheet" href="cs16-menu.css"><link rel="stylesheet" href="login.css"><link rel="stylesheet" href="personal-desk.css"><link rel="stylesheet" href="work-navigation.css"><link rel="stylesheet" href="truffle-loans.css">
 </head>
-<body>
+<body class="graphite">
 
   <!-- ЭКРАН АВТОРИЗАЦИИ И РЕГИСТРАЦИИ -->
   <div id="authScreen" class="auth-screen" aria-label="Вход в Support Hub">
@@ -29,7 +29,6 @@
         <h1 id="authTitle">С возвращением</h1>
         <p id="authSubtitle">Войди в своё пространство команды.</p>
         <form id="authForm" novalidate>
-          <div id="authPass" class="login-pass" hidden><div class="login-pass-head"><span>Личный пропуск</span><span>SUPPORT HUB</span></div><strong id="authPassName" class="login-pass-name"></strong><span class="login-pass-note">Сохранён на этом компьютере</span></div>
           <div id="authFields">
             <label class="login-field" for="authUsername"><span>Логин</span><input type="text" id="authUsername" placeholder="Твой ник" autocomplete="username" maxlength="100" autocapitalize="none" spellcheck="false" required></label>
             <label class="login-field" for="authPassword"><span>Пароль</span><div class="login-password"><input type="password" id="authPassword" placeholder="Введи пароль" autocomplete="current-password" required><button type="button" id="authShowPassword" aria-label="Показать пароль" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
@@ -979,6 +978,8 @@
       <h3 id="profNick">—</h3>
       <div class="prof-pos" id="profPos"></div>
       <div class="prof-team" id="profTeam"></div>
+      <div id="profAvailability" class="prof-availability" hidden></div>
+      <div id="profTelegram" class="prof-telegram" hidden></div>
       <div class="profile-stats">
         <div><b id="profTruffles">0</b><span>💎 Трюф. мес</span></div>
         <div><b id="profApproves">0</b><span>✅ Апр. мес</span></div>
@@ -1064,5 +1065,7 @@
 <script src="work-navigation.js"></script><script src="truffle-loans.js"></script>
 <link rel="stylesheet" href="admin-desk.css"><script src="admin-desk.js"></script>
 <link rel="stylesheet" href="leisure.css"><script src="leisure.js"></script>
+<link rel="stylesheet" href="profile-hub.css"><script src="profile-hub.js"></script>
+<link rel="stylesheet" href="graphite-theme.css"><script src="graphite-theme.js"></script>
 </body>
 </html>

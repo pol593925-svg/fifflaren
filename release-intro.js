@@ -35,7 +35,7 @@
   function start(options = {}) {
     stop();
     if (!document.body || document.hidden) return false;
-    const version = typeof options.version === 'string' && /^\d+\.\d+\.\d+(?:[-.][a-zA-Z0-9]+)*$/.test(options.version) ? options.version : '6.0.0';
+    const version = typeof options.version === 'string' && /^\d+\.\d+\.\d+(?:[-.][a-zA-Z0-9]+)*$/.test(options.version) ? options.version : '6.1.0';
     let entry;
     try {
       const reduced = global.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
@@ -63,9 +63,9 @@
           <h1 class="hub-release-version"></h1>
           <p class="hub-release-tagline">Команда. Работа. Время для себя.</p>
           <div class="hub-release-features" aria-label="Что нового">
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zM8 22h8M12 18v4M3 9h18M9 9v9"/></svg>Новый личный стол</span>
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 20v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 5v1"/></svg>Команда Fifflaren</span>
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10c4 0 6 13 2 13l-4-4H9l-4 4C1 20 3 7 7 7zM8 10v4M6 12h4M16 11h.01M18 13h.01"/></svg>Досуг</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zM8 22h8M12 18v4M3 9h18M9 9v9"/></svg>Единый стиль</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 20v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 5v1"/></svg>Мой профиль</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 22h20"/></svg>Личная статистика</span>
           </div>
         </div>
         <footer class="hub-release-bottom"><span class="hub-release-edition"></span><span>СДЕЛАНО ДЛЯ КОМАНДЫ FIFFLAREN</span></footer>`;

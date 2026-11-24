@@ -1,0 +1,293 @@
+/* Graphite / Lime — shared Support Hub appearance. CSS-only, no render loop.
+ * Load after component styles; body.graphite enables it. Game surfaces retain their own rendering.
+ */
+body.terra.graphite,body.terra.personal-desk.graphite,body.terra.personal-desk.graphite:not(.light){
+ --hub-bg:#151718;--hub-panel:#202324;--hub-raised:#2a3028;--hub-line:#363d38;--hub-text:#ecf1e8;--hub-muted:#a2afa1;--hub-accent:#d6fc76;--hub-soft:#d6fc7618;--hub-field:#1b1f1d;--hub-surface:#202324;--desk-navy:#242b21;--desk-blue:#d6fc76;--desk-shadow:none;
+ --g-header:#181b1a;--g-chrome:#202522;--g-button:#252b23;--g-active:#2b3425;--g-hover:#323d2c;--g-border:#48533e;--g-hover-line:#89a365;--g-subtle:#b2bfa7;--g-strong:#dce7d1;--g-link:#bad88f;--g-pending-bg:#3b3727;--g-pending-text:#e2cd94;--g-success-bg:#2b3b2a;--g-success-text:#c6e8a8;--g-danger-bg:#3b2728;--g-danger-text:#f0b8ad;--g-info-bg:#25332e;--g-info-text:#b8d9c9;
+ background:var(--hub-bg)!important;color:var(--hub-text);color-scheme:dark;
+}
+body.terra.personal-desk.graphite.light,body.terra.graphite.light{
+ --hub-bg:#edf0e7;--hub-panel:#fafcf5;--hub-raised:#e6ecdd;--hub-line:#cad3bf;--hub-text:#24321f;--hub-muted:#64725b;--hub-accent:#d6fc76;--hub-soft:#def0b855;--hub-field:#f0f4e8;--hub-surface:#fafcf5;--desk-navy:#e0e8d4;--desk-blue:#d6fc76;
+ --g-header:#f3f6ed;--g-chrome:#eaf0e1;--g-button:#e9efdf;--g-active:#e0ebce;--g-hover:#dae7c7;--g-border:#bccba8;--g-hover-line:#729348;--g-subtle:#61734e;--g-strong:#354529;--g-link:#45652c;--g-pending-bg:#f1e9cd;--g-pending-text:#725721;--g-success-bg:#e3efd8;--g-success-text:#3e662f;--g-danger-bg:#f5e4df;--g-danger-text:#8d3d31;--g-info-bg:#e0ece5;--g-info-text:#325c47;
+ color-scheme:light;
+}
+
+body.terra.personal-desk.graphite .hub-header {background:var(--g-header);border-color:var(--hub-line);min-height:96px}
+body.terra.personal-desk.graphite .hub-heading h1 {color:var(--hub-text)}
+body.terra.personal-desk.graphite .hub-eyebrow {color:var(--g-subtle)}
+body.terra.personal-desk.graphite :is(.hub-menuToggle,.hub-tool,#hubPatchesButton) {border-radius:7px!important;background:var(--g-chrome)!important;border-color:var(--g-border)!important;color:var(--g-strong)!important}
+body.terra.personal-desk.graphite #hubRadio {background:var(--g-chrome)!important;border-color:var(--g-border)!important;border-radius:10px;box-shadow:none}
+body.terra.personal-desk.graphite #hubRadio :is(#radioToggle,#radioAddSong) {background:var(--hub-accent)!important;color:#222d1c!important;border-color:var(--hub-accent)!important}
+body.terra.personal-desk.graphite #hubRadio :is(.radio-phone-button,#radioLights,#cinemaButton) {border-radius:6px;background:var(--g-button);color:var(--g-strong);border-color:var(--g-border)}
+body.terra.personal-desk.graphite .media-volume {background:var(--g-button);border-color:var(--g-border)}
+body.terra.personal-desk.graphite :is(.media-volume button,#radioListeners) {color:var(--g-strong)!important}
+body.terra.personal-desk.graphite #screenWatchNotice {background:var(--g-chrome)!important;border-color:var(--hub-line)!important;color:var(--hub-muted)!important}
+body.terra.personal-desk.graphite .terra-dock {background:var(--g-chrome);border-color:var(--g-border);border-radius:10px;box-shadow:0 6px 18px #0003}
+body.terra.personal-desk.graphite .terra-dock button {color:var(--g-subtle);border-radius:7px}
+body.terra.personal-desk.graphite .terra-dock button.active,
+body.terra.personal-desk.graphite[data-hub-workspace=work] .terra-dock button[data-terra-tab=shift] {background:var(--hub-accent);color:#26331d}
+body.terra.personal-desk.graphite .terra-dock button:hover:not(.active) {background:var(--g-hover)}
+body.terra.personal-desk.graphite .terra-dock .hub-nav-art {color:inherit!important}
+body.terra.personal-desk.graphite .desk-workspace-tabs {border-radius:8px;background:var(--hub-field);padding:5px;gap:4px}
+body.terra.personal-desk.graphite .desk-work-tab {border-radius:5px;min-height:36px;font-size:12px;padding:8px 13px}
+body.terra.personal-desk.graphite .desk-work-tab.active {background:var(--g-active);border-color:var(--g-border);color:var(--hub-accent);box-shadow:none}
+body.terra.personal-desk.graphite .desk-work-tab .hub-nav-art {color:inherit!important}
+body.terra.personal-desk.graphite .desk-configure {border-radius:6px;min-height:38px;background:transparent;font-size:11px;color:var(--g-subtle)}
+body.terra.personal-desk.graphite :is(.card,.my-calls-panel,.profile-card,.exchange-card,.team-column,.exchange-col,.admin-section) {border-radius:8px;box-shadow:none}
+body.terra.personal-desk.graphite :is(button.blue,button.green,.call-save,.desk-primary,.desk-done) {background:var(--hub-accent)!important;border-color:var(--hub-accent)!important;color:#25321a!important;border-radius:6px;box-shadow:none}
+body.terra.personal-desk.graphite :is(button.gray,.call-refresh,.template-btn,.exchange-filter) {border-radius:6px;background:transparent!important;color:var(--g-strong)!important;border:1px solid var(--g-border)}
+body.terra.personal-desk.graphite :is(input,textarea,select):not(:where(#tab-cs16 *,#tab-voxel *,#tab-battleship *)) {border-radius:6px!important;accent-color:var(--hub-accent)}
+body.terra.personal-desk.graphite :is(button,input,textarea,select):focus-visible {outline:2px solid var(--hub-accent);outline-offset:3px}
+body.terra.personal-desk.graphite #tab-shift>.terra-shift-card {background:var(--hub-panel)!important;border:1px solid var(--g-border)!important;border-top:3px solid var(--hub-accent)!important;border-radius:8px!important;box-shadow:none;color:var(--hub-text)!important;padding:24px!important;min-height:570px}
+body.terra.personal-desk.graphite .terra-shift-card h3 {color:var(--g-strong)!important;margin-bottom:20px!important;font-size:11px!important;letter-spacing:1.7px!important}
+body.terra.personal-desk.graphite .terra-shift-card #userNick {color:var(--g-subtle)!important;font-size:12px;margin-bottom:15px}
+body.terra.personal-desk.graphite .terra-shift-card .shift-orbit-core>small {color:var(--hub-muted);letter-spacing:1.7px;font-size:9px}
+body.terra.personal-desk.graphite .terra-shift-card #timerDisplay {color:var(--hub-text)!important;font-size:43px;font-weight:300;letter-spacing:-1px;margin:9px 0 17px}
+body.terra.personal-desk.graphite .terra-shift-card :is(#startBtn,#stopBtn) {background:var(--g-button)!important;border:1px solid var(--g-border)!important;color:var(--g-strong)!important;border-radius:6px;min-height:38px}
+body.terra.personal-desk.graphite .terra-shift-card #startBtn {background:var(--hub-accent)!important;color:#25321a!important;border-color:var(--hub-accent)!important}
+body.terra.personal-desk.graphite .shift-log-metric {border-top-color:var(--hub-line);padding-top:20px;margin-top:20px;color:var(--g-subtle)}
+body.terra.personal-desk.graphite .shift-log-metric #countDisplay {color:var(--hub-text)!important;font-weight:500;font-size:39px}
+body.terra.personal-desk.graphite .shift-log-metric>span {color:var(--g-subtle);font-size:12px}
+body.terra.personal-desk.graphite #subOneBtn {color:var(--g-strong)!important;border-color:var(--g-border)!important;border-radius:6px}
+body.terra.personal-desk.graphite .terra-shift-actions {gap:10px;margin-top:19px}
+body.terra.personal-desk.graphite .terra-shift-card .terra-action {background:transparent!important;color:var(--g-strong)!important;border:1px solid var(--g-border)!important;border-radius:6px;min-height:40px;padding:10px;font-size:12px}
+body.terra.personal-desk.graphite .terra-shift-card .terra-action span {font-size:12px}
+body.terra.personal-desk.graphite .terra-shift-card .terra-action .hub-nav-art {color:inherit}
+body.terra.personal-desk.graphite .terra-shift-card .orbit-addOneBtn {background:var(--hub-accent)!important;border-color:var(--hub-accent)!important;color:#26351b!important;font-weight:650}
+body.terra.personal-desk.graphite .terra-shift-card .terra-action:hover {background:var(--g-hover)!important;border-color:var(--g-hover-line)!important}
+body.terra.personal-desk.graphite .terra-shift-card .orbit-addOneBtn:hover {background:#e2ff9e!important;color:#25321a!important}
+body.terra.personal-desk.graphite .terra-shift-secondary .terra-action {margin-top:3px}
+body.terra.personal-desk.graphite .terra-shift-note {border-color:var(--hub-line);color:var(--hub-muted);font-size:11px;line-height:1.8;margin-top:24px;padding-top:18px}
+body.terra.personal-desk.graphite :is(.call-entry,.task-item) {border-radius:6px;background:var(--hub-field);border-color:var(--hub-line)}
+body.terra.personal-desk.graphite .call-entry {padding:15px;margin-top:13px}
+body.terra.personal-desk.graphite .call-entry strong {font-size:13px}
+body.terra.personal-desk.graphite .call-entry p {font-size:11px;line-height:1.7}
+body.terra.personal-desk.graphite .call-badge {border-radius:4px;font-size:9px;padding:4px 7px}
+body.terra.personal-desk.graphite .call-pending {background:var(--g-pending-bg);color:var(--g-pending-text)}
+body.terra.personal-desk.graphite .call-done {background:var(--g-success-bg);color:var(--g-success-text)}
+body.terra.personal-desk.graphite .team-log-entry {border-color:var(--hub-line);padding:15px 0}
+body.terra.personal-desk.graphite .team-log-entry strong {color:var(--g-strong)}
+body.terra.personal-desk.graphite .team-log-entry p {font-size:12px;line-height:1.7}
+body.terra.personal-desk.graphite .team-log-entry a {color:var(--g-subtle);text-decoration:none}
+body.terra.personal-desk.graphite .desk-checklist .task-progress-inner {background:var(--hub-accent)}
+body.terra.personal-desk.graphite .desk-checklist input[type=checkbox] {accent-color:var(--hub-accent);width:16px;height:16px}
+body.terra.personal-desk.graphite .desk-checklist .task-item {padding:12px;font-size:12px;background:var(--hub-field)!important;border-radius:6px}
+body.terra.personal-desk.graphite .desk-overtime #sendOvertimeBtn {background:var(--hub-accent)!important;color:#25321a!important;border-color:var(--hub-accent)!important;border-radius:6px}
+body.terra.personal-desk.graphite #resetShiftBtn {background:transparent!important;color:var(--hub-muted)!important;border-color:var(--g-border)!important;border-radius:6px}
+body.terra.personal-desk.graphite :is(.desk-settings,.desk-dialog,#shiftCallDialog) {background:var(--hub-panel)!important;color:var(--hub-text)!important;border-color:var(--g-border)!important;border-radius:10px!important;box-shadow:0 24px 90px #0008}
+body.terra.personal-desk.graphite :is(.desk-settings,.desk-dialog,#shiftCallDialog)::backdrop {background:#090d0bb0;backdrop-filter:none}
+body.terra.personal-desk.graphite #shiftCallDialog h2 {color:var(--hub-text);font-weight:600;font-size:26px}
+body.terra.personal-desk.graphite #shiftCallDialog label {color:var(--g-subtle)}
+body.terra.personal-desk.graphite #shiftCallDialog :is(input,select,textarea) {background:var(--hub-field)!important;border:1px solid var(--g-border)!important;color:var(--hub-text)!important}
+body.terra.personal-desk.graphite #shiftCallDialog .close {color:var(--g-subtle)}
+body.terra.personal-desk.graphite .exchange-filter.active {background:var(--hub-accent)!important;border-color:var(--hub-accent)!important;color:#25321a!important}
+body.terra.personal-desk.graphite .desk-setting-row input {accent-color:var(--hub-accent)}
+@media(min-width:1241px) {
+ body.terra.personal-desk.graphite #tab-shift.active {grid-template-columns:320px minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"shift feed calls" "shift checklist checklist" "report overtime overtime";gap:17px}
+ body.terra.personal-desk.graphite #tab-shift .my-calls-panel,body.terra.personal-desk.graphite #teamLogFeed {min-height:354px}
+ body.terra.personal-desk.graphite #myCallsList {max-height:225px}
+ body.terra.personal-desk.graphite .call-entry {padding:10px 13px;margin-top:10px}
+ body.terra.personal-desk.graphite .call-entry p {margin:4px 0 0;line-height:1.45}
+ body.terra.personal-desk.graphite .desk-checklist .task-item {padding:10px}
+ body.terra.personal-desk.graphite #tab-shift>.desk-checklist {padding:18px 22px!important}
+ body.terra.personal-desk.graphite #teamLogList {max-height:240px;min-height:230px}
+ body.terra.personal-desk.graphite #tab-shift>.desk-checklist {min-height:190px}
+ body.terra.personal-desk.graphite #tab-shift>.desk-shift-report {padding-left:0!important}
+ body.terra.personal-desk.graphite #tab-shift>.terra-shift-card {min-height:0;padding:22px!important}
+ body.terra.personal-desk.graphite .terra-shift-card h3 {margin-bottom:15px!important}
+ body.terra.personal-desk.graphite .terra-shift-card #userNick {margin-bottom:8px}
+ body.terra.personal-desk.graphite .terra-shift-card #timerDisplay {margin:5px 0 10px}
+ body.terra.personal-desk.graphite .shift-log-metric {padding-top:16px;margin-top:12px}
+ body.terra.personal-desk.graphite .terra-shift-actions {gap:8px;margin-top:14px}
+ body.terra.personal-desk.graphite .terra-shift-card .terra-action {min-height:36px;padding:8px}
+ body.terra.personal-desk.graphite .terra-shift-note {margin-top:17px;padding-top:12px}
+}
+@media(max-width:760px) {
+ body.terra.personal-desk.graphite #tab-shift>.terra-shift-card {min-height:0}
+ body.terra.personal-desk.graphite .desk-work-tab {font-size:11px;padding:7px 10px}
+}
+
+/* Shared chrome and work controls. No blanket canvas/HUD or game-button changes. */
+body.terra.graphite :is(.hub-eyebrow,.hub-navLabel,.hub-brand small){color:var(--g-subtle)}
+body.terra.graphite .tabs{background:var(--g-header);border-color:var(--hub-line);box-shadow:0 18px 50px #0004}
+body.terra.graphite .hub-brand{border-color:var(--hub-line);color:var(--hub-text)}
+body.terra.graphite .hub-mark{background:#d6fc76;color:#25321a;border-radius:7px}
+body.terra.graphite .tabs .tab-btn{background:transparent!important;border-color:transparent!important;color:var(--g-subtle)!important;border-radius:6px;box-shadow:none}
+body.terra.graphite .tabs .tab-btn:hover{background:var(--g-hover)!important;color:var(--hub-text)!important}
+body.terra.graphite .tabs .tab-btn.active,body.terra.personal-desk.graphite[data-hub-workspace=work] .tabs [data-tab=shift]{background:var(--g-active)!important;color:var(--g-strong)!important;border-color:var(--g-border)!important;box-shadow:inset 3px 0 #d6fc76}
+body.terra.graphite .tabs .hub-nav-art{color:inherit!important}
+body.terra.graphite .hub-tools .hub-tool:hover,body.terra.graphite #hubPatchesButton:hover{background:var(--g-hover)!important;border-color:var(--g-hover-line)!important}
+body.terra.graphite :is(.content:not(#tab-cs16):not(#tab-voxel):not(#tab-battleship),.hub-work-dialog,.desk-dialog,.desk-settings,.profile-card) :is(label,.form-label){color:var(--g-subtle)}
+body.terra.graphite :is(.content:not(#tab-cs16):not(#tab-voxel):not(#tab-battleship),.hub-work-dialog,.desk-dialog,.desk-settings,.profile-card) a{color:var(--g-link)}
+body.terra.graphite :is(.content:not(#tab-cs16):not(#tab-voxel):not(#tab-battleship),.hub-work-dialog,.desk-dialog,.desk-settings,.profile-card) :is(input,textarea,select)::placeholder{color:var(--hub-muted);opacity:1}
+body.terra.graphite :is(.content:not(#tab-cs16):not(#tab-voxel):not(#tab-battleship),.hub-work-dialog,.desk-dialog,.desk-settings,.profile-card) :is(input,textarea,select){box-shadow:none}
+body.terra.graphite :is(.team-office,#braveInstall,#braveIntro,#tab-radio,.cin-bar-actions,.loans-action-buttons) button{font:500 12px 'Segoe UI',sans-serif;border:1px solid var(--g-border);background:var(--g-button);color:var(--g-strong);border-radius:6px;padding:9px 12px;min-height:35px;cursor:pointer;box-shadow:none}
+body.terra.graphite :is(.team-office,#braveInstall,#braveIntro,#tab-radio,.cin-bar-actions,.loans-action-buttons) button:hover:not(:disabled){background:var(--g-hover);border-color:var(--g-hover-line)}
+body.terra.graphite :is(.team-office,#braveInstall,#braveIntro,#tab-radio) button:disabled{opacity:.45;cursor:not-allowed}
+body.terra.graphite .team-office :is(h3,h4){color:var(--hub-text)}
+body.terra.graphite .team-office :is(article,.office-device,.office-match){border-color:var(--hub-line);background:var(--hub-field);border-radius:6px}
+body.terra.graphite .team-office article{padding:12px;margin:8px 0}
+body.terra.graphite #braveIntro{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:18px 22px!important;min-height:0;margin:0 0 12px}
+body.terra.graphite #braveIntro span{flex:1 1 300px;font-size:12px;color:var(--hub-muted);line-height:1.6}
+body.terra.graphite #braveIntro button{flex:none;margin:0}
+body.terra.graphite :is(.desk-settings,.desk-dialog,.hub-work-dialog,.profile-card,.loans-row,.loans-empty,.loans-detail-summary,.desk-access-person){border-radius:8px!important;box-shadow:none}
+body.terra.graphite :is(.desk-settings,.desk-dialog,.hub-work-dialog,.profile-card){box-shadow:0 24px 90px #0006}
+body.terra.graphite :is(.desk-dialog,.hub-work-dialog,.desk-settings) :is(h1,h2,h3){color:var(--hub-text)}
+body.terra.graphite :is(.desk-close,.desk-reset,.desk-done,.hub-work-close,.desk-access-person,.desk-primary,.call-done-action){border-radius:6px}
+body.terra.graphite :is(.desk-settings,.desk-dialog,.hub-work-dialog)::backdrop{background:#090d0bb0;backdrop-filter:none}
+body.terra.graphite .desk-access-person{background:var(--hub-field)!important;border-color:var(--hub-line)!important}
+body.terra.graphite .desk-access-person input{accent-color:#b9e663}
+body.terra.graphite .desk-request-notice{color:var(--g-subtle)}
+body.terra.graphite .call-returned{background:var(--g-danger-bg);color:var(--g-danger-text)}
+body.terra.graphite .call-done-action{background:var(--g-success-bg);color:var(--g-success-text);border-color:var(--g-border)}
+body.terra.graphite .call-entry a{color:var(--g-link)}
+body.terra.graphite .calls-total{background:var(--g-active);color:var(--hub-text);border-color:var(--g-border)}
+body.terra.graphite :is(.loans-requested,.loans-assigned){background:var(--g-pending-bg);color:var(--g-pending-text)}
+body.terra.graphite :is(.loans-active,.loans-return_pending){background:var(--g-info-bg);color:var(--g-info-text)}
+body.terra.graphite .loans-closed{background:var(--g-success-bg);color:var(--g-success-text)}
+body.terra.graphite :is(.loans-overdue,.loans-rejected){background:var(--g-danger-bg);color:var(--g-danger-text)}
+body.terra.graphite .loans-badge{border-radius:5px}
+body.terra.graphite :is(button.red,.ban-btn,#offboardBtn){background:var(--g-danger-bg)!important;color:var(--g-danger-text)!important;border:1px solid #995a4a!important;border-radius:6px}
+body.terra.graphite #sendLeaveBtn{background:#d6fc76!important;color:#25321a!important;border-color:#d6fc76!important}
+body.terra.graphite :is(#adminForceRestartBtn,#adminNotifySendBtn){background:var(--g-pending-bg)!important;color:var(--g-pending-text)!important;border-color:#8f7942!important}
+body.terra.graphite .desk-configure:hover{background:var(--g-hover);border-color:var(--g-hover-line)}
+body.terra.graphite :is(.loans-history,.profile-stats>div,.feed-comments,.chat-online-panel,.pm-dialog,.admin-stats-table :is(th,td)){border-color:var(--hub-line)}
+
+/* Communication, directory and personal tools retain their existing data and handlers. */
+body.terra.graphite :is(.chat-tab-card,.chat-card,.chat-message,.pm-message,.pm-dialog,.note-card,.feed-item,.worker-box,.truffles-box){border-radius:8px!important;background:var(--hub-panel)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important;box-shadow:none}
+body.terra.graphite :is(.chat-messages,#chatMessages,#pmMessages,.chat-input-row,.chat-online-panel,#pmDialogs,.profile-stats>div){background:var(--hub-field)!important;color:var(--hub-text);border-color:var(--hub-line)!important}
+body.terra.graphite :is(.chat-message.mine,.pm-message.mine,.pm-dialog.active){background:var(--g-active)!important;border-color:var(--g-border)!important}
+body.terra.graphite :is(.chat-message .chat-nick,.chat-message .nickname,.pm-message strong,.feed-user,.feed-caption,.team-list li,.profile-card h3){color:var(--hub-text)!important}
+body.terra.graphite :is(.chat-meta,.chat-time,.feed-time,.feed-comment,.note-desc,.note-date,.prof-pos,.prof-team){color:var(--hub-muted)!important}
+body.terra.graphite :is(.feed-actions button,.feed-comments button,.pm-dialog button){background:var(--g-button)!important;color:var(--g-strong)!important;border:1px solid var(--g-border);border-radius:6px;box-shadow:none}
+body.terra.graphite .feed-actions button:hover{background:var(--g-hover)!important}
+body.terra.graphite .profile-stats b{color:var(--hub-text)}
+body.terra.graphite .profile-stats span{color:var(--hub-muted)}
+body.terra.graphite #profAvatarPlaceholder{background:var(--g-active)!important;color:var(--g-strong)!important;border:1px solid var(--g-border);border-radius:12px!important}
+body.terra.graphite .profile-modal{background:#090d0bb0;backdrop-filter:none}
+body.terra.graphite :is(.exchange-choice,.exchange-search-row input,.exchange-logo,.exchange-card,.exchange-card footer){border-radius:8px!important;border-color:var(--hub-line)!important}
+body.terra.graphite .exchange-card .exchange-badge{border-radius:6px}
+body.terra.graphite :is(.exchange-yes,.exchange-badge.yes){background:var(--g-success-bg);color:var(--g-success-text)}
+body.terra.graphite :is(.exchange-no,.exchange-badge.no){background:var(--g-danger-bg);color:var(--g-danger-text)}
+body.terra.graphite :is(.exchange-conditional,.exchange-badge.conditional,.condition-note){background:var(--g-pending-bg);color:var(--g-pending-text);border-color:var(--g-border)}
+body.terra.graphite .exchange-filter.active{color:#25321a!important;background:#d6fc76!important}
+body.terra.graphite :is(.task-progress-outer,.progress-bar-bg){background:var(--hub-line)}
+body.terra.graphite .task-progress-inner{background:#b9e663;color:#25321a}
+body.terra.graphite :is(.update-banner,.cookie-result,.cinema-notice){background:var(--hub-panel);border:1px solid var(--g-border);color:var(--hub-text);border-radius:8px;box-shadow:0 10px 30px #0003}
+body.terra.graphite .update-banner button{background:#d6fc76;color:#25321a;border:0;border-radius:6px;padding:8px 12px}
+
+/* Radio, QR, YouTube and release notes. QR squares deliberately remain black on white. */
+body.terra.graphite :is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog,.hub-patches){background:var(--hub-panel)!important;border-color:var(--g-border)!important;color:var(--hub-text)!important;border-radius:10px!important;box-shadow:0 24px 80px #0006}
+body.terra.graphite :is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog) :is(h2,h3){font-family:'Segoe UI',sans-serif;color:var(--hub-text);font-weight:600;letter-spacing:-.4px}
+body.terra.graphite :is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog) :is(p,small){color:var(--hub-muted)}
+body.terra.graphite :is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog)::backdrop{background:#090d0bb0;backdrop-filter:none}
+body.terra.graphite dialog:is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog){margin:auto;inset:0}
+body.terra.graphite :is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog) button{background:var(--g-button);border:1px solid var(--g-border);color:var(--g-strong);border-radius:6px;box-shadow:none}
+body.terra.graphite :is(#radioUploadDialog,#radioQrDialog,#radioYouTubeDialog) button:hover:not(:disabled){background:var(--g-hover);border-color:var(--g-hover-line)}
+body.terra.graphite :is(#radioQrDialog,#radioYouTubeDialog) button:focus-visible{outline:2px solid var(--g-hover-line);outline-offset:3px}
+body.terra.graphite :is(.radio-upload-picker,.radio-qr-badge,#radioQrConnected>span){background:var(--g-active);border-color:var(--g-border);color:var(--g-strong);border-radius:7px}
+body.terra.graphite .radio-qr-code{background:#fff;border-color:var(--hub-line);border-radius:8px}
+body.terra.graphite #radioQrDialog footer{border-color:var(--hub-line)}
+body.terra.graphite .radio-qr-progress progress{accent-color:#b9e663}
+body.terra.graphite :is(#radioQueue,#radioLibrary) li{border-color:var(--hub-line);background:var(--hub-field);border-radius:6px}
+body.terra.graphite #radioQueue .on-air{border-left-color:#d6fc76;background:var(--g-active)}
+body.terra.graphite .radio-audience-pop{border-radius:8px}
+body.terra.graphite #radioLights[aria-pressed=true]{background:var(--g-active)!important;border-color:var(--g-hover-line)!important;color:var(--g-strong)!important}
+body.terra.graphite :is(.media-volume,.hub-volume){background:var(--hub-field);border-color:var(--g-border);color:var(--hub-text)}
+body.terra.graphite :is(.media-volume,.hub-volume) button{color:inherit}
+body.terra.graphite .patch-release{border-radius:6px}
+body.terra.graphite .patch-release[aria-pressed=true]{border-color:var(--g-border);background:var(--g-active)}
+body.terra.graphite .patch-release:hover{background:var(--g-hover)}
+body.terra.graphite :is(.patch-close,.patch-refresh){border-radius:6px}
+body.terra.graphite .patch-version{background:#d6fc76;color:#25321a;border-radius:5px}
+body.terra.graphite .patch-checks{background:var(--g-active);border-radius:6px}
+body.terra.graphite .hub-patches :focus-visible{outline:2px solid var(--g-hover-line);outline-offset:3px}
+
+/* Cinema controls match the app. The movie pixels and the private gold stage stay untouched. */
+body.terra.graphite #hubCinema:not(.cin-vip){background:#151718;border-color:#46513e;color:#ecf1e8}
+body.terra.graphite #hubCinema:not(.cin-vip)>header{background:#1b201b;border-color:#363d38;color:#c8dcab}
+body.terra.graphite #hubCinema:not(.cin-vip) :is(button,input,select){background:#252b23!important;border:1px solid #48533e!important;color:#dce7d1!important;border-radius:6px}
+body.terra.graphite #hubCinema:not(.cin-vip) button:hover:not(:disabled){border-color:#89a365!important;background:#323d2c!important}
+body.terra.graphite #hubCinema:not(.cin-vip)>header nav [aria-pressed=true]{background:#d6fc76!important;color:#25321a!important;border-color:#d6fc76!important}
+body.terra.graphite #hubCinema:not(.cin-vip) :is(aside,#cinHost,#cinTestPanel){background:#202324;border:1px solid #363d38;border-radius:8px}
+body.terra.graphite #hubCinema:not(.cin-vip) :is(#cinHost summary,#cinMessages b,#cinNote,.cin-snackbar>span){color:#c9dfab}
+body.terra.graphite #hubCinema:not(.cin-vip) .cin-marquee{background:linear-gradient(135deg,#283220,#1a2119);border-color:#526340;border-radius:8px;color:#ebf4de}
+body.terra.graphite #hubCinema:not(.cin-vip) .cin-marquee::before{border:1px solid #526340}
+body.terra.graphite #hubCinema:not(.cin-vip) .cin-marquee::after{opacity:.3}
+body.terra.graphite #hubCinema:not(.cin-vip) .cin-marquee small{color:#c4d8a8}
+body.terra.graphite #hubCinema:not(.cin-vip) .cin-voice{border-color:#363d38}
+body.terra.graphite #hubCinema:not(.cin-vip) .cin-voice small{color:#a2afa1}
+body.terra.graphite .cin-snack-dialog{background:#202324;border-color:#4b593d;color:#ecf1e8;border-radius:10px;box-shadow:0 24px 90px #0006}
+body.terra.graphite .cin-snack-dialog::backdrop{backdrop-filter:none;background:#090d0bb0}
+body.terra.graphite .cin-snack-dialog header small{color:#b9ca9e}
+body.terra.graphite .cin-snack-dialog p{color:#a2afa1}
+body.terra.graphite .cin-popcorn output{color:#d6fc76}
+body.terra.graphite .cin-drink-settings label{background:var(--hub-field);border-color:var(--hub-line);border-radius:8px}
+
+/* Entry screen: same graphite surfaces, quiet static artwork and clear primary action. */
+body.terra.graphite #authScreen{--login-ink:var(--hub-text);--login-muted:var(--hub-muted);--login-copper:var(--g-subtle);background:var(--hub-bg);color:var(--hub-text)}
+body.terra.graphite #authScreen .login-brand{font-family:'Segoe UI',sans-serif;font-weight:600;letter-spacing:-1px}
+body.terra.graphite #authScreen .login-monogram{background:#d6fc76;color:#25321a;border-radius:8px;font-family:'Segoe UI',sans-serif;font-size:30px}
+body.terra.graphite #authScreen .login-edition{color:var(--hub-muted)}
+body.terra.graphite #authScreen .login-shell{background:var(--hub-panel);border-color:var(--hub-line);border-radius:14px;box-shadow:0 20px 65px #0002}
+body.terra.graphite #authScreen .login-panel{background:var(--hub-panel)}
+body.terra.graphite #authScreen .login-art:after{background:linear-gradient(180deg,#12281888,transparent 75%)}
+body.terra.graphite #authScreen .login-art-copy h2{font-family:'Segoe UI',sans-serif;font-weight:500;font-size:clamp(32px,3.6vw,51px);line-height:1.12;letter-spacing:-1.6px}
+body.terra.graphite #authScreen .login-eyebrow:after{background:var(--g-border)}
+body.terra.graphite #authScreen .login-avatar{background:var(--g-active);border-color:var(--g-border);color:var(--g-strong);border-radius:10px;font:600 27px 'Segoe UI',sans-serif}
+body.terra.graphite #authScreen h1{font:500 clamp(28px,3vw,40px)/1.17 'Segoe UI',sans-serif;letter-spacing:-1.1px;color:var(--hub-text)}
+body.terra.graphite #authScreen .login-field{color:var(--g-strong)}
+body.terra.graphite #authScreen :is(input:not([type=checkbox]),select){background:var(--hub-field)!important;color:var(--hub-text)!important;border-color:var(--g-border)!important;border-radius:6px;box-shadow:none}
+body.terra.graphite #authScreen :is(input,select):focus{outline:2px solid var(--g-hover-line);border-color:var(--g-hover-line)!important;box-shadow:none}
+body.terra.graphite #authScreen input::placeholder{color:var(--hub-muted)}
+body.terra.graphite #authScreen #authShowPassword{color:var(--g-subtle)}
+body.terra.graphite #authScreen #authShowPassword:hover{background:var(--g-hover)}
+body.terra.graphite #authScreen :is(.login-remember,.login-bottom){color:var(--hub-muted)}
+body.terra.graphite #authScreen input[type=checkbox]{accent-color:#b9e663}
+body.terra.graphite #authScreen .login-primary{background:#d6fc76;color:#25321a;border-radius:6px;box-shadow:none;font-size:14px}
+body.terra.graphite #authScreen .login-primary:hover{background:#e2ff9e;transform:none}
+body.terra.graphite #authScreen .login-primary:disabled:after{border-color:#25321a55;border-top-color:#25321a}
+body.terra.graphite #authScreen .login-link{color:var(--g-link)}
+body.terra.graphite #authScreen .login-link:hover{color:var(--hub-text)}
+body.terra.graphite #authScreen #authErrorMsg{color:var(--g-danger-text)}
+body.terra.graphite #authScreen #authErrorMsg[data-tone=info]{color:var(--g-subtle)}
+body.terra.graphite #authScreen :focus-visible{outline:2px solid var(--g-hover-line);outline-offset:3px}
+
+/* The explicit light preference uses the same shapes and lime actions. */
+body.terra.personal-desk.graphite.light #tab-admin{--ad-panel:var(--hub-panel);--ad-bg:var(--hub-bg);--ad-raised:var(--hub-raised);--ad-border:var(--hub-line);--ad-text:var(--hub-text);--ad-muted:var(--hub-muted);--ad-accent:#638635}
+body.terra.personal-desk.graphite.light #tab-admin :is(.ad-rail,.ad-shortcut,.ad-launch,.admin-user-row){background:var(--hub-panel)!important;border-color:var(--hub-line)!important;color:var(--hub-text)!important}
+body.terra.personal-desk.graphite.light #tab-admin :is(.ad-heading h1,.ad-panel-head h2,.ad-shortcut h2,.ad-launch h2,.ad-section-title h2,.ad-request h3,.ad-person b,.ad-stat strong){color:var(--hub-text)!important}
+body.terra.personal-desk.graphite.light #tab-admin :is(.ad-heading p,.ad-eyebrow,.ad-byline,.ad-stat-note,.ad-person small,.ad-shortcut p,.ad-stat-label,.ad-panel-head p,.ad-launch p){color:var(--hub-muted)!important}
+body.terra.personal-desk.graphite.light #tab-admin :is(.ad-request-icon,.ad-avatar,.ad-shortcut-featured,.ad-panel-foot){background:var(--g-active);border-color:var(--g-border);color:var(--g-strong)}
+body.terra.personal-desk.graphite.light #tab-admin .ad-rail .ad-tabs .ad-tab{color:var(--g-subtle)!important}
+body.terra.personal-desk.graphite.light #tab-admin .ad-rail .ad-tabs .ad-tab.active{background:var(--g-active)!important;color:#45652c!important;border-left-color:#7d9b45}
+body.terra.personal-desk.graphite.light #tab-admin :is(.ad-button,.ad-link){color:var(--g-strong)!important;border-color:var(--g-border)!important}
+body.terra.personal-desk.graphite.light #tab-admin .ad-button:hover{background:var(--g-hover)!important}
+body.terra.personal-desk.graphite.light #tab-admin .ad-primary{background:#d6fc76!important;color:#25321a!important;border-color:#d6fc76!important}
+body.terra.personal-desk.graphite.light #tab-admin :is(.admin-section,.admin-user-row) :is(input,select,textarea){background:var(--hub-field)!important;color:var(--hub-text)!important;border-color:var(--g-border)!important}
+body.terra.personal-desk.graphite.light #tab-admin .admin-section :is(.template-btn,.submit-btn){background:var(--g-button)!important;color:var(--g-strong)!important;border-color:var(--g-border)!important}
+body.terra.personal-desk.graphite.light #tab-admin .admin-user-row button{background:var(--g-button)!important;color:var(--g-strong)!important;border-color:var(--g-border)!important}
+body.terra.personal-desk.graphite.light #tab-admin .admin-user-row button.ban-btn{background:var(--g-danger-bg)!important;color:var(--g-danger-text)!important;border-color:#ba8578!important}
+body.terra.graphite.light .desk-kicker{color:#567029}
+body.terra.graphite.light .desk-request-label{color:#45652c}
+body.terra.graphite.light .desk-work-tab.active{color:#45652c}
+body.terra.graphite.light #hubRadio small{color:#567029}
+body.terra.personal-desk.graphite .call-entry a{color:var(--g-link)!important}
+body.terra.personal-desk.graphite .desk-configure .hub-nav-art{color:inherit!important}
+body.terra.graphite :is(#tab-radio,#radioUploadDialog,#hubProfileDialog) input[type=file]::file-selector-button{background:var(--g-button);color:var(--g-strong);border:1px solid var(--g-border);border-radius:5px;padding:7px 12px;margin-right:10px;cursor:pointer;font:500 12px 'Segoe UI',sans-serif}
+body.terra.graphite :is(#tab-radio,#hubRadio) input[type=range]{accent-color:#b9e663}
+body.terra.graphite #radioYouTubePlayer{background:var(--hub-panel);color:var(--hub-text);border-color:var(--g-border);border-radius:8px}
+body.terra.graphite #radioYouTubePlayer header{background:var(--g-active);color:var(--g-strong)}
+body.terra.graphite #radioYouTubePlayer .yt-mini-info p{color:var(--hub-muted)}
+body.terra.graphite #hubProfileDialog .profile-hub-primary,body.terra.graphite.light #hubProfileDialog .profile-hub-primary{color:#25321a}
+body.terra.graphite.light :is(.profile-hub-avatar,#hubProfileDialog .profile-hub-text-button,#hubProfileDialog .profile-hub-message){color:var(--g-link)}
+body.terra.graphite #hubProfileDialog .profile-hub-message.is-error{color:var(--g-danger-text)}
+body.terra.graphite :is(#hubProfileDialog,.profile-hub-chip):focus-visible,body.terra.graphite #hubProfileDialog :is(button,input,select):focus-visible{outline-color:var(--g-hover-line)}
+body.terra.graphite .prof-availability{display:inline-flex;align-items:center;gap:6px;margin:10px 0 4px;padding:5px 9px;border-radius:5px;background:var(--g-success-bg);color:var(--g-success-text);border:1px solid var(--hub-line);font-size:11px}
+body.terra.graphite .prof-availability:before{content:'';width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}
+body.terra.graphite .prof-availability[data-status=break]{background:var(--g-pending-bg);color:var(--g-pending-text)}
+body.terra.graphite .prof-availability[data-status=dnd]{background:var(--g-danger-bg);color:var(--g-danger-text)}
+body.terra.graphite .prof-telegram{color:var(--g-link);font-size:12px;margin:8px 0 15px;overflow-wrap:anywhere}
+body.terra.graphite :is(.prof-availability,.prof-telegram)[hidden]{display:none!important}
+@media(max-width:760px){body.terra.graphite #authScreen .login-shell{border-radius:10px}body.terra.graphite #authScreen .login-art-copy h2{font-size:31px}body.terra.graphite #braveIntro{padding:16px!important}}
+@media(prefers-reduced-motion:reduce){body.terra.graphite #authScreen *,body.terra.graphite .desk-work-tab{transition:none!important}}

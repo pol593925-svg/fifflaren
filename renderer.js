@@ -30,6 +30,7 @@ const notesFilePath = path.join(process.cwd(), 'notes.txt');
 let socket = null;
 let currentUser = "";      // ник текущего пользователя
 let currentRole = "user";  // 'admin' или 'user'
+let currentProfileToken = ''; // authenticated profile reads; memory only
 let exchangeEntries = null;
 let onlineNicks = [];      // кто онлайн в чате (для точек в Штабе)
 
@@ -42,9 +43,9 @@ function localDateStr(d = new Date()) {
 
 // ==================== АВТОРИЗАЦИЯ ====================
 document.addEventListener("DOMContentLoaded", () => {
-  window.HubReleaseIntro?.start({version:'6.0.0'});
+  window.HubReleaseIntro?.start({version:'6.1.0'});
   HubLogin.mount({server:SERVER_API_URL,ipc:ipcRenderer,offboard:()=>HubAccess.offer(false),onAuthenticated:async data=>{
-    currentUser=data.username;currentRole=data.role||'user';
+    currentUser=data.username;currentRole=data.role||'user';currentProfileToken=data.callsToken;
     HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
     HubGames.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
     HubAssistance.configure({username:data.username,token:data.callsToken,server:SERVER_API_URL,io});
@@ -52,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
     applyNickToApp(data.username);loadHQRoster();
     if(currentRole==='admin')setupAdminPanel();
     window.HubAdminDesk?.start({username:data.username,role:currentRole,token:data.callsToken,server:SERVER_API_URL});
+    window.HubProfile?.start({username:data.username,token:data.callsToken,server:SERVER_API_URL});
     updateWindowPermissions();initSocketConnection(data.username);
   }});
 
@@ -1527,8 +1529,14 @@ window.feedPin = async (id, pinned) => {
 
 // --- Мини-профиль ---
 async function openProfile(nick) {
+  if (window.HubProfile && String(nick).toLowerCase() === currentUser.toLowerCase()) {
+    closeProfile();
+    return window.HubProfile.open();
+  }
   try {
-    const res = await fetch(`${SERVER_API_URL}/api/profile?username=${encodeURIComponent(nick)}`);
+    const res = await fetch(`${SERVER_API_URL}/api/profile?username=${encodeURIComponent(nick)}`, {
+      headers: currentProfileToken ? {Authorization:'Bearer '+currentProfileToken} : {}, cache:'no-store'
+    });
     const data = await res.json();
     if (!data.success) { alert(data.message || 'Ошибка'); return; }
     const p = data.profile;
@@ -1539,6 +1547,15 @@ async function openProfile(nick) {
     document.getElementById("profNick").textContent = p.username;
     document.getElementById("profPos").textContent = p.position || '';
     document.getElementById("profTeam").textContent = p.team ? '🏴 ' + p.team : '';
+    const availability = document.getElementById('profAvailability');
+    const statusLabels = {available:'На связи',break:'Перерыв',dnd:'Не беспокоить'};
+    availability.hidden = !statusLabels[p.status];
+    availability.textContent = statusLabels[p.status] || '';
+    availability.dataset.status = p.status || '';
+    const telegram = document.getElementById('profTelegram');
+    const contact = typeof p.telegram === 'string' && /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(p.telegram) ? p.telegram : '';
+    telegram.hidden = !contact;
+    telegram.textContent = contact ? 'Telegram · @' + contact : '';
     document.getElementById("profTruffles").textContent = p.month.truffles;
     document.getElementById("profApproves").textContent = p.month.approves;
     document.getElementById("profShifts").textContent = p.month.shifts;
@@ -1564,18 +1581,12 @@ async function changeOwnAvatar() {
   const fileInput = document.getElementById("profAvatarFile");
   const f = fileInput?.files[0];
   if (!f) return;
-  try {
-    const dataUrl = await fileToResizedDataUrl(f, 256);
-    const res = await fetch(`${SERVER_API_URL}/api/profile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: currentUser, avatar: dataUrl })
-    });
-    const data = await res.json();
-    if (!data.success) { alert(data.message || 'Ошибка'); return; }
+  if (window.HubProfile) {
     closeProfile();
-    openProfile(currentUser);
-  } catch (e) { alert('Ошибка соединения'); }
+    fileInput.value = '';
+    return window.HubProfile.updateAvatar(f);
+  }
+  alert('Не удалось открыть редактор профиля. Перезапусти приложение.');
 }
 
 // ==================== 3.2.0: ЛС, ЗВУК, ДАЙСЕРЧВИНЧИК ====================
@@ -4481,10 +4492,13 @@ document.addEventListener('keydown', (e) => {
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
   window.HubAdminDesk?.stop();
+  window.HubProfile?.stop();
+  currentProfileToken = '';
   await HubLogin.signOut();
   HubRadio.stop();
   await HubGames.close();
-  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:')&&!key.startsWith('hub-cinema-upload:')&&!key.startsWith('hub-cinema-poster:') && key !== 'hub-brave-install-seen' && key !== 'hub-office-installation')localStorage.removeItem(key);
+  const keepPreferences = new Set(['hub-brave-install-seen','hub-office-installation','hub-graphite-theme-v1','sh_theme','terra-appearance']);
+  for(const key of Object.keys(localStorage))if(!key.startsWith('hub-call-draft:')&&!key.startsWith('hub-radio-upload:')&&!key.startsWith('hub-cinema-upload:')&&!key.startsWith('hub-cinema-poster:')&&!keepPreferences.has(key))localStorage.removeItem(key);
   location.reload();
 });
 

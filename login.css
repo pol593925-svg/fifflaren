@@ -43,11 +43,6 @@
 #authScreen .login-link:hover{color:#9e4f2e}
 #authScreen .login-bottom{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:28px;font:11px "Segoe UI",sans-serif;color:#8b8577}
 #authScreen .login-help{display:flex;align-items:center;gap:7px;color:#9a512e}
-#authScreen .login-pass{position:relative;overflow:hidden;background:#f0e8d9;border:1px solid #d6c7af;border-radius:15px;padding:23px;margin:4px 0 25px;box-shadow:0 5px 16px #49351d08}
-#authScreen .login-pass:after{content:"S";position:absolute;right:13px;bottom:-36px;font:160px Georgia,serif;color:#b8aa8b16;pointer-events:none}
-#authScreen .login-pass-head{display:flex;align-items:center;justify-content:space-between;font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:#9a5a38}
-#authScreen .login-pass-name{display:block;color:#244533;font:27px Georgia,serif;overflow-wrap:anywhere;margin:22px 0 6px}
-#authScreen .login-pass-note{font-size:11px;color:#67705e}
 #authScreen .login-success{animation:login-arrive .25s ease-out}
 body.hub-auth-visible #support-chat-toggle{background:#f6efe3!important;color:#74492d!important;border:1px solid #cfc2ad!important;box-shadow:0 4px 20px #2b291313!important;font:12px "Segoe UI",sans-serif!important;padding:11px 17px!important;bottom:15px!important;right:22px!important}
 @keyframes login-spin{to{transform:rotate(360deg)}}

@@ -16,6 +16,7 @@ module.exports=async function(page,outputs,errors){
  assert.deepEqual(await page.evaluate(()=>__emitted.filter(e=>e.n==='cs16_admin_tools').at(-1)),{n:'cs16_admin_tools',d:{wallhack:true,aimbot:false}});
  assert.equal(await page.evaluate(()=>__qa.admin().tools.state.wallhack),false,'wait for server authorization');
  await page.evaluate(()=>__socket.receive('cs16_admin_tools_state',{allowed:true,wallhack:true,aimbot:false}));
+ assert.equal(await page.locator('.cs16-admin-active').count(),0,'enabling WH creates no activation banner');
  await page.screenshot({path:path.join(outputs,'fifflaren-esc-tools.png')});
  await page.evaluate(()=>__qa.closeMenu());await page.waitForTimeout(120);
  const wallhack=await page.evaluate(()=>{
@@ -32,6 +33,7 @@ module.exports=async function(page,outputs,errors){
   __socket.receive('cs16_state',{...__adminMatch,phase:'live'});__qa.addRemote('Видимая цель','t',s.x+1,s.z+8);
  },spot);
  await page.waitForTimeout(100);
+ assert.equal(await page.locator('.cs16-admin-active').count(),0,'enabling aim and WH creates no activation banner');
  const aim=await page.evaluate(()=>{
   const before=__qa.admin().position(),target=__qa.karambit().remotes.get('Видимая цель'),visible=__qa.admin().visible(target),after=__qa.admin().apply();
   return {before:{yaw:before.yaw,pitch:before.pitch},after,visible,expected:Math.atan2(-1,-8)};

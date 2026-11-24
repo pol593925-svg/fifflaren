@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded',()=>{
  const ring=document.querySelector('.shift-orbit');if(!ring)return;ring.classList.add('solar-system','work-system');
  const sun=document.createElement('div');sun.className='orbit-sun';sun.setAttribute('aria-hidden','true');ring.prepend(sun);
- const ids=['hq','support','mycalls','leave','notes','tasks','crypto','exchanges'],colors=['#7cbbff','#86ebce','#d4adff','#ffa8ab','#cfb5ff','#b6e78c','#ffd17e','#81e8ee'];
+ const ids=['hq','mycalls','leave','notes','tasks','crypto','exchanges'],colors=['#7cbbff','#d4adff','#ffa8ab','#cfb5ff','#b6e78c','#ffd17e','#81e8ee'];
  const dialog=document.createElement('dialog');dialog.className='hub-work-dialog orbit-tool-dialog';const close=document.createElement('button');close.className='hub-work-close';close.textContent='✕';close.setAttribute('aria-label','Закрыть');dialog.append(close);document.body.append(dialog);let opened=null,home=null,after=null,launcher=null;
  const shiftButton=document.querySelector('.tabs [data-tab="shift"]');
  function open(id,button){if(dialog.open)return;const tab=document.getElementById('tab-'+id);if(!tab)return;shiftButton.click();home=tab.parentNode;after=tab.nextSibling;opened=tab;launcher=button;dialog.setAttribute('aria-label',button.textContent);dialog.append(tab);tab.style.display='flex';dialog.showModal();tab.querySelector('input,textarea,button,select')?.focus();}

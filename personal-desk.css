@@ -1,0 +1,174 @@
+/* Personal Desk — compact desktop workspace, no external fonts or animated backdrops. */
+body.terra.personal-desk{--hub-bg:#edf3fb;--hub-panel:#fbfdff;--hub-raised:#eaf1fb;--hub-line:#cfdded;--hub-text:#243e60;--hub-muted:#607796;--hub-accent:#2568c7;--hub-soft:#3c78d612;--hub-field:#f2f6fc;--desk-navy:#253e64;--desk-blue:#3f7bd7;--desk-shadow:0 5px 20px #23426106;min-width:360px;color-scheme:light}
+body.terra.personal-desk:not(.light){--hub-bg:#111c2c;--hub-panel:#1b2a40;--hub-raised:#23344e;--hub-line:#344862;--hub-text:#e4edfa;--hub-muted:#a5b7d0;--hub-accent:#8cb8ff;--hub-soft:#8cb8ff15;--hub-field:#17263c;--desk-navy:#243d63;--desk-blue:#6ca1ef;color-scheme:dark}
+body.terra.personal-desk .content{padding:18px max(24px,calc((100vw - 1280px)/2)) 108px;gap:16px}
+body.terra.personal-desk .hub-header{padding:10px 26px;gap:16px;min-height:102px;background:var(--hub-bg)}
+body.terra.personal-desk .hub-heading{flex-shrink:0;min-width:190px}
+body.terra.personal-desk .hub-heading h1{font-size:28px;letter-spacing:-.65px;font-weight:650}
+body.terra.personal-desk .hub-heading p{font-size:11px;max-width:260px}
+body.terra.personal-desk .hub-eyebrow{color:var(--hub-accent);font-size:8px;letter-spacing:1.8px}
+body.terra.personal-desk .hub-tools{gap:6px;margin-left:0;flex-shrink:0}
+body.terra.personal-desk .hub-tools .hub-date{display:none}
+body.terra.personal-desk .hub-tool,body.terra.personal-desk .hub-menuToggle{width:35px!important;min-width:35px;height:35px;border-radius:10px!important}
+body.terra.personal-desk #screenWatchNotice{padding:6px 16px!important;color:var(--hub-muted)!important;background:var(--hub-raised)!important}
+body.terra.personal-desk :is(.card,.my-calls-panel,.profile-card,.exchange-card,.team-column,.exchange-col,.admin-section){border-radius:18px;background:var(--hub-panel)!important;box-shadow:var(--desk-shadow)}
+body.terra.personal-desk :is(.card h3,.my-calls-panel h3){font-size:18px;font-weight:650;letter-spacing:-.3px}
+body.terra.personal-desk :is(button.blue,button.green,.call-save){background:var(--desk-blue)!important;border-color:var(--desk-blue)!important;color:#fff!important}
+body.terra.personal-desk :is(button.gray,.call-refresh,.template-btn,.exchange-filter){color:var(--hub-text)!important;background:var(--hub-raised)!important;border-color:var(--hub-line)!important}
+body.terra.personal-desk :is(button.yellow){background:#eff3fa!important;color:var(--hub-text)!important;border:1px solid var(--hub-line)}
+body.terra.personal-desk:not(.light) :is(button.yellow){background:var(--hub-raised)!important}
+body.terra.personal-desk :is(input,select,textarea){border-radius:10px;outline-offset:2px}
+body.terra.personal-desk :is(input,select,textarea):focus-visible{outline:2px solid var(--hub-accent)}
+body.terra.personal-desk button:disabled{opacity:.42}
+body.terra.personal-desk .hub-mark{background:var(--desk-navy);color:#eff5ff}
+body.terra.personal-desk .terra-dock{border-radius:19px;background:var(--desk-navy);box-shadow:0 5px 0 #b8cbdf80,0 12px 24px #15325b16;bottom:18px;padding:7px 9px;border:1px solid #496387}
+body.terra.personal-desk .terra-dock button{color:#dce9fc;min-height:41px;padding:10px 16px;font-size:12px;border-radius:13px}
+body.terra.personal-desk .terra-dock button.active{background:#edf4ff;color:#29496f}
+body.terra.personal-desk .terra-dock button:hover:not(.active){background:#3b567b}
+body.terra.personal-desk .terra-nav-scrim{background:#10243d55}
+body.terra.personal-desk .tabs{box-shadow:0 18px 50px #0c234133}
+body.terra.personal-desk #tab-shift.active{grid-template-columns:minmax(272px,.8fr) minmax(300px,1fr) minmax(280px,.95fr);grid-template-areas:"toolbar toolbar toolbar" "shift calls feed" "shift checklist checklist" "shift overtime overtime" "shift report report";grid-auto-rows:max-content;gap:16px;align-items:start}
+body.terra.personal-desk .desk-toolbar{grid-area:toolbar;display:flex;align-items:center;justify-content:space-between;gap:20px;min-width:0;margin-bottom:0}
+.desk-introduction{display:flex;align-items:center;gap:14px;min-width:0}
+.desk-kicker{font-size:9px;font-weight:650;letter-spacing:1.45px;color:var(--hub-accent);white-space:nowrap}
+.desk-introduction p{font-size:12px;color:var(--hub-muted);margin:0}
+.desk-configure{display:flex;align-items:center;gap:7px;white-space:nowrap;padding:8px 12px;border:1px solid var(--hub-line);border-radius:10px;background:var(--hub-panel);color:var(--hub-text);font-size:11px;cursor:pointer}
+.desk-configure .hub-nav-art{width:15px;height:15px}
+body.terra.personal-desk #tab-shift>.terra-shift-card{grid-area:shift;padding:22px!important;min-width:0;min-height:600px;background:linear-gradient(145deg,#304b77,#253d60)!important;border:1px solid #2d456b!important;border-radius:19px!important;box-shadow:0 3px 0 #afc6e0a8;color:#eef5ff!important}
+body.terra.personal-desk .terra-shift-card h3{color:#e9f2ff!important;letter-spacing:1.3px!important;font-size:12px!important;margin:0 0 14px!important;text-transform:uppercase}
+body.terra.personal-desk .terra-shift-card #userNick{color:#bcd0eb!important;font-size:12px;margin:0}
+body.terra.personal-desk .terra-shift-card .shift-orbit-core{gap:6px}
+body.terra.personal-desk .terra-shift-card .shift-orbit-core>small{color:#bacfe9;letter-spacing:1.8px;font-size:8px}
+body.terra.personal-desk .terra-shift-card #timerDisplay{color:#f6f9ff!important;font-size:clamp(34px,3.15vw,45px);line-height:1.22;font-weight:300;letter-spacing:-.9px;font-variant-numeric:tabular-nums;margin:4px 0 8px}
+body.terra.personal-desk .terra-shift-card :is(#startBtn,#stopBtn){background:#3b5980!important;border:1px solid #6984aa!important;color:#f5f9ff!important;border-radius:11px;min-height:38px;padding:9px;font-size:11px}
+body.terra.personal-desk .terra-shift-card #startBtn{background:#bed7f6!important;border-color:#bed7f6!important;color:#244264!important;font-weight:650}
+body.terra.personal-desk .shift-log-metric{border-top-color:#60799b;padding-top:16px;margin:8px 0 0;gap:13px;color:#c1d2e9}
+body.terra.personal-desk .shift-log-metric #countDisplay{color:#f3f7ff!important;font-size:34px;font-weight:650}
+body.terra.personal-desk .shift-log-metric>span{color:#c4d6ec;font-size:11px}
+body.terra.personal-desk #subOneBtn{color:#d7e7fc!important;border-color:#6984a7!important;width:32px!important;height:32px;border-radius:10px}
+body.terra.personal-desk .terra-shift-actions{margin-top:14px;gap:7px}
+body.terra.personal-desk .terra-shift-card .terra-action{min-height:35px;font-size:11px;font-weight:500;padding:8px;border-radius:10px;color:#ecf4ff;background:#37547b;border-color:#6883a6}
+body.terra.personal-desk .terra-shift-card .terra-action span{font-size:11px}
+body.terra.personal-desk .terra-shift-card .orbit-addOneBtn{background:#b9d5f5!important;color:#234164!important;border-color:#b9d5f5!important;font-weight:650}
+.desk-count-actions{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:8px}
+.desk-call-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.desk-call-actions:has(> :only-child){grid-template-columns:1fr}
+body.terra.personal-desk .desk-call-actions>.terra-action{min-width:0;white-space:normal;line-height:1.4}
+body.terra.personal-desk .terra-shift-secondary{display:grid;grid-template-columns:1fr;margin-top:7px}
+body.terra.personal-desk .terra-shift-secondary .terra-action{background:transparent;padding:7px;min-height:31px}
+body.terra.personal-desk .terra-work-tools{border-top-color:#60799b;padding-top:15px;margin-top:17px}
+body.terra.personal-desk .terra-work-tools h4{color:#bfd2ec!important;font-size:8px!important;letter-spacing:1.5px;margin-bottom:10px}
+body.terra.personal-desk .terra-tool-grid{gap:5px}
+body.terra.personal-desk .terra-tool-grid button{font-size:10px;padding:7px;border-radius:9px;background:#344f73;color:#e7f1ff;border-color:#5e789d;min-height:31px}
+body.terra.personal-desk .terra-tool-grid button:hover{background:#43648f}
+body.terra.personal-desk .terra-tool-grid .hub-nav-art{width:15px;height:15px}
+body.terra.personal-desk .terra-shift-note{color:#b4c9e5;font-size:10px;line-height:1.6;margin-top:15px}
+body.terra.personal-desk #tab-shift .my-calls-panel{grid-area:calls;padding:22px;min-height:294px}
+body.terra.personal-desk #teamLogFeed{grid-area:feed;padding:22px!important;min-height:294px;min-width:0}
+body.terra.personal-desk #teamLogFeed h3,body.terra.personal-desk .my-calls-header{margin:0 0 13px!important;min-height:29px}
+body.terra.personal-desk #teamLogFeed h3:before{display:none}
+body.terra.personal-desk #myCallsStatus{margin:0 0 9px;font-size:10px;line-height:1.7}
+body.terra.personal-desk #myCallsList{max-height:210px;padding-right:2px}
+body.terra.personal-desk #teamLogList{max-height:351px;min-height:210px;overflow:auto}
+body.terra.personal-desk #teamLogList>p,body.terra.personal-desk .call-empty{font-size:12px;line-height:1.8;color:var(--hub-muted);padding:28px 4px}
+body.terra.personal-desk .call-entry{padding:13px;background:var(--hub-field);border-radius:12px;margin-top:10px}
+body.terra.personal-desk .call-entry strong{font-size:12px}
+body.terra.personal-desk .call-entry p{font-size:11px;line-height:1.5;margin:6px 0 0}
+body.terra.personal-desk .call-badge{border-radius:20px;padding:4px 7px;font-size:9px}
+body.terra.personal-desk .call-pending{background:#f3e8c9;color:#806329}
+body.terra.personal-desk .call-done{background:#e1f1e9;color:#3b775c}
+body.terra.personal-desk .call-refresh{padding:6px 9px;font-size:10px;min-height:29px;border-radius:16px}
+body.terra.personal-desk .team-log-entry{padding:12px 0;font-size:11px;line-height:1.6}
+body.terra.personal-desk .team-log-entry strong{font-size:12px}
+body.terra.personal-desk .team-log-entry p{margin:5px 0;font-size:11px}
+body.terra.personal-desk .team-log-entry small{font-size:9px}
+body.terra.personal-desk #tab-shift>.desk-checklist{grid-area:checklist;min-width:0;padding:21px 22px!important}
+body.terra.personal-desk .desk-checklist>h3{font-size:17px;margin:0 0 4px}
+body.terra.personal-desk .desk-checklist>p{color:var(--hub-muted)!important;font-size:10px!important;margin:0 0 13px!important}
+body.terra.personal-desk .desk-checklist .task-progress-outer{height:5px;margin:12px 0 15px;background:var(--hub-line);border-radius:8px;overflow:hidden}
+body.terra.personal-desk .desk-checklist .task-progress-inner{height:5px;background:#7ca6dd;font-size:0;transition:none}
+body.terra.personal-desk .desk-checklist #tasksList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:210px;overflow:auto}
+body.terra.personal-desk .desk-checklist .task-item{margin:0;padding:10px 12px;border:1px solid var(--hub-line);border-radius:9px;font-size:11px;line-height:1.5;min-width:0;align-items:flex-start}
+body.terra.personal-desk .desk-checklist .task-item>span{overflow-wrap:anywhere}
+body.terra.personal-desk .desk-checklist input[type=checkbox]{margin-top:2px;width:15px;height:15px;accent-color:#5189ce}
+body.terra.personal-desk .desk-checklist .task-meta{font-size:9px}
+body.terra.personal-desk .desk-checklist .task-item.done>span{color:var(--hub-muted)}
+body.terra.personal-desk #tab-shift>.desk-overtime{grid-area:overtime;padding:18px 22px!important;display:grid;grid-template-columns:minmax(140px,1fr) minmax(230px,1.5fr) 94px;align-items:center;gap:10px 17px;min-width:0}
+body.terra.personal-desk .desk-overtime-heading h3{font-size:17px;margin:0 0 5px}
+.desk-overtime-heading p{font-size:10px;color:var(--hub-muted);margin:0;line-height:1.6}
+body.terra.personal-desk .desk-time-fields{gap:10px!important;min-width:0}
+.desk-time-fields>div{min-width:0}
+body.terra.personal-desk .desk-time-fields label{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--hub-muted)}
+body.terra.personal-desk .desk-time-fields input{padding:8px 10px;font-size:12px;min-height:35px;margin:4px 0 0;width:100%;box-sizing:border-box}
+body.terra.personal-desk .desk-overtime #sendOvertimeBtn{margin:18px 0 0;min-height:35px;padding:8px 12px;font-size:11px;border-radius:18px;background:var(--desk-navy)!important;border-color:var(--desk-navy)!important}
+body.terra.personal-desk .desk-overtime #overtimeStatus{grid-column:2/-1;margin:0;font-size:10px}
+body.terra.personal-desk .desk-overtime #overtimeStatus:empty{display:none}
+body.terra.personal-desk #tab-shift>.desk-shift-report{grid-area:report;min-width:0;padding:10px 16px!important;background:transparent!important;border-color:transparent!important;box-shadow:none}
+body.terra.personal-desk #resetShiftBtn{min-height:30px;width:auto;font-size:10px;padding:6px 11px;border-radius:9px;margin:0}
+body.terra.personal-desk .desk-shift-report #reportBox{font-size:12px;line-height:1.6}
+body.terra.personal-desk #tab-shift>#braveIntro{grid-column:1/-1;grid-row:auto}
+body.terra.personal-desk #tab-shift.desk-hide-calls .my-calls-panel,body.terra.personal-desk #tab-shift.desk-hide-feed #teamLogFeed,body.terra.personal-desk #tab-shift.desk-hide-checklist>.desk-checklist{display:none!important}
+body.terra.personal-desk #tab-shift.desk-hide-calls:not(.desk-hide-feed) #teamLogFeed{grid-column:2/4}
+body.terra.personal-desk #tab-shift.desk-hide-feed:not(.desk-hide-calls) .my-calls-panel{grid-column:2/4}
+body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed{grid-template-areas:"toolbar toolbar toolbar" "shift checklist checklist" "shift overtime overtime" "shift report report"}
+body.terra.personal-desk #hubRadio{display:flex;flex-wrap:wrap;flex:1 1 520px;max-width:590px;min-width:0;gap:7px;margin-left:auto;padding:10px 12px;border-radius:22px;background:var(--hub-panel);border-color:var(--hub-line)}
+body.terra.personal-desk #hubRadio:has(#radioPhoneUpload){max-width:590px;gap:6px;padding:9px 12px}
+body.terra.personal-desk #hubRadio>div:not(.radio-phone-actions){display:block;flex:1 1 125px}
+body.terra.personal-desk #hubRadio .radio-phone-actions{display:flex;flex:1 1 100%;gap:5px;min-width:0;align-items:center;flex-wrap:wrap}
+body.terra.personal-desk #hubRadio #radioToggle{flex:none;width:33px;height:33px;background:var(--desk-navy)}
+body.terra.personal-desk #hubRadio #radioTitle{font-size:11px;max-width:210px}
+body.terra.personal-desk #hubRadio small{font-size:7px;letter-spacing:1.4px;color:var(--hub-accent)}
+body.terra.personal-desk #hubRadio .hub-volume{background:var(--hub-field);border-color:var(--hub-line);padding:1px;gap:0}
+body.terra.personal-desk #hubRadio .hub-volume button{width:22px;height:23px;font-size:15px}
+body.terra.personal-desk #hubRadio .hub-volume output{font-size:10px;min-width:34px;width:34px}
+body.terra.personal-desk #hubRadio :is(#radioLights,#cinemaButton,.radio-phone-button,#radioAddSong){border:1px solid var(--hub-line);color:var(--hub-text);background:var(--hub-field);font:500 10px 'Segoe UI',sans-serif;border-radius:16px;min-height:27px;height:27px;padding:5px 9px;white-space:nowrap}
+body.terra.personal-desk #hubRadio #radioAddSong{background:var(--desk-navy);color:#f4f8ff;border-color:var(--desk-navy)}
+body.terra.personal-desk #hubRadio #radioLights{font-size:17px;width:29px;padding:0}
+body.terra.personal-desk #radioAudience summary{border-color:var(--hub-line);color:var(--hub-text);font-size:10px;min-height:26px;padding:5px 8px}
+body.terra.personal-desk #radioPreview{display:none}
+body.terra.personal-desk #hubPatchesButton{padding:9px 11px;font-size:10px;min-height:34px;gap:5px;border-radius:18px}
+body.terra.personal-desk #hubPatchesButton .patch-launch-icon{display:none}
+body.terra.personal-desk .desk-settings{width:min(460px,calc(100vw - 32px));padding:25px;box-sizing:border-box;border-radius:21px;border:1px solid var(--hub-line);background:var(--hub-panel);color:var(--hub-text);box-shadow:0 24px 80px #142d4e40}
+.desk-settings::backdrop{background:#142b4966}
+.desk-settings header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.desk-settings h2{margin:0;font-size:23px;font-weight:650;letter-spacing:-.5px}
+.desk-settings>p{font-size:12px;line-height:1.8;color:var(--hub-muted);margin:12px 0 22px}
+.desk-close{border:1px solid var(--hub-line);width:30px;height:30px;border-radius:50%;background:var(--hub-raised);color:var(--hub-text);font-size:21px;line-height:1;cursor:pointer}
+.desk-setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-top:1px solid var(--hub-line);cursor:pointer}
+.desk-setting-row strong{display:block;font-size:13px;font-weight:600;color:var(--hub-text)}
+.desk-setting-row small{display:block;font-size:11px;color:var(--hub-muted);margin-top:4px}
+.desk-setting-row input[type=checkbox]{width:19px;height:19px;flex:none;accent-color:#3f7bd7}
+.desk-settings footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:25px}
+.desk-settings footer button{font-size:11px;border-radius:10px;padding:10px 13px;cursor:pointer}
+.desk-reset{border:1px solid var(--hub-line);background:var(--hub-raised);color:var(--hub-text)}
+.desk-done{border:1px solid var(--desk-blue);background:var(--desk-blue);color:#fff;min-width:86px}
+body.terra.personal-desk .desk-dialog{width:min(520px,calc(100vw - 32px));padding:28px;max-height:calc(100dvh - 40px);overflow:auto;border-radius:21px;box-sizing:border-box}
+body.terra.personal-desk .desk-dialog h2{font-size:25px;line-height:1.3;letter-spacing:-.5px;padding-right:30px;color:var(--hub-text);margin:0}
+.desk-dialog-copy{font-size:12px;line-height:1.85;color:var(--hub-muted);margin:13px 0 22px}
+.desk-dialog label:not(.desk-access-person){font-size:11px;font-weight:600;color:var(--hub-text);margin:0 0 8px}
+.desk-dialog input:not([type=checkbox]){font-size:13px;width:100%;padding:12px 14px;min-height:43px;border-radius:11px;margin:0}
+.desk-form-status{font-size:11px;line-height:1.7;color:var(--hub-muted);margin:10px 0;min-height:18px;overflow-wrap:anywhere}
+.desk-primary{width:100%;min-height:41px;padding:11px 18px;border:1px solid var(--desk-blue);border-radius:11px;background:var(--desk-blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.desk-request-notice{font-size:10px;line-height:1.65;color:#d3e4fa;margin:0;overflow-wrap:anywhere}
+.desk-request-notice:empty{display:none}
+.desk-access-list{max-height:340px;overflow:auto;padding-right:3px;margin-top:9px}
+.desk-access-list>p{font-size:12px;color:var(--hub-muted);padding:16px 0}
+.desk-access-person{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 12px;margin:6px 0 0;border:1px solid var(--hub-line);border-radius:11px;background:var(--hub-field);cursor:pointer}
+.desk-access-person>span{min-width:0}
+.desk-access-person strong{display:block;font-size:13px;color:var(--hub-text);font-weight:600;overflow-wrap:anywhere}
+.desk-access-person small{display:block;font-size:10px;color:var(--hub-muted);margin-top:3px}
+.desk-access-person input[type=checkbox]{flex:none;width:19px;height:19px;margin:0;accent-color:#3f7bd7;cursor:pointer}
+.desk-dialog #teamCallsAccessRefresh{margin-top:10px!important;width:auto;flex:none;padding:7px 11px;font-size:10px;min-height:29px;border-radius:16px}
+.desk-request-label{display:inline-flex;align-items:center;color:var(--hub-accent);background:var(--hub-soft);font-size:9px;letter-spacing:.25px;border:1px solid var(--hub-line);border-radius:7px;padding:3px 7px;margin:6px 0}
+.call-done-action{background:#e0f1e8;color:#316d51;border:1px solid #b9dcc8;min-height:33px;padding:8px 13px;border-radius:9px;font-size:11px;font-weight:600;cursor:pointer}
+body.terra.personal-desk:not(.light) .call-done-action{background:#24493c;color:#b7e5cf;border-color:#3b6856}
+.desk-dialog [hidden],#teamCallsAccessButton[hidden]{display:none!important}
+body.terra.personal-desk .exchange-filter.active{background:var(--desk-blue)!important;color:#fff!important}
+body.terra.personal-desk #tab-exchanges .exchange-search-row input{font-size:18px;padding:15px 18px;border-color:var(--hub-line)!important}
+body.terra.personal-desk #tab-exchanges .exchange-hero h2{font-size:28px}
+body.terra.personal-desk #tab-exchanges .exchange-card{box-shadow:var(--desk-shadow)}
+@media(min-width:1500px){body.terra.personal-desk .hub-header{padding-left:max(26px,calc((100vw - 1510px)/2));padding-right:max(26px,calc((100vw - 1510px)/2))}}
+@media(max-width:1240px){body.terra.personal-desk .hub-header{flex-wrap:wrap;padding:17px 24px;gap:10px 14px}body.terra.personal-desk .hub-tools{margin-left:auto}body.terra.personal-desk #hubRadio{order:5;flex:1 1 calc(100% - 160px);max-width:none;margin:0}body.terra.personal-desk #hubRadio .radio-phone-actions{flex:1 1 100%}body.terra.personal-desk #hubPatchesButton{order:6;margin-left:0}body.terra.personal-desk #tab-shift.active{grid-template-columns:272px minmax(0,1fr);grid-template-areas:"toolbar toolbar" "shift calls" "shift feed" "checklist checklist" "overtime overtime" "report report";gap:16px}body.terra.personal-desk #tab-shift>.terra-shift-card{min-height:602px}body.terra.personal-desk #tab-shift .my-calls-panel,body.terra.personal-desk #teamLogFeed{min-height:245px}body.terra.personal-desk #teamLogList{min-height:130px;max-height:190px}body.terra.personal-desk #myCallsList{max-height:200px}body.terra.personal-desk #tab-shift.desk-hide-calls:not(.desk-hide-feed) #teamLogFeed,body.terra.personal-desk #tab-shift.desk-hide-feed:not(.desk-hide-calls) .my-calls-panel{grid-column:2}body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed{grid-template-areas:"toolbar toolbar" "shift checklist" "shift overtime" "report report"}body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed>.desk-overtime{grid-template-columns:1fr}body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed #overtimeStatus{grid-column:auto}body.terra.personal-desk .desk-introduction p{display:none}}
+@media(max-width:760px){body.terra.personal-desk .content{padding:17px 16px 94px}body.terra.personal-desk .hub-header{padding:15px 16px;gap:10px}body.terra.personal-desk .hub-heading h1{font-size:23px}body.terra.personal-desk .hub-heading{min-width:0}body.terra.personal-desk .hub-heading p{display:none}body.terra.personal-desk #tab-shift.active,body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed{grid-template-columns:1fr;grid-template-areas:"toolbar" "shift" "calls" "feed" "checklist" "overtime" "report"}body.terra.personal-desk #tab-shift>.terra-shift-card{min-height:0;padding:24px!important}body.terra.personal-desk .terra-shift-card #timerDisplay{font-size:45px}body.terra.personal-desk #tab-shift.desk-hide-calls:not(.desk-hide-feed) #teamLogFeed,body.terra.personal-desk #tab-shift.desk-hide-feed:not(.desk-hide-calls) .my-calls-panel{grid-column:1}body.terra.personal-desk #tab-shift>.desk-overtime{grid-template-columns:1fr 96px}body.terra.personal-desk .desk-overtime-heading{grid-column:1/-1}body.terra.personal-desk .desk-overtime #sendOvertimeBtn{margin-top:18px}body.terra.personal-desk .desk-overtime #overtimeStatus{grid-column:1/-1}body.terra.personal-desk #tab-shift>.desk-checklist{padding:22px!important}body.terra.personal-desk .desk-checklist #tasksList{grid-template-columns:1fr;max-height:310px}body.terra.personal-desk #hubRadio{flex-basis:100%;border-radius:18px;padding:10px}body.terra.personal-desk #hubRadio>div:not(.radio-phone-actions){flex:1 1 100px}body.terra.personal-desk #hubRadio #radioTitle{max-width:155px}body.terra.personal-desk #hubRadio #cinemaButton{margin-left:auto}body.terra.personal-desk #hubPatchesButton{order:4;margin-left:0}body.terra.personal-desk .terra-dock{max-width:calc(100vw - 22px)!important;padding:6px!important;border-radius:17px}body.terra.personal-desk .terra-dock button{min-width:38px;padding:9px 10px}body.terra.personal-desk .terra-dock button span{display:none}body.terra.personal-desk .terra-dock .hub-nav-art{width:19px;height:19px}body.terra.personal-desk #teamLogList{max-height:300px}.desk-introduction{gap:0}.desk-kicker{font-size:8px}.desk-configure{font-size:10px;padding:7px 10px}}
+@media(max-width:440px){body.terra.personal-desk .hub-tools{gap:4px}body.terra.personal-desk .hub-tool,body.terra.personal-desk .hub-menuToggle{width:30px!important;min-width:30px;height:32px}body.terra.personal-desk .hub-heading h1{font-size:20px}body.terra.personal-desk .terra-dock button{min-width:35px;padding:8px}body.terra.personal-desk .desk-overtime{gap:10px}body.terra.personal-desk .desk-time-fields input{padding:7px 6px;font-size:11px}.desk-settings{padding:21px!important}}
+@media(prefers-reduced-motion:reduce){body.terra.personal-desk *,body.terra.personal-desk *:before,body.terra.personal-desk *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

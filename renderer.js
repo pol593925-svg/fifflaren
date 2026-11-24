@@ -20,6 +20,7 @@ const cinemaPC={
 };
 const { io } = require("socket.io-client");
 ipcRenderer.on('open-calls',(_event,date)=>HubCalls.open(date));
+ipcRenderer.on('open-loans',(_event,id)=>window.HubLoans?.open(id));
 ipcRenderer.on('open-cinema',(_event,nick)=>window.HubCinema?.openNotice(nick));
 ipcRenderer.on('cinema-notice-fallback',(_event,p)=>window.HubCinema?.fallback(p));
 ipcRenderer.on('calls-tick',()=>HubCalls.checkDigest());
@@ -31,8 +32,6 @@ let currentUser = "";      // ник текущего пользователя
 let currentRole = "user";  // 'admin' или 'user'
 let exchangeEntries = null;
 let onlineNicks = [];      // кто онлайн в чате (для точек в Штабе)
-let tlTeam = "";           // название команды, если текущий пользователь — ТЛ
-const tlSound = new Audio('alert.wav');
 
 // Состояние смены
 let timerInterval = null, startTimeMs = null, startTimeStr = "", count = 0, isWorking = false;
@@ -43,6 +42,7 @@ function localDateStr(d = new Date()) {
 
 // ==================== АВТОРИЗАЦИЯ ====================
 document.addEventListener("DOMContentLoaded", () => {
+  window.HubReleaseIntro?.start({version:'6.0.0'});
   HubLogin.mount({server:SERVER_API_URL,ipc:ipcRenderer,offboard:()=>HubAccess.offer(false),onAuthenticated:async data=>{
     currentUser=data.username;currentRole=data.role||'user';
     HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});
@@ -51,7 +51,8 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem('global_worker_nick',data.username);localStorage.setItem('support_hub_user',data.username);
     applyNickToApp(data.username);loadHQRoster();
     if(currentRole==='admin')setupAdminPanel();
-    checkTLStatus();initSocketConnection(data.username);
+    window.HubAdminDesk?.start({username:data.username,role:currentRole,token:data.callsToken,server:SERVER_API_URL});
+    updateWindowPermissions();initSocketConnection(data.username);
   }});
 
   // --- НАВИГАЦИЯ ПО ВКЛАДКАМ ---
@@ -71,7 +72,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (tabName === 'admin') refreshAdminPanel();
       if (tabName === 'hq') loadHQRoster();
-      if (tabName === 'tlpanel') loadTlToday();
       if (tabName === 'tasks') loadTasks();
       if (tabName === 'salary') loadSalary();
       if (tabName === 'mycalls') HubCalls.load();
@@ -111,20 +111,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (evDate) evDate.value = localDateStr();
   const stDate = document.getElementById("adminStatsDate");
   if (stDate) stDate.value = localDateStr();
-  const tlDate = document.getElementById("tlEventsDate");
-  if (tlDate) tlDate.value = localDateStr();
   // Месяц по умолчанию в ЗП (3.3.0)
   const curMonth = localDateStr().slice(0, 7);
   const salMonth = document.getElementById("salaryMonth");
   if (salMonth) salMonth.value = curMonth;
-  const tlSalMonth = document.getElementById("tlSalaryMonth");
-  if (tlSalMonth) tlSalMonth.value = curMonth;
 
   // --- ПРИВЯЗКА КНОПОК ---
 
-  bindClick("templateBtn", insertTruffleTemplate);
-  bindClick("sendBugBtn", sendBugReport);
-  bindClick("checkTrufflesBtn", checkTruffles);
   bindClick("startBtn", toggleShift);
   bindClick("stopBtn", finishShift);
   bindClick("addOneBtn", () => addCountWithLog(1));
@@ -143,7 +136,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindScarePicker();
   bindClick("adminImageSendBtn", sendAdminImage);
   bindAdminImagePicker();
-  bindClick("tlEventsLoadBtn", () => loadTlHistory());
   // 3.1.0
   bindClick("feedSendBtn", sendFeedItem);
   bindFeedPicker();
@@ -180,10 +172,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("adminStatsLoadBtn", loadAdminStats);
   bindClick("adminTeamAddBtn", addAdminTeam);
   bindClick("adminExAddBtn", addAdminExchange);
-  // 3.3.0: ЗП, уведомления ТЛ, открытие ссылок
+  // 3.3.0: ЗП и открытие ссылок
   bindClick("salaryLoadBtn", loadSalary);
-  bindClick("tlSalaryLoadBtn", loadTlSalary);
-  bindClick("tlNotifySendBtn", tlSendNotify);
   bindClick("adminLinkSendBtn", sendAdminLink);
 
   const exchangeSearchInput = document.getElementById("exchangeSearchInput");
@@ -312,6 +302,7 @@ function initSocketConnection(username) {
   if (socket) socket.disconnect();
 
   socket = io(SERVER_API_URL, { reconnectionAttempts: Infinity });
+  window.HubAdminDesk?.subscribe(socket);
 
   socket.on('connect', () => {
     console.log("Подключено к серверу чата");
@@ -352,11 +343,6 @@ function initSocketConnection(username) {
   // Уведомление поверх окон (новый формат)
   socket.on('show_notification', (payload) => {
     ipcRenderer.send('show-notification', payload);
-  });
-
-  // Событие от сотрудника команды — для ТЛ-панели (лента + звук)
-  socket.on('tl_event', (payload) => {
-    handleTlEvent(payload);
   });
 
   // Фото от админа — открываем в отдельном окне поверх остальных
@@ -1052,6 +1038,10 @@ async function loadAdminUsers() {
       return;
     }
 
+    data.users = (data.users || []).filter(user =>
+      String(user.username || '').trim().toLowerCase() === 'fifflaren' ||
+      String(user.team || '').trim().toLowerCase() === 'fifflaren');
+
     // Селект получателей уведомления
     if (targetSelect) {
       targetSelect.innerHTML = '<option value="all">🌍 Всем сотрудникам</option>';
@@ -1088,7 +1078,7 @@ async function loadAdminUsers() {
       try {
         const teamsRes = await fetch(`${SERVER_API_URL}/api/teams`);
         const teamsData = await teamsRes.json();
-        (teamsData.teams || []).forEach(t => {
+        (teamsData.teams || []).filter(t => String(t.name || '').trim().toLowerCase() === 'fifflaren').forEach(t => {
           const opt = document.createElement("option");
           opt.value = 'team:' + t.name;
           opt.textContent = '🏴 ' + t.name;
@@ -1825,110 +1815,19 @@ window.saveEmail = async (username) => {
   } catch (e) { alert('Ошибка соединения'); }
 };
 
-// ==================== ТЛ-ПАНЕЛЬ (события своей команды) ====================
-// ТЛ — пользователь, чей ник совпадает с названием команды
-
-async function checkTLStatus() {
-  try {
-    const res = await fetch(`${SERVER_API_URL}/api/teams`);
-    const data = await res.json();
-    const team = (data.teams || []).find(t => t.name.toLowerCase() === currentUser.toLowerCase());
-    if (team) {
-      tlTeam = team.name;
-      const btn = document.getElementById("tlTabBtn");
-      if (btn) btn.style.display = "";
-      const nameEl = document.getElementById("tlTeamName");
-      if (nameEl) nameEl.textContent = team.name;
-      loadTlToday(); // сразу наполняем живую ленту событиями за сегодня
-    }
-  } catch (e) { /* сервер недоступен — вкладка не покажется */ }
-  // Закрыть приложение могут только админы и ТЛ; сотрудникам — запрет
-  try { ipcRenderer.send('set-can-quit', currentRole === 'admin' || !!tlTeam); } catch (e) {}
-}
-
-// Один элемент события (тот же вид, что и в админке)
-function buildTlEventItem(ev, timeStr) {
-  const meta = EVENT_TYPE_META[ev.type] || { icon: '•', label: ev.type, cls: '' };
-  const item = document.createElement("div");
-  item.className = `admin-event-item ${meta.cls}`;
-  let details = "";
-  const d = ev.data || {};
-  if (ev.type === 'bug') {
-    details = `<b>${escapeHtml(d.bugType || '')}</b>: ${escapeHtml(d.desc || '')}`;
-  } else if (ev.type === 'leave') {
-    details = `${escapeHtml(d.reason || '')} (${escapeHtml(d.leaveDate || '')} ${escapeHtml(d.from || '')}–${escapeHtml(d.to || '')})`;
-  } else if (ev.type === 'call') {
-    details = `<b>${escapeHtml(d.callType || '')}</b> ${escapeHtml(d.serviceName || '')} | ${escapeHtml(d.callLink || '')} ${escapeHtml(d.callNote || '')}`;
-  } else if (ev.type === 'shift') {
-    details = `начало ${escapeHtml(d.start || '')} → конец ${escapeHtml(d.end || '')} · длительность <b>${escapeHtml(d.duration || '')}</b> · логов: <b>${escapeHtml(String(d.logs ?? 0))}</b>`;
-  } else if (ev.type === 'question') {
-    details = escapeHtml(d.text || '');
-  } else {
-    details = escapeHtml(JSON.stringify(d));
+// Права закрытия окна сохраняются независимо от навигации и панелей.
+async function updateWindowPermissions() {
+  const username = currentUser, role = currentRole;
+  let canQuit = role === 'admin';
+  if (!canQuit) {
+    try {
+      const res = await fetch(`${SERVER_API_URL}/api/teams`);
+      const data = await res.json();
+      canQuit = (data.teams || []).some(team => String(team.name).toLowerCase() === username.toLowerCase());
+    } catch (e) { /* Сохраняем ограничение при недоступном сервере. */ }
   }
-  item.innerHTML = `
-    <div class="ev-head">${meta.icon} ${meta.label} — ${escapeHtml(ev.user || '—')}</div>
-    <div>${details}</div>
-    <div class="ev-meta">${escapeHtml(timeStr || '')}</div>
-  `;
-  return item;
-}
-
-function playTlSound() {} // Звук ТЛ-ленты отключён.
-
-// Событие прилетело по сокету — добавляем в живую ленту и играем звук
-function handleTlEvent(payload) {
-  if (!tlTeam || !payload) return;
-  const box = document.getElementById("tlLiveBox");
-  if (!box) return;
-  const placeholder = box.querySelector('p');
-  if (placeholder) box.innerHTML = "";
-  box.prepend(buildTlEventItem(payload, payload.time));
-  // не даём ленте разрастись бесконечно
-  while (box.children.length > 100) box.removeChild(box.lastChild);
-  playTlSound();
-}
-
-// Живая лента на сегодня: с сервера (события, которые были до запуска приложения)
-async function loadTlToday() {
-  if (!tlTeam) return;
-  const box = document.getElementById("tlLiveBox");
-  if (!box) return;
-  try {
-    const res = await fetch(`${SERVER_API_URL}/api/tl/events?tl=${encodeURIComponent(currentUser)}&date=${localDateStr()}`);
-    const data = await res.json();
-    if (!data.success) { box.innerHTML = "<p style='color:#777;'>Пока событий нет</p>"; return; }
-    if (!data.events.length) { box.innerHTML = "<p style='color:#777;'>Пока событий нет</p>"; return; }
-    box.innerHTML = "";
-    data.events.forEach(ev => {
-      const time = new Date(ev.createdAt).toLocaleTimeString('ru-RU');
-      box.appendChild(buildTlEventItem(ev, time));
-    });
-  } catch (e) {
-    box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
-  }
-}
-
-// История по выбранной дате
-async function loadTlHistory() {
-  if (!tlTeam) return;
-  const box = document.getElementById("tlHistoryBox");
-  const date = document.getElementById("tlEventsDate")?.value || localDateStr();
-  if (!box) return;
-  box.innerHTML = "<p style='color:#777;'>Загрузка...</p>";
-  try {
-    const res = await fetch(`${SERVER_API_URL}/api/tl/events?tl=${encodeURIComponent(currentUser)}&date=${date}`);
-    const data = await res.json();
-    if (!data.success) { box.innerHTML = "<p style='color:red;'>Ошибка загрузки</p>"; return; }
-    if (!data.events.length) { box.innerHTML = "<p style='color:#777;'>За эту дату ничего нет</p>"; return; }
-    box.innerHTML = "";
-    data.events.forEach(ev => {
-      const time = new Date(ev.createdAt).toLocaleTimeString('ru-RU');
-      box.appendChild(buildTlEventItem(ev, time));
-    });
-  } catch (e) {
-    box.innerHTML = "<p style='color:red;'>Ошибка соединения с сервером</p>";
-  }
+  if (currentUser !== username || currentRole !== role) return;
+  try { ipcRenderer.send('set-can-quit', canQuit); } catch (e) {}
 }
 
 // --- Счётчики сотрудников (трюфеля/апрувы вручную + авто неделя/месяц/овертаймы) ---
@@ -2142,7 +2041,7 @@ function renderExchangeLists() {
 function handleExchangeSearch() { HubExchanges.render(); }
 
 // ==================== ЗАРПЛАТА (3.3.0) ====================
-// Вкладка «💰 ЗП»: сотрудник видит только своё. Вносит ТЛ через ТЛ-панель.
+// Вкладка «💰 ЗП»: сотрудник видит только свои расчёты.
 
 function monthStr() {
   return localDateStr().slice(0, 7);
@@ -2197,130 +2096,6 @@ async function loadSalary() {
   } catch (e) {
     box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
   }
-}
-
-// --- ТЛ-панель: ведомость команды ---
-async function loadTlSalary() {
-  const box = document.getElementById("tlSalaryBox");
-  if (!box || !tlTeam) return;
-  const month = document.getElementById("tlSalaryMonth")?.value || monthStr();
-  const teamEl = document.getElementById("tlSalaryTeam");
-  if (teamEl) teamEl.textContent = tlTeam;
-  box.innerHTML = "<p style='color:#777;'>Загрузка...</p>";
-  try {
-    const res = await fetch(`${SERVER_API_URL}/api/tl/salary?tl=${encodeURIComponent(currentUser)}&month=${month}`);
-    const data = await res.json();
-    if (!data.success) { box.innerHTML = `<p style='color:red;'>${escapeHtml(data.message || 'Ошибка')}</p>`; return; }
-
-    // Подсказки ников для уведомлений
-    const dl = document.getElementById("tlNotifyTargets");
-    if (dl) {
-      dl.innerHTML = '<option value="всем"></option>' + data.rows.map(r => `<option value="${escapeHtml(r.username)}"></option>`).join('');
-    }
-
-    if (!data.rows.length) {
-      box.innerHTML = "<p style='color:#777;'>В команде пока нет сотрудников</p>";
-      return;
-    }
-
-    box.innerHTML = "";
-    data.rows.forEach(r => {
-      const weeks = Array.isArray(r.salary?.weeks) ? r.salary.weeks : [0, 0, 0, 0];
-      const fines = r.salary?.fines || [];
-      const weeksSum = weeks.reduce((a, b) => a + (Number(b) || 0), 0);
-      const finesSum = fines.reduce((a, f) => a + (Number(f.amount) || 0), 0);
-      const div = document.createElement("div");
-      div.style.cssText = "border:1px solid #2a323c; border-radius:8px; padding:8px; margin-bottom:10px;";
-      div.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
-          <b style="color:#4da6ff;">${escapeHtml(r.username)}</b>
-          <span style="font-size:11px; color:#888;">⏱ ср. чек: ${r.avgCheckMin || 0} мин</span>
-        </div>
-        <div class="row-group" style="margin-top:6px;">
-          ${[0, 1, 2, 3].map(i => `
-            <input type="number" id="tlw_${r.username}_${i}" value="${Number(weeks[i]) || 0}" min="0" step="any"
-              title="Неделя ${i + 1}" placeholder="Н${i + 1}" style="flex:1; min-width:50px; font-size:11px;">`).join("")}
-          <button class="template-btn" style="background:#198754; font-size:11px;" onclick="tlSaveWeeks('${r.username}')">💾</button>
-        </div>
-        <div style="font-size:11px; margin-top:4px;">
-          Недели: <b style="color:#198754;">${weeksSum}$</b> | Штрафы: <b style="color:#dc3545;">−${finesSum}$</b> | Итого: <b>${weeksSum - finesSum}$</b>
-        </div>
-        <div style="margin-top:6px;">
-          ${fines.map((f, i) => `
-            <div style="font-size:11px; padding:2px 0;">
-              <b style="color:#dc3545;">−${Number(f.amount) || 0}$</b> ${escapeHtml(f.reason || '')} <span style="color:#888;">(${escapeHtml(f.date || '')})</span>
-              <span style="color:#dc3545; cursor:pointer;" onclick="tlDeleteFine('${r.username}', ${i})" title="Удалить"> ❌</span>
-            </div>`).join("")}
-          <div class="row-group" style="margin-top:4px;">
-            <input type="number" id="tlf_${r.username}_amount" placeholder="Штраф $" min="0" step="any" style="flex:1; min-width:60px; font-size:11px;">
-            <input type="text" id="tlf_${r.username}_reason" placeholder="Причина..." style="flex:2; font-size:11px;">
-            <button class="template-btn" style="background:#dc3545; font-size:11px;" onclick="tlAddFine('${r.username}')">➕</button>
-          </div>
-        </div>`;
-      box.appendChild(div);
-    });
-  } catch (e) {
-    box.innerHTML = "<p style='color:red;'>Ошибка соединения</p>";
-  }
-}
-
-// Сохранить все 4 недели сразу
-window.tlSaveWeeks = async (username) => {
-  const month = document.getElementById("tlSalaryMonth")?.value || monthStr();
-  for (let i = 0; i < 4; i++) {
-    const val = document.getElementById(`tlw_${username}_${i}`)?.value ?? "0";
-    await fetch(`${SERVER_API_URL}/api/tl/salary`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tl: currentUser, username, month, week: i + 1, amount: Number(val) || 0 })
-    });
-  }
-  loadTlSalary();
-};
-
-window.tlAddFine = async (username) => {
-  const amount = document.getElementById(`tlf_${username}_amount`)?.value;
-  const reason = document.getElementById(`tlf_${username}_reason`)?.value.trim();
-  if (!amount || Number(amount) <= 0) { alert("Укажи сумму штрафа!"); return; }
-  if (!reason) { alert("Напиши причину штрафа!"); return; }
-  const res = await fetch(`${SERVER_API_URL}/api/tl/fines`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tl: currentUser, username, amount: Number(amount), reason })
-  });
-  const data = await res.json();
-  if (!data.success) { alert(data.message || "Ошибка"); return; }
-  loadTlSalary();
-};
-
-window.tlDeleteFine = async (username, index) => {
-  if (!confirm("Удалить этот штраф?")) return;
-  await fetch(`${SERVER_API_URL}/api/tl/fines/delete`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tl: currentUser, username, index })
-  });
-  loadTlSalary();
-};
-
-// --- Уведомление от ТЛ (синий попап, доходит до кого угодно) ---
-function tlSendNotify() {
-  const text = document.getElementById("tlNotifyText")?.value.trim() || "";
-  const targetRaw = document.getElementById("tlNotifyTarget")?.value.trim() || "всем";
-  const target = targetRaw.toLowerCase() === 'всем' ? 'all' : targetRaw;
-  const status = document.getElementById("tlNotifyStatus");
-
-  if (!text) { alert("Напиши текст уведомления!"); return; }
-  if (!socket || !socket.connected) { alert("Нет соединения с сервером!"); return; }
-
-  socket.emit('tl_notify', { from: currentUser, target, text });
-
-  if (status) {
-    status.innerText = `✅ Отправлено ${target === 'all' ? 'всем' : target}: «${text}»`;
-    setTimeout(() => status.innerText = "", 4000);
-  }
-  document.getElementById("tlNotifyText").value = "";
-  document.getElementById("tlNotifyTarget").value = "";
 }
 
 // --- Открытие ссылки на ПК сотрудника (админка) ---
@@ -4705,6 +4480,7 @@ document.addEventListener('keydown', (e) => {
 // Saved login is managed by login.js and the native encrypted session vault.
 // 3.12.0: кнопка выхода из аккаунта
 bindClick("logoutBtn", async () => {
+  window.HubAdminDesk?.stop();
   await HubLogin.signOut();
   HubRadio.stop();
   await HubGames.close();

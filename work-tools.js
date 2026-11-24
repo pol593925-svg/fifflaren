@@ -26,7 +26,7 @@
  function repair(article,row,onSuccess){
    const open=node('button','Исправить и отправить повторно');open.type='button';article.append(open);open.onclick=()=>{
      open.remove();const form=node('form'),type=node('select'),name=node('input'),link=node('input'),note=node('textarea'),err=node('small'),save=node('button','Отправить на проверку');
-     for(const s of ['Колл на биржу','Колл на почту'])type.add(new Option(s,s));type.value=row.kind;name.value=row.service;link.value=row.link;note.value=row.note||'';link.type='url';link.required=name.required=true;name.maxLength=160;note.maxLength=3000;
+     const network=row.requestType==='network';for(const s of network?['Скачать пасы']:['Колл на биржу','Колл на почту'])type.add(new Option(s,s));type.value=row.kind;type.disabled=network;name.value=network?'Пасы · сеть':row.service;name.readOnly=network;link.value=row.link;note.value=row.note||'';link.type='url';link.required=name.required=true;name.maxLength=160;note.maxLength=3000;
      for(const [caption,el]of [['Тип',type],['Название',name],['Ссылка',link],['Информация',note]]){const label=node('label',caption);label.append(el);form.append(label);}
      form.append(save,err);article.append(form);name.focus();form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{if(link.value.trim()!==row.link)await checkLink(link.value.trim());await request('/api/calls/mine/'+encodeURIComponent(row.id),{method:'PATCH',body:JSON.stringify({version:row.version||0,callType:type.value,serviceName:name.value,callLink:link.value,callNote:note.value})});await onSuccess();}catch(e){err.textContent=e.message;save.disabled=false;}};
    };

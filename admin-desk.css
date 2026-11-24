@@ -1,0 +1,246 @@
+/* Admin Desk 6 — calm, compact owner overview; no external fonts or effects. */
+body.terra.personal-desk #tab-admin{--ad-panel:var(--hub-panel,#fbfdff);--ad-bg:var(--hub-bg,#edf3fb);--ad-raised:var(--hub-raised,#eaf1fb);--ad-border:var(--hub-line,#d5e2f3);--ad-text:var(--hub-text,#213e62);--ad-muted:var(--hub-muted,#7188a5);--ad-accent:var(--hub-accent,#3f78c2);padding-top:25px;align-items:stretch}
+#tab-admin .admin-desk{width:100%;max-width:1280px;min-width:0;margin:0 auto;color:var(--ad-text)}
+#tab-admin .admin-desk [hidden],#tab-admin .ad-legacy-wrapper[hidden]{display:none!important}
+#tab-admin .ad-heading{display:flex;justify-content:space-between;gap:24px;align-items:center;margin:0 0 20px}
+#tab-admin .ad-eyebrow{display:block;color:var(--ad-accent);font-size:9px;font-weight:650;letter-spacing:1.75px;line-height:1.6}
+#tab-admin .ad-heading h1{font-size:29px;letter-spacing:-.7px;font-weight:680;line-height:1.2;color:var(--ad-text);margin:9px 0 10px}
+#tab-admin .ad-heading p{color:var(--ad-muted);font-size:12px;margin:0;line-height:1.5}
+#tab-admin .ad-heading-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+#tab-admin .ad-owner-label{font-size:10px;color:var(--ad-muted);margin-right:4px}
+#tab-admin .ad-icon{display:block;width:19px;height:19px;flex-shrink:0}
+body.terra.personal-desk #tab-admin .ad-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:9px 13px;border:1px solid var(--ad-border);border-radius:10px;background:var(--ad-panel)!important;color:var(--ad-text)!important;font:inherit;font-size:11px;font-weight:520;line-height:1.3;cursor:pointer;box-shadow:none;transform:none;transition:background-color .12s,border-color .12s;max-width:100%}
+body.terra.personal-desk #tab-admin .ad-button:hover{background:var(--ad-raised)!important;border-color:var(--ad-accent)}
+#tab-admin .ad-button:focus-visible{outline:2px solid var(--ad-accent);outline-offset:3px}
+#tab-admin .ad-button .ad-icon{width:15px;height:15px}
+#tab-admin .ad-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:5px;background:var(--ad-raised);border:1px solid var(--ad-border);border-radius:15px;padding:6px;margin-bottom:20px;min-height:49px}
+body.terra.personal-desk #tab-admin .ad-tabs .ad-tab{flex:1 1 108px;min-height:37px;white-space:nowrap;border:1px solid transparent;border-radius:10px;background:transparent!important;color:var(--ad-muted)!important;padding:9px 12px;font-size:11px;gap:8px}
+body.terra.personal-desk #tab-admin .ad-tabs .ad-tab:hover{background:var(--ad-panel)!important;color:var(--ad-text)!important}
+body.terra.personal-desk #tab-admin .ad-tabs .ad-tab.active{background:var(--ad-panel)!important;color:var(--ad-text)!important;border-color:var(--ad-border);box-shadow:0 2px 4px #24426305;font-weight:650}
+#tab-admin .ad-status{font-size:12px;line-height:1.5;margin:0 0 14px;color:var(--ad-muted);padding:10px 14px;border:1px solid var(--ad-border);border-radius:10px;background:var(--ad-panel)}
+#tab-admin .ad-status:empty{display:none}
+#tab-admin .ad-status.is-error{color:#9d4f35;background:#fff5ee;border-color:#eacbb9}
+#tab-admin .ad-pane{display:flex;flex-direction:column;gap:18px;min-width:0}
+#tab-admin .ad-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+#tab-admin .ad-stat{min-height:133px;border:1px solid var(--ad-border);border-radius:18px;background:var(--ad-panel);padding:21px 22px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+#tab-admin .ad-stat-copy{display:flex;flex-direction:column;min-width:0}
+#tab-admin .ad-stat-label{font-size:11px;color:var(--ad-muted);line-height:1.5}
+#tab-admin .ad-stat strong{font-size:35px;font-weight:650;line-height:1.15;color:var(--ad-text);margin:10px 0 8px;font-variant-numeric:tabular-nums}
+#tab-admin .ad-stat-note{font-size:10px;line-height:1.4;color:var(--ad-muted)}
+#tab-admin .ad-stat-icon{display:grid;place-items:center;width:41px;height:41px;flex-shrink:0;border-radius:14px;background:var(--ad-raised);color:var(--ad-accent)}
+#tab-admin .ad-stat.ad-stat-featured{background:#304f75;border-color:#304f75;color:#eef5ff}
+#tab-admin .ad-stat-featured :is(.ad-stat-label,.ad-stat-note){color:#d0e0f4}
+#tab-admin .ad-stat-featured strong{color:#fff}
+#tab-admin .ad-stat-featured .ad-stat-icon{background:#ffffff12;color:#dcecff}
+#tab-admin .ad-overview-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr);gap:20px;align-items:stretch}
+#tab-admin .ad-panel{background:var(--ad-panel);border:1px solid var(--ad-border);border-radius:18px;min-width:0;overflow:hidden;padding:0}
+#tab-admin .ad-panel-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 24px 15px;margin:0}
+#tab-admin .ad-panel-head h2{font-size:19px;font-weight:650;letter-spacing:-.35px;line-height:1.25;margin:0 0 6px;color:var(--ad-text)}
+#tab-admin .ad-panel-head p{font-size:11px;color:var(--ad-muted);line-height:1.5;margin:0}
+body.terra.personal-desk #tab-admin .ad-link{border:0;padding:5px 0;min-height:28px;background:transparent!important;box-shadow:none!important;color:var(--ad-accent)!important;font-size:10px;gap:6px}
+body.terra.personal-desk #tab-admin .ad-link:hover{background:transparent!important;color:var(--ad-text)!important}
+#tab-admin .ad-requests{padding:0 24px}
+#tab-admin .ad-request{display:flex;align-items:center;gap:13px;padding:15px 0;border-top:1px solid var(--ad-border);min-height:96px}
+#tab-admin .ad-request-icon{display:grid;place-items:center;width:42px;height:42px;background:var(--ad-raised);color:var(--ad-accent);border:1px solid var(--ad-border);border-radius:13px;flex-shrink:0}
+#tab-admin .ad-request-icon .ad-icon{width:20px;height:20px}
+#tab-admin .ad-request-body{min-width:0;flex:1}
+#tab-admin .ad-request h3{color:var(--ad-text)!important;font-size:13px!important;font-weight:650!important;letter-spacing:0!important;line-height:1.45;margin:5px 0 5px!important;overflow-wrap:anywhere}
+#tab-admin .ad-badge{display:inline-flex;align-items:center;max-width:100%;min-height:20px;border-radius:7px;background:var(--ad-raised);color:var(--ad-muted);font-size:10px;line-height:1.4;padding:3px 8px;white-space:normal}
+#tab-admin .ad-badge-blue{background:#e9f1ff;color:#4678bd}
+#tab-admin .ad-badge-purple{background:#f0eafa;color:#8871bb}
+#tab-admin .ad-badge-amber{background:#f8f0db;color:#a27c34}
+#tab-admin .ad-badge-green{background:#e6f2ed;color:#458b79}
+#tab-admin .ad-byline{display:flex;align-items:center;gap:6px;color:var(--ad-muted);font-size:10px;line-height:1.4;flex-wrap:wrap}
+#tab-admin .ad-avatar{width:35px;height:35px;border-radius:12px;display:inline-grid;place-items:center;flex-shrink:0;font-size:14px;font-weight:650;background:#e0eaf9;color:#4f7bb7}
+#tab-admin .ad-avatar.ad-tone-1{background:#eee7f8;color:#9474bd}
+#tab-admin .ad-avatar.ad-tone-2{background:#e3f0ea;color:#5e9b8e}
+#tab-admin .ad-avatar.ad-tone-3{background:#f6eedc;color:#aa8748}
+#tab-admin .ad-byline .ad-avatar{width:18px;height:18px;border-radius:5px;font-size:9px}
+#tab-admin .ad-request-action{flex-shrink:0}
+#tab-admin .ad-panel-foot{padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ad-bg);border-top:1px solid var(--ad-border);color:var(--ad-muted);font-size:10px;line-height:1.5;min-height:51px}
+#tab-admin .ad-staff{padding:0 24px}
+#tab-admin .ad-staff-row{display:flex;gap:11px;align-items:center;min-height:70px;padding:15px 0;border-top:1px solid var(--ad-border)}
+#tab-admin .ad-person{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+#tab-admin .ad-person b{font-size:12px;line-height:1.4;font-weight:650;overflow-wrap:anywhere}
+#tab-admin .ad-person small{font-size:10px;color:var(--ad-muted);line-height:1.4;overflow-wrap:anywhere}
+#tab-admin .ad-person-team{opacity:.8}
+#tab-admin .ad-empty{min-height:195px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;color:var(--ad-muted);text-align:center;padding:30px 16px;border-top:1px solid var(--ad-border)}
+#tab-admin .ad-empty>.ad-icon{width:28px;height:28px;color:var(--ad-accent);opacity:.55}
+#tab-admin .ad-empty p{font-size:12px;line-height:1.7;max-width:320px;margin:0}
+#tab-admin .ad-launch{display:flex;align-items:center;gap:22px;padding:28px;border:1px solid var(--ad-border);border-radius:18px;background:var(--ad-panel)}
+#tab-admin .ad-launch-icon{display:grid;place-items:center;width:65px;height:65px;border-radius:20px;color:var(--ad-accent);background:var(--ad-raised);flex-shrink:0}
+#tab-admin .ad-launch-icon .ad-icon{width:31px;height:31px}
+#tab-admin .ad-launch-copy{min-width:0;flex:1}
+#tab-admin .ad-launch h2{font-size:22px;letter-spacing:-.4px;margin:7px 0 8px;color:var(--ad-text)}
+#tab-admin .ad-launch p{font-size:12px;line-height:1.8;color:var(--ad-muted);margin:0;max-width:690px}
+body.terra.personal-desk #tab-admin .ad-primary{background:#304f75!important;color:#f4f8ff!important;border-color:#304f75;min-height:41px;padding:12px 18px;flex-shrink:0}
+body.terra.personal-desk #tab-admin .ad-primary:hover{background:#3d618d!important;color:#fff!important}
+#tab-admin .ad-section-title h2{color:var(--ad-text);font-size:21px;margin:4px 0 7px;letter-spacing:-.4px}
+#tab-admin .ad-section-title p{font-size:12px;line-height:1.6;color:var(--ad-muted);margin:0}
+#tab-admin .ad-section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:16px}
+body.terra.personal-desk #tab-admin .admin-section,#tab-admin .ad-device-card{min-width:0;overflow:hidden;margin:0!important;padding:22px!important;background:var(--ad-panel)!important;border:1px solid var(--ad-border)!important;border-radius:18px;box-shadow:none}
+body.terra.personal-desk #tab-admin .admin-section h4,#tab-admin .ad-device-card h3{font-size:15px;font-weight:650;letter-spacing:-.15px;line-height:1.5;color:var(--ad-text)!important;margin:0 0 15px}
+body.terra.personal-desk #tab-admin .admin-section p,#tab-admin .ad-device-card p{font-size:11px!important;line-height:1.7;color:var(--ad-muted)!important;margin-top:10px!important;overflow-wrap:anywhere}
+#tab-admin .admin-section .row-group{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+body.terra.personal-desk #tab-admin .admin-section :is(input,select,textarea){color:var(--ad-text);border:1px solid var(--ad-border);background:var(--hub-field);font-size:12px!important;padding:11px;min-width:0;max-width:100%;border-radius:9px;box-sizing:border-box}
+#tab-admin .admin-section :is(textarea,input[type=text]){width:100%}
+#tab-admin .admin-section :is(input[type=date],select){min-height:37px}
+#tab-admin .admin-section input[type=file]{white-space:normal;overflow:hidden;font-size:11px!important}
+#tab-admin .admin-section input[type=file]::file-selector-button{border:1px solid var(--ad-border);padding:5px 8px;border-radius:6px;margin-right:8px;background:var(--ad-raised);color:var(--ad-text);font:inherit}
+body.terra.personal-desk #tab-admin .admin-section :is(.template-btn,.submit-btn){min-height:36px;padding:9px 12px!important;font-size:11px!important;font-weight:550!important;border:1px solid var(--ad-border);border-radius:9px;background:var(--ad-raised)!important;color:var(--ad-text)!important;margin:0;line-height:1.4;white-space:normal}
+body.terra.personal-desk #tab-admin .admin-section :is(.template-btn,.submit-btn):hover{border-color:var(--ad-accent);background:var(--ad-bg)!important}
+#tab-admin .admin-section :is(.admin-events-box,.admin-stats-box,#adminUsersList){overflow:auto;max-width:100%;border-color:var(--ad-border);background:transparent}
+#tab-admin .admin-section .msg:empty{display:none}
+#tab-admin .admin-section :is(.admin-tag,.admin-user){max-width:100%;overflow-wrap:anywhere}
+#tab-admin [data-admin-panel=reports] .admin-section:has(#adminStatsBox),#tab-admin [data-admin-panel=employees] .admin-section:has(#adminUsersList){grid-column:1 / -1}
+#tab-admin .ad-device-card>.ad-icon{color:var(--ad-accent);margin-bottom:12px;width:23px;height:23px}
+#tab-admin .ad-device-card .ad-original-button{margin-top:5px;font-size:11px}
+#tab-admin .admin-section#ownerAccess{grid-column:1 / -1;max-width:none}
+#tab-admin #ownerAccess :is(select,input){width:auto;min-width:160px;margin-bottom:10px}
+#tab-admin #ownerAccess hr{border:0;border-top:1px solid var(--ad-border);margin:18px 0}
+/* Keep the overview above the desktop dock; complete queues remain one click away. */
+body.terra.personal-desk #tab-admin{padding-top:20px}
+#tab-admin .ad-heading{margin-bottom:17px}
+#tab-admin .ad-heading h1{font-size:28px;margin:7px 0 8px}
+#tab-admin .ad-tabs{margin-bottom:17px}
+#tab-admin .ad-stat{min-height:121px;padding-top:18px;padding-bottom:18px}
+#tab-admin .ad-stat strong{margin-top:8px;margin-bottom:7px}
+#tab-admin .ad-panel-head{padding-top:18px;padding-bottom:13px}
+#tab-admin .ad-request{min-height:87px;padding-top:12px;padding-bottom:12px}
+#tab-admin .ad-staff-row{min-height:64px;padding-top:12px;padding-bottom:12px}
+#tab-admin .ad-panel-foot{min-height:46px;padding-top:11px;padding-bottom:11px}
+#tab-admin .ad-device-card{grid-column:1 / -1;display:grid;grid-template-columns:32px minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:18px 22px!important}
+#tab-admin .ad-device-card>.ad-icon{grid-column:1;grid-row:1 / 3;margin:0}
+#tab-admin .ad-device-card h3{grid-column:2;grid-row:1;margin:0!important;font-size:14px}
+#tab-admin .ad-device-card p{grid-column:2;grid-row:2;margin:4px 0 0!important}
+#tab-admin .ad-device-card>.ad-original-button{grid-column:3;grid-row:1 / 3;margin:0}
+body.terra.personal-desk #tab-admin .admin-user-row{padding:17px 15px;border:1px solid var(--ad-border);border-radius:12px;background:var(--ad-bg)!important;gap:16px;flex-wrap:wrap;align-items:flex-start}
+body.terra.personal-desk #tab-admin .admin-user-row button{min-height:31px;border:1px solid var(--ad-border);border-radius:8px;padding:6px 10px;margin:3px;font-size:10px!important;line-height:1.45;background:var(--ad-panel)!important;color:var(--ad-text)!important;white-space:normal;cursor:pointer}
+body.terra.personal-desk #tab-admin .admin-user-row button:hover{border-color:var(--ad-accent);background:var(--ad-raised)!important}
+body.terra.personal-desk #tab-admin .admin-user-row button.ban-btn{background:#fff0ee!important;border-color:#edc3be;color:#a4483c!important}
+body.terra.personal-desk #tab-admin .admin-user-row select{min-height:32px;padding:7px;font-size:11px!important}
+body.terra.personal-desk #tab-admin .admin-user-row input{min-height:32px;padding:8px}
+body.terra.personal-desk:not(.light) #tab-admin .admin-user-row button.ban-btn{background:#4b302e!important;border-color:#7e514b;color:#f2b9b2!important}
+@media(max-width:700px){#tab-admin .ad-device-card{grid-template-columns:30px minmax(0,1fr)}#tab-admin .ad-device-card>.ad-original-button{grid-column:2;grid-row:3;justify-self:start;margin-top:10px}}
+body.terra.personal-desk:not(.light) #tab-admin .ad-status.is-error{color:#f3b29b;background:#482f2a;border-color:#795247}
+body.terra.personal-desk:not(.light) #tab-admin .ad-badge-blue{background:#263f63;color:#b2cdf9}
+body.terra.personal-desk:not(.light) #tab-admin .ad-badge-purple{background:#3a3155;color:#d0bbea}
+body.terra.personal-desk:not(.light) #tab-admin .ad-badge-amber{background:#4c4029;color:#e9cd92}
+body.terra.personal-desk:not(.light) #tab-admin .ad-badge-green{background:#28453d;color:#a5d9c8}
+@media(max-width:1100px){#tab-admin .ad-heading{align-items:flex-start}#tab-admin .ad-heading-actions{max-width:300px}#tab-admin .ad-owner-label{flex-basis:100%;text-align:right}#tab-admin .ad-stats{gap:12px}#tab-admin .ad-stat{padding:18px 16px;min-height:128px}#tab-admin .ad-stat-icon{width:33px;height:33px;border-radius:11px}#tab-admin .ad-overview-grid{grid-template-columns:minmax(0,1.4fr) minmax(275px,1fr);gap:14px}#tab-admin .ad-panel-head{padding:20px 19px 15px}#tab-admin .ad-panel-head h2{font-size:17px}#tab-admin :is(.ad-requests,.ad-staff){padding:0 19px}#tab-admin .ad-panel-foot{padding:13px 19px;flex-wrap:wrap}#tab-admin .ad-heading h1{font-size:26px}#tab-admin .ad-request{gap:10px}#tab-admin .ad-request-icon{width:35px;height:35px}#tab-admin .ad-request-action{padding:8px!important;font-size:10px!important}}
+@media(max-width:800px){#tab-admin .ad-heading{gap:16px}#tab-admin .ad-heading-actions{max-width:195px}#tab-admin .ad-heading h1{font-size:24px}#tab-admin .ad-owner-label{display:none}#tab-admin .ad-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#tab-admin .ad-stat{min-height:120px}#tab-admin .ad-overview-grid{grid-template-columns:1fr}#tab-admin .ad-panel-head h2{font-size:19px}#tab-admin .ad-empty{min-height:150px}#tab-admin .ad-section-grid{grid-template-columns:1fr}#tab-admin .ad-launch{flex-wrap:wrap;padding:22px;gap:16px}#tab-admin .ad-launch-copy{flex-basis:calc(100% - 85px)}#tab-admin .ad-launch>.ad-button{margin-left:81px}#tab-admin .ad-tabs .ad-tab{flex-basis:115px!important}#tab-admin .ad-heading-actions .ad-button{min-height:32px;font-size:10px;padding:8px 10px}#tab-admin .ad-heading-actions .ad-button .ad-icon{width:13px;height:13px}}
+@media(max-width:520px){body.terra.personal-desk #tab-admin{padding:18px 14px 100px}#tab-admin .ad-heading{flex-direction:column;gap:15px}#tab-admin .ad-heading-actions{max-width:none;width:100%;justify-content:flex-start}#tab-admin .ad-heading h1{font-size:25px}#tab-admin .ad-tabs .ad-tab{flex-basis:90px!important;padding:8px 7px!important;gap:6px!important}#tab-admin .ad-stat{padding:17px 13px;gap:6px}#tab-admin .ad-stat-label{font-size:10px}#tab-admin .ad-stat strong{font-size:31px}#tab-admin .ad-stat-icon{width:28px;height:28px}#tab-admin .ad-stat-icon .ad-icon{width:16px;height:16px}#tab-admin .ad-stat-note{font-size:9px}#tab-admin .ad-request{flex-wrap:wrap;gap:10px}#tab-admin .ad-request-body{flex-basis:calc(100% - 50px)}#tab-admin .ad-request-action{margin-left:45px!important}#tab-admin .ad-panel-head{padding:19px 16px 14px;gap:10px}#tab-admin :is(.ad-staff,.ad-requests){padding:0 16px}#tab-admin .ad-panel-foot{padding:13px 16px}#tab-admin .ad-panel-head p{font-size:10px}#tab-admin .ad-staff-row .ad-badge{font-size:9px;max-width:90px}#tab-admin .ad-launch-copy{flex-basis:100%}#tab-admin .ad-launch>.ad-button{margin-left:0}#tab-admin .ad-launch h2{font-size:21px}#tab-admin #ownerAccess :is(select,input){width:100%}}
+@media(prefers-reduced-motion:reduce){#tab-admin .ad-button{transition:none!important}}
+
+/* Graphite / Lime — selected release 6.0.0 direction, scoped to administration. */
+body.terra.personal-desk[data-hub-page=admin]{--hub-bg:#151718;--hub-panel:#202324;--hub-raised:#2a3028;--hub-line:#363d38;--hub-text:#ecf1e8;--hub-muted:#a2afa1;--hub-accent:#d6fc76;--hub-soft:#d6fc7618;--hub-field:#1b1f1d;--desk-navy:#242b21;--desk-blue:#d6fc76;--desk-shadow:none;background:#151718!important;color:#ecf1e8;color-scheme:dark}
+body.terra.personal-desk[data-hub-page=admin] .hub-header{background:#181b1a;border-color:#363d38;min-height:96px}
+body.terra.personal-desk[data-hub-page=admin] .hub-heading h1{color:#f1f4ed}
+body.terra.personal-desk[data-hub-page=admin] .hub-eyebrow{color:#a7bb8d}
+body.terra.personal-desk[data-hub-page=admin] :is(.hub-menuToggle,.hub-tool,#hubPatchesButton){border-radius:7px!important;background:#202522!important;border-color:#3b443a!important;color:#dce5d5!important}
+body.terra.personal-desk[data-hub-page=admin] #hubRadio{background:#202522!important;border-color:#394532!important;border-radius:10px;box-shadow:none}
+body.terra.personal-desk[data-hub-page=admin] #hubRadio :is(#radioToggle,#radioAddSong){background:#d6fc76!important;color:#222d1c!important;border-color:#d6fc76!important}
+body.terra.personal-desk[data-hub-page=admin] #hubRadio :is(.radio-phone-button,#radioLights,#cinemaButton){border-radius:6px;background:#252b23;color:#c9d6ba;border-color:#414b39}
+body.terra.personal-desk[data-hub-page=admin] .media-volume{background:#252d23;border-color:#414b39}
+body.terra.personal-desk[data-hub-page=admin] :is(.media-volume button,#radioListeners){color:#d4e3bd!important}
+body.terra.personal-desk[data-hub-page=admin] #screenWatchNotice{background:#202521!important;border-color:#303a2c!important;color:#a8b99a!important}
+body.terra.personal-desk[data-hub-page=admin] .terra-dock{background:#202621;border-color:#47523c;border-radius:10px;box-shadow:0 6px 18px #0003}
+body.terra.personal-desk[data-hub-page=admin] .terra-dock button{color:#c5d1bd;border-radius:7px}
+body.terra.personal-desk[data-hub-page=admin] .terra-dock button.active{background:#d6fc76;color:#26331d}
+body.terra.personal-desk[data-hub-page=admin] .terra-dock button:hover:not(.active){background:#323d2c}
+body.terra.personal-desk[data-hub-page=admin] :is(.desk-dialog,.desk-access-person){background:var(--hub-panel)!important;color:var(--hub-text)!important;border-color:var(--hub-line)!important;border-radius:10px}
+body.terra.personal-desk[data-hub-page=admin] .desk-dialog :is(button,select,input){accent-color:#cbed77;border-radius:7px}
+body.terra.personal-desk[data-hub-page=admin] .desk-dialog input[type=checkbox]{accent-color:#d6fc76}
+body.terra.personal-desk[data-hub-page=admin] :is(button.blue,button.green,.call-save){color:#28351c!important}
+body.terra.personal-desk #tab-admin{--ad-panel:#202324;--ad-bg:#151718;--ad-raised:#2b3227;--ad-border:#394039;--ad-text:#ecf1e8;--ad-muted:#a2afa1;--ad-accent:#d6fc76;padding-top:18px}
+#tab-admin .admin-desk{display:grid;grid-template-columns:86px minmax(0,1fr);column-gap:25px;row-gap:0;max-width:1330px}
+#tab-admin .ad-rail{grid-column:1;grid-row:1 / 4;align-self:start;position:sticky;top:18px;display:flex;flex-direction:column;align-items:center;gap:17px;padding:15px 8px 12px;background:#1b1e1c;border:1px solid #333c31;border-radius:8px}
+#tab-admin .ad-rail-brand{display:grid;place-items:center;width:42px;height:42px;border-radius:7px;background:#d6fc76;color:#26351d;font-size:22px;font-weight:850;letter-spacing:-2px;padding-right:2px}
+#tab-admin .ad-rail .ad-tabs{display:flex;flex-direction:column;flex-wrap:nowrap;gap:5px;width:100%;border:0;border-radius:0;padding:0;margin:0;background:none;min-height:0}
+body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab{flex:none!important;flex-direction:column;gap:6px!important;width:100%;height:53px;min-height:53px;padding:7px 1px!important;border:0;border-left:2px solid transparent;border-radius:6px;font-size:9px!important;font-weight:500;white-space:nowrap;color:#a9b6a3!important;background:transparent!important}
+body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab>.ad-icon{width:19px;height:19px}
+body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab.active{background:#2b3425!important;border-left-color:#d6fc76;color:#d6fc76!important;box-shadow:none;font-weight:650}
+body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab:hover{background:#30392a!important;color:#e8f5d4!important}
+#tab-admin .ad-heading{grid-column:2;grid-row:1;min-width:0;gap:20px;margin:0 0 19px;min-height:65px}
+#tab-admin .ad-heading h1{font-size:24px;margin:6px 0 7px;color:#f1f4ed}
+#tab-admin .ad-heading p{font-size:11px;color:#a5b29f}
+#tab-admin .ad-eyebrow{font-size:8px;letter-spacing:1.6px;color:#a8ba92}
+#tab-admin .ad-owner-label{display:none}
+#tab-admin .ad-heading-actions{gap:9px;flex-wrap:nowrap}
+#tab-admin .ad-status{grid-column:2;grid-row:2;border-radius:7px}
+#tab-admin .ad-pane{grid-column:2;grid-row:3;gap:18px;min-width:0}
+body.terra.personal-desk #tab-admin .ad-button{border-radius:6px;background:transparent!important;color:#dbe4d4!important;border-color:#48513f;min-height:34px;padding:8px 12px;font-size:11px;font-weight:550}
+body.terra.personal-desk #tab-admin .ad-button:hover{background:#313b28!important;color:#eef6e4!important;border-color:#91aa6a}
+body.terra.personal-desk #tab-admin .ad-primary{background:#d6fc76!important;border-color:#d6fc76!important;color:#25321a!important}
+body.terra.personal-desk #tab-admin .ad-primary:hover{background:#e2ff9e!important;color:#1f2a16!important;border-color:#e2ff9e!important}
+#tab-admin .ad-stats{gap:12px;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.1fr)}
+#tab-admin .ad-stat{border-radius:8px;min-height:111px;padding:17px 17px 15px;position:relative}
+#tab-admin .ad-stat-label{font-size:10px;color:#b0bba8}
+#tab-admin .ad-stat strong{font-size:35px;font-weight:500;margin:9px 0 6px;letter-spacing:-1px;color:#f0f5e9}
+#tab-admin .ad-stat-note{font-size:9px;color:#a4af9b}
+#tab-admin .ad-stat-icon{width:23px;height:23px;color:#8d9d7d;background:transparent;border:0;border-radius:0}
+#tab-admin .ad-stat-icon .ad-icon{width:18px;height:18px}
+#tab-admin .ad-stat.ad-stat-featured{background:#d6fc76;border-color:#d6fc76;color:#26341a}
+#tab-admin .ad-stat-featured :is(.ad-stat-label,.ad-stat-note,.ad-stat-icon){color:#536937}
+#tab-admin .ad-stat-featured strong{color:#26341a}
+#tab-admin .ad-overview-grid{grid-template-columns:minmax(0,1fr) 278px;gap:18px;align-items:start}
+#tab-admin .ad-overview-main,#tab-admin .ad-overview-aside{display:flex;flex-direction:column;gap:16px;min-width:0}
+#tab-admin .ad-panel{border-radius:8px;box-shadow:none}
+#tab-admin .ad-panel-head{padding:15px 20px 12px;gap:12px}
+#tab-admin .ad-panel-head h2{font-size:15px;letter-spacing:0;line-height:1.4;margin-bottom:4px}
+#tab-admin .ad-panel-head p{font-size:10px;color:#9fac95}
+body.terra.personal-desk #tab-admin .ad-link{background:transparent!important;color:#b3c49f!important;font-size:10px;padding:4px 0;min-height:26px;white-space:nowrap}
+body.terra.personal-desk #tab-admin .ad-link:hover{color:#e3f4ce!important;background:transparent!important}
+#tab-admin :is(.ad-requests,.ad-staff){padding:0 20px}
+#tab-admin .ad-request{min-height:72px;padding:10px 0;gap:11px}
+#tab-admin .ad-request-icon{width:36px;height:36px;border-radius:5px;background:#2c3528;color:#bdd29d;border-color:#475139}
+#tab-admin .ad-request-icon .ad-icon{width:18px;height:18px}
+#tab-admin .ad-request h3{font-size:12px!important;line-height:1.4;margin:4px 0!important;font-weight:600!important}
+#tab-admin .ad-byline{font-size:9px;color:#a6b19d;gap:5px}
+#tab-admin .ad-byline .ad-avatar{display:none}
+#tab-admin .ad-badge{border-radius:4px;font-size:9px;padding:3px 6px;min-height:17px;background:#2b3426;color:#c6d4b5}
+body.terra.personal-desk #tab-admin .ad-badge-blue{background:#283432!important;color:#b6caca!important}
+body.terra.personal-desk #tab-admin .ad-badge-purple{background:#37323d!important;color:#cfbfdf!important}
+body.terra.personal-desk #tab-admin .ad-badge-amber{background:#39362a!important;color:#d9cb9e!important}
+body.terra.personal-desk #tab-admin .ad-badge-green{background:#2d3826!important;color:#cde8a6!important}
+body.terra.personal-desk #tab-admin .ad-request-action{padding:6px 10px!important;min-height:29px;font-size:10px!important}
+#tab-admin .ad-panel-foot{background:#1d211d;padding:10px 20px;font-size:9px;min-height:36px;color:#99a68e;flex-wrap:nowrap}
+#tab-admin .ad-staff-row{min-height:45px;padding:8px 0;gap:10px}
+#tab-admin .ad-staff-row .ad-avatar{width:27px;height:27px;border-radius:5px;font-size:10px}
+#tab-admin .ad-person{flex-direction:row;align-items:center;gap:14px}
+#tab-admin .ad-person b{font-size:11px;flex:1}
+#tab-admin .ad-person small{font-size:9px;flex:1}
+#tab-admin .ad-avatar{background:#35402d;color:#d9ecb9;border-radius:6px}
+#tab-admin .ad-avatar.ad-tone-1{background:#2f3e46;color:#bbd6e7}
+#tab-admin .ad-avatar.ad-tone-2{background:#433d30;color:#e0d4bd}
+#tab-admin .ad-avatar.ad-tone-3{background:#403444;color:#dcc6e7}
+#tab-admin .ad-shortcut{background:#202324;border:1px solid #394039;border-radius:8px;padding:19px 18px}
+#tab-admin .ad-shortcut-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#tab-admin .ad-shortcut h2{font-size:14px;line-height:1.4;font-weight:600;color:#e9f1e1;margin:0}
+#tab-admin .ad-shortcut .ad-icon{width:17px;height:17px;color:#a6b88d}
+#tab-admin .ad-shortcut p{color:#a4b098;font-size:11px;line-height:1.75;margin:13px 0 17px}
+#tab-admin .ad-shortcut>.ad-button{width:100%;font-size:10px}
+#tab-admin .ad-shortcut-featured{background:#242d20;border-color:#465637}
+#tab-admin .ad-shortcut-featured .ad-primary .ad-icon{color:#374a21}
+#tab-admin .ad-shortcut-featured h2{color:#d5ebbc}
+#tab-admin .ad-empty{min-height:155px}
+#tab-admin .ad-launch,#tab-admin .ad-launch-icon{border-radius:8px}
+#tab-admin .ad-launch{padding:24px;gap:18px}
+#tab-admin .ad-launch-icon{background:#2d3826;color:#c8e29c}
+#tab-admin .ad-launch h2{font-size:21px;color:#edf2e6}
+#tab-admin .ad-launch p{color:#a6b29d}
+#tab-admin .ad-section-title h2{font-size:20px;color:#edf2e6}
+body.terra.personal-desk #tab-admin .admin-section,#tab-admin .ad-device-card{border-radius:8px;background:#202324!important}
+body.terra.personal-desk #tab-admin .admin-section :is(input,select,textarea){background:#191e1a!important;color:#e1e9d7!important;border-color:#44503c!important;border-radius:6px;accent-color:#d6fc76}
+body.terra.personal-desk #tab-admin .admin-section :is(input,textarea)::placeholder{color:#9aa78e!important;opacity:1}
+body.terra.personal-desk #tab-admin .admin-section :is(.template-btn,.submit-btn){border-radius:6px;background:#2e3827!important;color:#d7e5c3!important;border-color:#4a573d!important}
+body.terra.personal-desk #tab-admin .admin-section :is(.template-btn,.submit-btn):hover{background:#3a482e!important;color:#effbdc!important}
+body.terra.personal-desk #tab-admin .admin-user-row{border-radius:7px;background:#1b211c!important}
+body.terra.personal-desk #tab-admin .admin-user-row button{border-radius:5px;background:#2a3325!important;color:#d2dfbe!important;border-color:#455039!important}
+body.terra.personal-desk #tab-admin .admin-user-row button.ban-btn{background:#3d2b28!important;color:#e5b5a7!important;border-color:#6d493f!important}
+#tab-admin .ad-status.is-error{color:#eac5ae!important;background:#3b2c25!important;border-color:#745642!important}
+@media(max-width:1150px){#tab-admin .admin-desk{grid-template-columns:78px minmax(0,1fr);column-gap:18px}#tab-admin .ad-heading{flex-wrap:wrap}#tab-admin .ad-heading-actions{max-width:none}#tab-admin .ad-overview-grid{grid-template-columns:minmax(0,1fr) 248px;gap:14px}#tab-admin .ad-stat{padding:15px 13px;min-height:112px}#tab-admin .ad-stat-label{font-size:10px}#tab-admin .ad-stat-note{font-size:9px}#tab-admin .ad-person{flex-direction:column;align-items:flex-start;gap:2px}#tab-admin .ad-stat-icon{position:absolute;right:12px;top:42px}#tab-admin .ad-staff-row{min-height:53px}#tab-admin .ad-panel-head{padding:14px 15px 11px}#tab-admin :is(.ad-requests,.ad-staff){padding:0 15px}#tab-admin .ad-panel-foot{padding:9px 15px;flex-wrap:wrap}#tab-admin .ad-request{flex-wrap:wrap}#tab-admin .ad-request-body{flex-basis:calc(100% - 48px)}#tab-admin .ad-request-action{margin-left:47px}#tab-admin .ad-shortcut{padding:17px 15px}}
+@media(max-width:850px){#tab-admin .admin-desk{grid-template-columns:1fr;column-gap:0}#tab-admin .ad-rail{grid-column:1;grid-row:2;position:static;padding:7px;margin-bottom:18px;border-radius:8px;align-items:stretch}.ad-rail-brand{display:none!important}#tab-admin .ad-rail .ad-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab{flex-direction:row;height:36px;min-height:36px;border-left:0;border-bottom:2px solid transparent;padding:5px 7px!important;font-size:10px!important;gap:6px!important}body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab.active{border-bottom-color:#d6fc76}body.terra.personal-desk #tab-admin .ad-rail .ad-tabs .ad-tab>.ad-icon{width:15px;height:15px}#tab-admin .ad-heading{grid-column:1;grid-row:1;gap:14px}#tab-admin .ad-status{grid-column:1;grid-row:3}#tab-admin .ad-pane{grid-column:1;grid-row:4}#tab-admin .ad-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#tab-admin .ad-overview-grid{grid-template-columns:1fr}#tab-admin .ad-overview-aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#tab-admin .ad-shortcut-featured{grid-column:1/-1}#tab-admin .ad-request{flex-wrap:nowrap}#tab-admin .ad-request-body{flex-basis:auto}#tab-admin .ad-request-action{margin-left:0}#tab-admin .ad-person{flex-direction:row;align-items:center}#tab-admin .ad-stat-icon{position:static;width:28px;height:28px}#tab-admin .ad-section-grid{grid-template-columns:1fr}}
+@media(max-width:560px){#tab-admin .ad-rail .ad-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}#tab-admin .ad-overview-aside{grid-template-columns:1fr}#tab-admin .ad-heading{flex-direction:column;align-items:flex-start}#tab-admin .ad-heading-actions{width:100%;flex-wrap:wrap;justify-content:flex-start}#tab-admin .ad-heading-actions .ad-button{font-size:10px;padding:8px 10px}#tab-admin .ad-request{flex-wrap:wrap}#tab-admin .ad-request-body{flex-basis:calc(100% - 48px)}#tab-admin .ad-request-action{margin-left:47px!important}#tab-admin .ad-person{flex-direction:column;align-items:flex-start}#tab-admin .ad-stats{gap:10px}#tab-admin .ad-stat{padding:15px 12px}#tab-admin .ad-stat-label{font-size:10px}#tab-admin .ad-stat-note{font-size:9px}#tab-admin .ad-stat strong{font-size:31px}#tab-admin .ad-stat-icon{width:20px;height:20px}#tab-admin .ad-panel-foot{font-size:9px}}
+@media(min-width:1151px){#tab-admin .ad-overview-main .ad-panel-head{padding:13px 20px}#tab-admin .ad-overview-main .ad-panel-head h2{margin:0}#tab-admin .ad-overview-main .ad-panel-head p{display:none}#tab-admin .ad-overview-main .ad-request-body>.ad-badge{display:none}#tab-admin .ad-overview-main .ad-request{min-height:61px;padding:9px 0}#tab-admin .ad-overview-main .ad-staff-row{min-height:38px;padding:6px 0}#tab-admin .ad-overview-main .ad-staff-row .ad-avatar{width:25px;height:25px}#tab-admin .ad-overview-main .ad-panel-foot{padding:8px 20px;min-height:33px}body.terra.personal-desk #tab-admin .ad-overview-main .ad-panel-foot .ad-link{min-height:17px;padding:0}#tab-admin .ad-shortcut{padding:15px 17px}#tab-admin .ad-shortcut p{font-size:10px;line-height:1.65;margin:11px 0 13px}#tab-admin .ad-shortcut h2{font-size:13px}#tab-admin .ad-overview-aside{gap:14px}}
+@media(min-width:1151px){#tab-admin .ad-heading{min-height:50px;margin-bottom:14px}#tab-admin .ad-heading p{display:none}#tab-admin .ad-stat{min-height:104px;padding-top:14px;padding-bottom:14px}#tab-admin .ad-stat strong{font-size:34px}}

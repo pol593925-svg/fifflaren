@@ -32,22 +32,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!document.querySelector('dialog[open]')&&!document.querySelector('.cs16-fullscreen')){e.preventDefault();menu(true);}
   });
   const dock=build('nav','terra-dock');dock.setAttribute('aria-label','Быстрые разделы');body.append(dock);
-  const dockItems=[['shift','Смена'],['exchanges','Биржи'],['tasks','Задачи'],['chat','Общение'],['cs16','КС'],['cinema','Кинозал'],['all','Разделы']];
+  const leisureGames=['cs16','voxel','casino'];
+  const dockItems=[['shift','Смена'],['exchanges','Биржи'],['tasks','Задачи'],['chat','Общение'],['leisure','Досуг'],['cinema','Кинозал'],['all','Разделы']];
   for(const [id,title] of dockItems){
     const b=build('button','',null);b.type='button';b.dataset.terraTab=id;b.append(icon(id==='cinema'?'feed':id==='all'?'hq':id),build('span','',title));
-    b.onclick=()=>{if(id==='all')return menu(true);if(id==='cinema')return $('cinemaButton')?.click();const original=getButton(id);if(allowed(original))original.click();};
+    b.setAttribute('aria-label',title);
+    if(id==='leisure'){b.setAttribute('aria-haspopup','dialog');b.setAttribute('aria-controls','hubLeisureDialog');}
+    b.onclick=()=>{if(id==='all')return menu(true);if(id==='cinema')return $('cinemaButton')?.click();if(id==='leisure')return window.HubLeisure?.open(b);const original=getButton(id);if(allowed(original))original.click();};
     dock.append(b);
   }
   function refreshDock(){
     const current=nav.querySelector('[data-tab].active')?.dataset.tab;
     for(const b of dock.querySelectorAll('button')){
       const id=b.dataset.terraTab,original=getButton(id);
-      b.hidden=id!=='all'&&id!=='cinema'&&!allowed(original);
-      b.classList.toggle('active',id===current);
-      b.setAttribute('aria-current',id===current?'page':'false');
+      b.hidden=id==='leisure'?!leisureGames.some(game=>allowed(getButton(game))):id!=='all'&&id!=='cinema'&&!allowed(original);
+      const selected=id===current||(id==='leisure'&&(leisureGames.includes(current)||window.HubLeisure?.isOpen()));
+      b.classList.toggle('active',selected);
+      b.setAttribute('aria-current',selected?'page':'false');
+      if(id==='leisure')b.setAttribute('aria-expanded',String(!!window.HubLeisure?.isOpen()));
     }
   }
   new MutationObserver(refreshDock).observe(nav,{subtree:true,attributes:true,attributeFilter:['class','hidden','style','disabled']});refreshDock();
+  document.addEventListener('hub:leisure-state',refreshDock);
   const brand=nav.querySelector('.hub-brand');if(brand){brand.querySelector('small').textContent='TERRA / 5.0.0';}
   const eyebrow=document.querySelector('.hub-eyebrow');if(eyebrow)eyebrow.textContent='SUPPORT HUB / TERRA 5.0';
   // The clock and existing action buttons are re-laid out, never recreated.
@@ -62,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ring.append(actions,secondary);
     const tools=build('section','terra-work-tools');tools.append(build('h4','','Рабочие инструменты'));
     const grid=build('div','terra-tool-grid');tools.append(grid);
-    const ids=['hq','support','notes','leave','crypto','mycalls'];
+    const ids=['hq','notes','leave','crypto','mycalls'];
     for(const id of ids){
       const original=getButton(id);if(!original)continue;
       const b=build('button');b.type='button';b.dataset.terraTool=id;b.append(icon(id),build('span','',original.title));b.onclick=()=>{if(allowed(original))original.click();};grid.append(b);

@@ -1,0 +1,24 @@
+/* Work tools are subsections of the single Shift entry. Hidden originals retain handlers. */
+body.terra.personal-desk .tabs .tab-btn.desk-work-alias{display:none!important}
+body.terra.personal-desk .terra-dock button:is([data-terra-tab="exchanges"],[data-terra-tab="tasks"]){display:none!important}
+.desk-workspace-nav{display:flex;align-items:center;gap:16px;flex:none;min-width:0;padding:12px max(24px,calc((100vw - 1280px)/2)) 0;background:var(--hub-bg);border:0}
+.desk-workspace-nav[hidden],body.hub-auth-visible .desk-workspace-nav{display:none!important}
+.desk-workspace-tabs{display:flex;align-items:center;gap:5px;min-width:0;width:max-content;max-width:100%;padding:5px;border:1px solid var(--hub-line);border-radius:15px;background:var(--hub-raised);overflow-x:auto;scrollbar-width:thin}
+.desk-workspace-nav .desk-toolbar{flex:none;margin-left:auto;display:flex;align-items:center}
+.desk-workspace-nav .desk-introduction{display:none}
+.desk-work-tab{display:flex;flex:none;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--hub-muted);font:500 11px 'Segoe UI',sans-serif;min-height:34px;padding:7px 12px;white-space:nowrap;cursor:pointer}
+.desk-work-tab .hub-nav-art{width:16px;height:16px;flex:none}
+.desk-work-tab:hover{background:var(--hub-panel);color:var(--hub-text)}
+.desk-work-tab.active{background:var(--hub-panel);border-color:var(--hub-line);color:var(--hub-text);box-shadow:0 2px 3px #24446608;font-weight:650}
+.desk-work-tab[hidden]{display:none!important}
+body.terra.personal-desk[data-hub-workspace="work"] .terra-dock button[data-terra-tab="shift"]{background:#edf4ff;color:#29496f;font-weight:650}
+body.terra.personal-desk[data-hub-workspace="work"] .tabs [data-tab="shift"]{background:var(--hub-soft)!important;color:var(--hub-accent)!important;border-color:var(--hub-line)!important;box-shadow:inset 3px 0 var(--hub-accent);font-weight:600}
+body.terra.personal-desk .terra-work-tools{display:none}
+body.terra.personal-desk #tab-shift.active{grid-template-areas:"shift calls feed" "shift checklist checklist" "shift overtime overtime" "shift report report"}
+body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed{grid-template-areas:"shift checklist checklist" "shift overtime overtime" "shift report report"}
+body.terra.personal-desk #tab-shift>.terra-shift-card{min-height:468px}
+body.terra.personal-desk #tab-shift>.desk-overtime{padding-top:14px!important;padding-bottom:14px!important}
+body.terra.personal-desk .terra-shift-note{margin-top:20px;padding-top:16px;border-top:1px solid #60799b}
+body.terra.personal-desk .desk-workspace-nav+.content{padding-top:14px}
+@media(max-width:1240px){.desk-workspace-nav{padding:10px 24px 0;gap:10px}.desk-workspace-tabs{width:100%;flex:1 1 0}.desk-work-tab{flex:1 0 auto;font-size:10px;padding:7px 9px;gap:5px}.desk-work-tab .hub-nav-art{width:14px;height:14px}body.terra.personal-desk #tab-shift.active{grid-template-areas:"shift calls" "shift feed" "checklist checklist" "overtime overtime" "report report"}body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed{grid-template-areas:"shift checklist" "shift overtime" "report report"}body.terra.personal-desk #tab-shift>.terra-shift-card{min-height:468px}}
+@media(max-width:760px){.desk-workspace-nav{padding:10px 16px 0}.desk-workspace-tabs{border-radius:13px;gap:3px;padding:4px}.desk-work-tab{min-height:32px;padding:7px 10px;font-size:11px}.desk-work-tab .hub-nav-art{display:none}body.terra.personal-desk #tab-shift.active,body.terra.personal-desk #tab-shift.desk-hide-calls.desk-hide-feed{grid-template-areas:"shift" "calls" "feed" "checklist" "overtime" "report"}body.terra.personal-desk #tab-shift>.terra-shift-card{min-height:0}body.terra.personal-desk .terra-dock button{padding:9px 15px;min-width:48px}}

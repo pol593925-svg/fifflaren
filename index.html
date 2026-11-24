@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="hub-experience.css">
   <link rel="stylesheet" href="team-office.css">
   <link rel="stylesheet" href="hub-features.css">
-  <link rel="stylesheet" href="terra.css"><link rel="stylesheet" href="cs16-menu.css"><link rel="stylesheet" href="login.css">
+  <link rel="stylesheet" href="terra.css"><link rel="stylesheet" href="cs16-menu.css"><link rel="stylesheet" href="login.css"><link rel="stylesheet" href="personal-desk.css"><link rel="stylesheet" href="work-navigation.css"><link rel="stylesheet" href="truffle-loans.css">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
           <p id="authErrorMsg" role="status" aria-live="polite"></p>
           <div class="login-links"><button type="button" class="login-link" id="authOtherAccount" hidden>Другой аккаунт</button><button type="button" class="login-link" id="authUsePassword" hidden>Войти с паролем</button><button type="button" class="login-link" id="authSwitchMode">Создать аккаунт</button></div>
         </form>
-        <div class="login-bottom"><span id="authVersion">Support Hub</span><button type="button" class="login-link login-help" id="authHelp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 12H2v7h4v-7ZM20 12h2v7h-4v-7ZM20 19v2h-7"/></svg> Нужна помощь?</button></div>
+        <div class="login-bottom"><span id="authVersion">Support Hub</span></div>
       </section>
     </main>
   </div>
@@ -55,8 +55,7 @@
   <!-- Шапка / Навигация -->
   <div class="tabs">
     <button class="tab-btn" data-tab="hq">🛡️ Штаб</button>
-    <button class="tab-btn active" data-tab="support">💬 Поддержка</button>
-    <button class="tab-btn" data-tab="shift">⏱️ Смена</button>
+    <button class="tab-btn active" data-tab="shift">⏱️ Смена</button>
     <button class="tab-btn" data-tab="cols">📞 Колы</button>
     <button class="tab-btn" data-tab="leave">📝 Отпроситься</button>
     <button class="tab-btn" data-tab="crypto">🔍 Крипто</button>
@@ -76,8 +75,6 @@
     <button id="soundToggleBtn" title="Звук вкл/выкл">🔊</button>
     <button id="themeToggleBtn" title="Сменить тему">☀️</button>
     <button id="logoutBtn" title="Выйти из аккаунта">🚪</button>
-    <!-- Вкладка ТЛ-панели (видна только ТЛ — ник совпадает с названием команды) -->
-    <button class="tab-btn" data-tab="tlpanel" id="tlTabBtn" style="display: none; background: #1e2a3d; color: #4da6ff; border: 1px solid #4da6ff;">🎯 ТЛ-панель</button>
     <!-- Вкладка админки (видна только админу) -->
     <button class="tab-btn" data-tab="radio" id="radioTabButton" style="display:none">Радио</button>
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display: none; background: #3d1e1e; color: #ff6b6b; border: 1px solid #ff6b6b;">👑 Админка</button>
@@ -143,43 +140,8 @@
     </div>
   </div>
 
-  <!-- 1. ВКЛАДКА: Поддержка -->
-  <div id="tab-support" class="content active">
-    <div class="card worker-box">
-      <input type="text" id="globalWorkerNick" class="nick-display" value="" disabled>
-    </div>
-
-    <!-- БЛОК: Просмотр моих трюфелей -->
-    <div class="card compact-card">
-      <h3>💎 Моя статистика</h3>
-      <button id="checkTrufflesBtn" class="submit-btn blue">📊 Посмотреть мои трюфеля</button>
-      <div id="trufflesResultBox" class="truffles-box" style="display: none;"></div>
-    </div>
-
-    <div class="card compact-card">
-      <h3>Сообщить / Отпись</h3>
-      <div class="row-group">
-        <select id="bugType">
-          <option>Ошибка в админке</option>
-          <option>Проблема с логом</option>
-          <option>Трюфель</option>
-          <option>Узнать на передачу</option>
-          <option>Фиат Трюфель</option>
-        </select>
-        <button type="button" id="templateBtn" class="template-btn">📋 Шаблон</button>
-      </div>
-      <textarea id="bugDesc" rows="2" placeholder="Описание или ссылка на лог..."></textarea>
-      <button id="sendBugBtn" class="submit-btn green">Отправить в таблицу</button>
-      <p id="statusMsg" class="msg"></p>
-    </div>
-    <!-- Чат Tawk.to -->
-    <div class="card chat-card">
-      <iframe src="https://tawk.to/chat/6aaac31a0be5c3344706f5f0/1k2lgk7sp?layout=modern"></iframe>
-    </div>
-  </div>
-
   <!-- 2. ВКЛАДКА: Смена -->
-  <div id="tab-shift" class="content" style="display: none;">
+  <div id="tab-shift" class="content active">
     <div class="card text-center">
       <h3>Таймер смены</h3>
       <input type="text" id="userNick" class="nick-display" value="" disabled>
@@ -293,7 +255,7 @@
 
   <!-- 7. ВКЛАДКА: Биржи -->
   <div id="tab-mycalls" class="content" style="display:none;">
-    <div class="card calls-overview"><div><div class="hub-eyebrow">ЛИЧНО ДЛЯ FIFFLAREN</div><h3>Все колы твоей команды</h3><p>Сводка каждый день к 19:00 · Симферополь, UTC+3</p></div><div class="calls-total"><b id="callsCount">0</b><span>колов за день</span></div></div>
+    <div class="card calls-overview"><div><div class="hub-eyebrow">КОМАНДА · ЗАЯВКИ</div><h3>Коллы команды</h3><p>Общая очередь коллов и заявок по сети · доступ по назначению Fifflaren</p></div><div class="calls-total"><b id="callsCount">0</b><span>коллов за день</span></div></div>
     <div class="card"><div class="calls-toolbar"><label for="callsDate">Дата отчёта</label><input id="callsDate" type="date"><button id="callsRefresh" class="template-btn">Обновить</button><button id="callsCopy" class="template-btn">Скопировать список</button></div><p id="callsStatus" role="status"></p><div id="callsList"></div></div>
   </div>
   <div id="tab-exchanges" class="content" style="display:none;">
@@ -350,50 +312,6 @@
       </div>
     </div>
     <div id="feedList"></div>
-  </div>
-
-  <!-- 8.6. ВКЛАДКА: ТЛ-панель (коллы, отпросы, смены, отписи своей команды) -->
-  <div id="tab-tlpanel" class="content" style="display: none;">
-    <div class="card admin-card">
-      <h3>🎯 ТЛ-панель — команда <span id="tlTeamName" style="color:#4da6ff;"></span></h3>
-      <p style="font-size:11px; color:#888; margin-top:2px;">Сюда прилетают коллы, отпросы, завершения смен и отписи твоей команды (со звуком). Логов здесь нет.</p>
-
-      <div class="admin-section">
-        <h4>🔴 События сегодня (живая лента)</h4>
-        <div id="tlLiveBox" class="admin-events-box"><p style="color:#777;">Пока событий нет</p></div>
-      </div>
-
-      <div class="admin-section">
-        <h4>📅 История по дате</h4>
-        <div class="row-group">
-          <input type="date" id="tlEventsDate">
-          <button id="tlEventsLoadBtn" class="template-btn" style="background:#0d6efd;">Показать</button>
-        </div>
-        <div id="tlHistoryBox" class="admin-events-box"><p style="color:#777;">Выбери дату и нажми «Показать»</p></div>
-      </div>
-
-      <div class="admin-section">
-        <h4>💰 ЗП команды <span id="tlSalaryTeam" style="color:#4da6ff;"></span></h4>
-        <p style="font-size:10px; color:#aaa; margin-top:2px;">Вносишь суммы за недели 1–4 и штрафы. Сотрудник видит это у себя во вкладке «💰 ЗП».</p>
-        <div class="row-group" style="margin-top:6px;">
-          <input type="month" id="tlSalaryMonth" style="flex:1;">
-          <button id="tlSalaryLoadBtn" class="template-btn" style="background:#0d6efd;">Загрузить</button>
-        </div>
-        <div id="tlSalaryBox" style="margin-top:10px;"><p style="color:#777;">Выбери месяц и нажми «Загрузить»</p></div>
-      </div>
-
-      <div class="admin-section">
-        <h4>🚀 Уведомление поверх окон (синее)</h4>
-        <p style="font-size:10px; color:#aaa; margin-top:2px;">Долетит до любого: сотрудника, другого ТЛ или админа.</p>
-        <textarea id="tlNotifyText" rows="2" placeholder="Текст, который вылезет поверх всех окон..."></textarea>
-        <div class="row-group">
-          <input list="tlNotifyTargets" id="tlNotifyTarget" placeholder="ник или «всем»" style="flex:2;">
-          <datalist id="tlNotifyTargets"><option value="всем"></option></datalist>
-          <button id="tlNotifySendBtn" class="template-btn" style="background:#0d6efd; font-weight:bold;">⚡ Отправить</button>
-        </div>
-        <p id="tlNotifyStatus" class="msg"></p>
-      </div>
-    </div>
   </div>
 
   <!-- 9. ВКЛАДКА: Админ-панель -->
@@ -1122,6 +1040,7 @@
   <template id="game-scripts-voxel"><script src="voxel-bedrock-data.js"></script><script src="voxel-bedrock.js"></script><script src="voxel-core.js"></script>
   <script src="voxel-life.js"></script><script src="voxel-florist.js"></script><script src="voxel-anime.js"></script>
 <script src="voxel-game.js"></script></template>
+  <link rel="stylesheet" href="release-intro.css"><script src="release-intro.js"></script>
   <script src="assistance-client.js"></script><script src="login.js"></script><script src="renderer.js"></script>
   <script src="casino-design.js"></script>
   <script src="casino-art.js"></script>
@@ -1141,6 +1060,9 @@
   <script src="hub-experience.js"></script>
   <script src="brave-shortcuts.js"></script>
 <script src="terra.js"></script>
-  <script src="support-chat.js"></script><script src="startup-voice.js"></script>
+<script src="personal-desk.js"></script><script src="network-requests.js"></script>
+<script src="work-navigation.js"></script><script src="truffle-loans.js"></script>
+<link rel="stylesheet" href="admin-desk.css"><script src="admin-desk.js"></script>
+<link rel="stylesheet" href="leisure.css"><script src="leisure.js"></script>
 </body>
 </html>

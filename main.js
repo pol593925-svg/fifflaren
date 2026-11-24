@@ -494,7 +494,7 @@ ipcMain.on('restart_to_update', () => {
 });
 ipcMain.on('call-notification',(event,payload={})=>{
   if(!mainWindow||mainWindow.isDestroyed()||event.sender!==mainWindow.webContents)return;
-  const cinema=payload.kind==='cinema',username=String(payload.username||'').toLowerCase();
+  const cinema=payload.kind==='cinema',loan=payload.kind==='loan',username=String(payload.username||'').toLowerCase();
   const title=String(payload.title||(cinema?'Афиша кинозала':'Колы команды')).slice(0,180),body=String(payload.text||'').slice(0,600);
   const fallback=()=>{if(cinema&&!event.sender.isDestroyed())event.sender.send('cinema-notice-fallback',{title,text:body,username});};
   try{
@@ -503,7 +503,7 @@ ipcMain.on('call-notification',(event,payload={})=>{
     notice.once('click',()=>{
       if(!mainWindow||mainWindow.isDestroyed())return;
       if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();
-      mainWindow.webContents.send(cinema?'open-cinema':'open-calls',cinema?username:String(payload.date||''));
+      mainWindow.webContents.send(cinema?'open-cinema':loan?'open-loans':'open-calls',cinema?username:loan?String(payload.loanId||'').slice(0,24):String(payload.date||''));
     });
     if(cinema)notice.once('failed',fallback);notice.show();
   }catch{fallback();}

@@ -4,13 +4,14 @@
  let options=null,timer=null,sequence=0,checking=false,rows=[],seen=new Set();
  const el=id=>document.getElementById(id);
  function safeLink(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}}
- const statusNames={pending:'В ожидании',done:'Сделан',rejected:'Отклонён',returned:'На доработке'};
- let personal=[],minePage=0,mineSeq=0,mineMore=false,owner=false;
+ const statusNames={pending:'В ожидании',done:'Сделано',rejected:'Отклонён',returned:'На доработке'};
+ let personal=[],minePage=0,mineSeq=0,mineMore=false,owner=false,canReview=false;
  function node(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
  async function api(path,init={}){if(!options?.token)throw Error('Войди заново, чтобы загрузить колы.');const response=await fetch(options.server+path,{...init,headers:{Authorization:'Bearer '+options.token,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok||!data.success)throw Error(data.message||'Не удалось выполнить запрос');return data;}
  function card(row,editable){
   const article=node('article',undefined,'call-entry'),head=node('div'),title=node('strong',row.service||row.kind||'Колл');
   const status=statusNames[row.status]?row.status:'pending',badge=node('span',statusNames[status],'call-badge call-'+status);head.append(title,badge);article.append(head);
+  if(row.requestType==='network'){article.classList.add('call-network-request');article.append(node('span','Заявка по сети','desk-request-label'));}
   article.append(node('small',[editable?row.user:'',row.kind,new Intl.DateTimeFormat('ru',{timeZone:TZ,day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(row.createdAt))].filter(Boolean).join(' · ')));
   const link=node('button',row.link||'Ссылка не указана','call-copy-link');link.type='button';link.title='Нажми, чтобы скопировать ссылку';link.disabled=!row.link;
   link.onclick=async()=>{try{await navigator.clipboard.writeText(row.link);link.textContent='✓ Ссылка скопирована';setTimeout(()=>link.textContent=row.link,1600);}catch{link.textContent='Не удалось скопировать — попробуй ещё раз';}};article.append(link);
@@ -21,14 +22,16 @@
    reason.placeholder='Причина решения — увидит автор';reason.setAttribute('aria-label','Причина отклонения');reason.maxLength=500;reason.rows=2;reason.value=row.reason||'';reason.hidden=!['rejected','returned'].includes(status);
    select.onchange=()=>{reason.hidden=!['rejected','returned'].includes(select.value);};save.type='button';
    save.onclick=async()=>{if(['rejected','returned'].includes(select.value)&&!reason.value.trim()){message.textContent='Укажи причину для автора';reason.focus();return;}save.disabled=true;message.textContent='Сохраняем…';try{const data=await api('/api/fifflaren/calls/'+encodeURIComponent(row.id),{method:'PATCH',body:JSON.stringify({status:select.value,reason:reason.value.trim(),version:row.version||0})});rows=rows.map(r=>r.id===row.id?data.call:r);render();loadMine().catch(()=>{});}catch(e){message.textContent=e.message;save.disabled=false;}};
-   controls.append(select,save,reason,message);article.append(controls);
+   controls.append(select,save,reason,message);
+   if(row.requestType==='network'&&status!=='done'){const done=node('button','Сделано','call-done-action');done.type='button';done.onclick=()=>{select.value='done';select.onchange();save.click();};controls.prepend(done);}
+   article.append(controls);
     window.HubOffice?.offer(article,row);
   }HubWork.history(article,row);if(!editable&&status==='returned')HubWork.repair(article,row,()=>loadMine());return article;
  }
  function render(){const list=el('callsList');list.replaceChildren();el('callsCount').textContent=rows.length;if(!rows.length){list.textContent='За выбранный день колов пока нет.';return;}for(const row of rows)list.append(card(row,true));}
  function setupMine(){if(el('myCallsList'))return;const tab=el('tab-shift'),form=el('sendCallBtn').closest('.card'),aside=node('aside',undefined,'my-calls-panel shift-calls-panel');
   form.classList.add('call-compose');form.querySelector('h3').textContent='Новый колл';el('sendCallBtn').textContent='Отправить на рассмотрение';
-  const header=node('div',undefined,'my-calls-header'),title=node('h3','Мои колы'),refresh=node('button','↻ Обновить','call-refresh');refresh.type='button';refresh.onclick=()=>loadMine().catch(()=>{});header.append(title,refresh);
+  const header=node('div',undefined,'my-calls-header'),title=node('h3','Мои коллы'),refresh=node('button','↻ Обновить','call-refresh');refresh.type='button';refresh.onclick=()=>loadMine().catch(()=>{});header.append(title,refresh);
   const info=node('p','Твои заявки и результаты рассмотрения','my-calls-info');info.id='myCallsStatus';const list=node('div');list.id='myCallsList';const more=node('button','Показать ещё','call-refresh');more.id='myCallsMore';more.hidden=true;more.onclick=()=>loadMine(true).catch(()=>{});
   aside.append(header,info,list,more);tab.insertBefore(aside,tab.children[1]||null);
  }
@@ -46,8 +49,8 @@
   }
  }
  async function load(date=el('callsDate').value){
-  if(!options)return;const seq=++sequence;el('callsStatus').textContent='Загружаем колы…';
-  try{const data=await fetchDay(date);if(seq!==sequence)return;rows=data.rows;render();el('callsStatus').textContent='Команда: '+data.team+' · '+date+' · время UTC+3';}
+  if(!options||!canReview)return;const seq=++sequence;el('callsStatus').textContent='Загружаем колы…';
+  try{const data=await fetchDay(date);if(seq!==sequence||!canReview)return;rows=data.rows;render();el('callsStatus').textContent='Команда: '+data.team+' · '+date+' · время UTC+3';}
   catch(e){if(seq===sequence)el('callsStatus').textContent=e.message;throw e;}
  }
  async function checkDigest(){
@@ -58,27 +61,37 @@
   try{const report=await fetchDay(now.due);options.notify({title:'Колы команды за '+now.due,text:'Сводка к 19:00 готова. Коллов: '+report.rows.length+'. Нажми, чтобы открыть список.',date:now.due});localStorage.setItem(key,now.due);}
   catch(e){el('callsStatus').textContent='Сводка будет повторно запрошена после восстановления связи.';}finally{checking=false;}
  }
+ function setReviewAccess(access){
+  const before=canReview;canReview=access.canReview===true;
+  el('callsTabBtn').style.display=canReview?'':'none';
+  if(!canReview){sequence++;rows=[];el('callsList').replaceChildren();el('callsCount').textContent='0';if(el('tab-mycalls').classList.contains('active'))document.querySelector('.tabs [data-tab="shift"]')?.click();}
+  else if(!before){el('callsDate').value=clock().day;load().catch(()=>{});}
+ }
  function start(config){
   clearInterval(timer);sequence++;seen.clear();options=null;
-  owner=String(config.username).toLowerCase()==='fifflaren';el('callsTabBtn').style.display=owner?'':'none';
-  options=config;HubWork.start(config);window.HubOffice?.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden&&el('tab-shift').style.display!=='none')loadMine().catch(()=>{});checkDigest();},20000);if(!owner)return;el('callsDate').value=clock().day;
+  owner=String(config.username).toLowerCase()==='fifflaren';canReview=owner;el('callsTabBtn').style.display=canReview?'':'none';
+  options=config;HubWork.start(config);window.HubOffice?.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden){if(el('tab-shift').style.display!=='none')loadMine().catch(()=>{});window.HubTeamCalls?.refreshAccess();}checkDigest();},20000);el('callsDate').value=clock().day;
   el('callsRefresh').onclick=()=>load().catch(()=>{});el('callsDate').onchange=()=>load().catch(()=>{});
   el('callsCopy').onclick=async()=>{try{await navigator.clipboard.writeText(rows.map(r=>[r.service||r.kind,r.link,r.user].join(' — ')).join('\n'));el('callsStatus').textContent='Список скопирован';}catch{el('callsStatus').textContent='Не удалось скопировать список';}};
+  window.HubTeamCalls?.start(config,{access:setReviewAccess,accessError:error=>{if(!canReview)el('callsStatus').textContent=error.message;}});
+  window.HubLoans?.start(config);
   if(!config.token){el('callsStatus').textContent='Для личной вкладки нужен новый сервер. После его обновления войди заново.';return;}
-  load().catch(()=>{});checkDigest();
+  if(canReview)load().catch(()=>{});checkDigest();
  }
  function subscribe(socket){
   if(!options?.token)return;socket.emit('calls_subscribe',options.token);
+  window.HubLoans?.subscribe(socket);
   if(socket.__hubCallsBound)return;socket.__hubCallsBound=true;
-  socket.on('connect',()=>{if(options?.token){socket.emit('calls_subscribe',options.token);loadLogs();}});
+  socket.on('connect',()=>{if(options?.token){socket.emit('calls_subscribe',options.token);loadLogs();window.HubTeamCalls?.refreshAccess();}});
+  socket.on('calls_access_changed',access=>{if(!options)return;if(access&&typeof access.canReview==='boolean')setReviewAccess(access);window.HubTeamCalls?.refreshAccess();});
   socket.on('team_log',row=>{logs=[row,...logs.filter(r=>r.id!==row.id)].slice(0,60);renderLogs();});
   socket.on('my_call',()=>{loadMine().catch(()=>{});});
-  socket.on('call_updated',row=>{if(owner&&row?.history?.at(-1)?.action==='resubmitted'){options.notify({title:'Исправлен колл · '+row.user,text:row.service,date:clock(Date.parse(row.createdAt)).day});}loadMine().catch(()=>{});if(owner)load().catch(()=>{});});
+  socket.on('call_updated',row=>{if(canReview&&row?.history?.at(-1)?.action==='resubmitted'){options.notify({title:'Исправлен колл · '+row.user,text:row.service,date:clock(Date.parse(row.createdAt)).day});}loadMine().catch(()=>{});if(canReview)load().catch(()=>{});});
   socket.on('fifflaren_call',row=>{
-   if(!options||!owner||seen.has(row.id))return;seen.add(row.id);if(seen.size>1000)seen.delete(seen.values().next().value);
+   if(!options||!canReview||seen.has(row.id))return;seen.add(row.id);if(seen.size>1000)seen.delete(seen.values().next().value);
    if(row.user.toLowerCase()!=='fifflaren')options.notify({title:'Новый колл · '+row.user,text:(row.service||row.kind)+'\n'+row.link,date:clock().day});
    if(el('callsDate').value===clock().day)load().catch(()=>{});
   });
  }
- window.HubCalls={start,subscribe,submitLog,clock,checkDigest,submit,loadMine:()=>loadMine().catch(()=>{}),load:()=>load().catch(()=>{}),open:date=>{if(!options)return;el('callsTabBtn').click();el('callsDate').value=date||clock().day;load().catch(()=>{});}};
+ window.HubCalls={start,subscribe,submitLog,clock,checkDigest,submit,loadMine:()=>loadMine().catch(()=>{}),load:()=>load().catch(()=>{}),open:date=>{if(!options||!canReview)return;el('callsTabBtn').click();el('callsDate').value=date||clock().day;load().catch(()=>{});}};
 })();

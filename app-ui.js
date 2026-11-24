@@ -2,27 +2,32 @@
 document.addEventListener('DOMContentLoaded', () => {
   const nav = document.querySelector('.tabs');
   const sections = {
-    mycalls:['Колы команды','Личная сводка Fifflaren · каждый день к 19:00'], hq:['Штаб','Команда и люди, с которыми ты работаешь'], support:['Поддержка','Всё для решения рабочих вопросов'],
-    shift:['Смена и колы','Рабочее время, логи и статусы твоих колов'], cols:['Колы','Фиксируй звонки и сохраняй важные детали'],
+    mycalls:['Коллы команды','Общая очередь заявок и результатов'], hq:['Штаб','Команда и люди, с которыми ты работаешь'],
+    shift:['Смена и коллы','Рабочее время, задачи и статусы твоих коллов'], cols:['Коллы','Фиксируй звонки и сохраняй важные детали'],
     leave:['Отпроситься','Укажи время и причину отсутствия'], crypto:['Крипто','Обозреватели сетей и проверка транзакций'],
     notes:['Заметки','Твоё пространство для мыслей и рабочих записей'], exchanges:['Биржи','Справочник условий и доступных направлений'],
     tasks:['Задачи','Держи важное в фокусе'], feed:['Лента','Новости, публикации и события команды'],
     approve:['Найти апрув','Быстрый поиск нужного подтверждения'], chat:['Чат команды','Обсуждай рабочие вопросы вместе'],
     pm:['Личные сообщения','Разговоры один на один'], swipe:['Дайсерчвинчик','Знакомься с коллегами'],
-    casino:['Казино','Время сделать перерыв'], tops:['Топ','Достижения и результаты участников'],
+    leisure:['Досуг','КС, блочный мир и казино'], casino:['Казино','Время сделать перерыв'], tops:['Топ','Достижения и результаты участников'],
     battleship:['Морской бой','Тактика, флот и точный расчёт'], cs16:['Counter-Strike','Командная игра · Dust2 / Inferno'],
     voxel:['Блочный мир · 18+','Один общий мир · постройки и инвентарь сохраняются'], salary:['Зарплата','Расчёты и результаты за месяц'],
-    radio:['Радио','Общий эфир и очередь треков'], tlpanel:['ТЛ-панель','Управление командой и рабочими событиями'], admin:['Администрирование','Люди, настройки и управление приложением']
+    radio:['Радио','Общий эфир и очередь треков'], admin:['Администрирование','Люди, настройки и управление приложением']
   };
   nav.setAttribute('aria-label','Разделы приложения');
   const brand=document.createElement('div');brand.className='hub-brand';
   brand.innerHTML='<span class="hub-mark">S</span><div>Support Hub<small>РАБОЧЕЕ ПРОСТРАНСТВО</small></div>';
   nav.prepend(brand);
-  const groups=[['РАБОТА',['hq','support','shift','cols','mycalls','leave','notes','tasks','crypto','exchanges']],['ОБЩЕНИЕ',['feed','chat','pm']],['ДОСУГ',['swipe','casino','tops','battleship','cs16','voxel']],['УПРАВЛЕНИЕ',['tlpanel','radio','admin']]];
+  // Keep the original game buttons and handlers as routing aliases, with one visible entry.
+  const gameAliases=document.createElement('div');gameAliases.className='hub-leisure-aliases';gameAliases.hidden=true;
+  for(const id of ['cs16','voxel','casino']){const original=nav.querySelector('[data-tab="'+id+'"]');if(original){original.title=sections[id][0];gameAliases.append(original);}}
+  nav.append(gameAliases);
+  const leisure=document.createElement('button');leisure.type='button';leisure.className='tab-btn';leisure.dataset.leisureMenu='true';leisure.title='Досуг';leisure.setAttribute('aria-label','Досуг');leisure.setAttribute('aria-haspopup','dialog');leisure.setAttribute('aria-controls','hubLeisureDialog');leisure.onclick=()=>window.HubLeisure?.open(leisure);const leisureIcon=document.createElement('span');leisureIcon.className='dock-icon';if(window.HubNavIcon)leisureIcon.append(window.HubNavIcon('leisure'));const leisureLabel=document.createElement('span');leisureLabel.className='dock-label';leisureLabel.textContent='Досуг';leisure.append(leisureIcon,leisureLabel);nav.append(leisure);
+  const groups=[['РАБОТА',['hq','shift','cols','mycalls','leave','notes','tasks','crypto','exchanges']],['ОБЩЕНИЕ',['feed','chat','pm']],['ДОСУГ',['leisure','swipe','tops','battleship']],['УПРАВЛЕНИЕ',['radio','admin']]];
   for(const [label,ids] of groups){
     const group=document.createElement('div');group.className='hub-navGroup';
     const caption=document.createElement('div');caption.className='hub-navLabel';caption.textContent=label;group.append(caption);
-    for(const id of ids){const button=nav.querySelector(`[data-tab="${id}"]`);if(button){button.title=sections[id][0];group.append(button);}}
+    for(const id of ids){const button=id==='leisure'?leisure:nav.querySelector(`[data-tab="${id}"]`);if(button){button.title=sections[id][0];group.append(button);}}
     nav.append(group);
   }
   const header=document.createElement('header');header.className='hub-header';
@@ -37,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.dispatchEvent(new Event('resize'));
   };
   function update(){
-    const selected=nav.querySelector('[data-tab].active');const id=selected?.dataset.tab||'support';
+    const selected=nav.querySelector('[data-tab].active');const id=selected?.dataset.tab||'shift';
     document.getElementById('hubPageTitle').textContent=sections[id]?.[0]||'Support Hub';
     document.getElementById('hubPageDescription').textContent=sections[id]?.[1]||'';
     document.body.dataset.hubPage=id;

@@ -85,7 +85,6 @@
   $('authShowPassword').onclick=()=>{const reveal=$('authPassword').type==='password';$('authPassword').type=reveal?'text':'password';$('authShowPassword').setAttribute('aria-pressed',String(reveal));$('authShowPassword').setAttribute('aria-label',reveal?'Скрыть пароль':'Показать пароль');};
   $('authUsePassword').onclick=()=>{$('authUsername').value=profile?.username||'';mode='login';say('');draw();$('authPassword').focus();};
   $('authOtherAccount').onclick=async()=>{if(busy)return;lock(true);await signOut();mode='login';$('authUsername').value='';$('authPassword').value='';say('');draw();lock(false);$('authUsername').focus();};
-  $('authHelp').onclick=()=>document.getElementById('support-chat-toggle')?.click();
   draw();
   try{
    const info=await invoke('auth-profile');

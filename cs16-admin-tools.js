@@ -31,13 +31,10 @@
     }
     menu.append(panel);
     const canvas=document.createElement('canvas');canvas.className='cs16-wallhack';canvas.hidden=true;hud.append(canvas);
-    const badge=document.createElement('div');badge.className='cs16-admin-active';badge.hidden=true;hud.append(badge);
     const context=canvas.getContext('2d'),head=new T.Vector3(),foot=new T.Vector3();
     function drawControls(){
       panel.hidden=!state.allowed;
       for(const [id,{b,status}] of Object.entries(buttons)){b.disabled=pending;b.setAttribute('aria-pressed',String(state[id]));status.textContent=state[id]?'ВКЛ':'ВЫКЛ';}
-      badge.hidden=!state.allowed||(!state.wallhack&&!state.aimbot);
-      badge.textContent='FIFFLAREN · '+[state.wallhack?'WH':'',state.aimbot?'AIM':''].filter(Boolean).join(' + ');
       if(!state.allowed||!state.wallhack){canvas.hidden=true;context.clearRect(0,0,canvas.width,canvas.height);}
     }
     function set(data){
@@ -65,7 +62,7 @@
         context.fillStyle='#ffe7cc';context.fillText(String(r.nick).slice(0,22)+' · '+distance+' м',x,y-11);
       }
     }
-    return {set,update,get state(){return state;},reset:()=>set(null),dispose:()=>{clearTimeout(timer);panel.remove();canvas.remove();badge.remove();}};
+    return {set,update,get state(){return state;},reset:()=>set(null),dispose:()=>{clearTimeout(timer);panel.remove();canvas.remove();}};
   }
   return {aim,create};
 });

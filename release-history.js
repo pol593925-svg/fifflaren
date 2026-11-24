@@ -1,7 +1,26 @@
-// Bundled release snapshot, including this packaged release. Refresh with tools/sync-release-history.cjs.
+// Bundled release snapshot, including this packaged release.
 window.HubReleaseHistory = [
-{"tag":"v5.9.2","title":"Support Hub 5.9.2","date":"2026-11-20T11:24:55.0318194Z","preview":false,"body":"Team-specific Classic appearances and first-person sleeve colors. Two animated lobby pets: Corgi and Brahma chicken. Gameplay and existing hero/pet abilities are unchanged. Artists: BAMEN and DanlyVostok (CC BY 4.0); Gobkit (CC0). See models/csgo/CLASSIC-AND-LOBBY-CREDITS.txt."},
-{"tag":"v5.9.1","title":"Support Hub 5.9.1","date":"2026-11-20T10:54:47.7020370Z","preview":false,"body":"Updated the first-person AK-47 model and glove materials. Corrected the right-hand fit. The external player model is unchanged."},
+  {
+    "tag": "v6.0.0",
+    "title": "Support Hub 6.0.0 · Личный стол и команда",
+    "date": "2026-11-24T20:37:45.703Z",
+    "preview": false,
+    "body": "Support Hub 6.0.0 — личный стол и команда Fifflaren\n\nНОВЫЙ РАБОЧИЙ СТОЛ\n• Смена, штаб, коллы команды, отпросы, заметки, задачи, крипто и биржи объединены в одном рабочем меню «Смена».\n• Компактный личный стол: таймер, счётчик логов, коллы, лента команды, овертаймы и чек-листы.\n• Персональная настройка видимых карточек сохраняется отдельно для каждого аккаунта.\n\nАДМИНКА: ГРАФИТ И ЛАЙМ\n• Новый тёмный интерфейс с лаймовыми кнопками и боковой навигацией.\n• Реальная сводка ожидающих коллов, заявок по сети, трюфелей и сотрудников в сети.\n• Из сводки можно открыть нужную заявку, назначить выдачу трюфелей или настроить доступы.\n• Сохранены рабочие формы управления сотрудниками, уведомлениями, задачами и отчётами.\n\nЗАЯВКИ И ДОСТУПЫ\n• Кнопка «Скачать пасы» отправляет заявку по сети компании: сотрудник вставляет ссылку, заявка приходит в коллы команды, проверяющий отмечает «Сделано».\n• Повторная отправка после сбоя не создаёт дубликат; возвращённую заявку можно исправить.\n• Fifflaren может разрешить отдельным сотрудникам просмотр и обработку коллов, не выдавая остальные права администратора.\n• В приложении остаётся команда Fifflaren. ТЛ-панель удалена; рабочая история сохранена.\n\nТРЮФЕЛИ — ВНУТРЕННИЕ БАЛЛЫ\n• Заявка «Взять в долг трюфель»: количество, даты, обязательство вернуть и собственные условия.\n• Владелец назначает сотрудника; выдающий подтверждает выдачу и затем получение возврата.\n• Общий список показывает, кто у кого взял баллы и какой срок возврата. Участники получают уведомления.\n• Условия фиксируются без автоматических списаний и переводов баланса.\n\nДОСУГ И ЗАПУСК\n• КС, блочный мир и казино собраны под отдельной нижней кнопкой «Досуг».\n• Игры загружаются по выбору; открытие меню досуга не запускает игровые движки.\n• Новая короткая анимированная заставка 6.0.0 без звука, с пропуском и поддержкой отключённых анимаций.\n• Удалены раздел поддержки, чат поддержки, комикс и звук при входе.\n• Инструменты владельца в КС больше не выводят плашку поверх матча; переключатели в меню Esc сохранены.\n\nУСТАНОВКА\nОбновление распространяется через обычное автообновление Support Hub. После загрузки обновления перезапусти приложение.\n"
+  },
+  {
+    "tag": "v5.9.2",
+    "title": "Support Hub 5.9.2",
+    "date": "2026-11-20T11:24:55.0318194Z",
+    "preview": false,
+    "body": "Team-specific Classic appearances and first-person sleeve colors. Two animated lobby pets: Corgi and Brahma chicken. Gameplay and existing hero/pet abilities are unchanged. Artists: BAMEN and DanlyVostok (CC BY 4.0); Gobkit (CC0). See models/csgo/CLASSIC-AND-LOBBY-CREDITS.txt."
+  },
+  {
+    "tag": "v5.9.1",
+    "title": "Support Hub 5.9.1",
+    "date": "2026-11-20T10:54:47.7020370Z",
+    "preview": false,
+    "body": "Updated the first-person AK-47 model and glove materials. Corrected the right-hand fit. The external player model is unchanged."
+  },
   {
     "tag": "v5.9.0",
     "title": "Support Hub 5.9.0 · Новый облик боя",

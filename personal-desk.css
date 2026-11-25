@@ -53,6 +53,7 @@ body.terra.personal-desk .terra-shift-card .orbit-addOneBtn{background:#b9d5f5!i
 .desk-count-actions{display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:8px}
 .desk-call-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .desk-call-actions:has(> :only-child){grid-template-columns:1fr}
+.desk-call-actions:has(>#logRequestButton)>:first-child{grid-column:1/-1}
 body.terra.personal-desk .desk-call-actions>.terra-action{min-width:0;white-space:normal;line-height:1.4}
 body.terra.personal-desk .terra-shift-secondary{display:grid;grid-template-columns:1fr;margin-top:7px}
 body.terra.personal-desk .terra-shift-secondary .terra-action{background:transparent;padding:7px;min-height:31px}
@@ -82,6 +83,19 @@ body.terra.personal-desk .team-log-entry{padding:12px 0;font-size:11px;line-heig
 body.terra.personal-desk .team-log-entry strong{font-size:12px}
 body.terra.personal-desk .team-log-entry p{margin:5px 0;font-size:11px}
 body.terra.personal-desk .team-log-entry small{font-size:9px}
+/* One author image per entry; intrinsic dimensions prevent layout jumps. */
+.call-author-avatar{display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;box-sizing:border-box;overflow:hidden;border-radius:50%;background:var(--hub-soft);border:1px solid var(--hub-line);color:var(--hub-accent);font-size:12px;font-weight:700;line-height:1}
+.call-author-avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.call-entry>.call-author{display:flex;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:9px;margin-bottom:10px;font-size:12px;color:var(--hub-text);min-width:0}
+.call-author>span:last-child{min-width:0;overflow-wrap:anywhere}
+.call-entry>.call-entry-heading{align-items:flex-start;gap:8px}
+.call-entry-heading>strong{flex:1;min-width:100px}
+.team-log-author{display:flex;align-items:center;gap:9px;min-width:0}
+.team-log-author>strong{min-width:0;overflow-wrap:anywhere}
+.team-log-entry .team-log-author>small{float:none;margin-left:auto;flex-shrink:0;white-space:nowrap}
+body.terra.personal-desk .team-log-entry>p,body.terra.personal-desk .team-log-entry>a{margin-left:41px}
+.call-log-request .desk-request-label{display:inline-block;margin-top:8px}
+.call-quantity-repair input{width:100%;box-sizing:border-box}
 body.terra.personal-desk #tab-shift>.desk-checklist{grid-area:checklist;min-width:0;padding:21px 22px!important}
 body.terra.personal-desk .desk-checklist>h3{font-size:17px;margin:0 0 4px}
 body.terra.personal-desk .desk-checklist>p{color:var(--hub-muted)!important;font-size:10px!important;margin:0 0 13px!important}

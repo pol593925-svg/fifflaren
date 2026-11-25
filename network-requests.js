@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   let session = null, hooks = null, requestId = null, requestLink = '', sending = false, epoch = 0, accessSequence = 0;
+  let logRequestId = null, logRequestQuantity = null, sendingLogs = false;
   const $ = id => document.getElementById(id);
   const node = (tag, text, cls) => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n; };
   async function api(path, init = {}) {
@@ -17,6 +18,35 @@
     const heading = node('h2', title); heading.id = id + 'Title'; el.setAttribute('aria-labelledby', heading.id);
     const close = node('button', '×', 'hub-work-close'); close.type = 'button'; close.setAttribute('aria-label', 'Закрыть'); close.onclick = () => el.close();
     el.append(close, heading); document.body.append(el); return el;
+  }
+  function initLogRequest(row) {
+    if ($('logRequestButton')) return;
+    const button = node('button', 'Запросить логов', 'terra-action desk-log-action'); button.id = 'logRequestButton'; button.type = 'button'; row.append(button);
+    const modal = dialog('logRequestDialog', 'Запросить логов');
+    modal.append(node('p', 'Укажи количество. Заявка поступит в «Колы команды», а её статус появится в «Моих коллах».', 'desk-dialog-copy'));
+    const form = node('form'), label = node('label', 'Количество'), input = node('input');
+    input.id = 'logRequestQuantity'; input.type = 'number'; input.name = 'quantity'; input.required = true; input.min = '1'; input.max = '100000'; input.step = '1'; input.inputMode = 'numeric'; input.placeholder = 'Например, 10'; label.htmlFor = input.id;
+    const status = node('p', '', 'desk-form-status'); status.id = 'logRequestStatus'; status.setAttribute('role', 'status');
+    const submit = node('button', 'Отправить заявку', 'desk-primary'); submit.id = 'logRequestSubmit'; submit.type = 'submit';
+    form.append(label, input, status, submit); modal.append(form);
+    button.onclick = () => { if (!modal.open) modal.showModal(); input.focus(); };
+    modal.addEventListener('close', () => button.focus({ preventScroll: true }));
+    input.addEventListener('input', () => { if (!sendingLogs) status.textContent = ''; });
+    form.onsubmit = async event => {
+      event.preventDefault(); if (sendingLogs || !form.reportValidity()) return;
+      const quantity = Number(input.value);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100000) { status.textContent = 'Укажи целое количество от 1 до 100 000.'; input.focus(); return; }
+      if (quantity !== logRequestQuantity || !logRequestId) { logRequestQuantity = quantity; logRequestId = crypto.randomUUID(); }
+      const current = epoch; sendingLogs = true; submit.disabled = true; input.readOnly = true; status.textContent = 'Отправляем заявку…';
+      try {
+        await api('/api/calls/log-requests', { method: 'POST', body: JSON.stringify({ quantity, requestId: logRequestId }) });
+        if (current !== epoch) return;
+        logRequestId = null; logRequestQuantity = null; input.value = '';
+        const notice = $('deskRequestNotice'); if (notice) notice.textContent = 'Запрос на ' + quantity.toLocaleString('ru') + ' логов отправлен · статус — в «Моих коллах».';
+        status.textContent = 'Заявка отправлена.'; window.HubCalls?.loadMine(); modal.close();
+      } catch (error) { if (current === epoch) status.textContent = error.message + ' Количество сохранено, можно повторить отправку.'; }
+      finally { if (current === epoch) { sendingLogs = false; submit.disabled = false; input.readOnly = false; } }
+    };
   }
   function init() {
     const row = document.querySelector('.desk-call-actions') || document.querySelector('.terra-shift-actions');
@@ -49,6 +79,7 @@
       finally { if (current === epoch) { sending = false; submit.disabled = false; input.readOnly = false; } }
     };
     const notice = node('p', '', 'desk-request-notice'); notice.id = 'deskRequestNotice'; notice.setAttribute('role', 'status'); row.after(notice);
+    initLogRequest(row);
 
     const toolbar = document.querySelector('#tab-mycalls .calls-toolbar');
     if (!toolbar) return;
@@ -93,10 +124,11 @@
     catch (error) { if (current === epoch && sequence === accessSequence) hooks?.accessError?.(error); }
   }
   function start(config, callbacks) {
-    epoch++; session = config; hooks = callbacks; sending = false; requestId = null; requestLink = ''; init();
-    for (const id of ['networkRequestDialog', 'teamCallsAccessDialog']) if ($(id)?.open) $(id).close();
+    epoch++; session = config; hooks = callbacks; sending = sendingLogs = false; requestId = logRequestId = logRequestQuantity = null; requestLink = ''; init();
+    for (const id of ['networkRequestDialog', 'logRequestDialog', 'teamCallsAccessDialog']) if ($(id)?.open) $(id).close();
     if ($('networkRequestLink')) { $('networkRequestLink').value = ''; $('networkRequestLink').readOnly = false; $('networkRequestSubmit').disabled = false; }
-    for (const id of ['networkRequestStatus', 'deskRequestNotice', 'teamCallsAccessStatus', 'teamCallsAccessList']) $(id)?.replaceChildren();
+    if ($('logRequestQuantity')) { $('logRequestQuantity').value = ''; $('logRequestQuantity').readOnly = false; $('logRequestSubmit').disabled = false; }
+    for (const id of ['networkRequestStatus', 'logRequestStatus', 'deskRequestNotice', 'teamCallsAccessStatus', 'teamCallsAccessList']) $(id)?.replaceChildren();
     if ($('teamCallsAccessButton')) $('teamCallsAccessButton').hidden = true;
     refreshAccess();
   }

@@ -438,6 +438,8 @@
     { id: 'flashbang',  label: '✨ Флешка',        price: 200 },
     { id: 'smokegrenade', label: '🌫 Дымовая',     price: 300 },
     { id: 'defuser',    label: '🧰 Набор сапёра (CT)', price: 200 },
+    { id: 'veh_tank',   label: '🛡 Основной боевой танк · 1000 HP · 2 места', price: 3200 },
+    { id: 'veh_heli',   label: '🚁 Средний вертолёт · 600 HP · 2 места', price: 3200 },
   ];
 
   // ---------- СКИНЫ (магазин за казино-деньги) ----------
@@ -598,7 +600,8 @@
         karambitHandsModel=CS16AnimeMaterials.apply(THREE,karambit.scene,{soft:true});
         for(const team of ['t','ct'])classicSleeves[team]={firearm:recolourSleeves(handsModel,team),knife:recolourSleeves(karambitHandsModel,team)};
         mark(2,1);
-      })
+      }),
+      loadVehicleModels()
     ]).catch(error => { combatArtPromise = null; throw error; });
     return combatArtPromise.then(result=>{onProgress(1);return result;});
   }
@@ -1357,8 +1360,9 @@
   }
   // 3.32.0: магазин по вкладкам
   let buyTab = 'rifle';
-  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение']];
+  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['veh','🚜 Техника']];
   function buyTabOf(it) {
+    if(it.id.startsWith('veh_'))return 'veh';
     if(it.meleeStyle)return 'gear';
     if (it.id === 'hegrenade' || it.id === 'flashbang' || it.id === 'smokegrenade') return 'nade';
     if (it.id === 'kevlar' || it.id === 'defuser') return 'gear';
@@ -1390,8 +1394,9 @@
       const teamGate = (w && w.team) || it.team;
       let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
       if (it.id === 'defuser' && me.kit) dis = true;
+      if (it.id.startsWith('veh_') && (myVeh || !vehGlb[it.id.slice(4)])) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
-      b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
+      b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '') + (it.id.startsWith('veh_') ? (!vehGlb[it.id.slice(4)] ? ' · модель не загружена' : myVeh ? ' · уже есть' : '') : '');
       if (dis) b.disabled = true;
       if(it.meleeStyle){b.textContent=it.label+(meleeStyle===it.meleeStyle?' · Выбран':' · Бесплатно');b.dataset.meleeStyle=it.meleeStyle;b.setAttribute('aria-pressed',String(meleeStyle===it.meleeStyle));}
       else if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent=w.rocket?'Взрывной урон · 4 ракеты · радиус 6 м':'Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
@@ -1408,8 +1413,9 @@
       const teamGate = (w && w.team) || it.team;
       let dis = (teamGate && teamGate !== me.team) || me.money < it.price;
       if (it.id === 'defuser' && me.kit) dis = true;
+      if (it.id.startsWith('veh_') && (myVeh || !vehGlb[it.id.slice(4)])) dis = true;
       const b = el('button', `display:block; width:100%; margin:4px 0; padding:7px 10px; text-align:left; font:13px monospace; cursor:pointer; background:${dis ? '#333' : '#2d4a22'}; color:${dis ? '#777' : '#dfffcf'}; border:1px solid #555;`, ui.buyList);
-      b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '');
+      b.textContent = `[${i + 1}] ${it.label} — $${it.price}` + (it.id === 'defuser' && me.kit ? ' ✓ есть' : '') + (it.id.startsWith('veh_') ? (!vehGlb[it.id.slice(4)] ? ' · модель не загружена' : myVeh ? ' · уже есть' : '') : '');
       if (dis) b.disabled = true;
       if(w&&!w.nade){const details=document.createElement('small');details.style.cssText='display:block;opacity:.7;margin-top:3px';details.textContent=w.rocket?'Взрывной урон · 4 ракеты · радиус 6 м':'Урон '+w.dmg+' · Бронепробитие '+Math.round(w.penetration*100)+'% · '+w.rpm+' выстр./мин · Магазин '+w.mag;b.append(details);}
       b.onclick = () => { sock && sock.emit('cs16_buy', it.id); };
@@ -1663,7 +1669,9 @@
     sock.on('cs16_bought', (d) => {
       buyOk(d.item);
       me.money = d.money;
-      killfeed('🛒 Куплено: ' + esc(WEAPONS[d.item] ? WEAPONS[d.item].name : d.item));
+      const label=WEAPONS[d.item]?.name||VEH_TYPES[d.item.slice(4)]?.name||d.item;
+      killfeed('🛒 Куплено: ' + esc(label));
+      if(['veh_tank','veh_heli'].includes(d.item))closeBuy();
       if (ui.buy.style.display === 'block') renderBuyList();
     });
     // ---------- C4 ----------
@@ -1805,7 +1813,54 @@
       if(myVeh&&myVeh.passenger&&myVeh.owner===d.nick)exitVehicle();
     });
     sock.on('cs16_nade', (d) => { spawnNade(d.pos, d.vel, d.kind || 'he', false); });
-    // 3.31.0: техника — позиции чужих и взрывы пушки/ракет
+    // Позиции, экипаж, HP и взрывы только разрешённой техники.
+    sock.on('cs16_veh', (d) => {
+      if (!d || !d.by || !Array.isArray(d.pos) || d.pos.length!==3 || !d.pos.every(Number.isFinite)) return;
+      const variant=d.variant||d.kind;if(!VEH_TYPES[variant])return;
+      let v = vehs.get(d.by);
+      if (!v) {
+        v = { kind: d.kind, obj: null, x: d.pos[0], y: d.pos[1], z: d.pos[2], yaw: d.yaw || 0, turret: d.turret || 0, tx: d.pos[0], ty: d.pos[1], tz: d.pos[2], tyaw: d.yaw || 0, tturret: d.turret || 0, rotor: 0 };
+        vehs.set(d.by, v);
+      }
+      v.variant=variant;v.team=d.team;v.passengerNick=d.passenger||null;v.kind = d.kind;v.hp=Number.isFinite(d.hp)?d.hp:(v.hp??VEH_TYPES[variant].hp);v.max=d.max||VEH_TYPES[variant].hp;
+      v.tx = d.pos[0]; v.ty = d.pos[1]; v.tz = d.pos[2]; v.tyaw = d.yaw || 0; v.tturret = d.turret || 0;
+      ensureRemoteVeh(v);
+    });
+    sock.on('cs16_crew',d=>{
+      if(!d)return;
+      if(d.owner&&Number.isFinite(d.aim)){const v=d.owner===myNick?myVeh:vehs.get(d.owner);if(v)v.gunnerYaw=d.aim;return;}
+      if(d.owner){const v=vehs.get(d.owner);if(v)v.passengerNick=d.nick;}
+      if(d.nick!==myNick)return;
+      if(!d.owner){if(myVeh&&myVeh.passenger)exitVehicle(false);return;}
+      const v=vehs.get(d.owner);if(!v||myVeh){sock.emit('cs16_crew',{leave:true});return;}
+      v.passengerNick=myNick;ensureRemoteVeh(v);if(!v.obj){sock.emit('cs16_crew',{leave:true});return;}
+      myVeh={...v,owner:d.owner,passenger:true,inside:true,mode:'mg',cd:0,rocketCd:0};myVehHp=v.hp;keys.fire=false;keys.e=false;scoped=false;
+      killfeed('Стрелок: ЛКМ — огонь · Q — пулемёт / ракеты · E — выйти');
+    });
+    sock.on('cs16_vehboom', (d) => {
+      if (!d || !Array.isArray(d.pos)) return;
+      if (d.by === myNick && performance.now() - vehBoomAt < 400) return;
+      explodeFx(d.pos, 'he');
+      const dd = Math.hypot(P.x - d.pos[0], P.z - d.pos[2]);
+      if (dd < 25) shake = Math.max(shake, 0.5 * (1 - dd / 25));
+      sfxExplosion();
+    });
+    sock.on('cs16_vehhit', (d) => {
+      if(!d)return;const remote=vehs.get(d.target);if(remote){remote.hp=d.hp;remote.max=d.max;}
+      if (d.target !== myNick || !myVeh) return;
+      myVehHp = d.hp;
+      killfeed('⚠️ По твоей технике попали — ' + Math.max(0, d.hp) + '/' + d.max + ' HP');
+    });
+    sock.on('cs16_vehdie', (d) => {
+      if (!d) return;
+      if(myVeh&&myVeh.passenger&&myVeh.owner===d.by)exitVehicle(false);
+      vehDeathFx(d.pos, d.kind);
+      if (d.by === myNick) {
+        if (myVeh) { scene.remove(myVeh.obj); myVeh = null; }
+        killfeed('💥 Твою технику подбили!');
+      } else removeVehicleOf(d.by);
+    });
+    sock.on('cs16_vehcrate', (d) => { if (d) destroyCrate(d.x, d.y, false); });
     sock.on('cs16_environment',d=>{
       if(d?.map!==curMap||!CS16Environment.apply(CS16Buildings.layout(grid,curMap),d))return;
       if(Array.isArray(d.shatter)&&d.shatter.length===3&&d.shatter.every(Number.isFinite)){
@@ -2514,6 +2569,7 @@
     else if (id === 'smokegrenade') nades.smoke = Math.min(1, nades.smoke + 1);
     else if (id === 'kevlar') me.armor = 100;
     else if (id === 'defuser') me.kit = true;
+    else if (id.startsWith('veh_') && ['veh_tank','veh_heli'].includes(id)) spawnMyVehicle(id.slice(4));
     else if (WEAPONS[id]) {
       if (PISTOLS[id]) secondary = id;
       else if (!WEAPONS[id].nade) primary = id;
@@ -2522,12 +2578,12 @@
     }
   }
 
-  // ---------- 3.31.0: ТЕХНИКА (танк и вертолёт из Blender; покупка за $4000) ----------
+  // ---------- Реальные CC0-модели техники; покупка за $3200 ----------
   const VEH_TYPES = {
-    tank:{kind:'tank',name:'Стриж',hp:1000,speed:16}, bastion:{kind:'tank',name:'Бастион',hp:1500,speed:12},
-    heli:{kind:'heli',name:'Сокол',hp:600,speed:25}, storm:{kind:'heli',name:'Шторм',hp:900,speed:20}
+    tank:{kind:'tank',name:'Основной боевой танк',hp:1000,speed:16},
+    heli:{kind:'heli',name:'Средний вертолёт',hp:600,speed:25}
   };
-  const vehGlb = { tank:null,heli:null,bastion:null,storm:null };
+  const vehGlb = { tank:null,heli:null };
   const VEH_WEAPON_NAMES={cannon:'Пушка',mg:'Пулемёт',rocket:'Ракеты'};
   const flightHeights=new Map();let flightGeometry=null;
   function flightFloor(x,z) {
@@ -2547,15 +2603,25 @@
   }
   function cycleVehWeapon(){const v=myVeh;if(!v||!v.inside)return;const list=v.passenger?['mg','rocket']:v.kind==='tank'?['cannon','mg','rocket']:['mg','rocket'];v.mode=list[(list.indexOf(v.mode)+1)%list.length];keys.fire=false;killfeed('Q · '+VEH_WEAPON_NAMES[v.mode]);}
   function nearbyCrewVehicle(){if(myVeh)return null;for(const [nick,v] of vehs)if(v.team===me.team&&!v.passengerNick&&Math.hypot(P.x-v.x,P.z-v.z)<5&&Math.abs(P.y-v.y)<3)return nick;return null;}
-  function loadVehicleModels() {
-    const loader = new THREE.GLTFLoader();
-    return Promise.all(Object.keys(VEH_TYPES).map(async kind => {
-      try {
-        const asset = await loader.loadAsync('models/' + kind + '.glb');
-        asset.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-        vehGlb[kind] = asset.scene;
-      } catch (e) { console.error('vehicle model:', kind, e); }
-    }));
+  async function loadVehicleModels() {
+    if(!THREE.KTX2Loader||!window.MeshoptDecoder?.supported)throw new Error('Vehicle texture decoders are unavailable');
+    await window.MeshoptDecoder.ready;
+    const ktx2=new THREE.KTX2Loader()
+      .setTranscoderPath('vendor/three-r160/libs/basis/')
+      .setWorkerLimit(2)
+      .detectSupport(renderer3);
+    const loader = new THREE.GLTFLoader().setKTX2Loader(ktx2).setMeshoptDecoder(window.MeshoptDecoder);
+    try {
+      await Promise.all(Object.keys(VEH_TYPES).map(async kind => {
+        try {
+          const file=kind==='tank'?'tank-cc0.glb':'helicopter-cc0.glb';
+          const asset = await loader.loadAsync('models/vehicles/' + file);
+          const adapt=window.CS16RealVehicles?.[kind];
+          if(typeof adapt!=='function')throw new Error('Vehicle adapter is unavailable');
+          vehGlb[kind] = adapt(THREE,asset);
+        } catch (e) { console.error('vehicle model:', kind, e); }
+      }));
+    } finally { ktx2.dispose(); }
   }
   let myVeh = null;              // моя техника {kind,obj,x,y,z,yaw,inside,cd,rocketCd,syncAcc,rotor}
   const vehs = new Map();        // чужая техника: nick -> {kind,obj,x,y,z,yaw,turret,tx..,lastSeen,rotor}
@@ -2703,14 +2769,15 @@
     v.obj.position.set(v.x, v.y, v.z);
     v.obj.rotation.y = v.yaw;
     if(v.inside)v.aim=P.yaw;const aimYaw = (v.aim??P.yaw) + Math.PI / 2; // модели смотрят в +X при rotation.y = 0
+    const aimOffset=v.obj.userData.aimOffset||0;
     const tur = v.obj.getObjectByName('Turret');
-    if (tur) tur.rotation.y = aimYaw - v.yaw;
+    if (tur) tur.rotation.y = aimYaw - v.yaw - aimOffset;
     const gun = v.obj.getObjectByName('Gun');
-    if (gun) gun.rotation.y = (v.gunnerYaw!=null?v.gunnerYaw+Math.PI/2:aimYaw) - v.yaw;
+    if (gun) gun.rotation.y = (v.gunnerYaw!=null?v.gunnerYaw+Math.PI/2:aimYaw) - v.yaw - aimOffset;
     if (v.kind === 'heli') {
       v.rotor += dt * 28;
       const r = v.obj.getObjectByName('Rotor'); if (r) r.rotation.y = v.rotor;
-      const tr = v.obj.getObjectByName('TailRotor'); if (tr) tr.rotation.x = v.rotor * 1.8;
+      const tr = v.obj.getObjectByName('TailRotor'); if (tr) tr.rotation[tr.userData.spinAxis||'x'] = v.rotor * 1.8;
       v.obj.rotation.z = (controls.w ? -0.13 : 0) + (controls.s ? 0.09 : 0);
     }
     v.syncAcc += dt;
@@ -2744,7 +2811,7 @@
       const {o,d}=vehicleAim(v,2.0);
       spawnShell(o,[d[0]*70,d[1]*70,d[2]*70],'tank');
       const bar = v.obj.getObjectByName('Barrel');
-      if (bar) { bar.position.x -= 0.4; setTimeout(() => { try { bar.position.x += 0.4; } catch (e) {} }, 130); }
+      if (bar) { const axis=bar.userData.recoilAxis||'x',rest=bar.position[axis];bar.position[axis]=rest-.4;setTimeout(()=>{bar.position[axis]=rest;},130); }
       sfxShot('awp'); shake = Math.max(shake, 0.5);
     } else {
       if (now - v.cd < 100) return; // 600 выстр./мин
@@ -2849,15 +2916,15 @@
       if (!v.obj) { ensureRemoteVeh(v); if (!v.obj) continue; }
       v.obj.position.set(v.x, v.y, v.z);
       v.obj.rotation.y = v.yaw;updateVehBar(v);
-      const aimYaw = v.turret + Math.PI / 2;
+      const aimYaw = v.turret + Math.PI / 2,aimOffset=v.obj.userData.aimOffset||0;
       const tur = v.obj.getObjectByName('Turret');
-      if (tur) tur.rotation.y = aimYaw - v.yaw;
+      if (tur) tur.rotation.y = aimYaw - v.yaw - aimOffset;
       const gun = v.obj.getObjectByName('Gun');
-      if (gun) gun.rotation.y = (v.gunnerYaw!=null?v.gunnerYaw+Math.PI/2:aimYaw) - v.yaw;
+      if (gun) gun.rotation.y = (v.gunnerYaw!=null?v.gunnerYaw+Math.PI/2:aimYaw) - v.yaw - aimOffset;
       if (v.kind === 'heli') {
         v.rotor = (v.rotor || 0) + dt * 28;
         const r = v.obj.getObjectByName('Rotor'); if (r) r.rotation.y = v.rotor;
-        const tr = v.obj.getObjectByName('TailRotor'); if (tr) tr.rotation.x = v.rotor * 1.8;
+        const tr = v.obj.getObjectByName('TailRotor'); if (tr) tr.rotation[tr.userData.spinAxis||'x'] = v.rotor * 1.8;
       }
     }
   }
@@ -3173,9 +3240,8 @@
     // физика
     if (me.alive && state.phase !== 'matchend') {
       const canMove = state.phase !== 'freeze';
-      stepPlayer(dt,canMove?keys:{w:0});
-      assistAdminAim();
-      if(keys.fire)tryShoot();
+      if(myVeh?.inside)stepMyVehicle(dt);else{stepPlayer(dt,canMove?keys:{w:0});assistAdminAim();}
+      if(keys.fire){if(myVeh?.inside)vehFireGun();else tryShoot();}
     }
     const thermal=me.alive&&!reloading&&me.goldWeapon===current&&frontSeat==null&&!myVeh?.inside&&pointerLocked&&(scoped||(fieldAim&&fieldAimMix>.92&&vm?.userData.reticle?.visible));
     ui.thermalLens.style.display='none';

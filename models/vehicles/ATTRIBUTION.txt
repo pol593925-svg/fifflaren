@@ -1,0 +1,28 @@
+VEHICLE MODEL SOURCES
+
+Tank: "Main Battle Tank" by tevy
+Source: https://tevy.dev/models/main-battle-tank
+Pinned original: https://tevy.dev/models/main-battle-tank/v1/lod0.glb
+Version: v1, published 2026-10-30
+License: CC0 1.0 Universal (public domain)
+License text: https://creativecommons.org/publicdomain/zero/1.0/
+Local file: tank-cc0.glb
+Adaptations in cs16-real-vehicles.js: normalized playable scale and ground pivot,
+rotated to the game's forward axis, existing source turret/gun/weapon-station
+nodes mapped to the game's animated controls. Original PBR textures retained.
+The original KTX2 textures and Meshopt geometry are decoded locally at load time
+with the unmodified Three.js r160 KTX2Loader, Basis transcoder and MeshoptDecoder.
+
+Helicopter: "Medium helicopter" by Innerscene
+Source: https://www.innerscene.com/tools/library/3d-parts/medium-helicopter-5e2a0edd
+Original: https://www.innerscene.com/api/library/medium-helicopter-5e2a0edd/download
+Published: 2026-10-08
+License: CC0 1.0 Universal (public domain), original unbranded Innerscene model
+License text: https://creativecommons.org/publicdomain/zero/1.0/
+Local file: helicopter-cc0.glb
+Adaptations in cs16-real-vehicles.js: normalized playable scale and ground pivot,
+main/tail rotor control groups, military olive/dark finish, glazing response.
+Original geometry, cabin, landing gear and PBR textures retained.
+
+No endorsement by either source is implied. These notices describe modifications;
+CC0 does not require attribution, but source records are retained for audit.

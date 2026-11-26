@@ -50,6 +50,7 @@
       "!brave-extension/**",
       "!models/csgo/textures/**",
       "!graphics-qa/**",
+      "!qa/**",
       "!support2*.js",
       "!models/s2/**",
       "!assets/support2/**"

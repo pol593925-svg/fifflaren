@@ -27,14 +27,16 @@ module.exports=async function(page,outputs,errors){
   }
   for(const quality of (process.env.PREVIEW_QUALITY?.split(',')||['high','balanced','low'])){
    await page.evaluate(q=>{const ui=__qa.ui();ui.quality.value=q;ui.quality.onchange()},quality);
-   const views=[['square',17,-13,2.54,-.045,'m4a1'],['garden',4,-7,-Math.PI,.025,'ak47'],['arcade',14,-4,2.1,.045,'m4a1']];
+   const selected=process.env.PREVIEW_VIEWS?.split(',');
+   const views=[['square',17,-13,2.54,-.045,'m4a1'],['garden',4,-7,-Math.PI,.025,'ak47'],['arcade',14,-4,2.1,.045,'m4a1']].filter(v=>!selected||selected.includes(v[0]));
    for(const [name,x,z,yaw,pitch,weapon] of views){
     await page.evaluate(({b,x,z,yaw,pitch,weapon})=>{__qa.aim(b.x+x,0,b.z+z,yaw,pitch);__qa.weapon(weapon);__qa.hideMessages()}, {b,x,z,yaw,pitch,weapon});
     await page.waitForTimeout(1600);
     await page.screenshot({path:path.join(outputs,`${map}-${name}-${quality}.png`)});
-    if(name==='square')reports.push(await measure(page,{map,quality,test:'scene'}));
+    if(name==='square'&&!process.env.PREVIEW_SCREENSHOTS_ONLY)reports.push(await measure(page,{map,quality,test:'scene'}));
    }
   }
+  if(process.env.PREVIEW_SCREENSHOTS_ONLY)continue;
   await page.evaluate(b=>{
    __qa.aim(b.x+17,0,b.z-13,2.54,-.045);__qa.weapon('m4a1');
    window.__previewActors=[];

@@ -44,7 +44,7 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.02;
+    renderer.toneMappingExposure = 1.05;
     renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
@@ -221,16 +221,17 @@
     scene.background = null;
     scene.fog = new T.Fog(0xb9c7ce, 145, 600);
 
-    const hemisphere = new T.HemisphereLight(0xd8e4ef, 0x868176, .55);
+    const hemisphere = new T.HemisphereLight(0xdce8f2, 0x77736b, .62);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xffefd8, 2.8);
+    const sun = new T.DirectionalLight(0xfff4e2, 3.0);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
-    Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 460 });
+    // A tighter cascade spends the same texture budget on visible contact detail.
+    Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 460 });
     sun.shadow.camera.updateProjectionMatrix();
-    sun.shadow.bias = -0.0006;
-    sun.shadow.normalBias = 0.075;
+    sun.shadow.bias = -0.00022;
+    sun.shadow.normalBias = 0.045;
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
 
@@ -279,7 +280,7 @@
       if(landscape)landscape.update(activeCamera,typeof time==='number'?time:performance.now(),renderer.userData.cs16Quality);
       groundPoint.set(activeCamera.position.x, 0, activeCamera.position.z);
       // Quantize in LIGHT coordinates to stop shadows swimming as the player walks.
-      const texel = 84 / quality.shadow;
+      const texel = 64 / quality.shadow;
       const rx = Math.round(groundPoint.dot(lightRight) / texel) * texel;
       const ry = Math.round(groundPoint.dot(lightUp) / texel) * texel;
       const rz = Math.round(groundPoint.dot(sky.direction) / texel) * texel;

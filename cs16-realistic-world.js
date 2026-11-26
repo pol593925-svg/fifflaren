@@ -3,13 +3,22 @@
  * placed against walls; distant city geometry stays beyond the playable perimeter. */
 (function(g){'use strict';
  const BASE='assets/cs-realistic/bistro/';
- // Bistro's supplied painted/plaster albedos are neutral. These explicit art
- // direction multipliers colour the photographed material without losing grain.
- const TINT={MASTER_Concrete_Smooth:[1.72,1.51,1.22],MASTER_Concrete_Plaster:[1.60,1.22,.88],MASTER_Concrete:[1.52,1.34,1.08],
-  MASTER_Brick_Large_Beige_BLENDSHADER:[1.38,1.31,1.12],MASTER_Brick_Large_White:[1.13,1.05,.91],MASTER_Concrete_White:[1.40,1.30,1.13],
-  MASTER_Wood_Painted_Green:[.20,.36,.26],MASTER_Wood_Painted3:[.45,.28,.15],MASTER_Wood_Brown:[.70,.48,.30],
-  MASTER_Roofing_Shingle_Grey:[.76,.82,.84],Balcony_Concrete:[1.30,1.18,.99],Balcony_Trims:[1.32,1.20,1.02],Balcony_Ornaments:[1.30,1.18,1.02]};
+ // Preserve the photographed albedo. The previous sunset multipliers made
+ // concrete, limestone and metal share the same orange, plastic-looking response.
+ const TINT={MASTER_Concrete_Smooth:[1.05,1.03,.99],MASTER_Concrete_Plaster:[1.08,1.04,.98],MASTER_Concrete:[1.04,1.02,.97],
+  MASTER_Brick_Large_Beige_BLENDSHADER:[1.06,1.03,.97],MASTER_Brick_Large_White:[1.04,1.03,1.00],MASTER_Concrete_White:[1.05,1.04,1.00],
+  MASTER_Wood_Painted_Green:[.62,.78,.67],MASTER_Wood_Painted3:[.80,.67,.53],MASTER_Wood_Brown:[.86,.72,.58],
+  MASTER_Roofing_Shingle_Grey:[.86,.89,.91],Balcony_Concrete:[1.06,1.03,.98],Balcony_Trims:[1.07,1.04,.99],Balcony_Ornaments:[1.06,1.03,.98]};
  function tintMaterial(material,source){const color=TINT[source];if(color)material.color.setRGB(...color);}
+ function physicalSurface(source,old){
+  const metal=/metal/i.test(source),wood=/wood/i.test(source),glass=/glass/i.test(source),foliage=/foliage|leaf|leaves/i.test(source),ground=old.name==='ground',ceramic=/plantpots|ceramic/i.test(source);
+  return {roughness:metal?.43:wood?.68:glass?.16:foliage?.84:ground?.91:ceramic?.34:.86,
+   metalness:metal?.88:glass?.06:0,normal:ground?.38:metal?.48:wood?.62:.52,
+   environment:metal?1.05:glass?1.15:ceramic?.72:foliage?.38:.48,
+   // ORCA's Specular images are not glTF ORM textures. Using them as metalness
+   // made stone metallic; retain only the useful roughness variation on metal.
+   roughnessMap:metal,metalnessMap:false,aoMap:false};
+ }
  async function prepare({T,model,grid,map,renderer}){
   const response=await fetch(BASE+'manifest.json');if(!response.ok)throw Error('Bistro material manifest unavailable');
   const manifest=await response.json(),loader=new T.TextureLoader(),textureJobs=new Map(),materials=new Map();
@@ -28,9 +37,9 @@
   }});
   const materialResults=await Promise.allSettled([...oldMaterials].map(async old=>{
    const key=manifest.surfaces[old.name];if(!key)return;
-   const maps=manifest.materials[key]||{},[albedo,normal,orm]=await Promise.all([texture(maps.BaseColor,true),texture(maps.Normal,false),texture(maps.Specular,false)]);
-   const next=new T.MeshStandardMaterial({name:old.name,map:albedo,normalMap:normal,normalScale:new T.Vector2(old.name==='ground'?.75:.56,old.name==='ground'?.75:.56),roughnessMap:orm,metalnessMap:orm,aoMap:orm,aoMapIntensity:.8,roughness:1,metalness:1,vertexColors:old.vertexColors,side:old.side,envMapIntensity:.65,dithering:true});
-   next.userData={...old.userData,cs16Realistic:true,source:key,cs16WorldSurface:true,cs16EnvironmentIntensity:.65};materials.set(old,next);
+   const maps=manifest.materials[key]||{},[albedo,normal,specular]=await Promise.all([texture(maps.BaseColor,true),texture(maps.Normal,false),texture(maps.Specular,false)]),surface=physicalSurface(key,old);
+   const next=new T.MeshStandardMaterial({name:old.name,map:albedo,normalMap:normal,normalScale:new T.Vector2(surface.normal,surface.normal),roughnessMap:surface.roughnessMap?specular:null,metalnessMap:surface.metalnessMap?specular:null,aoMap:null,roughness:surface.roughness,metalness:surface.metalness,vertexColors:old.vertexColors,side:old.side,envMapIntensity:surface.environment,dithering:true});
+   next.userData={...old.userData,cs16Realistic:true,source:key,cs16WorldSurface:true,cs16EnvironmentIntensity:surface.environment};materials.set(old,next);
    tintMaterial(next,key);
   }));
   const failed=materialResults.find(result=>result.status==='rejected');

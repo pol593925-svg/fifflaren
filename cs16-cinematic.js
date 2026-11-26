@@ -69,7 +69,7 @@
         float w=exp(-abs(sz-z)/max(.035,abs(z)*.012));
         ao+=texture2D(contact,uv).r*w;weight+=w;
       }}
-      ao=ao/max(weight,.0001);color*=mix(vec3(.86,.91,1.),vec3(1.),ao)*ao;
+      ao=ao/max(weight,.0001);color*=mix(vec3(.97,.985,1.),vec3(1.),ao)*ao;
       vec3 glow=texture2D(bloomMap,vUv).rgb*.2;
       for(int i=0;i<8;i++){float a=float(i)*.78539816;glow+=texture2D(bloomMap,vUv+vec2(cos(a),sin(a))*bloomPixel*3.).rgb*.1;}
       color+=glow*bloomStrength;
@@ -99,7 +99,7 @@
    if(!enabled||renderer.userData.cs16Quality==='low'||!renderer.capabilities.isWebGL2){releaseTargets();renderer.render(scene,camera);return;}
    resize();depthUniforms.inverseProjection.value.copy(camera.projectionMatrixInverse);depthUniforms.cameraNear.value=camera.near;depthUniforms.cameraFar.value=camera.far;
    const saved=renderer.getRenderTarget(),auto=renderer.info.autoReset;renderer.info.autoReset=false;renderer.info.reset();
-   const high=renderer.userData.cs16Quality==='high';aoMaterial.uniforms.strength.value=high?.48:.34;compose.uniforms.bloomStrength.value=high?.12:.07;
+   const high=renderer.userData.cs16Quality==='high',samples=high?4:2;if(target.samples!==samples)target.samples=samples;aoMaterial.uniforms.strength.value=high?.60:.38;aoMaterial.uniforms.radius.value=high?.82:.65;compose.uniforms.bloomStrength.value=high?.10:.06;
    try{
     renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,camera);
     quad.material=aoMaterial;renderer.setRenderTarget(aoTarget);renderer.render(quadScene,quadCamera);

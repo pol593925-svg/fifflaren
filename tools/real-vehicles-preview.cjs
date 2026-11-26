@@ -32,9 +32,35 @@ module.exports=async function(page,outputs,errors){
    assert(Math.hypot(...moved.after.pos.map((n,i)=>n-moved.before[i]))>.05,kind+' must move');
    if(kind==='heli')assert(moved.after.pos[1]>moved.before[1]+1,'helicopter must gain altitude');
    await page.waitForTimeout(500);await page.screenshot({path:path.join(outputs,kind+'-driving.png')});
-   const packet=moved.packets.at(-1).d;
-   const remote=await observer.evaluate(({kind,packet})=>{__qa.vehicleQA('clear');__socket.receive('cs16_veh',{...packet,by:'RemotePilot',kind,variant:kind,team:'ct',hp:kind==='tank'?1000:600,max:kind==='tank'?1000:600});const result=__qa.vehicleQA('snapshot').remote[0];__qa.aim(packet.pos[0]-10,0,packet.pos[2]+10,-Math.PI/4,-.08);return result;},{kind,packet});
+   let packet=moved.packets.at(-1).d;
+   if(kind==='heli'){
+    const high=await page.evaluate(()=>__qa.vehicleQA('highflight','heli'));assert(high.pos[1]>=280,'helicopter must climb above the former 100 m ceiling');
+    await page.waitForTimeout(300);await page.screenshot({path:path.join(outputs,'heli-high-flight.png')});
+    const across=await page.evaluate(()=>__qa.vehicleQA('across','heli'));assert(Math.abs(across.vehicle.pos[0]-across.limit)<.05,'helicopter must reach the far map boundary');
+    const weapons=await page.evaluate(()=>__qa.vehicleQA('weapons','heli'));
+    assert(weapons.mg.some(e=>e.n==='cs16_shoot'&&e.d.weapon==='mgveh'),'MG shot must be emitted');assert(weapons.tracers>0,'MG tracer must render');
+    assert.equal(weapons.mode,'rocket');assert.equal(weapons.rocket.length,1,'Q must select and fire rockets');
+    reports.highFlight={high,across};reports.weapons=weapons;
+    const effects=await observer.evaluate(({shot})=>{
+     __qa.vehicleQA('clear');__qa.aim(217,0,192,-Math.PI/4,0);__qa.view(217,1.62,192,227,2,182);
+     const before=__qa.effects().tracers;__socket.receive('cs16_shoot',{nick:'RemotePilot',...shot.d});const tracer=__qa.effects().tracers>before;
+     const pos=[222,2,187],previous=new Set(__qa.scene().children),id=98761;
+     __socket.receive('cs16_missile_start',{id,kind:'vehicle',pos,dir:[Math.SQRT1_2,0,-Math.SQRT1_2],speed:70});
+     const object=__qa.scene().children.find(o=>!previous.has(o));
+     __socket.receive('cs16_missile_frame',[[id,2220,20,1860,71,0,-71]]);
+     const missile=!!object;__qa.camera().updateMatrixWorld(true);const ndc=object?object.position.clone().project(__qa.camera()).toArray():null;
+     return {tracer,missile,ndc,pos,id};
+    },{shot:weapons.mg.find(e=>e.n==='cs16_shoot')});
+    assert(effects.tracer,'second client must render the MG tracer');assert(effects.missile,'second client must render the vehicle rocket');
+    assert(effects.ndc&&Math.abs(effects.ndc[0])<.9&&Math.abs(effects.ndc[1])<.9&&effects.ndc[2]<1,'rocket must be inside the observer camera view');
+    await observer.waitForTimeout(150);await observer.screenshot({path:path.join(outputs,'heli-rocket-flight.png')});
+    await observer.evaluate(({id,pos})=>{__socket.receive('cs16_missile_end',{id,pos});__socket.receive('cs16_vehboom',{pos:[pos[0],0,pos[2]],kind:'rocket',by:'RemotePilot'});},effects);
+    await observer.waitForTimeout(150);await observer.screenshot({path:path.join(outputs,'heli-rocket-blast.png')});reports.remoteEffects=effects;
+    packet={...packet,pos:reports.highFlight.across.vehicle.pos,yaw:0,turret:0};
+   }
+   const remote=await observer.evaluate(({kind,packet})=>{__qa.vehicleQA('clear');__socket.receive('cs16_veh',{...packet,by:'RemotePilot',kind,variant:kind,team:'ct',hp:kind==='tank'?1000:600,max:kind==='tank'?1000:600});const result=__qa.vehicleQA('snapshot').remote[0];__qa.aim(packet.pos[0]-10,kind==='heli'?packet.pos[1]:0,packet.pos[2]+10,-Math.PI/4,-.08);return result;},{kind,packet});
    assert(remote?.real,kind+' must appear as the real model at the second client');assert.equal(remote.variant,kind);
+   if(kind==='heli')assert(remote.pos[1]>=280,'second client must receive the high-altitude transform');
    await observer.waitForTimeout(500);await observer.screenshot({path:path.join(outputs,kind+'-remote.png')});
    reports.vehicles[kind]={bought,entered,moved};reports.remote[kind]=remote;
   }

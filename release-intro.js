@@ -35,7 +35,7 @@
   function start(options = {}) {
     stop();
     if (!document.body || document.hidden) return false;
-    const version = typeof options.version === 'string' && /^\d+\.\d+\.\d+(?:[-.][a-zA-Z0-9]+)*$/.test(options.version) ? options.version : '6.1.1';
+    const version = typeof options.version === 'string' && /^\d+\.\d+\.\d+(?:[-.][a-zA-Z0-9]+)*$/.test(options.version) ? options.version : '6.1.2';
     let entry;
     try {
       const reduced = global.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
@@ -63,9 +63,9 @@
           <h1 class="hub-release-version"></h1>
           <p class="hub-release-tagline">Команда. Работа. Время для себя.</p>
           <div class="hub-release-features" aria-label="Что нового">
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zM8 22h8M12 18v4M3 9h18M9 9v9"/></svg>Аватары команды</span>
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 20v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 5v1"/></svg>Новые заявки</span>
-            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 22h20"/></svg>Статусы выполнения</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16h18M5 16V9h10l4 7M8 9V5h5v4M7 20h.01M17 20h.01"/></svg>Танк и вертолёт</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h20M12 2v20M5 5l14 14M19 5 5 19"/><circle cx="12" cy="12" r="7"/></svg>Свободный полёт</span>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 20 4M12 4h8v8M4 12v8h8"/><path d="m15 15 5 5"/></svg>Пулемёт и ракеты</span>
           </div>
         </div>
         <footer class="hub-release-bottom"><span class="hub-release-edition"></span><span>СДЕЛАНО ДЛЯ КОМАНДЫ FIFFLAREN</span></footer>`;

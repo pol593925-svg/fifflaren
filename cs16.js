@@ -1000,7 +1000,7 @@
       if(magicView){magicView.dispose();magicView=null;}scene = new THREE.Scene(); scene.add(camera);
       magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,getQuality:()=>graphicsQuality,constrain:companionPosition,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
       if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
-      missileView?.dispose();missileView=null;
+      missileView?.dispose();missileView=CS16MissileView.create(THREE,scene,ui.hud);
       frontView?.dispose();frontView=null;
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
@@ -1734,7 +1734,7 @@
       removeBombMesh();
       // 3.15.7: полная очистка поля — летящие гранаты и трассеры прошлого раунда
       for (const n of nadesList) disposeNade(n.mesh);
-      clearVehicles();
+      clearVehicles();missileView?.reset();
       nadesList.length = 0;
       clearShotEffects();
       resetBlindness(); shake = 0;
@@ -1755,13 +1755,13 @@
       r.moving = !!d.move; r.crouched = !!d.crouched;
     });
     sock.on('cs16_shoot', (d) => {
-      const r = remotes.get(d.nick);
+      const r = remotes.get(d.nick),vehicleMG=d.weapon==='mgveh',maxDistance=vehicleMG?1200:200;
       if(r&&WEAPONS[d.weapon]?.melee)r.meleeAt=performance.now();
       if (r) { r.muzzle = WEAPONS[d.weapon]?.melee ? 0 : performance.now(); }
-      if (WEAPONS[d.weapon] && !WEAPONS[d.weapon].melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(200,d.distance)) : 60, true);
-      sfxShot(d.weapon,d.origin);
+      if ((vehicleMG||WEAPONS[d.weapon]) && !WEAPONS[d.weapon]?.melee) spawnTracer(d.origin, d.dir, Number.isFinite(d.distance) ? Math.max(0,Math.min(maxDistance,d.distance)) : 60, true, maxDistance);
+      sfxShot(vehicleMG?'ak47':d.weapon,d.origin);
       if(!WEAPONS[d.weapon]?.melee){
-        const length=Number.isFinite(d.distance)?Math.min(200,d.distance):60;
+        const length=Number.isFinite(d.distance)?Math.min(maxDistance,d.distance):60;
         spatialAudio()?.whizz(d.origin,d.dir,length);
         if(Math.hypot(d.origin[0]-P.x,d.origin[2]-P.z)<35)fieldEffects?.eject(d.origin,d.dir);
         const surface=rayWall(...d.origin,...d.dir,length+.08);
@@ -1813,6 +1813,9 @@
       if(myVeh&&myVeh.passenger&&myVeh.owner===d.nick)exitVehicle();
     });
     sock.on('cs16_nade', (d) => { spawnNade(d.pos, d.vel, d.kind || 'he', false); });
+    sock.on('cs16_missile_start',d=>missileView?.start(d));
+    sock.on('cs16_missile_frame',rows=>missileView?.frame(rows));
+    sock.on('cs16_missile_end',d=>missileView?.end(d?.id));
     // Позиции, экипаж, HP и взрывы только разрешённой техники.
     sock.on('cs16_veh', (d) => {
       if (!d || !d.by || !Array.isArray(d.pos) || d.pos.length!==3 || !d.pos.every(Number.isFinite)) return;
@@ -2109,10 +2112,10 @@
     slot.sp.scale.set(slot.size,slot.size,1);slot.sp.material.rotation=Math.random()*Math.PI;slot.sp.material.opacity=.95;
     slot.sp.visible=true;slot.sp.position.copy(pos);scene.add(slot.sp);shotFlashes.push(slot);
   }
-  function spawnTracer(origin,dir,len,isRemote){
+  function spawnTracer(origin,dir,len,isRemote,maxLen=200){
     if(!scene||!Number.isFinite(len))return;
     const pool=prepareShotPool(),slot=pool.tracers.find(s=>!s.busy);if(!slot)return;
-    slot.busy=true;slot.o.fromArray(origin);slot.d.fromArray(dir).normalize();slot.len=Math.max(.05,Math.min(200,len));
+    slot.busy=true;slot.o.fromArray(origin);slot.d.fromArray(dir).normalize();slot.len=Math.max(.05,Math.min(maxLen,len));
     slot.born=performance.now();slot.die=slot.born+slot.len/1.2+25;
     slot.core.quaternion.setFromUnitVectors(pool.up,slot.d);slot.core.position.copy(slot.o);slot.core.scale.y=.01;slot.core.material.opacity=.85;
     slot.line.visible=true;slot.head.position.copy(slot.o);slot.head.material.opacity=.9;scene.add(slot.line);tracers.push(slot);
@@ -2758,9 +2761,10 @@
       let nx = v.x + Math.cos(v.yaw) * sp * dt, nz = v.z - Math.sin(v.yaw) * sp * dt;
       [nx,nz]=[Math.max(2,Math.min(MW*CELL-2,nx)),Math.max(2,Math.min(MH*CELL-2,nz))];
       v.x = nx; v.z = nz;
-      if (controls.space) v.y += 12 * dt;
-      if (controls.ctrl) v.y -= 12 * dt;
-      if(v.inside)v.y = Math.max(flightFloor(v.x,v.z), Math.min(100, v.y));
+      if (controls.space) v.y += 28 * dt;
+      if (controls.ctrl) v.y -= 24 * dt;
+      // The whole map is flyable; 500 m is a technical ceiling, not a low invisible wall.
+      if(v.inside)v.y = Math.max(flightFloor(v.x,v.z), Math.min(500, v.y));
     }
     // игрок едет внутри — его позиция уходит другим через обычный cs16_pos
     if(v.inside){P.x = v.x; P.z = v.z; P.y = v.y + (v.kind === 'heli' ? .4 : 0);
@@ -2794,7 +2798,7 @@
     const intact=hits.find(h=>!CS16Front.ruined(grid,h.point.x,h.point.z));return intact&&(!physical||intact.distance<physical.t)?{t:intact.distance}:physical;
   }
   function vehicleAim(v,height) {
-    const aim=dirFromCam(),p=camera.position,max=200;
+    const aim=dirFromCam(),p=camera.position,max=1200;
     const wall=vehicleWorldRay(p.x,p.y,p.z,...aim,max),wallT=wall?wall.t:max;
     const player=rayPlayers(p.x,p.y,p.z,aim,wallT),vehicle=rayVehicles(p.x,p.y,p.z,aim,wallT);
     const t=Math.min(wallT,player?player.t:max,vehicle?vehicle.t:max);
@@ -2817,18 +2821,18 @@
       if (now - v.cd < 100) return; // 600 выстр./мин
       v.cd = now;
       const {o,d}=vehicleAim(v,v.passenger?2.5:1.15);
-      const wall = vehicleWorldRay(o[0], o[1], o[2], d[0], d[1], d[2], 220);
-      const wallT = wall ? wall.t : 220;
+      const wall = vehicleWorldRay(o[0], o[1], o[2], d[0], d[1], d[2], 1200);
+      const wallT = wall ? wall.t : 1200;
       const hit = rayPlayers(o[0], o[1], o[2], d, wallT);
       const vhit = rayVehicles(o[0], o[1], o[2], d, wallT);
       if (vhit && (!hit || vhit.t < hit.t)) {
-        spawnTracer(o, d, vhit.t, false);
+        spawnTracer(o, d, vhit.t, false, 1200);
         sock.emit('cs16_shoot', { origin: o, dir: d, weapon: 'mgveh', distance: vhit.t });
-        sock.emit('cs16_vehhit', { target: vhit.nick, weapon: 'mgveh' });
+        sock.emit('cs16_vehhit', { target: vhit.nick, weapon: 'mgveh', dist: vhit.t });
         ui.hitmark.style.display='block'; clearTimeout(ui.hitmark._t); ui.hitmark._t=setTimeout(()=>{ui.hitmark.style.display='none';},90);
         return;
       }
-      spawnTracer(o, d, hit ? hit.t : wallT, false);
+      spawnTracer(o, d, hit ? hit.t : wallT, false, 1200);
       sock.emit('cs16_shoot', { origin: o, dir: d, weapon: 'mgveh', distance: hit ? hit.t : wallT });
       if (hit) sock.emit('cs16_hit', { target: hit.nick, weapon: 'mgveh', head: hit.head, zone: hit.zone, dist: hit.t });
       sfxShot('ak47');
@@ -3247,6 +3251,7 @@
     ui.thermalLens.style.display='none';
     if(radarDirty&&t-lastArmyRadar>280){lastArmyRadar=t;radarDirty=false;frontView?.sync();buildRadarBase();}
     frontView?.update(t,graphicsQuality,frontSeat,P);
+    missileView?.update(t,null,[0,0,-1],()=>{});
     // интерполяция удалённых + анимация ног
     const lerp = Math.min(1, dt * 10);
     for (const r of remotes.values()) {

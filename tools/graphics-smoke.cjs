@@ -23,7 +23,7 @@ window.__qa={
  shotBurst:(n=1000)=>{for(let i=0;i<n;i++)spawnTracer([P.x,1.6,P.z],[Math.sin(i)*.12,0,1],18,true);},
  arsenal:()=>({items:BUY_ITEMS.map(i=>i.id),classes:Object.keys(CS16Classes.profiles),vehicles:vehs.size,ownVehicle:!!myVeh,front:!!frontView,missiles:!!missileView}),
  vehicleQA:(action,kind='tank')=>{
-  const info=v=>v?{kind:v.kind,variant:v.variant,inside:!!v.inside,pos:[v.x,v.y,v.z],hp:v.hp??myVehHp,real:!!v.obj?.userData.realVehicle,aimOffset:v.obj?.userData.aimOffset||0,size:v.obj?new THREE.Box3().setFromObject(v.obj).getSize(new THREE.Vector3()).toArray():null,rotor:!!v.obj?.getObjectByName('Rotor'),tailAxis:v.obj?.getObjectByName('TailRotor')?.userData.spinAxis||null}:null;
+  const info=v=>v?{kind:v.kind,variant:v.variant,inside:!!v.inside,mode:v.mode,pos:[v.x,v.y,v.z],hp:v.hp??myVehHp,real:!!v.obj?.userData.realVehicle,aimOffset:v.obj?.userData.aimOffset||0,size:v.obj?new THREE.Box3().setFromObject(v.obj).getSize(new THREE.Vector3()).toArray():null,rotor:!!v.obj?.getObjectByName('Rotor'),tailAxis:v.obj?.getObjectByName('TailRotor')?.userData.spinAxis||null}:null;
   if(action==='shop'){buyTab='veh';ui.buy.style.display='block';renderBuyList();return [...ui.buyList.querySelectorAll('button')].map(b=>({text:b.textContent,disabled:b.disabled}));}
   if(action==='clear'){clearVehicles();return true;}
   if(action==='buy'){
@@ -36,6 +36,9 @@ window.__qa={
   }
   if(action==='enter'){if(!myVeh)return null;state.phase='live';P.x=myVeh.x+1;P.z=myVeh.z;P.y=myVeh.y;tryVehToggle();stepMyVehicle(.016);return info(myVeh);}
   if(action==='move'){if(!myVeh)return null;const before=[myVeh.x,myVeh.y,myVeh.z];window.__emitted=[];keys.w=true;if(kind==='heli')keys.space=true;stepMyVehicle(.25);keys.w=false;keys.space=false;return {before,after:info(myVeh),packets:__emitted.filter(e=>e.n==='cs16_veh')};}
+  if(action==='highflight'){if(!myVeh)return null;keys.space=true;for(let i=0;i<80&&myVeh.y<300;i++)stepMyVehicle(.25);keys.space=false;stepMyVehicle(.016);return info(myVeh);}
+  if(action==='across'){if(!myVeh)return null;myVeh.yaw=0;keys.w=true;for(let i=0;i<200;i++)stepMyVehicle(.25);keys.w=false;stepMyVehicle(.016);return {vehicle:info(myVeh),limit:MW*CELL-2};}
+  if(action==='weapons'){if(!myVeh)return null;state.phase='live';me.alive=true;myVeh.mode='mg';myVeh.cd=-Infinity;window.__emitted=[];vehFireGun();const mg=__emitted.filter(e=>['cs16_shoot','cs16_hit','cs16_vehhit'].includes(e.n));cycleVehWeapon();myVeh.rocketCd=-Infinity;vehFireGun();return {mg,rocket:__emitted.filter(e=>e.n==='cs16_vehicle_rocket'),mode:myVeh.mode,tracers:tracers.length};}
   if(action==='remote'){const nick='RemotePilot',pos=[P.x+12,kind==='heli'?4:0,P.z-6];__socket.receive('cs16_veh',{by:nick,kind,variant:kind,team:'ct',pos,yaw:.2,turret:.4,inside:true,hp:VEH_TYPES[kind].hp,max:VEH_TYPES[kind].hp});stepRemoteVehicles(1);return info(vehs.get(nick));}
   if(action==='snapshot')return {own:info(myVeh),remote:[...vehs.values()].map(info),errors:window.__cs16Err||0};
   throw Error('Unknown vehicle QA action');

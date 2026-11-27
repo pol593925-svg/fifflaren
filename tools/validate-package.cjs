@@ -13,6 +13,7 @@ for (const file of ['brave-shortcuts-main.js','brave-shortcuts.js','team-office.
 for (const file of ['manifest.json','content.js','popup.html']) assert(fs.readFileSync(path.join(dist,'win-unpacked/resources/brave-extension',file)).equals(fs.readFileSync(path.join(root,'brave-extension',file))));
 for(const file of ['login.js','login.css','login-vault.js','assets/login/premium-office.png']) assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),file);
 const entries=asar.listPackage(archive).map(n=>n.replace(/\\/g,'/'));
+assert(!entries.some(n=>/^\/dist(?:-|$)/.test(n)),'Current and previous build directories must not be packaged');
 assert(!entries.some(n=>/support2|models\/s2\//i.test(n)),'Removed Support2 files must not be packaged');
 assert(!entries.includes('/toolbar.html')&&!entries.includes('/quick.html'),'Pet windows must not be packaged');
 const updater=yaml.load(fs.readFileSync(path.join(dist,'win-unpacked/resources/app-update.yml'),'utf8'));

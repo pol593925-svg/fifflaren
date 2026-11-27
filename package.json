@@ -47,6 +47,7 @@
     "files": [
       "**/*",
       "!tools/**",
+      "!dist-*/**",
       "!brave-extension/**",
       "!models/csgo/textures/**",
       "!graphics-qa/**",

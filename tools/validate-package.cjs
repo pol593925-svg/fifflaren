@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('assert/strict');
 const asar=require('@electron/asar'),yaml=require('js-yaml');
-const root=path.resolve(__dirname,'..'),dist=path.join(root,'dist');
+const root=path.resolve(__dirname,'..'),dist=process.env.PACKAGE_DIST?path.resolve(root,process.env.PACKAGE_DIST):path.join(root,'dist');
 const archive=path.join(dist,'win-unpacked/resources/app.asar');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json')));
 for(const file of ['casino-art.js','assets/casino/slot-vault.png','assets/casino/symbol-atlas.png','assets/casino/race-arena.png'])assert(asar.extractFile(archive,path.normalize(file)).equals(fs.readFileSync(path.join(root,file))),'Packaged artwork differs: '+file);

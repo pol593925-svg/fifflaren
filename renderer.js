@@ -43,7 +43,7 @@ function localDateStr(d = new Date()) {
 
 // ==================== АВТОРИЗАЦИЯ ====================
 document.addEventListener("DOMContentLoaded", () => {
-  window.HubReleaseIntro?.start({version:'6.1.3'});
+  window.HubReleaseIntro?.start({version:'6.1.4'});
   HubLogin.mount({server:SERVER_API_URL,ipc:ipcRenderer,offboard:()=>HubAccess.offer(false),onAuthenticated:async data=>{
     currentUser=data.username;currentRole=data.role||'user';currentProfileToken=data.callsToken;
     HubCalls.start({username:data.username,token:data.callsToken,server:SERVER_API_URL,io,cinemaPC,radioPC,openCinemaDrink,cinemaFullscreen:on=>ipcRenderer.send('cinema-fullscreen',on),notify:payload=>ipcRenderer.send('call-notification',payload)});

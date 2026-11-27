@@ -439,11 +439,8 @@
     { id: 'hegrenade',  label: '💣 HE-граната',    price: 300 },
     { id: 'flashbang',  label: '✨ Флешка',        price: 200 },
     { id: 'smokegrenade', label: '🌫 Дымовая',     price: 300 },
-    { id: 'mine_ap',    label: '💥 Пехотные мины · 5 шт. · установка N', price: 1000 },
-    { id: 'mine_at',    label: '🛡 Противотанковые мины · 5 шт. · установка H', price: 1000 },
+    { id: 'mine_ap',    label: '💥 Пехотные мины · 5 шт. · установка N · остаются между раундами', price: 1000 },
     { id: 'defuser',    label: '🧰 Набор сапёра (CT)', price: 200 },
-    { id: 'veh_tank',   label: '🛡 Основной боевой танк · 1000 HP · 2 места', price: 3200 },
-    { id: 'veh_heli',   label: '🚁 Средний вертолёт · 600 HP · 2 места', price: 3200 },
   ];
 
   // ---------- СКИНЫ (магазин за казино-деньги) ----------
@@ -714,7 +711,7 @@
   let current = 'usp';          // текущий слот
   let ammo = {};                // weapon -> {mag, reserve}
   let nades = { he: 0, flash: 0, smoke: 0 };
-  let mineInventory = { ap: 0, at: 0 }, minesView = null, nightFlashlight = false;
+  let mineInventory = { ap: 0 }, minesView = null, nightFlashlight = false;
   let scoped = false, reloading = 0, lastShot = 0, lastFiredAt = -Infinity, bloom = 0;
   let sprayN = 0, sprayTimer = null; // 3.23.0: нарастание разброса при зажиме (спрей-паттерн)
   let freezeLeft = 0;
@@ -1371,11 +1368,11 @@
   }
   // 3.32.0: магазин по вкладкам
   let buyTab = 'rifle';
-  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['veh','🚜 Техника']];
+  const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['special','🚀 Особое']];
   function buyTabOf(it) {
-    if(it.id.startsWith('veh_')||it.id==='rpg')return 'veh';
+    if(it.id==='rpg')return 'special';
     if(it.meleeStyle)return 'gear';
-    if (['hegrenade','flashbang','smokegrenade','mine_ap','mine_at'].includes(it.id)) return 'nade';
+    if (['hegrenade','flashbang','smokegrenade','mine_ap'].includes(it.id)) return 'nade';
     if (it.id === 'kevlar' || it.id === 'defuser') return 'gear';
     if (['deagle','tec9','fiveseven','elite'].indexOf(it.id) >= 0) return 'pist';
     if (['mp5','ump45','p90','m249'].indexOf(it.id) >= 0) return 'smg';
@@ -1671,7 +1668,7 @@
     sock.on('cs16_class_selected',d=>{const p=state.players.find(p=>p.nick===myNick);if(p)p.nextClass=d.id;if(ui.buy.style.display==='block')renderBuyList();killfeed('Класс выбран · применяется при следующем возрождении');});
     sock.on('cs16_you', (y) => {
       me.goldWeapon=y.goldWeapon||null;me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
-      if(y.mines)mineInventory={ap:Math.max(0,Math.min(25,y.mines.ap|0)),at:Math.max(0,Math.min(25,y.mines.at|0))};
+      if(y.mines)mineInventory={ap:Math.max(0,Math.min(25,y.mines.ap|0))};
       if (y.weapon && y.weapon !== current && WEAPONS[y.weapon]) { primary = y.weapon; }
     });
     sock.on('cs16_err', (m) => { killfeed('⚠️ ' + esc(m)); if (ui.buy.style.display === 'block') renderBuyList(); });
@@ -1724,7 +1721,8 @@
       if((state.gm==='cq'||state.gm==='assault')&&sp?.weapon){primary=sp.weapon;current=primary;me.armor=sp.armor??100;}
       me.alive = !!me.team; me.hp = 100;
       scoped = false; reloading = 0; bloom = 0;
-      nades.he = 0; nades.flash = 0; nades.smoke = 0;mineInventory={ap:0,at:0};minesView?.sync({map:curMap,rows:[]});
+      nades.he = 0; nades.flash = 0; nades.smoke = 0;
+      // Установленные мины и их остаток переживают раунд; сервер пришлёт приватный snapshot.
       // Сброс боезапаса (все стволы)
       ammo = {};
       for (const k in WEAPONS) { const w = WEAPONS[k]; if (w.melee || w.nade) continue; ammo[k] = { mag: w.mag, reserve: w.reserve }; }
@@ -1839,7 +1837,7 @@
       if(!d||!Array.isArray(d.pos)||d.pos.length!==3||!d.pos.every(Number.isFinite))return;
       minesView?.remove(d.id);explodeFx(d.pos,'he');sfxExplosion();
       const distance=Math.hypot(P.x-d.pos[0],P.y+eyeH()-d.pos[1],P.z-d.pos[2]);
-      if(distance<42)shake=Math.max(shake,(d.kind==='at'?1.15:.85)*(1-distance/42));
+      if(distance<42)shake=Math.max(shake,.85*(1-distance/42));
     });
     sock.on('cs16_rpg_boom',d=>{
       if(!d||!Array.isArray(d.pos)||d.pos.length!==3||!d.pos.every(Number.isFinite))return;
@@ -2597,10 +2595,9 @@
     if (id === 'hegrenade') nades.he = Math.min(1, nades.he + 1);
     else if (id === 'flashbang') nades.flash = Math.min(2, nades.flash + 1);
     else if (id === 'smokegrenade') nades.smoke = Math.min(1, nades.smoke + 1);
-    else if (id === 'mine_ap' || id === 'mine_at') { const kind=id.slice(5);mineInventory[kind]=Math.min(25,mineInventory[kind]+5); }
+    else if (id === 'mine_ap') mineInventory.ap=Math.min(25,mineInventory.ap+5);
     else if (id === 'kevlar') me.armor = 100;
     else if (id === 'defuser') me.kit = true;
-    else if (id.startsWith('veh_') && ['veh_tank','veh_heli'].includes(id)) spawnMyVehicle(id.slice(4));
     else if (WEAPONS[id]) {
       if (PISTOLS[id]) secondary = id;
       else if (!WEAPONS[id].nade) primary = id;
@@ -3095,7 +3092,7 @@
       if(k==='j'&&!e.repeat){conquestUI?.open();return;}
       if(k==='z'&&!e.repeat){conquestUI?.openPing();return;}
       if(k==='l'&&!e.repeat&&state.night){nightFlashlight=!nightFlashlight;worldGraphics?.setFlashlight?.(nightFlashlight);killfeed(nightFlashlight?'🔦 Фонарь включён':'🔦 Фонарь выключен');return;}
-      if((k==='n'||k==='h')&&!e.repeat&&state.phase==='live'&&me.alive&&!myVeh?.inside&&frontSeat==null){const kind=k==='n'?'ap':'at';if(mineInventory[kind]>0){sock?.emit('cs16_mine_place',{kind});killfeed(k==='n'?'💥 Устанавливаю пехотную мину':'🛡 Устанавливаю противотанковую мину');}else killfeed('⚠️ Сначала купи комплект мин: B → Гранаты');return;}
+      if(k==='n'&&!e.repeat&&state.phase==='live'&&me.alive&&frontSeat==null){if(mineInventory.ap>0){sock?.emit('cs16_mine_place',{kind:'ap'});killfeed('💥 Устанавливаю пехотную мину');}else killfeed('⚠️ Сначала купи комплект мин: B → Гранаты');return;}
       if (k === 'b') openBuy();
       if (k === 'e' && !e.repeat) tryVehToggle();
       if (k === 'm') { sock && me.team && sock.emit('cs16_swap'); }
@@ -3144,7 +3141,7 @@
     const w = WEAPONS[current];
     const a = ammo[current];
     hudText(ui.ammo,reloading>0?'перезарядка...':w.melee ? '∞' : (a ? `${a.mag} / ${a.reserve}` : ''));
-    hudText(ui.nadeTxt,`HE ${nades.he}  FLASH ${nades.flash}  SMOKE ${nades.smoke}  ·  AP N ×${mineInventory.ap}  AT H ×${mineInventory.at}`);
+    hudText(ui.nadeTxt,`HE ${nades.he}  FLASH ${nades.flash}  SMOKE ${nades.smoke}  ·  AP N ×${mineInventory.ap}`);
     hudText(ui.weaponName,current==='knife'&&meleeStyle==='karambit'?'Керамбит':w.name);
     hudText(ui.location,MAP_META[curMap].name.toUpperCase());
     hudText(ui.bearing,CS16FieldView.bearing(P.yaw));

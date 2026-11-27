@@ -40,13 +40,19 @@ window.__qa={
   if(action==='day'||action==='night'){place();__socket.receive('cs16_state',{...state,phase:'live',night:action==='night',host:'Preview',players:[{id:'p1',nick:'Preview',team:'ct',alive:true,hp:100,money:16000,kills:0,deaths:0}]});worldGraphics.update(camera,performance.now());renderFrame();return worldGraphics.lighting();}
   if(action==='flashlight'){window.dispatchEvent(new KeyboardEvent('keydown',{key:'l',code:'KeyL'}));window.dispatchEvent(new KeyboardEvent('keyup',{key:'l',code:'KeyL'}));worldGraphics.update(camera,performance.now());renderFrame();return worldGraphics.lighting();}
   if(action==='mines'){
-   buyOk('mine_ap');buyOk('mine_at');minesView.sync({rows:[]});const d=dirFromCam(),own=[P.x+d[0]*4,P.y+.035,P.z+d[2]*4],other=[own[0]+1,own[1],own[2]];
+   buyOk('mine_ap');minesView.sync({rows:[]});const d=dirFromCam(),own=[P.x+d[0]*4,P.y+.035,P.z+d[2]*4],other=[own[0]+1,own[1],own[2]];
    __socket.receive('cs16_mine_add',{id:701,kind:'ap',pos:own,team:'ct',by:'Preview',armedAt:Date.now()});
-   __socket.receive('cs16_mine_add',{id:702,kind:'at',pos:other,team:'t',by:'Enemy',armedAt:Date.now()});
-   __socket.receive('cs16_mine_add',{id:703,kind:'at',pos:[own[0]-1,own[1],own[2]],team:'ct',by:'Preview',armedAt:Date.now()});
+   __socket.receive('cs16_mine_add',{id:702,kind:'ap',pos:other,team:'t',by:'Enemy',armedAt:Date.now()});
+   __socket.receive('cs16_mine_add',{id:703,kind:'ap',pos:[own[0]-1,own[1],own[2]],team:'ct',by:'Preview',armedAt:Date.now()});
    window.__emitted=[];window.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN'}));window.dispatchEvent(new KeyboardEvent('keyup',{key:'n',code:'KeyN'}));
+   window.dispatchEvent(new KeyboardEvent('keydown',{key:'h',code:'KeyH'}));window.dispatchEvent(new KeyboardEvent('keyup',{key:'h',code:'KeyH'}));
    camera.position.set(P.x,P.y+eyeH(),P.z);camera.rotation.set(P.pitch,P.yaw,0,'YXZ');worldGraphics.update(camera,performance.now());renderFrame();updateHud();
-   return {stats:minesView.stats(),inventory:mineInventory,packet:__emitted.at(-1),lighting:worldGraphics.lighting()};
+   return {stats:minesView.stats(),inventory:{...mineInventory},packet:__emitted.at(-1),packets:__emitted.slice(),shop:BUY_ITEMS.map(it=>it.id),tabs:BUY_TABS.map(tab=>tab[1]),lighting:worldGraphics.lighting()};
+  }
+  if(action==='round'){
+   const before={stats:{...minesView.stats()},inventory:{...mineInventory}};
+   __socket.receive('cs16_round_start',{round:state.round+1,scores:state.scores,spawns:[]});renderFrame();updateHud();
+   return {before,after:{stats:{...minesView.stats()},inventory:{...mineInventory}}};
   }
   if(action==='boom'){const row={id:701,kind:'ap',pos:[P.x-4,P.y+.035,P.z-4],by:'Preview'};__socket.receive('cs16_mine_boom',row);renderFrame();return {stats:minesView.stats(),effects:explosionView.stats(),shake};}
   throw Error('Unknown mines/night QA action');

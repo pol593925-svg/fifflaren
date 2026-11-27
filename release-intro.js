@@ -35,7 +35,7 @@
   function start(options = {}) {
     stop();
     if (!document.body || document.hidden) return false;
-    const version = typeof options.version === 'string' && /^\d+\.\d+\.\d+(?:[-.][a-zA-Z0-9]+)*$/.test(options.version) ? options.version : '6.1.3';
+    const version = typeof options.version === 'string' && /^\d+\.\d+\.\d+(?:[-.][a-zA-Z0-9]+)*$/.test(options.version) ? options.version : '6.1.4';
     let entry;
     try {
       const reduced = global.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;

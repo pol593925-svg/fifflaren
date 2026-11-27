@@ -11,9 +11,16 @@ module.exports=async(page,outputs,errors)=>{
  await page.waitForTimeout(350);await page.screenshot({path:path.join(outputs,'mines-night-flashlight.png')});
  report.mines=await page.evaluate(()=>__qa.minesNight('mines'));
  assert.equal(report.mines.stats.active,2,'only the two owner mines must be rendered');
- assert.deepEqual(report.mines.inventory,{ap:5,at:5});
+ assert.deepEqual(report.mines.inventory,{ap:5});
  assert.deepEqual(report.mines.packet,{n:'cs16_mine_place',d:{kind:'ap'}});
+ assert.equal(report.mines.packets.length,1,'H must not place a removed AT mine');
+ for(const id of ['veh_tank','veh_heli','mine_at'])assert(!report.mines.shop.includes(id),id+' must be removed from the shop');
+ assert(!report.mines.tabs.some(label=>label.includes('Техника')),'vehicle shop tab must be removed');
  await page.waitForTimeout(350);await page.screenshot({path:path.join(outputs,'mines-owner-view.png')});
+ report.round=await page.evaluate(()=>__qa.minesNight('round'));
+ assert.equal(report.round.after.stats.active,2,'deployed mines must survive a round transition');
+ assert.deepEqual(report.round.after.inventory,{ap:5},'mine inventory must survive a round transition');
+ assert.deepEqual(report.round.after.stats.ids,report.round.before.stats.ids,'the same mine models must remain');
  report.boom=await page.evaluate(()=>__qa.minesNight('boom'));
  assert.equal(report.boom.stats.active,1);assert(report.boom.effects.active>0);assert(report.boom.shake>0);
  await page.screenshot({path:path.join(outputs,'mines-detonation.png')});

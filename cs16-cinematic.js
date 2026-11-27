@@ -15,8 +15,8 @@
     float viewDepth(float z){return (cameraNear*cameraFar)/((cameraFar-cameraNear)*z-cameraFar);}
     vec3 viewPosition(vec2 uv,float d){vec4 p=inverseProjection*vec4(uv*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}`;
   const aoMaterial=new T.ShaderMaterial({name:'Half-resolution contact shadows',depthTest:false,depthWrite:false,toneMapped:false,vertexShader:vertex,
-   uniforms:{...depthUniforms,radius:{value:.7},strength:{value:.42}},fragmentShader:`
-    varying vec2 vUv;${reconstruct}uniform float radius,strength;
+   uniforms:{...depthUniforms,radius:{value:.7},strength:{value:.42},sampleCount:{value:12}},fragmentShader:`
+    varying vec2 vUv;${reconstruct}uniform float radius,strength,sampleCount;
     float random(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
     void main(){
       float d=texture2D(depthMap,vUv).x;
@@ -34,14 +34,15 @@
       // World-space radius: hands have a smaller contact distance than architecture.
       float r=min(radius,max(.025,-p.z*.10));
       vec2 screenRadius=vec2(r/(max(.05,-p.z)*inverseProjection[0][0]),r/(max(.05,-p.z)*inverseProjection[1][1]))*.5;
-      for(int i=0;i<12;i++){
-        float t=(float(i)+.5)/12.,a=angle+float(i)*2.399963;
+      for(int i=0;i<24;i++){
+        if(float(i)>=sampleCount)break;
+        float t=(float(i)+.5)/sampleCount,a=angle+float(i)*2.399963;
         vec2 uv=vUv+vec2(cos(a),sin(a))*screenRadius*sqrt(t);
         vec3 q=viewPosition(uv,texture2D(depthMap,uv).x),v=q-p;
         float len=length(v),facing=max(0.,dot(n,v/max(len,.00001))-.13);
         occ+=facing*(1.-smoothstep(r*.3,r*1.6,len));
       }
-      float ao=clamp(1.-occ*(strength/3.),.57,1.);
+      float ao=clamp(1.-occ*(strength*12./sampleCount/3.),.57,1.);
       gl_FragColor=vec4(vec3(ao),1.);
     }`});
   const bloomMaterial=new T.ShaderMaterial({name:'Restrained highlights',depthTest:false,depthWrite:false,toneMapped:false,vertexShader:vertex,
@@ -53,11 +54,11 @@
       gl_FragColor=vec4(c,1.);
     }`});
   const compose=new T.ShaderMaterial({name:'Illustrated final color',depthTest:true,depthWrite:true,depthFunc:T.AlwaysDepth,extensions:{fragDepth:true},toneMapped:true,vertexShader:vertex,
-   uniforms:{...depthUniforms,source:{value:target.texture},contact:{value:aoTarget.texture},bloomMap:{value:bloomTarget.texture},aoPixel:{value:new T.Vector2()},bloomPixel:{value:new T.Vector2()},bloomStrength:{value:.12}},fragmentShader:`
+   uniforms:{...depthUniforms,source:{value:target.texture},contact:{value:aoTarget.texture},bloomMap:{value:bloomTarget.texture},aoPixel:{value:new T.Vector2()},bloomPixel:{value:new T.Vector2()},bloomStrength:{value:.12},nightGrade:{value:0}},fragmentShader:`
     varying vec2 vUv;${reconstruct}
     #include <common>
     #include <dithering_pars_fragment>
-    uniform sampler2D source,contact,bloomMap;uniform vec2 aoPixel,bloomPixel;uniform float bloomStrength;
+    uniform sampler2D source,contact,bloomMap;uniform vec2 aoPixel,bloomPixel;uniform float bloomStrength,nightGrade;
     void main(){
       vec3 color=texture2D(source,vUv).rgb;
       float d=texture2D(depthMap,vUv).x,z=viewDepth(d),ao=0.,weight=0.;
@@ -70,6 +71,8 @@
         ao+=texture2D(contact,uv).r*w;weight+=w;
       }}
       ao=ao/max(weight,.0001);color*=mix(vec3(.97,.985,1.),vec3(1.),ao)*ao;
+      color=mix(color,color*vec3(.88,.96,1.10)+vec3(.002,.004,.010),nightGrade);
+      color*=1.-nightGrade*.12*smoothstep(.25,.78,length(vUv-.5));
       vec3 glow=texture2D(bloomMap,vUv).rgb*.2;
       for(int i=0;i<8;i++){float a=float(i)*.78539816;glow+=texture2D(bloomMap,vUv+vec2(cos(a),sin(a))*bloomPixel*3.).rgb*.1;}
       color+=glow*bloomStrength;
@@ -99,14 +102,14 @@
    if(!enabled||renderer.userData.cs16Quality==='low'||!renderer.capabilities.isWebGL2){releaseTargets();renderer.render(scene,camera);return;}
    resize();depthUniforms.inverseProjection.value.copy(camera.projectionMatrixInverse);depthUniforms.cameraNear.value=camera.near;depthUniforms.cameraFar.value=camera.far;
    const saved=renderer.getRenderTarget(),auto=renderer.info.autoReset;renderer.info.autoReset=false;renderer.info.reset();
-   const high=renderer.userData.cs16Quality==='high',samples=high?4:2;if(target.samples!==samples)target.samples=samples;aoMaterial.uniforms.strength.value=high?.60:.38;aoMaterial.uniforms.radius.value=high?.82:.65;compose.uniforms.bloomStrength.value=high?.10:.06;
+   const high=renderer.userData.cs16Quality==='high',samples=high?4:2;if(target.samples!==samples)target.samples=samples;aoMaterial.uniforms.sampleCount.value=high?24:12;aoMaterial.uniforms.strength.value=high?.60:.38;aoMaterial.uniforms.radius.value=high?.82:.65;compose.uniforms.bloomStrength.value=high?.10:.06;
    try{
     renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,camera);
     quad.material=aoMaterial;renderer.setRenderTarget(aoTarget);renderer.render(quadScene,quadCamera);
     quad.material=bloomMaterial;renderer.setRenderTarget(bloomTarget);renderer.render(quadScene,quadCamera);
     quad.material=compose;renderer.setRenderTarget(saved);renderer.render(quadScene,quadCamera);
    }finally{renderer.setRenderTarget(saved);renderer.info.autoReset=auto;}
-  },setEnabled(value){enabled=!!value;},dispose(){if(disposed)return;disposed=true;target.dispose();target.depthTexture.dispose();aoTarget.dispose();bloomTarget.dispose();aoMaterial.dispose();bloomMaterial.dispose();compose.dispose();geometry.dispose();},info:()=>({width,height,hdr,passes:4})};
+  },setEnabled(value){enabled=!!value;},setNight(value){compose.uniforms.nightGrade.value=value?1:0;},dispose(){if(disposed)return;disposed=true;target.dispose();target.depthTexture.dispose();aoTarget.dispose();bloomTarget.dispose();aoMaterial.dispose();bloomMaterial.dispose();compose.dispose();geometry.dispose();},info:()=>({width,height,hdr,passes:4})};
  }
  g.CS16Cinematic={create};
 })(window);

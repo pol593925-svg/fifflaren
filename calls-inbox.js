@@ -19,7 +19,9 @@
  function card(row,editable){
   const article=node('article',undefined,'call-entry'),head=node('div',undefined,'call-entry-heading'),title=node('strong',row.service||row.kind||'Колл');
   article.dataset.callId=row.id;
-  const author=node('div',undefined,'call-author'),authorText=node('span',row.user||'Пользователь');author.append(avatarFor(row),authorText);article.append(author);
+  const author=node('div',undefined,'call-author'),authorText=node(editable?'button':'span',row.user||'Пользователь');
+  if(editable){authorText.type='button';authorText.className='call-author-name';authorText.title='Открыть ханты сотрудника';authorText.onclick=()=>window.HubHunts?.openTeam(row.user);}
+  author.append(avatarFor(row),authorText);article.append(author);
   const status=statusNames[row.status]?row.status:'pending',badge=node('span',statusNames[status],'call-badge call-'+status);head.append(title,badge);article.append(head);
   if(row.requestType==='network'){article.classList.add('call-network-request');article.append(node('span','Заявка по сети','desk-request-label'));}
   if(row.requestType==='logs'){article.classList.add('call-log-request');article.append(node('span','Количество: '+Number(row.quantity).toLocaleString('ru'),'desk-request-label'));}
@@ -83,7 +85,7 @@
  function start(config){
   clearInterval(timer);sequence++;seen.clear();authors.clear();savedAvatars.clear();options=null;rows=[];el('callsList').replaceChildren();el('callsCount').textContent='0';el('callsStatus').textContent='';
   owner=String(config.username).toLowerCase()==='fifflaren';canReview=owner;el('callsTabBtn').style.display=canReview?'':'none';
-  options=config;HubWork.start(config);window.HubOffice?.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden){if(el('tab-shift').style.display!=='none')loadMine().catch(()=>{});window.HubTeamCalls?.refreshAccess();}checkDigest();},20000);el('callsDate').value=clock().day;
+  options=config;HubWork.start(config);window.HubOffice?.start(config);HubAccess.start(config);HubRadio.start(config);logs=[];renderLogs();loadLogs();personal=[];mineSeq++;setupMine();window.HubHunts?.start(config,{api,canReview:()=>canReview});el('myCallsList').replaceChildren();loadMine().catch(()=>{});timer=setInterval(()=>{if(!document.hidden){if(el('tab-shift').style.display!=='none')loadMine().catch(()=>{});window.HubTeamCalls?.refreshAccess();}checkDigest();},20000);el('callsDate').value=clock().day;
   el('callsRefresh').onclick=()=>load().catch(()=>{});el('callsDate').onchange=()=>load().catch(()=>{});
   el('callsCopy').onclick=async()=>{try{await navigator.clipboard.writeText(rows.map(r=>[r.service||r.kind,r.link,r.user].join(' — ')).join('\n'));el('callsStatus').textContent='Список скопирован';}catch{el('callsStatus').textContent='Не удалось скопировать список';}};
   window.HubTeamCalls?.start(config,{access:setReviewAccess,accessError:error=>{if(!canReview)el('callsStatus').textContent=error.message;}});

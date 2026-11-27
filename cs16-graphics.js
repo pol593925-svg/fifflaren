@@ -5,7 +5,7 @@
   const QUALITY = Object.freeze({
     low: { dpr: 0.78, shadow: 512, anisotropy: 2, lamps: 1 },
     balanced: { dpr: 1, shadow: 1024, anisotropy: 4, lamps: 3 },
-    high: { dpr: 1.5, shadow: 2048, anisotropy: 8, lamps: 4 },
+    high: { dpr: 2, shadow: 4096, anisotropy: 16, lamps: 4 },
   });
   const ASSETS = 'models/csgo/';
   let operatorPromise = null;
@@ -44,7 +44,7 @@
     renderer.setPixelRatio(Math.min(global.devicePixelRatio || 1, quality.dpr));
     renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.07;
     renderer.shadowMap.enabled = name !== 'low';
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.userData = renderer.userData || {};
@@ -137,6 +137,8 @@
         zenith: { value: new T.Color(inferno ? '#226bb8' : '#176fbe') },
         horizon: { value: new T.Color(inferno ? '#c7deeb' : '#beddea') },
         ground: { value: new T.Color(inferno ? '#888780' : '#899087') },
+        night: { value: 0 },
+        moonDirection: { value: new T.Vector3(-.38,.72,.58).normalize() },
       },
       vertexShader: [
         'varying vec3 vSkyDirection;',
@@ -151,6 +153,8 @@
         'uniform vec3 zenith;',
         'uniform vec3 horizon;',
         'uniform vec3 ground;',
+        'uniform float night;',
+        'uniform vec3 moonDirection;',
         'varying vec3 vSkyDirection;',
         'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
         'float noise(vec2 p) {',
@@ -166,6 +170,21 @@
         '  vec3 d=normalize(vSkyDirection);',
         '  float altitude=max(d.y,0.0);',
         '  float alignment=max(dot(d,sunDirection),0.0);',
+        '  if(night>.5){',
+        '    float moonDot=max(dot(d,moonDirection),0.);',
+        '    vec3 nightColor=mix(vec3(.055,.082,.14),vec3(.004,.010,.032),pow(altitude,.32));',
+        '    nightColor=mix(vec3(.018,.023,.034),nightColor,smoothstep(-.12,.025,d.y));',
+        '    vec2 starCell=floor(d.xz/max(.055,d.y+.32)*230.);',
+        '    float star=step(.992,hash(starCell))*smoothstep(.03,.26,d.y);',
+        '    float twinkle=.55+.45*hash(starCell+17.3);',
+        '    nightColor+=vec3(.66,.78,1.)*star*twinkle*.72;',
+        '    nightColor+=vec3(.32,.40,.62)*pow(moonDot,18.)*.22;',
+        '    nightColor+=vec3(1.65,1.78,1.9)*smoothstep(.99935,.99965,moonDot);',
+        '    gl_FragColor=vec4(nightColor,1.);',
+        '    #include <tonemapping_fragment>',
+        '    #include <colorspace_fragment>',
+        '    return;',
+        '  }',
         '  vec3 color=mix(horizon,zenith,pow(altitude,0.23));',
         '  color=mix(ground,color,smoothstep(-0.14,0.025,d.y));',
         '  color+=vec3(.38,.24,.10)*pow(alignment,12.0);',
@@ -204,7 +223,7 @@
     const mapName = ['inferno','frontline'].includes(options.map)?options.map:'dust2';
     let quality = qualityOf(renderer.userData && renderer.userData.cs16Quality);
     let disposed = false, model = null, environmentTarget = null, skyTexture = null, nature = null, landscape = null, realisticWorld = null, bakedBuildings = false;
-    let lampsTick = -Infinity;
+    let lampsTick = -Infinity, night = false, flashlightEnabled = false;
     const CELL = options.CELL || 4;
     const group = new T.Group();
     group.name = 'CS16 Blender world: ' + mapName;
@@ -221,9 +240,9 @@
     scene.background = null;
     scene.fog = new T.Fog(0xb9c7ce, 145, 600);
 
-    const hemisphere = new T.HemisphereLight(0xdce8f2, 0x77736b, .62);
+    const hemisphere = new T.HemisphereLight(0xdce8f2, 0x77736b, .52);
     group.add(hemisphere);
-    const sun = new T.DirectionalLight(0xfff4e2, 3.0);
+    const sun = new T.DirectionalLight(0xfff4e2, 3.25);
     sun.name = 'CS16 sun';
     sun.castShadow = true;
     sun.shadow.mapSize.set(quality.shadow, quality.shadow);
@@ -234,6 +253,20 @@
     sun.shadow.normalBias = 0.045;
     sun.shadow.radius = 3;
     group.add(sun, sun.target);
+    const flashlight = new T.SpotLight(0xdce9ff, 0, 72, .37, .62, 1.35);
+    flashlight.name = 'Player night flashlight';flashlight.position.set(.12,-.08,-.72);flashlight.target.position.set(0,-.08,-12);
+    flashlight.castShadow=false;camera.add(flashlight,flashlight.target);
+
+    function applyNight(){
+      sky.mesh.material.uniforms.night.value=night?1:0;
+      sky.mesh.visible=night||!skyTexture;
+      scene.background=!night&&skyTexture?skyTexture:null;scene.backgroundIntensity=.70;
+      if(environmentTarget){scene.environment=environmentTarget.texture;scene.environmentIntensity=night?.18:1;}
+      hemisphere.color.setHex(night?0x7892bd:0xdce8f2);hemisphere.groundColor.setHex(night?0x171b24:0x77736b);hemisphere.intensity=night?.30:.52;
+      sun.color.setHex(night?0x9db9e8:0xfff4e2);sun.intensity=night?.48:3.25;sun.name=night?'CS16 moon':'CS16 sun';
+      scene.fog.color.setHex(night?0x0a1220:0xb9c7ce);scene.fog.near=night?65:145;scene.fog.far=night?360:600;
+      renderer.toneMappingExposure=night?.88:1.07;flashlight.intensity=night&&flashlightEnabled?68:0;lampsTick=-Infinity;
+    }
 
     // Actual CC0 pure-sky capture supplies background and physically coherent
     // rough reflections. The street and buildings remain navigable 3D geometry.
@@ -242,8 +275,7 @@
       skyTexture=texture;texture.mapping=T.EquirectangularReflectionMapping;
       const pmrem=new T.PMREMGenerator(renderer);
       try{environmentTarget=pmrem.fromEquirectangular(texture);}finally{pmrem.dispose();}
-      scene.background=texture;scene.backgroundIntensity=.70;
-      scene.environment=environmentTarget.texture;sky.mesh.visible=false;
+      scene.environment=environmentTarget.texture;applyNight();
     });
 
     // Four lights are a fixed shader budget, independent of tunnel length.
@@ -306,7 +338,7 @@
         light.position.set(lamp.x, lamp.y, lamp.z);
         light.color.setHex(lamp.color);
         light.distance = lamp.distance;
-        light.intensity = lamp.power;
+        light.intensity = lamp.power*(night?1.4:1);
       });
     }
 
@@ -349,8 +381,11 @@
       if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
       if (model) prepareMeshes(T, model, renderer, quality);
       lampsTick = -Infinity;
-      sun.shadow.needsUpdate = true;
+      sun.shadow.needsUpdate = true;applyNight();
     }
+    function setNight(value){night=!!value;applyNight();}
+    function setFlashlight(value){flashlightEnabled=!!value;applyNight();}
+    function lighting(){return {night,flashlight:flashlightEnabled,skyVisible:sky.mesh.visible,moonIntensity:sun.intensity,exposure:renderer.toneMappingExposure,fog:[scene.fog.near,scene.fog.far]};}
 
     function dispose() {
       if (disposed) return;
@@ -368,12 +403,13 @@
         environmentTarget = null;
       }
       if(skyTexture){if(scene.background===skyTexture)scene.background=null;skyTexture.dispose();skyTexture=null;}
+      flashlight.removeFromParent();flashlight.target.removeFromParent();flashlight.dispose();
       if (group.parent) group.parent.remove(group);
       group.clear();
     }
 
     update(camera, 0);
-    return { ready, update, dispose, setQuality, bakedArchitecture:()=>bakedBuildings, groundSurface:(x,z)=>landscape?.groundSurface(x,z)||'stone', nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
+    return { ready, update, dispose, setQuality, setNight, setFlashlight, lighting, bakedArchitecture:()=>bakedBuildings, groundSurface:(x,z)=>landscape?.groundSurface(x,z)||'stone', nature:()=>nature, surface(name){let found=null;model?.traverse(o=>{for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m?.name===name)found=m;});return found;} };
   }
 
   const exteriorFiles = Object.freeze({ct:'classic-ct-bamen.glb',t:'classic-t-danly.glb'});

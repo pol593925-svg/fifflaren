@@ -23,7 +23,7 @@
   function shot(id,age){
     const kind=family(id),a=Math.max(0,age),pistol=kind==='pistol',boltAction=kind==='bolt';
     const cycle=boltAction?smooth((a-.12)/.11)*(1-smooth((a-.34)/.20)):smooth(a/.012)*(1-smooth((a-.026)/.065));
-    return {cycle,trigger:(1-smooth(a/.105))*.14,flashSize:boltAction?.30:pistol?.17:kind==='box'?.25:.22,flashLife:boltAction?78:pistol?60:48};
+    return {cycle,trigger:(1-smooth(a/.105))*.14,flashSize:kind==='launcher'?.48:boltAction?.30:pistol?.17:kind==='box'?.25:.22,flashLife:kind==='launcher'?95:boltAction?78:pistol?60:48};
   }
   function pose(id, progress, shotAge, inspect = 0) {
     const kind = family(id),

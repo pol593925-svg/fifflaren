@@ -1,0 +1,28 @@
+.hunts-panel{margin-top:18px;padding-top:18px;border-top:1px solid var(--hub-line)}
+.hunts-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.hunts-header h3{margin:0!important}
+.hunts-count{flex:none;padding:4px 8px;border:1px solid var(--hub-line);border-radius:12px;background:var(--hub-raised);color:var(--hub-muted);font-size:10px;font-variant-numeric:tabular-nums}
+.hunts-form{display:grid;gap:7px}
+.hunts-form input,.hunts-form textarea{width:100%;box-sizing:border-box;margin:0;padding:9px 11px;border:1px solid var(--hub-line);background:var(--hub-field);color:var(--hub-text);font:11px/1.45 'Segoe UI',sans-serif;resize:vertical}
+.hunts-form input{min-height:36px}
+.hunt-add{min-height:35px;padding:8px 12px;border:1px solid var(--desk-blue);border-radius:10px;background:var(--desk-blue);color:#fff;font-size:11px;font-weight:600;cursor:pointer}
+.hunt-limit,.hunt-status{margin:7px 0 0;color:var(--hub-muted);font-size:9px;line-height:1.5}
+.hunt-status:empty{display:none}
+.hunts-list{display:grid;gap:8px;margin-top:10px}
+#myHuntsList{max-height:270px;overflow:auto;padding-right:2px}
+.hunt-entry{min-width:0;padding:10px 11px;border:1px solid var(--hub-line);border-radius:11px;background:var(--hub-field)}
+.hunt-entry-head{display:flex;align-items:flex-start;gap:7px}
+.hunt-link{display:block;min-width:0;flex:1;color:var(--hub-accent);font-size:10px;line-height:1.45;overflow-wrap:anywhere;word-break:break-word}
+.hunt-link.disabled{pointer-events:none;color:var(--hub-muted)}
+.hunt-note{margin:5px 0 0;color:var(--hub-text);font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.hunt-remove{flex:none;width:25px;height:25px;padding:0;border:1px solid var(--hub-line);border-radius:8px;background:var(--hub-raised);color:var(--hub-muted);font-size:16px;line-height:1;cursor:pointer}
+.hunt-empty{margin:5px 0;color:var(--hub-muted);font-size:11px;line-height:1.6}
+.call-author-name{min-width:0;padding:2px 5px;border:0;border-radius:6px;background:transparent;color:var(--hub-accent);font:inherit;font-weight:650;text-align:left;overflow-wrap:anywhere;cursor:pointer}
+.call-author-name:hover,.call-author-name:focus-visible{background:var(--hub-soft);text-decoration:underline;outline-offset:2px}
+.team-hunts-dialog{width:min(650px,calc(100vw - 32px))!important}
+.team-hunts-dialog>.desk-close{float:right}
+.team-hunts-list{max-height:55vh;overflow:auto;padding-right:3px}
+.team-hunts-list .hunt-entry{padding:13px}
+.team-hunts-list .hunt-link{font-size:12px}
+.team-hunts-list .hunt-note{font-size:12px}
+@media(max-width:700px){#myHuntsList{max-height:220px}.team-hunts-dialog{padding:20px!important}.team-hunts-dialog h2{font-size:20px!important}}

@@ -407,6 +407,7 @@
     sg552:  { name: 'SG-552',     dmg: 33, rpm: 666, mag: 30, reserve: 90,  reload: 2.4, spread: 1.7, auto: true,  price: 3500, team: 't', scope: true, spreadScoped: 0.15, move: 0.94 },
     aug:  { name: 'AUG',        dmg: 33, rpm: 666, mag: 30, reserve: 90,  reload: 2.4, spread: 1.6, auto: true,  price: 3500, team: 'ct', scope: true, spreadScoped: 0.15, move: 0.94 },
     m249:  { name: 'M249',       dmg: 31, rpm: 750, mag: 100, reserve: 200, reload: 4.5, spread: 2.4, auto: true, price: 5200, move: 0.78 },
+    rpg:   { name: 'РПГ · противотехнический', dmg: 140, rpm: 15, mag: 1, reserve: 3, reload: 3.6, spread: 0, auto: false, price: 4000, move: 0.72, rocket: true },
     fiveseven:  { name: 'Five-Seven', dmg: 25, rpm: 400, mag: 20, reserve: 100, reload: 2.0, spread: 1.4, auto: false, price: 500, team: 'ct', move: 1.08 },
     tec9:  { name: 'Tec-9',      dmg: 24, rpm: 500, mag: 24, reserve: 120, reload: 2.0, spread: 1.6, auto: false, price: 500, team: 't', move: 1.08 },
     elite:  { name: 'Dual Elites', dmg: 26, rpm: 750, mag: 30, reserve: 120, reload: 2.6, spread: 1.7, auto: false, price: 800, move: 1.06 },
@@ -434,9 +435,12 @@
     { id: 'scout',      label: '🎯 Scout',         price: 1700 },
     { id: 'awp',        label: '🎯 AWP',           price: 4750 },
     { id: 'm249',       label: '🔫 M249',          price: 5200 },
+    { id: 'rpg',        label: '🚀 РПГ · 4 ракеты · уничтожает технику с 1 попадания', price: 4000 },
     { id: 'hegrenade',  label: '💣 HE-граната',    price: 300 },
     { id: 'flashbang',  label: '✨ Флешка',        price: 200 },
     { id: 'smokegrenade', label: '🌫 Дымовая',     price: 300 },
+    { id: 'mine_ap',    label: '💥 Пехотные мины · 5 шт. · установка N', price: 1000 },
+    { id: 'mine_at',    label: '🛡 Противотанковые мины · 5 шт. · установка H', price: 1000 },
     { id: 'defuser',    label: '🧰 Набор сапёра (CT)', price: 200 },
     { id: 'veh_tank',   label: '🛡 Основной боевой танк · 1000 HP · 2 места', price: 3200 },
     { id: 'veh_heli',   label: '🚁 Средний вертолёт · 600 HP · 2 места', price: 3200 },
@@ -710,6 +714,7 @@
   let current = 'usp';          // текущий слот
   let ammo = {};                // weapon -> {mag, reserve}
   let nades = { he: 0, flash: 0, smoke: 0 };
+  let mineInventory = { ap: 0, at: 0 }, minesView = null, nightFlashlight = false;
   let scoped = false, reloading = 0, lastShot = 0, lastFiredAt = -Infinity, bloom = 0;
   let sprayN = 0, sprayTimer = null; // 3.23.0: нарастание разброса при зажиме (спрей-паттерн)
   let freezeLeft = 0;
@@ -854,7 +859,7 @@
     skinTexCache[id] = t;
     return t;
   }
-  let heatScope=null,missileView=null,frontView=null,frontNet={epoch:-1,ids:new Set(),rows:[],map:null},frontSeat=null,frontRocket=false,lastFrontControl=0;
+  let heatScope=null,missileView=null,explosionView=null,frontView=null,frontNet={epoch:-1,ids:new Set(),rows:[],map:null},frontSeat=null,frontRocket=false,lastFrontControl=0;
   const frontPilots=new Map();let preparedArmy=-1,preparingArmy=-1,ownedStrike=false,radarDirty=false,lastArmyRadar=0;
   function prepareArmy(){
     if(!sock?.connected||!worldReady||!frontView||!frontNet.army||frontNet.map!==curMap||frontNet.rows?.length!==100||preparedArmy===frontNet.epoch||preparingArmy===frontNet.epoch)return;
@@ -892,6 +897,7 @@
       }
       const pets=[];for(const id of Object.keys(CS16Magic.pets)){const pet=CS16Graphics.createPet(id);if(pet){pets.push(pet);preview.add(pet);}}
       for(const id of Object.keys(glbCache)){const gun=buildGun(id,'',['m4a1','karambit'].includes(id)?1.8:1,false,'knife');if(gun.userData.karambit?.attackHand)gun.userData.karambit.attackHand.visible=true;guns.push(gun);preview.add(gun);}
+      const rpgGun=buildGun('rpg','',1.8);guns.push(rpgGun);preview.add(rpgGun);
       const worldGun=buildGun('m4a1','',1,true);guns.push(worldGun);preview.add(worldGun);
       const muzzle=new THREE.Sprite(muzzleMaterial());preview.add(muzzle,optical.root);preview.traverse(o=>{if(o.isMesh||o.isSprite)o.frustumCulled=false;});
       // Compile every variant, then upload representative effects and the full arsenal.
@@ -946,11 +952,12 @@
     graphicsQuality=value;if(worldGraphics)worldGraphics.setQuality(value);fieldProps?.setQuality(value);resize3();
     if(ui.quality){const option=[...ui.quality.options].find(o=>o.value==='auto');if(option)option.textContent='Авто · '+({low:'экономно',balanced:'баланс',high:'высоко'}[value]);}
   }
-  const adaptive=CS16AdaptiveQuality.create({mode:qualityMode,quality:graphicsQuality,maxQuality:modestHardware?'low':'balanced',apply:applyQuality});
+  // Auto may reach the full preset on ordinary PCs, but still steps down under sustained load.
+  const adaptive=CS16AdaptiveQuality.create({mode:qualityMode,quality:graphicsQuality,maxQuality:modestHardware?'low':'high',apply:applyQuality});
   function clearFieldPresentation(){environmentView?.dispose();fieldEffects?.dispose();hitFeedback?.dispose();battleAudio?.dispose();environmentView=fieldEffects=hitFeedback=battleAudio=null;adaptive.reset();}
 
   function initScene() {
-    renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: !modestHardware, powerPreference:'low-power' });
+    renderer3 = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: !modestHardware, powerPreference:'high-performance' });
     canvasEl.addEventListener('webglcontextlost',event=>{event.preventDefault();if(royaleActive){HubRoyale.close();}worldReady=false;loadScreen?.progress(0,'error','Восстанавливаем видеодрайвер…');resetBlindness();if(myVeh?.inside)exitVehicle();releaseLostGraphics();ui.loading.style.display='flex';ui.loadingText.textContent='Видеодрайвер сбросил графику. Восстанавливаем… Если ожидание затянулось, нажми «Повторить».';ui.loadingRetry.hidden=false;});
     canvasEl.addEventListener('webglcontextrestored',()=>{graphicsQuality='low';qualityMode='low';adaptive.setMode('low');try{localStorage.setItem('cs16-graphics-quality','low');}catch{}if(ui.quality)ui.quality.value='low';CS16Graphics.configureRenderer(renderer3,{quality:'low'});rebuildWorld(curMap);});
     CS16Graphics.configureRenderer(renderer3, { quality: graphicsQuality });
@@ -960,7 +967,7 @@
   function releaseLostGraphics(){heatScope?.dispose();heatScope=null;if(ui.thermalLens)ui.thermalLens.style.display='none';fieldOptical?.dispose();fieldOptical=null;fieldAim=false;fieldAimMix=0;
     cinematic?.dispose();cinematic=null;
     worldLoadEpoch++;
-    frontView?.dispose();frontView=null;missileView?.dispose();missileView=null;
+    frontView?.dispose();frontView=null;missileView?.dispose();missileView=null;explosionView?.dispose();explosionView=null;minesView?.dispose();minesView=null;
     clearFieldPresentation();
     remotesClear();if(magicView){magicView.dispose();magicView=null;}clearShotEffects();removeBombMesh();
     if(vm){disposeGun(vm);camera.remove(vm);vm=null;vmWeapon='';}
@@ -997,15 +1004,16 @@
       if(buildingGraphics){buildingGraphics.dispose();buildingGraphics=null;}
     if(fieldProps){fieldProps.dispose();fieldProps=null;}
       if(worldGraphics){worldGraphics.dispose();worldGraphics=null;}
-      if(magicView){magicView.dispose();magicView=null;}scene = new THREE.Scene(); scene.add(camera);
+      if(magicView){magicView.dispose();magicView=null;}explosionView?.dispose();explosionView=null;scene = new THREE.Scene(); scene.add(camera);
       magicView=CS16MagicView.create({T:THREE,scene,hud:ui.hud,getState:()=>state,getNick:()=>myNick,getPlayer:()=>({...P,inVehicle:!!myVeh?.inside}),getRemotes:()=>remotes,getQuality:()=>graphicsQuality,constrain:companionPosition,now:()=>Date.now()+clockOffset});magicView.set(magicStatus);
-      if (!window.CS16Props || !window.CS16ConquestUI) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
-      missileView?.dispose();missileView=CS16MissileView.create(THREE,scene,ui.hud);
+      if (!window.CS16Props || !window.CS16ConquestUI || !window.CS16ExplosionView) throw new Error('Модули игры не загружены. Перезапусти приложение после обновления.');
+      missileView?.dispose();missileView=CS16MissileView.create(THREE,scene,ui.hud);explosionView=CS16ExplosionView.create(THREE,scene);
+      minesView?.dispose();minesView=window.CS16MinesView?.create(THREE,scene)||null;
       frontView?.dispose();frontView=null;
       active = CS16Graphics.createWorld({ THREE, renderer: renderer3, scene, camera,
         map: curMap, grid, CELL, TUN_FLOOR, TUN_CEIL, VENT_CEIL, quality: graphicsQuality,
         onProgress: event => {if(event.total)progress('map',Math.min(.96,event.loaded/event.total*.96));} });
-      worldGraphics = active;
+      worldGraphics = active;active.setNight?.(!!state.night);active.setFlashlight?.(nightFlashlight);cinematic?.setNight?.(!!state.night);
       // Attach rejection handling before any synchronous scene construction can fail.
       const assets = Promise.all([active.ready.then(() => progress('map',1)), loadCombatArt(value=>progress('models',value))]);
       assets.catch(() => {});
@@ -1213,7 +1221,10 @@
   }
   function sfxShot(w,pos=[P.x,P.y+eyeH(),P.z]){
     if(w==='knife')sfxNoise(.08,2400,.12,'highpass');
-    else spatialAudio()?.shot(w,pos);
+    else if(w==='rpg'){
+      spatialAudio()?.shot('awp',pos,1.18);
+      if(Math.hypot(pos[0]-P.x,pos[1]-P.y-eyeH(),pos[2]-P.z)<25)sfxNoise(.28,180,.34);
+    }else spatialAudio()?.shot(w,pos);
   }
   function surfaceImpact(origin,dir,hit){
     const point=origin.map((v,i)=>v+dir[i]*hit.t);
@@ -1362,9 +1373,9 @@
   let buyTab = 'rifle';
   const BUY_TABS = [['all','Всё'],['pist','🔫 Пистолеты'],['smg','💥 Пулемёты'],['rifle','🎯 Винтовки'],['snip','🔭 Снайперские'],['nade','💣 Гранаты'],['gear','🎒 Снаряжение'],['veh','🚜 Техника']];
   function buyTabOf(it) {
-    if(it.id.startsWith('veh_'))return 'veh';
+    if(it.id.startsWith('veh_')||it.id==='rpg')return 'veh';
     if(it.meleeStyle)return 'gear';
-    if (it.id === 'hegrenade' || it.id === 'flashbang' || it.id === 'smokegrenade') return 'nade';
+    if (['hegrenade','flashbang','smokegrenade','mine_ap','mine_at'].includes(it.id)) return 'nade';
     if (it.id === 'kevlar' || it.id === 'defuser') return 'gear';
     if (['deagle','tec9','fiveseven','elite'].indexOf(it.id) >= 0) return 'pist';
     if (['mp5','ump45','p90','m249'].indexOf(it.id) >= 0) return 'smg';
@@ -1540,6 +1551,7 @@
             <button class="cs16MapBtn" data-m="dust2" style="padding:3px 10px; cursor:pointer; background:${(!state.map || state.map === 'dust2') ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_dust2</button>
             <button class="cs16MapBtn" data-m="inferno" style="padding:3px 10px; cursor:pointer; background:${state.map === 'inferno' ? '#8a6b3a' : '#333'}; color:#fff; border:1px solid #555;">de_inferno</button>
           </span>
+          <span>Освещение: <button id="cs16NightBtn" ${state.host!==myNick||inMatch?'disabled':''} style="padding:4px 12px;cursor:pointer;background:${state.night?'#172d52':'#6b5424'};color:#fff;border:1px solid #789;">${state.night?'🌙 Ночной бой':'☀ Дневной бой'}</button></span>
           <span class="cs16-round-format">5×5 · раунды · C4 · до 16 побед</span>
           <span class="cs16-bot-controls">Боты:
             <button id="cs16BotAdd" style="padding:3px 10px; cursor:pointer; background:#2d4a22; color:#dfffcf; border:1px solid #4a8a3a;">+ Добавить</button>
@@ -1580,7 +1592,7 @@
         ${isFiff ? `<div class="cs16-adminHint">Управление комнатой: назначай хоста или исключай игроков, в том числе без команды.</div>` : ''}
         <div style="margin-top:10px; font:12px monospace; color:#888; line-height:1.7;">
           Управление: WASD — движение · Shift — тихий шаг · Ctrl — присесть · Пробел — прыжок · ЛКМ — огонь · ПКМ — коллиматор; у AWP/Scout — включить/выключить зум · X — увеличение или режим очереди · I — осмотр оружия · C — способность героя · V — способность питомца · E у двери — открыть или закрыть ·
-          R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить
+          R — перезарядка · B — магазин (1-9 — быстрая покупка) · G — HE · F — флешка · T — дым · N/H — пехотная/противотанковая мина · L — фонарь ночью · 1/2/3 — основное/пистолет/нож · 4 — следующий ствол · <b style="color:#ffd76a;">E — закладка/разминирование C4</b> · <b style="color:#7ec2ff;">M — смена команды</b> · после смерти — пробел: переключать за кем следить
         </div>
       </div>`;
     characterChoices(ui.lobby.firstElementChild);
@@ -1589,6 +1601,7 @@
     if (jc) jc.onclick = () => sock && sock.emit('cs16_team', 'ct');
     document.querySelectorAll('.cs16ModeBtn').forEach(b => { b.onclick = () => sock && sock.emit('cs16_mode', Number(b.dataset.n)); });
     document.querySelectorAll('.cs16MapBtn').forEach(b => { b.onclick = () => sock && sock.emit('cs16_map', b.dataset.m); });
+    const nightButton=document.getElementById('cs16NightBtn');if(nightButton)nightButton.onclick=()=>sock?.emit('cs16_night',!state.night);
     document.querySelectorAll('.cs16GmBtn').forEach(b => { b.onclick = () => sock && sock.emit('cs16_gm', b.dataset.g); });
     const ba = document.getElementById('cs16BotAdd'), bd = document.getElementById('cs16BotDel');
     const army=document.getElementById('cs16Army');if(army)army.onchange=()=>sock?.emit('cs16_army',army.checked);
@@ -1620,7 +1633,7 @@
     };
     refreshSkinsPanel();
     const lobbyContent=ui.lobby.firstElementChild;classChoices(lobbyContent);const choices=lobbyContent.querySelector('.cs16-class-panel');if(choices)lobbyContent.insertBefore(choices,lobbyContent.children[1]);
-    window.CS16Menu?.mount(ui.lobby,{state,nick:myNick,map:mapName,mode:gmName,character:chosenCharacter,weapons:WEAPONS,quality:ui.quality,hasGun:id=>!!glbCache[id]?.model,gun:id=>buildGun(id,mySkin,1),disposeGun});
+    window.CS16Menu?.mount(ui.lobby,{state,nick:myNick,map:mapName,mode:gmName,character:chosenCharacter,weapons:WEAPONS,quality:ui.quality,hasGun:id=>id==='rpg'?!!window.CS16RpgModel:!!glbCache[id]?.model,gun:id=>buildGun(id,mySkin,1),disposeGun});
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -1635,6 +1648,7 @@
     sock.on('cs16_load_error',message=>{loadScreen?.error(message);});
     sock.on('cs16_state', (s) => {
       state = s;if(s.phase==='lobby'||s.phase==='loading')hitFeedback?.clear();if(s.phase==='lobby'){frontSeat=null;frontPilots.clear();frontView?.ingest([]);frontView?.objective(null);}
+      worldGraphics?.setNight?.(!!s.night);cinematic?.setNight?.(!!s.night);if(!s.night){nightFlashlight=false;worldGraphics?.setFlashlight?.(false);}
       if (s.now) clockOffset = s.now - Date.now();
       const my = s.players.find(p => p.nick === myNick);
       if (my) { me.team = my.team; me.money = my.money; me.alive=!!my.alive&&!!my.team; } // 3.15.6: деньги/команда из общего состояния (доход за раунд, награды)
@@ -1657,6 +1671,7 @@
     sock.on('cs16_class_selected',d=>{const p=state.players.find(p=>p.nick===myNick);if(p)p.nextClass=d.id;if(ui.buy.style.display==='block')renderBuyList();killfeed('Класс выбран · применяется при следующем возрождении');});
     sock.on('cs16_you', (y) => {
       me.goldWeapon=y.goldWeapon||null;me.money = y.money; me.hp = y.hp; me.armor = y.armor; me.team = y.team; me.alive = y.alive; me.kit = y.kit;
+      if(y.mines)mineInventory={ap:Math.max(0,Math.min(25,y.mines.ap|0)),at:Math.max(0,Math.min(25,y.mines.at|0))};
       if (y.weapon && y.weapon !== current && WEAPONS[y.weapon]) { primary = y.weapon; }
     });
     sock.on('cs16_err', (m) => { killfeed('⚠️ ' + esc(m)); if (ui.buy.style.display === 'block') renderBuyList(); });
@@ -1709,7 +1724,7 @@
       if((state.gm==='cq'||state.gm==='assault')&&sp?.weapon){primary=sp.weapon;current=primary;me.armor=sp.armor??100;}
       me.alive = !!me.team; me.hp = 100;
       scoped = false; reloading = 0; bloom = 0;
-      nades.he = 0; nades.flash = 0; nades.smoke = 0;
+      nades.he = 0; nades.flash = 0; nades.smoke = 0;mineInventory={ap:0,at:0};minesView?.sync({map:curMap,rows:[]});
       // Сброс боезапаса (все стволы)
       ammo = {};
       for (const k in WEAPONS) { const w = WEAPONS[k]; if (w.melee || w.nade) continue; ammo[k] = { mag: w.mag, reserve: w.reserve }; }
@@ -1734,7 +1749,7 @@
       removeBombMesh();
       // 3.15.7: полная очистка поля — летящие гранаты и трассеры прошлого раунда
       for (const n of nadesList) disposeNade(n.mesh);
-      clearVehicles();missileView?.reset();
+      clearVehicles();missileView?.reset();explosionView?.reset();
       nadesList.length = 0;
       clearShotEffects();
       resetBlindness(); shake = 0;
@@ -1813,9 +1828,25 @@
       if(myVeh&&myVeh.passenger&&myVeh.owner===d.nick)exitVehicle();
     });
     sock.on('cs16_nade', (d) => { spawnNade(d.pos, d.vel, d.kind || 'he', false); });
-    sock.on('cs16_missile_start',d=>missileView?.start(d));
+    sock.on('cs16_missile_start',d=>{missileView?.start(d);if(d?.kind==='rpg'&&d.by!==myNick)sfxShot('rpg',d.pos);});
     sock.on('cs16_missile_frame',rows=>missileView?.frame(rows));
     sock.on('cs16_missile_end',d=>missileView?.end(d?.id));
+    sock.on('cs16_mines',d=>{if(!d||d.map!==curMap)return;minesView?.sync({...d,rows:(d.rows||[]).filter(row=>row.by===myNick)});});
+    sock.on('cs16_mine_add',d=>{if(d?.by===myNick)minesView?.add(d);});
+    sock.on('cs16_mine_remove',d=>minesView?.remove(d?.id));
+    sock.on('cs16_mine_placed',d=>{if(d&&mineInventory[d.kind]!=null)mineInventory[d.kind]=Math.max(0,Math.min(25,d.count|0));});
+    sock.on('cs16_mine_boom',d=>{
+      if(!d||!Array.isArray(d.pos)||d.pos.length!==3||!d.pos.every(Number.isFinite))return;
+      minesView?.remove(d.id);explodeFx(d.pos,'he');sfxExplosion();
+      const distance=Math.hypot(P.x-d.pos[0],P.y+eyeH()-d.pos[1],P.z-d.pos[2]);
+      if(distance<42)shake=Math.max(shake,(d.kind==='at'?1.15:.85)*(1-distance/42));
+    });
+    sock.on('cs16_rpg_boom',d=>{
+      if(!d||!Array.isArray(d.pos)||d.pos.length!==3||!d.pos.every(Number.isFinite))return;
+      explodeFx(d.pos,'he');sfxExplosion();
+      const distance=Math.hypot(P.x-d.pos[0],P.y+eyeH()-d.pos[1],P.z-d.pos[2]);
+      if(distance<38)shake=Math.max(shake,.9*(1-distance/38));
+    });
     // Позиции, экипаж, HP и взрывы только разрешённой техники.
     sock.on('cs16_veh', (d) => {
       if (!d || !d.by || !Array.isArray(d.pos) || d.pos.length!==3 || !d.pos.every(Number.isFinite)) return;
@@ -2023,7 +2054,7 @@
   }
   // Оружие в руках пересобираем при смене оружия/скина
   function setRemoteGun(r) {
-    const visual=visualWeapon(r.weapon||'usp',r.meleeStyle||'knife'),hasGlb=!!glbCache[visual]?.model;
+    const visual=visualWeapon(r.weapon||'usp',r.meleeStyle||'knife'),hasGlb=visual==='rpg'?!!window.CS16RpgModel:!!glbCache[visual]?.model;
     if (r.gunWeapon === visual && r.gunSkin === r.skin && r.gunGlb === hasGlb) return;
     r.gunWeapon = visual; r.gunSkin = r.skin; r.gunGlb = hasGlb;
     if (r.gun) { disposeGun(r.gun); r.gunHolder.remove(r.gun); }
@@ -2031,12 +2062,12 @@
     r.gunHolder.add(r.gun);
     const grip=r.gun.userData.grip;if(grip)r.muzzleFx.position.set(grip.bore[0]-grip.right[0],grip.bore[1]-grip.right[1],grip.bore[2]-grip.right[2]-.03);
   }
-  // Модель оружия из примитивов по мотивам CS:GO (АК с изогнутым магазином, AWP с прицелом и затвором),
-  // красится скином. scale>1.5 — вид от первого лица (более детально).
+  // Авторские GLB и собственная детализированная модель РПГ с общими PBR-ресурсами.
   function buildGun(weapon, skin, scale, world = false,style=meleeStyle) {
     const group = new THREE.Group();
     const visual=visualWeapon(weapon,style);
-    const model = glbGunClone(glbCache[visual]?visual:'usp', skin, world);
+    if(visual==='rpg'&&!window.CS16RpgModel)throw new Error('Модель РПГ не загружена. Перезапусти приложение после обновления.');
+    const model = visual==='rpg'?window.CS16RpgModel.create(THREE,world):glbGunClone(glbCache[visual]?visual:'usp', skin, world);
     if (model) group.add(model);
     if(model){
       CS16Grip.bindGun(THREE,group,model.getObjectByName('weaponBasis'),weapon==='karambit'?'knife':weapon);
@@ -2194,21 +2225,7 @@
     }
   }
   function explodeFx(pos, kind) {
-    const color = kind === 'flash' ? 0xffffff : 0xff7722;
-    const s = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 12, 10),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
-    );
-    s.position.set(pos[0], pos[1], pos[2]);
-    scene.add(s);
-    const born = performance.now();
-    (function anim() {
-      const k = (performance.now() - born) / 350;
-      if (k >= 1) { disposeShot(s); return; }
-      s.scale.setScalar(0.5 + k * (kind === 'flash' ? 4 : 6));
-      s.material.opacity = 0.9 * (1 - k);
-      requestAnimationFrame(anim);
-    })();
+    explosionView?.spawn(pos,kind);
   }
 
   // 3.24.0: дымовая завеса — серое облако, сквозь которое не видно и не простреливается
@@ -2356,7 +2373,7 @@
   function refreshViewmodelSkin() { vmSkin = ' '; } // принудительная пересборка
   function updateViewmodel(dt, t) {
     if (!camera) return;
-    const visual=visualWeapon(current),hasGlb=!!glbCache[visual]?.model;
+    const visual=visualWeapon(current),hasGlb=visual==='rpg'?!!window.CS16RpgModel:!!glbCache[visual]?.model;
     const sleeveTeam = currentSleeveTeam();
     if (vmWeapon !== visual || vmSkin !== mySkin || vmGlb !== hasGlb || vmSleeveTeam !== sleeveTeam) {
       vmWeapon = visual; vmSkin = mySkin; vmGlb = hasGlb; vmSleeveTeam = sleeveTeam;
@@ -2368,7 +2385,7 @@
       }
       vmKick=0;vmKickVelocity=0;
       vm.userData.animation=CS16WeaponAnimation.bind(vm);inspectStart=-Infinity;
-      vm.position.set(0.24, -0.25, -0.55);
+      vm.position.set(current==='rpg'?.20:.24,current==='rpg'?-.28:-.25,current==='rpg'?-.43:-.55);
       camera.add(vm);
     }
     if (!vm) return;
@@ -2401,6 +2418,7 @@
     const progress=reloading>0?1-reloading/WEAPONS[current].reload:-1;
     const inspect=Math.max(0,(t-inspectStart)/2300);
     CS16WeaponAnimation.update(vm.userData.animation,vm,current,progress,Math.max(0,(t-lastFiredAt)/1000),inspect<1?inspect:0);
+    if(current==='rpg'){const rocket=vm.getObjectByName('magazine');if(rocket)rocket.visible=(ammo.rpg?.mag||0)>0||(reloading>0&&progress>.38);}
     CS16Karambit.update(vm,dt,t/1000,lastFiredAt/1000);
     CS16FieldView.align(vm,dot,Math.min(1,Math.max(0,(fieldAimMix-.72)/.20)),sightPoint);
     if(!ads&&!reloading){const cast=magicView?.gesture(t)||0;vm.position.y-=cast*.045;vm.rotation.z+=cast*.035;const hand=vm.userData.animation?.leftHand;if(hand&&cast>0){hand.n.position.y+=cast*.012;hand.n.position.x-=cast*.015;hand.n.position.z-=cast*.045;hand.n.rotation.z-=cast*.08;hand.n.rotation.x-=cast*.06;}}
@@ -2504,6 +2522,15 @@
       if (hit) reportPlayerHit({...hit,head:false,zone:'body'},'knife',d);
       return;
     }
+    if(w.rocket){
+      const d=dirFromCam(),origin=[P.x,P.y+eyeH(),P.z];
+      vmKickVelocity=Math.max(vmKickVelocity,34);sprayN=0;bloom=0;
+      if(vm?.visible&&vm.userData.grip){vm.updateWorldMatrix(true,false);sightPoint.fromArray(vm.userData.grip.bore);vm.localToWorld(sightPoint);}
+      else sightPoint.set(origin[0]+d[0]*.8,origin[1]+d[1]*.8,origin[2]+d[2]*.8);
+      flashAt(sightPoint,'rpg');
+      sock?.emit('cs16_rpg',{origin,dir:d});
+      return; // Ракета — серверный projectile, никакого мгновенного hitscan.
+    }
     // Spread is centered on the crosshair; apply this shot's bloom afterwards.
     const spreadDeg = Combat.spread(w, {scoped:scoped||fieldAimMix>.92,moving:!!(keys.w||keys.a||keys.s||keys.d),airborne:!P.onGround,crouched:P.crouched,bloom,shots:sprayN});
     const d = Combat.direction(P.yaw,P.pitch,spreadDeg);
@@ -2570,6 +2597,7 @@
     if (id === 'hegrenade') nades.he = Math.min(1, nades.he + 1);
     else if (id === 'flashbang') nades.flash = Math.min(2, nades.flash + 1);
     else if (id === 'smokegrenade') nades.smoke = Math.min(1, nades.smoke + 1);
+    else if (id === 'mine_ap' || id === 'mine_at') { const kind=id.slice(5);mineInventory[kind]=Math.min(25,mineInventory[kind]+5); }
     else if (id === 'kevlar') me.armor = 100;
     else if (id === 'defuser') me.kit = true;
     else if (id.startsWith('veh_') && ['veh_tank','veh_heli'].includes(id)) spawnMyVehicle(id.slice(4));
@@ -2577,7 +2605,8 @@
       if (PISTOLS[id]) secondary = id;
       else if (!WEAPONS[id].nade) primary = id;
       current = id;
-      if (!ammo[id]) ammo[id] = { mag: WEAPONS[id].mag, reserve: WEAPONS[id].reserve };
+      if(id==='rpg')ammo[id]={mag:1,reserve:3};
+      else if (!ammo[id]) ammo[id] = { mag: WEAPONS[id].mag, reserve: WEAPONS[id].reserve };
     }
   }
 
@@ -3065,6 +3094,8 @@
       if(k==='v'&&!e.repeat){castMagic('pet');return;}
       if(k==='j'&&!e.repeat){conquestUI?.open();return;}
       if(k==='z'&&!e.repeat){conquestUI?.openPing();return;}
+      if(k==='l'&&!e.repeat&&state.night){nightFlashlight=!nightFlashlight;worldGraphics?.setFlashlight?.(nightFlashlight);killfeed(nightFlashlight?'🔦 Фонарь включён':'🔦 Фонарь выключен');return;}
+      if((k==='n'||k==='h')&&!e.repeat&&state.phase==='live'&&me.alive&&!myVeh?.inside&&frontSeat==null){const kind=k==='n'?'ap':'at';if(mineInventory[kind]>0){sock?.emit('cs16_mine_place',{kind});killfeed(k==='n'?'💥 Устанавливаю пехотную мину':'🛡 Устанавливаю противотанковую мину');}else killfeed('⚠️ Сначала купи комплект мин: B → Гранаты');return;}
       if (k === 'b') openBuy();
       if (k === 'e' && !e.repeat) tryVehToggle();
       if (k === 'm') { sock && me.team && sock.emit('cs16_swap'); }
@@ -3100,6 +3131,7 @@
     const mm = String(Math.floor(left / 60000)), ss = String(Math.floor(left % 60000 / 1000)).padStart(2, '0');
     const phaseTxt = state.phase === 'freeze' ? 'ПОКУПКИ' : state.phase === 'live' ? '' : '—';
     let topText = state.gm==='assault'?'ШТУРМ '+Math.min(3,1+(frontNet.stage||0))+'/3 · '+(frontNet.objective?.name||'')+' · '+Math.floor((frontNet.capture||0)/8*100)+'% · резервы '+(frontNet.tickets??100)+' · '+mm+':'+ss:state.gm==='cq'?`ЗАХВАТ · ${mm}:${ss} · ДО 50 ${phaseTxt}`:`РАУНД ${state.round} · ${mm}:${ss} ${phaseTxt}`;
+    if(state.night)topText+=' · 🌙 НОЧЬ · L: фонарь '+(nightFlashlight?'вкл.':'выкл.');
     hudText(ui.scoreT,'T  ' + state.scores.t);
     hudText(ui.scoreCT,state.scores.ct + '  CT');
     hudText(ui.hpTxt,'+ ' + Math.max(0, me.hp));
@@ -3112,7 +3144,7 @@
     const w = WEAPONS[current];
     const a = ammo[current];
     hudText(ui.ammo,reloading>0?'перезарядка...':w.melee ? '∞' : (a ? `${a.mag} / ${a.reserve}` : ''));
-    hudText(ui.nadeTxt,`HE  ${nades.he}    FLASH  ${nades.flash}    SMOKE  ${nades.smoke}`);
+    hudText(ui.nadeTxt,`HE ${nades.he}  FLASH ${nades.flash}  SMOKE ${nades.smoke}  ·  AP N ×${mineInventory.ap}  AT H ×${mineInventory.at}`);
     hudText(ui.weaponName,current==='knife'&&meleeStyle==='karambit'?'Керамбит':w.name);
     hudText(ui.location,MAP_META[curMap].name.toUpperCase());
     hudText(ui.bearing,CS16FieldView.bearing(P.yaw));
@@ -3251,7 +3283,7 @@
     ui.thermalLens.style.display='none';
     if(radarDirty&&t-lastArmyRadar>280){lastArmyRadar=t;radarDirty=false;frontView?.sync();buildRadarBase();}
     frontView?.update(t,graphicsQuality,frontSeat,P);
-    missileView?.update(t,null,[0,0,-1],()=>{});
+    missileView?.update(t,null,[0,0,-1],()=>{});explosionView?.update(dt);minesView?.update(t);
     // интерполяция удалённых + анимация ног
     const lerp = Math.min(1, dt * 10);
     for (const r of remotes.values()) {

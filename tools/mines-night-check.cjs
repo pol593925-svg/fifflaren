@@ -1,0 +1,27 @@
+const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+module.exports=async(page,outputs,errors)=>{
+ const report={};
+ report.day=await page.evaluate(()=>__qa.minesNight('day'));
+ await page.waitForTimeout(350);await page.screenshot({path:path.join(outputs,'mines-night-day.png')});
+ report.night=await page.evaluate(()=>__qa.minesNight('night'));
+ assert.equal(report.night.night,true);assert.equal(report.night.skyVisible,true);assert(report.night.moonIntensity<report.day.moonIntensity);assert(report.night.fog[1]<report.day.fog[1]);
+ await page.waitForTimeout(350);await page.screenshot({path:path.join(outputs,'mines-night-moon.png')});
+ report.flashlight=await page.evaluate(()=>__qa.minesNight('flashlight'));
+ assert.equal(report.flashlight.flashlight,true);assert(report.flashlight.exposure<1);
+ await page.waitForTimeout(350);await page.screenshot({path:path.join(outputs,'mines-night-flashlight.png')});
+ report.mines=await page.evaluate(()=>__qa.minesNight('mines'));
+ assert.equal(report.mines.stats.active,2,'only the two owner mines must be rendered');
+ assert.deepEqual(report.mines.inventory,{ap:5,at:5});
+ assert.deepEqual(report.mines.packet,{n:'cs16_mine_place',d:{kind:'ap'}});
+ await page.waitForTimeout(350);await page.screenshot({path:path.join(outputs,'mines-owner-view.png')});
+ report.boom=await page.evaluate(()=>__qa.minesNight('boom'));
+ assert.equal(report.boom.stats.active,1);assert(report.boom.effects.active>0);assert(report.boom.shake>0);
+ await page.screenshot({path:path.join(outputs,'mines-detonation.png')});
+ await page.evaluate(()=>{for(let i=0;i<20;i++)__qa.addRemote('Night load '+i,i%2?'ct':'t',24+(i%5)*2,30-Math.floor(i/5)*3);});
+ report.performance=await page.evaluate(async()=>{const samples=[];let last=performance.now();for(let i=0;i<150;i++){await new Promise(requestAnimationFrame);const now=performance.now();samples.push(now-last);last=now;}samples.sort((a,b)=>a-b);const gl=__qa.renderer().getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return {fps:Math.round(150000/samples.reduce((a,b)=>a+b,0)),p95:samples[142],calls:__qa.renderer().info.render.calls,triangles:__qa.renderer().info.render.triangles,gpu:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown'};});
+ assert(report.performance.fps>=20,'night scene FPS below playable QA floor');
+ report.restored=await page.evaluate(()=>__qa.minesNight('day'));assert.equal(report.restored.night,false);assert.equal(report.restored.skyVisible,false);
+ assert.deepEqual(errors,[],errors.join('\n'));
+ fs.writeFileSync(path.join(outputs,'mines-night-report.json'),JSON.stringify(report,null,2));
+ console.log('MINES_NIGHT_PASS',JSON.stringify(report));
+};
